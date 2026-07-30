@@ -1,101 +1,89 @@
-import Image, { type ImageProps } from "next/image";
-import { Button } from "@repo/ui/button";
-import styles from "./page.module.css";
+import { Badge, Button } from "@bracketx/ui";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 
-type Props = Omit<ImageProps, "src"> & {
-  srcLight: string;
-  srcDark: string;
-};
+import { Logo } from "./components/brand";
 
-const ThemeImage = (props: Props) => {
-  const { srcLight, srcDark, ...rest } = props;
+const AUDIENCES = [
+  {
+    title: "Esports",
+    body: "Brackets, lineups, player stats, and score bugs that keep up with the match.",
+  },
+  {
+    title: "Sports",
+    body: "Repeatable graphics packages for recurring fixtures and small crews.",
+  },
+  {
+    title: "Podcasts",
+    body: "Name keys, topic cards, and timers that stay on brand every episode.",
+  },
+  {
+    title: "Live events",
+    body: "Sessions, speakers, schedules, and sponsor loops driven from one place.",
+  },
+];
 
+export default function LandingPage() {
   return (
-    <>
-      <Image {...rest} src={srcLight} className="imgLight" />
-      <Image {...rest} src={srcDark} className="imgDark" />
-    </>
-  );
-};
+    <div className="flex min-h-dvh flex-col">
+      <header className="flex h-14 items-center gap-3 border-b border-line px-6">
+        <Logo />
+        <nav className="ml-auto flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/sign-in">Sign in</Link>
+          </Button>
+          <Button asChild variant="primary" size="sm">
+            <Link href="/sign-up">Get started</Link>
+          </Button>
+        </nav>
+      </header>
 
-export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <ThemeImage
-          className={styles.logo}
-          srcLight="turborepo-dark.svg"
-          srcDark="turborepo-light.svg"
-          alt="Turborepo logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>apps/web/app/page.tsx</code>
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+      <main className="flex-1">
+        <section className="mx-auto w-full max-w-3xl px-6 py-24 text-center">
+          <Badge tone="accent" className="mb-6">
+            Sprint 1 · Foundation
+          </Badge>
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new/clone?demo-description=Learn+to+implement+a+monorepo+with+a+two+Next.js+sites+that+has+installed+three+local+packages.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F4K8ZISWAzJ8X1504ca0zmC%2F0b21a1c6246add355e55816278ef54bc%2FBasic.png&demo-title=Monorepo+with+Turborepo&demo-url=https%3A%2F%2Fexamples-basic-web.vercel.sh%2F&from=templates&project-name=Monorepo+with+Turborepo&repository-name=monorepo-turborepo&repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fturborepo%2Ftree%2Fmain%2Fexamples%2Fbasic&root-directory=apps%2Fdocs&skippable-integrations=1&teamSlug=vercel&utm_source=create-turbo"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://turborepo.dev/docs?utm_source"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-        <Button appName="web" className={styles.secondary}>
-          Open alert
-        </Button>
+          <h1 className="text-balance text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
+            Live broadcast graphics,
+            <br />
+            <span className="text-accent">in a browser tab.</span>
+          </h1>
+
+          <p className="mx-auto mt-6 max-w-xl text-pretty text-base text-fg-muted">
+            Design it, bind it to your data, and put it on air — without a
+            broadcast truck, a GPU workstation, or an engineer on retainer.
+          </p>
+
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <Button asChild variant="primary" size="lg">
+              <Link href="/sign-up">
+                Create a workspace
+                <ArrowRight />
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" size="lg">
+              <Link href="/sign-in">I have an account</Link>
+            </Button>
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-5xl px-6 pb-24">
+          <div className="grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2">
+            {AUDIENCES.map((item) => (
+              <div key={item.title} className="bg-surface p-6">
+                <h2 className="text-sm font-semibold text-fg">{item.title}</h2>
+                <p className="mt-2 text-sm text-fg-muted">{item.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com/templates?search=turborepo&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://turborepo.dev?utm_source=create-turbo"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to turborepo.dev →
-        </a>
+
+      <footer className="border-t border-line px-6 py-6">
+        <p className="text-xs text-fg-subtle">
+          BracketX — live production, browser-first.
+        </p>
       </footer>
     </div>
   );

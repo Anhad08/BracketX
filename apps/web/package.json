@@ -11,18 +11,26 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
-    "@repo/ui": "workspace:*",
+    "@bracketx/auth": "workspace:^",
+    "@bracketx/core": "workspace:^",
+    "@bracketx/ui": "workspace:*",
+    "better-auth": "^1.6.25",
+    "lucide-react": "^1.28.0",
     "next": "16.2.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@bracketx/eslint-config": "workspace:*",
+    "@bracketx/typescript-config": "workspace:*",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "eslint": "^9.39.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "5.9.2"
   }
 }

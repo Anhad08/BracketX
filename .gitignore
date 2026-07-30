@@ -36,3 +36,7 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# Local Postgres data dir (packages/db/scripts/dev-postgres.mjs)
+.pgdata/
+.pgdata-*/

@@ -1,0 +1,32 @@
+{
+  "name": "@bracketx/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:dev-server": "node scripts/dev-postgres.mjs",
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@bracketx/eslint-config": "workspace:*",
+    "@bracketx/typescript-config": "workspace:*",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "embedded-postgres": "17.10.0-beta.17",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  }
+}

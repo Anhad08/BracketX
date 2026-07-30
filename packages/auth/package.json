@@ -1,0 +1,26 @@
+{
+  "name": "@bracketx/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./permissions": "./src/permissions.ts"
+  },
+  "scripts": {
+    "auth:generate": "npx auth@latest generate --config ./src/auth.ts --output ../db/src/schema/auth.ts --yes",
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bracketx/db": "workspace:*",
+    "better-auth": "^1.6.25"
+  },
+  "devDependencies": {
+    "@bracketx/eslint-config": "workspace:*",
+    "@bracketx/typescript-config": "workspace:*",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  }
+}

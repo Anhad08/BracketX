@@ -1,0 +1,5 @@
+{
+  "extends": "@bracketx/typescript-config/library.json",
+  "include": ["src", "drizzle.config.ts"],
+  "exclude": ["node_modules", "drizzle"]
+}
