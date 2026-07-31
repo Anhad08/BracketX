@@ -9,16 +9,20 @@
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bench": "vitest bench --run",
+    "test:stress": "vitest run --config vitest.stress.config.ts"
   },
   "dependencies": {
     "@bracketx/engine-reconciler": "workspace:*",
     "@bracketx/engine-runtime": "workspace:*",
-    "@bracketx/engine-scene": "workspace:*"
+    "@bracketx/engine-scene": "workspace:*",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@bracketx/eslint-config": "workspace:*",
     "@bracketx/typescript-config": "workspace:*",
+    "@types/three": "^0.185.3",
     "eslint": "^9.39.1",
     "typescript": "5.9.2",
     "vitest": "^3.2.4"

@@ -12,10 +12,44 @@
  * Owns concrete backend objects. Owns no lifetime decisions — those belong to
  * the reconciler (IF-001).
  *
- * Contents arrive in Phase 2.5. Phase 2.1 delivers the boundary only, and
- * deliberately does not yet install three.
+ * NOTE ON EXPORTS: no Three.js type appears in any signature below. That is
+ * checked by a test, not left to review.
  */
 export const ENGINE_PACKAGE = {
   name: "@bracketx/engine-render-three",
   layer: "render-adapter",
 } as const;
+
+export {
+  BackendViolation,
+  ResourceViolation,
+  ThreeMirrorBackend,
+  type BackendDiagnostics,
+  type ThreeBackendOptions,
+} from "./three-backend";
+
+export {
+  HeadlessRendererHost,
+  WebGLRendererHost,
+  type HostCapabilities,
+  type HostRenderOptions,
+  type HostSubmission,
+  type RendererHost,
+} from "./renderer-host";
+
+export {
+  GpuResourceManager,
+  hashBytes,
+  hashString,
+  type ClassStats,
+  type ResourceBudget,
+  type ResourceClass,
+  type ResourceStats,
+} from "./resources";
+
+export {
+  cubeGeometry,
+  planeGeometry,
+  quadGeometry,
+  verticalFovDegrees,
+} from "./translate";
