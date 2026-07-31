@@ -2,6 +2,13 @@
 
 **Status:** Authored 2026-07-30 during Sprint 1 · **Owner:** @Pixelborne
 
+> **Scope note (2026-07-30).** BracketX was reframed as a real-time 3D
+> production engine. [ENGINE_ARCHITECTURE.md](./ENGINE_ARCHITECTURE.md) is now
+> the highest-level technical document. This file remains authoritative for the
+> **platform** — auth, tenancy, persistence, packages, deployment — all of which
+> the reframing leaves intact. [ADR-009](#adr-009) is superseded by
+> [ADR-011](#adr-011).
+
 > **Read this first.** This document was *authored*, not transcribed. Prior to
 > Sprint 1 the repository was an unmodified `create-turbo` scaffold and no
 > architecture existed in any form. Every decision below was made on 2026-07-30
@@ -248,8 +255,8 @@ forward-only. No editing an applied migration.
 | D2 | Hosting for `apps/web`, and separately for `apps/realtime` | Whether the realtime service is managed ([ADR-003](#adr-003)). Vercel suits `web`; it cannot host a persistent socket server. | [Phase 6](./ROADMAP.md#phase-6--live-production) |
 | D3 | Test strategy and runner | Nothing. Recommendation: Vitest, landing with `packages/core` now so authorisation logic is tested from day one. | [Phase 0](./ROADMAP.md#phase-0--foundation) |
 | D4 | AI provider and where inference runs | [PRODUCT.md/P1](./PRODUCT.md#7-open-product-questions) | [Phase 8](./ROADMAP.md#phase-8--ai-v1) |
-| D5 | Graphics document format and versioning | D6 and [PRODUCT.md/P3](./PRODUCT.md#7-open-product-questions) — both shape the format ([ADR-006](#adr-006)) | [Phase 2](./ROADMAP.md#phase-2--scene-engine) |
-| **D6** | **Rendering technology — DOM/CSS vs Canvas2D vs WebGL** | Nothing. Needs deciding, then an ADR. Tracked as roadmap gate **G1**. The scene document format is shaped by what draws it, so this must be settled *before* format design begins — deciding after means rewriting the format. | [**Phase 2**](./ROADMAP.md#phase-2--scene-engine) — starts in ~8–11 weeks |
+| ~~D5~~ | ~~Graphics document format and versioning~~ | **Resolved 2026-07-30** — [SCENE_FORMAT.md](./SCENE_FORMAT.md), per [ADR-010](#adr-010) | — |
+| ~~D6~~ | ~~Rendering technology~~ | **Resolved 2026-07-30** — [RFC-001](./RFC-001-rendering-architecture.md), per [ADR-009](#adr-009) | — |
 
 ## 9. Decision log
 
@@ -414,3 +421,165 @@ that has to be noticed in a bundle report.
 
 *Cost:* one extra module, and a rule to remember: anything a client component
 imports must import nothing from `packages/`.
+
+---
+
+### ADR-009
+**Rendering: retained-mode scene graph, Canvas2D backend first** · 2026-07-30 · Accepted
+
+Resolves D6 / roadmap gate G1. Full argument in
+[RFC-001](./RFC-001-rendering-architecture.md).
+
+A deterministic, time-addressable pipeline (resolve → layout → animate →
+compose → rasterize) whose first four phases are backend-independent. Canvas2D
+rasterizes v1; WebGL2 is the planned second backend; WebGPU is deferred until
+its availability inside OBS's embedded CEF is verified.
+
+*Rationale:* the render surface's real runtime is OBS's CEF, not Chrome, and
+transparent output forces grayscale antialiasing on every option — which erases
+DOM/CSS's usual text advantage while leaving its lack of time-addressability
+disqualifying for editor scrubbing and Phase 15 cloud rendering.
+
+*Cost:* Canvas2D provides no text layout, so line breaking, alignment, and
+fit-to-box are ours to build. Bounded for broadcast graphics, but real work.
+
+---
+
+### ADR-010
+**Documents: snapshot at rest, operations in motion** · 2026-07-30 · Accepted
+
+Resolves D5 and roadmap gate G2. Full argument in
+[RFC-002](./RFC-002-scene-document-model.md); the schema is
+[SCENE_FORMAT.md](./SCENE_FORMAT.md). Supersedes
+[ADR-006](#adr-006)'s deferral.
+
+Stored documents are JSON snapshots. In-memory edits go exclusively through
+typed, invertible operations grouped into transactions. Three
+collaboration-readiness properties are adopted — stable node ids, fractional
+sibling ordering, operations-only mutation — while no CRDT, merge algorithm, or
+multi-writer code is built.
+
+*Rationale:* undo becomes correct by construction rather than inferred from
+diffs, and answering [P3](./PRODUCT.md#7-open-product-questions) "yes" later
+becomes additive instead of a rewrite of Phases 2 and 4.
+
+*Cost:* every editor mutation needs an operation with a correct inverse, and
+fractional indices make documents marginally less readable. If P3 resolves to
+single-operator permanently, fractional ordering can be dropped and the rest
+still pays for itself in undo correctness.
+
+---
+
+### ADR-011
+**3D-first engine; adopt the rasterizer rather than build it** · 2026-07-30 · Accepted
+**Supersedes [ADR-009](#adr-009).**
+
+BracketX is a real-time 3D production engine. Canvas2D cannot express a
+perspective camera, depth, lighting, or meshes, so ADR-009's conclusion is void.
+Full argument in [RFC-003](./RFC-003-rendering-architecture-3d.md).
+
+WebGPU-first with a WebGL2 fallback behind one backend abstraction, capabilities
+**tiered** rather than reduced to the intersection. An existing WebGPU-capable
+3D engine provides meshes, materials, lighting, and GPU resource management; our
+scene graph stays authoritative and its object graph is a rebuildable cache.
+
+*Rationale:* a 3D engine renders 2D nearly free while a 2D engine can never
+become 3D, so the foundation is decided by the content that cannot be
+retrofitted. On adopt-vs-build, the industry has already answered — Pixotope,
+Zero Density, and disguise all build broadcast production systems on Unreal
+rather than writing rasterizers. The renderer is table stakes; the production
+layer is the moat.
+
+*Costs, accepted knowingly:*
+1. Text quality becomes genuinely hard. Canvas2D gave the platform text engine
+   for free; a GPU pipeline does not, and broadcast graphics are ~80% text.
+   Mitigated by the dual-path design in RFC-003 §7, which remains the largest
+   technical risk in the plan.
+2. The asset pipeline expands from images and fonts to models, materials, and
+   environments.
+3. Phases 2–5 need real-time 3D specialists, which invalidates the roadmap's
+   team assumption and its estimates.
+
+*What survives from ADR-009:* transparent output forces grayscale antialiasing
+on every option, so no renderer has a text-quality advantage from that
+direction; and the runtime remains a pure function of
+`(document, variables, time)`.
+
+---
+
+### ADR-012
+**Adopt Three.js as the rendering substrate** · 2026-07-30 · Accepted
+**Pending empirical validation** — see
+[RENDER_ENGINE_EVALUATION §11](./RENDER_ENGINE_EVALUATION.md#11-this-is-a-paper-evaluation--the-empirical-spike-still-must-run)
+
+Three.js (`WebGPURenderer`, automatic WebGL2 fallback) provides rasterization,
+materials, lighting, and GPU resource management. BracketX owns the scene
+document, runtime, render graph, text system, picking, and gizmos.
+
+*Rationale, ranked:*
+
+1. **Text.** `troika-three-text` demonstrates dynamic, on-the-fly SDF atlas
+   generation with bidirectional layout, Arabic joining, and automatic Unicode
+   fallback. Babylon's native MSDF path is pre-baked, which is structurally
+   unsuited to unbounded glyph sets — and a Korean player name is not an edge
+   case in esports.
+2. **Minimal surface.** Babylon supplies opinionated scene serialization,
+   animation, and GUI systems that duplicate what our engine core *is*. For a
+   company whose product is the engine layer, "provides less" is the correct
+   property.
+3. **TSL** compiles one shader source to both WGSL and GLSL, directly serving
+   the Baseline/Advanced tiering in RFC-003 §3 without divergent shader paths.
+4. **Shallower coupling**, and therefore genuine replaceability.
+
+*Where Babylon is better, honestly:* its Frame Graph (v1 in 9.0) is a real DAG
+with resource aliasing and a visual editor, and Babylon Native is a credible
+host for the reserved native runtime. We accept building a thinner render graph
+ourselves; its strength there is also the deepest available coupling.
+
+*Costs, accepted knowingly:* we now own text, picking, gizmos, and the render
+graph; Three.js's monthly `r`-releases are an ongoing breaking-change tax,
+concentrated in the render adapter by design; and `troika` carries third-party
+bus-factor risk, mitigated by the fact that we own text regardless.
+
+*Replaceability:* only `packages/render-three` may import `three`, enforced by
+lint rather than discipline. The adapter is budgeted at 3–5k lines, making a
+backend swap a 4–8 week project. Adapter size is a tracked metric.
+
+*Reversal conditions:* enumerated in
+[RENDER_ENGINE_EVALUATION §9](./RENDER_ENGINE_EVALUATION.md#9-where-babylon-would-win--and-what-would-reverse-this).
+
+---
+
+### ADR-013
+**Architecture freeze** · 2026-07-30 · Accepted
+
+**Frozen.** Scene graph · scene format · operations · render adapter · Three.js
+adoption · 3D-first · engine boundaries.
+
+**Promoted to Phase 2 design tasks**, and the last work before implementation:
+text engine · event system · scheduler · memory ownership · runtime clock. Four
+of the five were the "missing subsystem" findings in
+[ARCHITECTURE_FINAL_REVIEW §2](./ARCHITECTURE_FINAL_REVIEW.md#2-critical-issues--must-fix-before-implementation).
+
+**The bar for reopening a frozen item:** a demonstration that the existing
+design *cannot satisfy a real implementation requirement*. Not preference, not
+elegance, not a better idea. The demonstration must name the requirement, show
+why the current design fails it, and state the cost of both fixing and not
+fixing.
+
+Everything else becomes an ADR and is **scheduled**, not retrofitted into the
+foundation.
+
+*Rationale:* the architecture is now more likely to degrade from continued
+revision than from any remaining flaw. Nine documents of review have reached
+diminishing returns; the open questions are ones only implementation can answer.
+
+*Cost, accepted:* some decisions will prove suboptimal and we will live with
+them longer than we would like. That is the intended trade — a frozen adequate
+architecture beats a perpetually improving one that never ships.
+
+*Note:* the freeze does not suspend
+[ARCHITECTURE_FINAL_REVIEW](./ARCHITECTURE_FINAL_REVIEW.md)'s C2 (no declared v1
+production platform), C8 (scope exceeds team by ~2×), or C9 (first application
+does not exercise 3D). None is an architecture defect, so none blocks the
+freeze — but all three are unresolved and belong to product, not engineering.

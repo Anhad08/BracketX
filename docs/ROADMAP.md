@@ -32,7 +32,90 @@ Stated so they can be challenged, because every estimate below depends on them.
 - **Ranges are p50–p80**, not best case. Phases 3 and 4 are the most likely to
   overrun; see [§5](#5-risk-register).
 
+## 1-0. Architecture freeze — 2026-07-30
+
+Architecture is frozen per [ADR-013](./ARCHITECTURE.md#adr-013). Scene graph,
+scene format, operations, render adapter, Three.js adoption, 3D-first, and
+engine boundaries are settled. Reopening one requires demonstrating that the
+existing design **cannot satisfy a real implementation requirement** —
+preference is not sufficient.
+
+**Five design tasks stand between here and implementation**, all now complete:
+
+| Task | Document |
+|---|---|
+| Runtime clock · Scheduler · Event system · Memory ownership | [ENGINE_RUNTIME.md](./ENGINE_RUNTIME.md) |
+| Text engine | [TEXT_ENGINE.md](./TEXT_ENGINE.md) |
+
+**Three findings from the review remain open and are product decisions, not
+engineering ones.** None blocks the freeze; all block a credible plan:
+
+- **C2** — no declared v1 production platform. "Browser is not the production
+  platform" and "native runtime is post-launch" cannot both hold.
+- **C8** — scope exceeds the stated team by roughly 2×. Extend, cut, or hire.
+- **C9** — tournament management does not exercise 3D, so the 3D bet ships
+  unvalidated by the first product.
+
+## 1a. Vision realignment — 2026-07-30
+
+BracketX was reframed as a **real-time 3D production engine** with tournament
+management as one application on it
+([ENGINE_ARCHITECTURE.md](./ENGINE_ARCHITECTURE.md)). This section records what
+that does and does not change here.
+
+**The phase sequence survives.** Foundation → assets → scene → render → editor →
+animation → live → components → AI → launch is still correct, and the
+renderer-before-editor ordering is *more* correct under 3D, not less: a 3D
+renderer can invalidate a scene format far more expensively than a 2D one.
+
+**What changed:**
+
+| Phase | Change |
+|---|---|
+| — | **New gate before Phase 2:** the adopt-vs-build spike ([RFC-003 §4](./RFC-003-rendering-architecture-3d.md#4-adopt-vs-build-the-rasterizer)). Nothing in Phase 2 should start until the rendering substrate is chosen. |
+| 1 Asset Manager | Roughly doubles. No longer an uploader — a 3D **ingest pipeline**: glTF/GLB validation, texture transcoding, LOD and atlas generation, VRAM budgeting. |
+| 2 Scene Engine | Grows: camera nodes, component model, 3D transforms, material references. |
+| 3 Rendering | Grows most. Render graph, PBR, alpha compositing, and the dual-path text system — which [RFC-003 §7](./RFC-003-rendering-architecture-3d.md#7-text--the-largest-technical-risk) names as the single largest technical risk in the whole plan. |
+| 5 Animation | Grows: camera animation and 3D interpolation are now core, not extras. |
+| **New** | **A first-application track.** The roadmap has no home for tournament management. Under "engine is the product" that is a gap, not an omission — see below. |
+| 15 Cloud Platform | Now also carries the **native runtime** for NDI/SDI/genlock, which a browser cannot provide ([ENGINE_ARCHITECTURE §12](./ENGINE_ARCHITECTURE.md#12-live-output)). |
+
+**The first-application gap.** "The engine is the product" is architecturally
+sound and strategically dangerous: a general engine built before one application
+has users is the platform trap. The roadmap must show tournament management
+shipping *on* the engine, exposing gaps in it, before any SDK is published.
+Concretely — Phase 7 (Graphics Components) becomes **Phase 7: first application
++ the component pack it needs**, and Phase 13's Plugin SDK stays gated on a
+second real consumer.
+
+**Estimates below are stale.** They assumed a 2D editor built by generalists.
+See [§1b](#1b-estimate-impact).
+
+## 1b. Estimate impact
+
+Vision, scope, team size, and timeline cannot all be held constant. Something
+gives, and naming it now is cheaper than discovering it in month 14.
+
+| Scenario | MVP duration | Comment |
+|---|---|---|
+| Original 2D plan | 13–18 months | The estimates in §2, now stale |
+| **3D + adopted renderer** | **18–26 months** | Recommended path |
+| 3D + hand-written renderer | 30+ months | Not viable for this team |
+
+**Adopting the rendering substrate is what makes the 3D vision achievable at
+all** at this team size. That is the practical argument behind
+[RFC-003 §4](./RFC-003-rendering-architecture-3d.md#4-adopt-vs-build-the-rasterizer),
+independent of the architectural one.
+
+The team assumption in §1 also changes: real-time 3D graphics engineers are
+scarce and expensive, and "2–3 generalists" no longer describes who can build
+Phases 2–5. Either hire for it or cut scope; both are legitimate, drifting is
+not.
+
 ## 2. Shape of the plan
+
+> **Stale as of 2026-07-30.** The table below reflects the pre-3D plan and is
+> retained for comparison. See [§1b](#1b-estimate-impact) for current ranges.
 
 | | Phases | Duration | Ends at |
 |---|---|---|---|
@@ -786,8 +869,8 @@ Decisions that block a phase from *starting*. Not deliverables — prerequisites
 
 | ID | Decision | Gates | Why it cannot wait |
 |---|---|---|---|
-| **G1** | **Rendering technology** — DOM/CSS vs Canvas2D vs WebGL | Phase 2 | The document format is shaped by what draws it. Deciding after the format is written means rewriting the format. Needs a new ADR in [ARCHITECTURE.md](./ARCHITECTURE.md#9-decision-log). |
-| **G2** | **Single- or multi-writer documents** (= [P3](./PRODUCT.md#7-open-product-questions)) | Phase 2 | A single-writer blob and an operation-based/CRDT document are different formats. Getting this wrong makes Phase 12 a rewrite of Phases 2 and 4. The safe answer is operation-based even if collaboration ships late. |
+| ~~**G1**~~ | ~~Rendering technology~~ — **RESOLVED 2026-07-30** | Phase 2 | Retained-mode scene graph, deterministic pipeline, Canvas2D backend first; WebGL2 planned, WebGPU deferred pending OBS/CEF verification. See [RFC-001](./RFC-001-rendering-architecture.md). |
+| ~~**G2**~~ | ~~Single- or multi-writer documents~~ — **RESOLVED 2026-07-30** | Phase 2 | Snapshot at rest, operations in motion. Stable ids, fractional sibling ordering, and operations-only mutation adopted; no CRDT built. See [RFC-002](./RFC-002-scene-document-model.md). Note this resolves the *architectural* half only — [P3](./PRODUCT.md#7-open-product-questions) is still open as a product question. |
 | [D1](./ARCHITECTURE.md#8-open-decisions) | Asset storage provider | Phase 1 | Nothing blocks it. Just decide. |
 | [D2](./ARCHITECTURE.md#8-open-decisions) | Hosting for realtime | Phase 6 | Follows from the transport choice. |
 | [P5](./PRODUCT.md#7-open-product-questions) | Pricing model | Phase 9 | Phase 0 kept both shapes cheap; billing needs one chosen. |
@@ -795,8 +878,16 @@ Decisions that block a phase from *starting*. Not deliverables — prerequisites
 | [P2](./PRODUCT.md#7-open-product-questions) | First data sources | Phase 10 | Post-launch; real customers will answer it. |
 | [P4](./PRODUCT.md#7-open-product-questions) | Marketplace timing | Phase 14 | Post-launch. |
 
-**G1 and G2 are the urgent ones.** Both gate Phase 2, which starts in roughly
-8–11 weeks. Neither is currently recorded as a decision anywhere.
+**G1 and G2 are resolved** as of 2026-07-30, ahead of Phase 2, by
+[RFC-001](./RFC-001-rendering-architecture.md) and
+[RFC-002](./RFC-002-scene-document-model.md). The canonical schema they imply is
+[SCENE_FORMAT.md](./SCENE_FORMAT.md). Phase 2 is unblocked.
+
+The remaining urgent item is [P3](./PRODUCT.md#7-open-product-questions) — a
+product question, not an engineering one. RFC-002 removes the schedule pressure
+by making the document collaboration-ready either way, but the answer still
+decides whether Phase 12 gets built at all and whether the fractional-ordering
+cost was worth paying.
 
 ## 4. Dependency graph
 

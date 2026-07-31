@@ -1,7 +1,8 @@
 # BracketX
 
-An AI-first, browser-first live production platform for broadcast graphics —
-esports, sports, podcasts, and live events.
+A real-time 3D broadcast and event production engine. Tournament management,
+sports, podcasts, conferences, and corporate events are applications built on
+it — the engine is the product.
 
 ## Documentation
 
@@ -13,6 +14,17 @@ Read these before contributing. They are the source of truth, in this order:
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | How it is structured, and why — including a decision log |
 | [docs/ROADMAP.md](./docs/ROADMAP.md) | **Canonical roadmap** — 17 phases from foundation to public launch, what blocks what, and which decisions gate which phase |
 | [docs/DATABASE.md](./docs/DATABASE.md) | Verified database state, how to run Postgres locally, and where the generated schema differs from its documentation |
+| [docs/ARCHITECTURE_VERIFICATION.md](./docs/ARCHITECTURE_VERIFICATION.md) | **Read first.** Adversarial verification — every claim labelled Proven/Derived/Assumed/Unknown, defects, and blocking changes |
+| [docs/ARCHITECTURE_FINAL_REVIEW.md](./docs/ARCHITECTURE_FINAL_REVIEW.md) | Architecture freeze review — critical issues, reversals, and subsystem scores |
+| [docs/ENGINE_RUNTIME.md](./docs/ENGINE_RUNTIME.md) | Clock, scheduler, event system, memory ownership — the frame loop and its resources |
+| [docs/ENGINE_RECONCILIATION.md](./docs/ENGINE_RECONCILIATION.md) | Reconciler and ownership model — one owner per object, one path per mutation, one derivation per cache |
+| [docs/TEXT_ENGINE.md](./docs/TEXT_ENGINE.md) | Text pipeline: fonts, shaping, bidi, MSDF atlases, layout, determinism |
+| [docs/ENGINE_ARCHITECTURE.md](./docs/ENGINE_ARCHITECTURE.md) | **Highest-level technical document** — engine layers, and the boundary between engine and applications |
+| [docs/SCENE_FORMAT.md](./docs/SCENE_FORMAT.md) | **Canonical scene schema** (v2, 3D) — renderer- and editor-agnostic |
+| [docs/RFC-003](./docs/RFC-003-rendering-architecture-3d.md) | Rendering: WebGPU-first, adopt-vs-build, camera, text, OBS. **Supersedes RFC-001** |
+| [docs/RENDER_ENGINE_EVALUATION.md](./docs/RENDER_ENGINE_EVALUATION.md) | Three.js vs Babylon.js vs build — recommendation, migration strategy, risk assessment |
+| [docs/RFC-002](./docs/RFC-002-scene-document-model.md) | Edit model: operations, transactions, undo/redo, path to collaboration |
+| [docs/RFC-001](./docs/RFC-001-rendering-architecture.md) | *Superseded.* Retained for decision history |
 
 ## Getting started
 
