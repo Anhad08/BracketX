@@ -99,3 +99,14 @@ export {
   type ReconcilerOptions,
   type ReconcilerStats,
 } from "./reconciler";
+
+export {
+  describeDependencies,
+  describeHierarchy,
+  describeLifetime,
+  lifetimeBalanced,
+  snapshotDiagnostics,
+  type DiagnosticsSnapshot,
+  type HierarchySnapshot,
+  type LifetimeSnapshot,
+} from "./diagnostics";

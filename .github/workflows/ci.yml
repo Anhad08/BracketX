@@ -46,5 +46,10 @@ jobs:
       - name: Test (integration)
         run: pnpm test:integration
 
+      # Slow by design: scenes up to 100k nodes, and a timing guard that the
+      # fast path cannot host without starving its own workers.
+      - name: Test (stress)
+        run: pnpm test:stress
+
       - name: Build
         run: pnpm build

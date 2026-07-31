@@ -1,7 +1,13 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  // Packages ahead of their implementation phase have no tests yet; that is a
-  // schedule fact, not a failure.
-  test: { include: ["src/**/*.test.ts"], passWithNoTests: true },
+  test: {
+    include: ["src/**/*.test.ts"],
+    // Stress and scalability run separately: they take ~140s and starve the
+    // parallel runner, which surfaced as a vitest worker RPC timeout rather
+    // than as a test failure. Separated for the same reason integration tests
+    // are — a slow suite in the fast path makes the fast path unreliable.
+    exclude: ["src/stress.test.ts", "node_modules/**"],
+    passWithNoTests: true,
+  },
 });
