@@ -3,11 +3,12 @@
  *
  *   node tools/check-boundaries.mjs
  *
- * Two properties are checked, both of which the architecture depends on and
- * neither of which the type system can express:
+ * Three properties are checked, all of which the architecture depends on and
+ * none of which the type system can express:
  *
  *   1. Declared workspace dependencies match tools/engine-layers.mjs exactly.
  *   2. `three` is imported by exactly one package.
+ *   3. No Three.js type name appears outside that package (Phase 2.5n).
  *
  * pnpm's strict node_modules already makes an *undeclared* import a compile
  * error (proven in Phase 1e, where apps/web failed to typecheck on transitively
@@ -22,6 +23,7 @@ import {
   ENGINE_PACKAGES,
   NON_ENGINE_PACKAGES,
   RENDER_BACKEND_MODULE,
+  RENDER_BACKEND_TYPES,
 } from "./engine-layers.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -163,6 +165,25 @@ for (const { dir, pkg } of packages) {
         `imports "${RENDER_BACKEND_MODULE}" outside the render adapter. ` +
         `The backend must stay replaceable.`,
     );
+  }
+}
+
+// 3b. Three.js type names do not leak outside the render adapter.
+//     An import check alone would miss a type re-exported through the adapter.
+for (const { dir, pkg } of packages) {
+  if (ENGINE_PACKAGES[pkg.name]?.mayImportThree === true) continue;
+  for (const file of sourceFiles(dir)) {
+    const source = readFileSync(file, "utf8");
+    for (const typeName of RENDER_BACKEND_TYPES) {
+      // Word-boundary match, so "Object3DHelper" in a comment is not a hit
+      // while an actual type reference is.
+      if (!new RegExp(String.raw`\b${typeName}\b`).test(source)) continue;
+      violations.push(
+        `${file.replace(repoRoot + "\\", "").replace(repoRoot + "/", "")} ` +
+          `references the Three.js type "${typeName}" outside the render ` +
+          `adapter. The backend must stay replaceable (Phase 2.5n).`,
+      );
+    }
   }
 }
 

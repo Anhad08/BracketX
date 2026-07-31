@@ -8,6 +8,7 @@ import {
   ENGINE_PACKAGES,
   NON_ENGINE_PACKAGES,
   RENDER_BACKEND_MODULE,
+  RENDER_BACKEND_TYPES,
 } from "./engine-layers.mjs";
 
 /**
@@ -196,6 +197,48 @@ describe("packages declare the layer the model assigns them", () => {
     const entry = readFileSync(join(workspace!.dir, "src/index.ts"), "utf8");
     expect(entry).toContain(`layer: "${rule.layer}"`);
     expect(entry).toContain(`name: "${name}"`);
+  });
+});
+
+describe("Three.js types do not leak past the render adapter", () => {
+  // Phase 2.5n. Imports alone are not enough: a package could name a Three
+  // type re-exported through the adapter and never mention "three" itself,
+  // which would make the backend un-swappable while passing an import check.
+  const outside = ALL.filter(
+    (w) => !ENGINE_PACKAGES[w.name]?.mayImportThree,
+  );
+
+  it.each(outside.map((w) => w.name))(
+    "%s names no Three.js type",
+    (name) => {
+      const workspace = outside.find((w) => w.name === name)!;
+      const offenders: string[] = [];
+      for (const file of sourceFiles(workspace.dir)) {
+        const source = readFileSync(file, "utf8");
+        for (const typeName of RENDER_BACKEND_TYPES) {
+          if (new RegExp(String.raw`${typeName}`).test(source)) {
+            offenders.push(`${file}: ${typeName}`);
+          }
+        }
+      }
+      expect(offenders).toEqual([]);
+    },
+  );
+
+  it("the render adapter's public entry exposes no Three.js type", () => {
+    // The adapter may use Three freely inside. What it must never do is put a
+    // Three type in a signature the engine can see — that is the difference
+    // between a driver and a dependency.
+    const adapter = ALL.find((w) => ENGINE_PACKAGES[w.name]?.mayImportThree);
+    expect(adapter, "render adapter not found").toBeDefined();
+
+    const entry = readFileSync(join(adapter!.dir, "src/index.ts"), "utf8");
+    expect(entry).not.toMatch(/from\s+["']three["']/);
+    for (const typeName of RENDER_BACKEND_TYPES) {
+      expect(entry, `index.ts exposes ${typeName}`).not.toMatch(
+        new RegExp(String.raw`${typeName}`),
+      );
+    }
   });
 });
 

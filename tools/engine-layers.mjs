@@ -66,3 +66,22 @@ export const NON_ENGINE_PACKAGES = [
 
 /** Bare specifier that may appear in exactly one engine package. */
 export const RENDER_BACKEND_MODULE = "three";
+
+/**
+ * Type names that must not appear outside the render adapter.
+ *
+ * The import check alone is necessary but not sufficient: a package could
+ * re-export a Three type through @bracketx/engine-render-three without ever
+ * naming `three`, which would make the backend un-swappable while passing a
+ * pure import check. Phase 2.5n.
+ */
+export const RENDER_BACKEND_TYPES = [
+  "WebGLRenderer",
+  "Object3D",
+  "Matrix4",
+  "Vector3",
+  "Quaternion",
+  "BufferGeometry",
+  "PerspectiveCamera",
+  "OrthographicCamera",
+];
