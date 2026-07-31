@@ -12,8 +12,6 @@
  *
  * Projection, not diffing — ENGINE_RECONCILIATION.md §1.2. Operations already
  * carry what changed, so no tree comparison is required.
- *
- * Contents arrive in Phase 2.4. Phase 2.1 delivers the boundary only.
  */
 export const ENGINE_PACKAGE = {
   name: "@bracketx/engine-reconciler",
@@ -43,3 +41,61 @@ export type {
   TextureHandle,
   Vec2,
 } from "./mirror-backend";
+
+export {
+  MirrorBackendViolation,
+  MockMirrorBackend,
+  type FailureInjection,
+  type MockBackendStats,
+} from "./mock-backend";
+
+export {
+  MirrorGraph,
+  MirrorViolation,
+  type MirrorAttachment,
+  type MirrorNode,
+  type MirrorStats,
+} from "./mirror";
+
+export {
+  DIRTY_CHANNELS,
+  DirtySet,
+  type DirtyChannel,
+  type DirtyStats,
+} from "./dirty";
+
+export {
+  DependencyIndex,
+  DependencyRecorder,
+  type DependencyStats,
+} from "./dependencies";
+
+export {
+  EMPTY_VARIABLES,
+  channelForPath,
+  findComponent,
+  localMatrixOf,
+  resolveProps,
+  resolveValue,
+  type VariableSource,
+} from "./resolve";
+
+export {
+  ProjectionError,
+  Projector,
+  documentNodeIds,
+  type ProjectionReport,
+} from "./projection";
+
+export {
+  assertConsistent,
+  verifyConsistency,
+  type ConsistencyIssue,
+  type ConsistencyResult,
+} from "./verify";
+
+export {
+  Reconciler,
+  type ReconcilerOptions,
+  type ReconcilerStats,
+} from "./reconciler";
