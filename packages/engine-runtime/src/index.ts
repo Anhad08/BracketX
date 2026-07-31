@@ -74,3 +74,49 @@ export {
   type DispatchResult,
   type QueuedCommand,
 } from "./commands";
+
+export {
+  ENGINE_EVENTS,
+  EventBus,
+  EventError,
+  PRIORITY_HIGH,
+  PRIORITY_LOW,
+  PRIORITY_NORMAL,
+  SignalBus,
+  type EngineEvent,
+  type EngineEventType,
+  type EventBusOptions,
+  type EventDispatchReport,
+  type EventHandler,
+  type EventPriority,
+} from "./events";
+
+export {
+  PHASE_ORDER,
+  Phase,
+  Scheduler,
+  SchedulerError,
+  type DeferredWork,
+  type FrameContext,
+  type FrameReport,
+  type SchedulerOptions,
+  type Stage,
+  type WorkPriority,
+} from "./scheduler";
+
+export {
+  Lifecycle,
+  LifecycleError,
+  type LifecycleState,
+  type LifecycleTransition,
+} from "./lifecycle";
+
+export {
+  IdAllocator,
+  ServiceRegistry,
+  ServiceError,
+  serviceKey,
+  type ServiceKey,
+} from "./services";
+
+export { Runtime, type RuntimeOptions, type TickReport } from "./runtime";
