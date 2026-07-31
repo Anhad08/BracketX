@@ -19,3 +19,27 @@ export const ENGINE_PACKAGE = {
   name: "@bracketx/engine-reconciler",
   layer: "engine-core",
 } as const;
+
+export type {
+  BackendCapabilities,
+  BackendFailure,
+  BackendResult,
+  CameraDescriptor,
+  CameraHandle,
+  GeometryDescriptor,
+  GeometryHandle,
+  InspectableMirrorBackend,
+  Mat4,
+  MaterialDescriptor,
+  MaterialHandle,
+  MirrorBackend,
+  MirrorNodeSnapshot,
+  MirrorSnapshot,
+  NodeHandle,
+  RenderOptions,
+  RenderTargetHandle,
+  Rgba,
+  TextureDescriptor,
+  TextureHandle,
+  Vec2,
+} from "./mirror-backend";

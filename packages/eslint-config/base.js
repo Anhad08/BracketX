@@ -19,6 +19,20 @@ export const config = [
     },
     rules: {
       "turbo/no-undeclared-env-vars": "warn",
+      // A leading underscore marks a deliberate discard. The idiom matters
+      // most for the destructure-to-omit pattern — `const { x: _drop, ...rest }`
+      // — which is how immutable code removes a key, and which the default
+      // rule flags on every use.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
     },
   },
   {
