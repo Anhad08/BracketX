@@ -10,10 +10,39 @@
  *   - Runtime state, mutated only by commands (not undoable, not persisted)
  *
  * Knows nothing about rendering.
- *
- * Contents arrive in Phase 2.3. Phase 2.1 delivers the boundary only.
  */
 export const ENGINE_PACKAGE = {
   name: "@bracketx/engine-runtime",
   layer: "engine-core",
 } as const;
+
+export {
+  FRAME_RATES,
+  RationalError,
+  ZERO,
+  ONE,
+  add,
+  compare,
+  divide,
+  equals,
+  floorToInteger,
+  isZero,
+  multiply,
+  rational,
+  subtract,
+  toNumber,
+  toString as rationalToString,
+  type FrameRateName,
+  type Rational,
+} from "./rational";
+
+export {
+  ClockError,
+  RuntimeClock,
+  framesToTimecode,
+  isDropFrame,
+  nominalRate,
+  type ClockOptions,
+  type ClockSnapshot,
+  type ClockStatus,
+} from "./clock";
