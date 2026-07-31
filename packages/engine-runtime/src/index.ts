@@ -46,3 +46,31 @@ export {
   type ClockSnapshot,
   type ClockStatus,
 } from "./clock";
+
+export { canonicalString, hashString, hashValue } from "./hash";
+
+export {
+  RuntimeStateOps,
+  canonicalizeRuntimeState,
+  createRuntimeState,
+  hashRuntimeState,
+  resolveVariable,
+  runtimeStatesEqual,
+  type PlaybackStatus,
+  type RuntimeState,
+  type RuntimeValue,
+} from "./state";
+
+export {
+  CommandQueue,
+  CommandQueueOverflowError,
+  applyCommand,
+  replayCommands,
+  validateCommand,
+  type Command,
+  type CommandQueueOptions,
+  type CommandRejection,
+  type CommandType,
+  type DispatchResult,
+  type QueuedCommand,
+} from "./commands";
