@@ -29,6 +29,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Layer direction and render-backend isolation. Runs before typecheck so
+      # a boundary violation is reported as such rather than as a type error.
+      - name: Check engine boundaries
+        run: pnpm check-boundaries
+
       - name: Check types
         run: pnpm check-types
 
