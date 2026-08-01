@@ -151,6 +151,26 @@ export interface LiveCommandRecord {
   readonly reason?: string;
   /** Frame the command was applied on. */
   readonly frame: number;
+  /**
+   * Who sent it: "operator", "automation", a data source id, "replay".
+   *
+   * Free-form because the engine must not enumerate its callers — a fixed set
+   * would need extending for every new kind of input, which is exactly the
+   * coupling Live Control exists to avoid. Recorded, never interpreted.
+   *
+   * The reason it exists at all: when a value changes unexpectedly mid-show,
+   * the first question is always "what changed it", and a log that cannot
+   * answer that sends someone to a debugger.
+   */
+  readonly source: string;
+  /**
+   * Milliseconds the command took to apply, including its projection.
+   *
+   * The measurement that tells an operator whether a slow frame was their
+   * action or the scene. Without it, a 12ms collection rebuild and a 12ms
+   * render are indistinguishable in a log.
+   */
+  readonly durationMs: number;
 }
 
 export interface LiveResult {
@@ -401,12 +421,16 @@ export class LiveCommandLog {
     frame: number,
     timestamp: number,
     reason: string | null,
+    source = "unknown",
+    durationMs = 0,
   ): LiveCommandRecord {
     const entry: LiveCommandRecord = {
       sequence: this.#sequence++,
       timestamp,
       command,
       frame,
+      source,
+      durationMs,
       accepted: reason === null,
       ...(reason === null ? {} : { reason }),
     };

@@ -5,6 +5,13 @@ import { captureScreenshot, downloadScreenshot } from "./engine/screenshot";
 import { DeveloperOverlay, PerformanceOverlay } from "./ui/overlays";
 import { Panels, Viewport, type ViewportHandle } from "./ui/viewport";
 import {
+  DebugLayers,
+  NO_LAYERS,
+  Workbench,
+  type LayerSettings,
+  type ToolId,
+} from "./tools/workbench";
+import {
   DEFAULT_SETTINGS,
   loadSettings,
   saveSettings,
@@ -49,6 +56,9 @@ export function App() {
     canvas: null,
   });
   const [notice, setNotice] = useState<string | null>(null);
+  const [tool, setTool] = useState<ToolId>("inspector");
+  const [layers, setLayers] = useState<LayerSettings>(NO_LAYERS);
+  const [workbenchOpen, setWorkbenchOpen] = useState(true);
 
   // Settings load after mount, not during render: localStorage is unavailable
   // in some environments and reading it in a render body makes the first paint
@@ -175,7 +185,45 @@ export function App() {
               <span className="capability-badge">{scene.capability}</span>
             </header>
 
-            <Viewport scene={scene} settings={settings} onReady={setHandle} />
+            <div className="stage">
+              <Viewport scene={scene} settings={settings} onReady={setHandle} />
+              <DebugLayers
+                session={handle.session}
+                layers={layers}
+                canvasWidth={handle.canvas?.width ?? 1920}
+                canvasHeight={handle.canvas?.height ?? 1080}
+              />
+            </div>
+
+            <div className="layer-bar">
+              <span className="control-label">Debug layers</span>
+              {(
+                [
+                  ["bounds", "Bounds"],
+                  ["layout", "Layout"],
+                  ["anchors", "Anchors"],
+                  ["origins", "Origins"],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="control-toggle">
+                  <input
+                    type="checkbox"
+                    checked={layers[key]}
+                    onChange={(event) =>
+                      setLayers((current) => ({ ...current, [key]: event.target.checked }))
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+              <button
+                type="button"
+                className="control-button"
+                onClick={() => setWorkbenchOpen((open) => !open)}
+              >
+                {workbenchOpen ? "Hide workbench" : "Show workbench"}
+              </button>
+            </div>
 
             {scene.controls !== undefined ? (
               <Panels
@@ -195,6 +243,21 @@ export function App() {
                       activeStates: handle.session!.host.activeStates,
                     })}
                   </section>
+                )}
+              />
+            ) : null}
+            {workbenchOpen ? (
+              <Panels
+                session={handle.session}
+                developer={false}
+                performance={false}
+                render={({ metrics }) => (
+                  <Workbench
+                    session={handle.session!}
+                    metrics={metrics}
+                    tool={tool}
+                    onTool={setTool}
+                  />
                 )}
               />
             ) : null}

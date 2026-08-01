@@ -42,6 +42,7 @@ describe("the registry is populated", () => {
       "primitive-rendering",
       "scoreboard",
       "states",
+      "stress",
       "templates",
       "tournament-bracket",
       "variables",

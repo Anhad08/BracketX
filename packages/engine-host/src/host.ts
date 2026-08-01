@@ -299,12 +299,22 @@ export class SceneHost {
    * and reported, not allowed to unwind the frame that a dozen good commands
    * were applied in.
    */
-  applyLive(command: LiveCommand): LiveResult {
+  applyLive(command: LiveCommand, source = "unknown"): LiveResult {
     this.#assertUsable();
 
     const frame = this.runtime.clock.frame;
+    const startedAt = now();
     const reason = validateLiveCommand(command) ?? this.#applyLive(command);
-    const record = this.log.record(command, frame, this.#timestamp++, reason);
+    const durationMs = now() - startedAt;
+
+    const record = this.log.record(
+      command,
+      frame,
+      this.#timestamp++,
+      reason,
+      source,
+      durationMs,
+    );
 
     return {
       accepted: record.accepted,
@@ -314,8 +324,11 @@ export class SceneHost {
   }
 
   /** Applies commands in order, stopping at none. Returns each outcome. */
-  applyBatch(commands: readonly LiveCommand[]): readonly LiveResult[] {
-    return commands.map((command) => this.applyLive(command));
+  applyBatch(
+    commands: readonly LiveCommand[],
+    source = "unknown",
+  ): readonly LiveResult[] {
+    return commands.map((command) => this.applyLive(command, source));
   }
 
   /**
@@ -328,7 +341,10 @@ export class SceneHost {
    */
   replay(commands: readonly LiveCommand[]): readonly LiveResult[] {
     this.#assertUsable();
-    return this.applyBatch(commands);
+    // Tagged so a replayed session is distinguishable from a live one in the
+    // log. A recording that looks identical to the thing it replays is a
+    // recording nobody can debug with.
+    return this.applyBatch(commands, "replay");
   }
 
   /** Deterministic snapshot of the running production. */

@@ -24,8 +24,15 @@ export interface Stat {
 
 export interface Metrics {
   readonly samples: number;
-  /** Frames per second, derived from mean total frame time. */
-  readonly fps: number;
+  /**
+   * Frames per second the engine COULD produce, from mean frame cost.
+   *
+   * Capacity, not rate. The loop is capped by requestAnimationFrame at the
+   * display refresh, so a scene costing 1.3ms per frame reports ~740 here while
+   * actually running at 60. Calling that "fps" would send an engineer hunting a
+   * frame rate that was never the engine's to set.
+   */
+  readonly capacityFps: number;
   /** Share of a 60fps frame the engine consumed, 0..1+. */
   readonly budget: number;
 
@@ -133,7 +140,7 @@ export class MetricsRecorder {
     const total = this.#total.stat();
     return {
       samples: this.#total.count,
-      fps: total.mean > 0 ? 1000 / total.mean : 0,
+      capacityFps: total.mean > 0 ? 1000 / total.mean : 0,
       budget: total.mean / FRAME_BUDGET_MS,
       total,
       runtime: this.#runtime.stat(),

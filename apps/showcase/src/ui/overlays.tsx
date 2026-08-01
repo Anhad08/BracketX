@@ -157,9 +157,11 @@ export function PerformanceOverlay({
   return (
     <section className="overlay" aria-label="Performance">
       <h2>Frame</h2>
+      {/* Capacity, not rate: the loop is capped at the display refresh, so this
+          says how much room the engine has, not how fast it is running. */}
       <Row
-        label="fps"
-        value={m.fps > 0 ? m.fps.toFixed(1) : "—"}
+        label="capacity"
+        value={m.capacityFps > 0 ? `${m.capacityFps.toFixed(0)} fps` : "—"}
         tone={overBudget ? "bad" : nearBudget ? "warn" : "good"}
       />
       <Row

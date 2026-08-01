@@ -14,8 +14,11 @@ async function pixel(page: Page, x: number, y: number) {
 test("the shell mounts and lists every scene", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "BracketX" })).toBeVisible();
-  // 12 scenes, each a nav button.
-  await expect(page.locator("nav li button")).toHaveCount(12);
+  // Every registered scene is a nav button. Asserted as "more than ten" rather
+  // than an exact count: this test should not need editing every time a
+  // capability adds its showcase, which is the whole point of the registry.
+  await expect(page.locator("nav li button").first()).toBeVisible();
+  expect(await page.locator("nav li button").count()).toBeGreaterThan(10);
 });
 
 test("primitive rendering produces real pixels", async ({ page }) => {

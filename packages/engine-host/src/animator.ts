@@ -57,6 +57,28 @@ interface ActiveClip {
   lastSeconds: number;
 }
 
+/**
+ * What a clip is doing right now.
+ *
+ * Read-only. A timeline view needs the playhead, the direction, and the anchor
+ * to draw anything useful, and deriving them from the outside would mean
+ * reimplementing `#secondsFor` — a second copy of the one calculation that must
+ * never disagree with itself.
+ */
+export interface ClipState {
+  readonly clipId: string;
+  readonly playing: boolean;
+  readonly held: boolean;
+  /** Frame the clip is anchored to. */
+  readonly startFrame: number;
+  /** Negative runs the clip backwards. */
+  readonly speed: number;
+  readonly loop: boolean;
+  /** Seconds into the clip, as of the last sample. */
+  readonly seconds: number;
+  readonly duration: number;
+}
+
 export interface AnimationFrame {
   /** Nodes whose values changed since the previous frame. */
   readonly changed: readonly string[];
@@ -234,6 +256,51 @@ export class Animator {
     this.#sample = merged;
 
     return { changed, events, completed };
+  }
+
+  /**
+   * Playback state for one clip, or undefined if it is neither playing nor
+   * held. Observability only — nothing here can change what happens.
+   */
+  clipState(clipId: string): ClipState | undefined {
+    const clip = this.#clips.get(clipId);
+    if (clip === undefined) return undefined;
+
+    const active = this.#active.get(clipId);
+    if (active !== undefined) {
+      return {
+        clipId,
+        playing: true,
+        held: false,
+        startFrame: active.startFrame,
+        speed: active.speed,
+        loop: active.loop,
+        seconds: active.lastSeconds,
+        duration: clip.duration,
+      };
+    }
+
+    const held = this.#held.get(clipId);
+    if (held !== undefined) {
+      return {
+        clipId,
+        playing: false,
+        held: true,
+        startFrame: 0,
+        speed: 0,
+        loop: false,
+        seconds: held.seconds,
+        duration: clip.duration,
+      };
+    }
+    return undefined;
+  }
+
+  /** Playback state for every clip that has any. */
+  clipStates(): readonly ClipState[] {
+    return [...this.#clips.keys()]
+      .map((id) => this.clipState(id))
+      .filter((state): state is ClipState => state !== undefined);
   }
 
   /** Nodes any active clip drives. For invalidation after a stop. */

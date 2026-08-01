@@ -388,7 +388,7 @@ describe("metrics", () => {
     const recorder = new MetricsRecorder();
     const metrics = recorder.snapshot();
     expect(metrics.samples).toBe(0);
-    expect(metrics.fps).toBe(0);
+    expect(metrics.capacityFps).toBe(0);
   });
 
   it("computes mean, p95, and max over its window", () => {

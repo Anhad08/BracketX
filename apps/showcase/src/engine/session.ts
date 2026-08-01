@@ -35,6 +35,14 @@ import { MetricsRecorder, type Metrics } from "./metrics";
 export interface SessionOptions {
   /** Injected so tests drive frames by hand instead of by wall clock. */
   readonly scheduler?: FrameScheduler;
+  /**
+   * Makes a backend for a replay fork.
+   *
+   * Required for `forkForReplay`, because a replay must not share a backend
+   * with the session it verifies — the fork would tear down the original's
+   * mirror on dispose.
+   */
+  readonly replayBackend?: () => MirrorBackend;
   /** Extra outputs beyond the document's default. */
   readonly outputs?: readonly { id: string; width: number; height: number; cadence?: number }[];
 }
@@ -97,12 +105,15 @@ export class ShowcaseSession {
   #disposed = false;
   #frameHandlers = new Set<(result: FrameResult) => void>();
 
+  readonly #backend: MirrorBackend;
+
   constructor(
     scene: ShowcaseScene,
     backend: MirrorBackend,
     private readonly options: SessionOptions = {},
   ) {
     this.scene = scene;
+    this.#backend = backend;
     this.host = new SceneHost(backend);
   }
 
@@ -117,21 +128,21 @@ export class ShowcaseSession {
     this.host.load(this.scene.build());
 
     for (const output of this.options.outputs ?? []) {
-      this.host.applyLive({ type: "output.bind", output });
+      this.host.applyLive({ type: "output.bind", output }, "scene");
     }
 
     if (this.scene.autoPlay !== false) {
-      this.host.applyLive({ type: "playback.play" });
+      this.host.applyLive({ type: "playback.play" }, "scene");
     }
     for (const command of this.scene.onLoad ?? []) {
-      this.host.applyLive(command);
+      this.host.applyLive(command, "scene");
     }
   }
 
   /** Runtime state. Not undoable, not persisted (RFC-002 §4.3). */
-  send(command: LiveCommand): void {
+  send(command: LiveCommand, source = "operator"): void {
     if (this.#disposed) return;
-    this.host.applyLive(command);
+    this.host.applyLive(command, source);
   }
 
   /** Document state. Undoable and persisted — the other mutation path. */
@@ -259,6 +270,26 @@ export class ShowcaseSession {
     this.host.applyLive({ type: "playback.pause" });
     this.host.applyLive({ type: "playback.seek", frame });
     this.step();
+  }
+
+  /**
+   * A fresh session on the same scene, for replay verification.
+   *
+   * Deliberately a NEW backend and a NEW host: replaying into the session that
+   * produced a recording would compare a state against itself and pass
+   * unconditionally, which is the one thing a verification tool must not do.
+   *
+   * The backend is supplied by the caller through the factory given at
+   * construction, so this works headlessly and in the browser alike.
+   */
+  forkForReplay(): ShowcaseSession {
+    const fork = new ShowcaseSession(
+      this.scene,
+      this.options.replayBackend?.() ?? this.#backend,
+      this.options,
+    );
+    fork.load();
+    return fork;
   }
 
   dispose(): void {

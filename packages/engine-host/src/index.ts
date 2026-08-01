@@ -55,6 +55,7 @@ export {
   Animator,
   AnimationError,
   type AnimationFrame,
+  type ClipState,
   type PlayOptions,
 } from "./animator";
 
