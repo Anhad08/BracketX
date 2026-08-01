@@ -58,6 +58,26 @@ import {
   type ResolvedOutput,
 } from "./output";
 
+/**
+ * Monotonic clock for measurement only.
+ *
+ * Separate from the runtime clock on purpose: this measures how long the engine
+ * took, which is a property of the machine. The runtime clock measures show
+ * time, which is a property of the production. Conflating them is how a slow
+ * frame turns into a dropped frame of content.
+ */
+const now: () => number =
+  typeof performance !== "undefined" && typeof performance.now === "function"
+    ? () => performance.now()
+    : () => Date.now();
+
+const ZERO_TIMINGS: FrameTimings = {
+  total: 0,
+  runtime: 0,
+  animation: 0,
+  render: 0,
+};
+
 export class HostError extends Error {
   constructor(message: string) {
     super(message);
@@ -81,6 +101,30 @@ export interface SceneHostOptions {
 /** The id given to the output bound automatically on load. */
 export const DEFAULT_OUTPUT_ID = "default";
 
+/**
+ * Where a frame's time went.
+ *
+ * Milliseconds, from performance.now(). Always collected: the measurement is
+ * six clock reads per frame against a 16.67ms budget, and an engine that can
+ * only be measured when someone remembers to enable measurement is one whose
+ * production behaviour is a mystery. "Observable" is an engineering standard
+ * here, not a debug feature.
+ *
+ * `render` is SUBMISSION time, not GPU time. What the GPU then does with the
+ * commands is not visible from this side of the boundary — see
+ * RENDER_BACKEND_VERIFICATION §7.
+ */
+export interface FrameTimings {
+  /** Everything renderFrame did. */
+  readonly total: number;
+  /** Clock advance, command drain, scheduler. */
+  readonly runtime: number;
+  /** Clip sampling plus re-projection of changed nodes. */
+  readonly animation: number;
+  /** Draw submission across every output. */
+  readonly render: number;
+}
+
 export interface FrameResult {
   readonly frame: number;
   /** True when at least one output was drawn. */
@@ -91,6 +135,7 @@ export interface FrameResult {
   readonly skipped: readonly string[];
   /** Outputs that resolved no camera. A fault, and reported as one. */
   readonly missed: readonly string[];
+  readonly timings: FrameTimings;
 }
 
 /**
@@ -142,6 +187,7 @@ export class SceneHost {
   /** Monotonic, host-supplied. Recorded, never read during apply. */
   #timestamp = 0;
   #lastReport: ProjectionReport | null = null;
+  #lastTimings: FrameTimings = ZERO_TIMINGS;
 
   constructor(
     private readonly backend: MirrorBackend,
@@ -555,13 +601,17 @@ export class SceneHost {
     this.#assertUsable();
     this.#requireDocument("renderFrame");
 
+    const startedAt = now();
+
     this.runtime.tick(wallMs);
     this.#framesRendered += 1;
+    const afterRuntime = now();
 
     // Sample before drawing, so the frame that goes out is the frame that was
     // evaluated. Sampling after would put every output one frame behind the
     // clock, which is invisible until two outputs disagree.
     this.#applyAnimationFrame(true);
+    const afterAnimation = now();
 
     const frame = this.runtime.clock.frame;
     const rendered: string[] = [];
@@ -600,7 +650,28 @@ export class SceneHost {
       rendered.push(output.id);
     }
 
-    return { frame, drawn: rendered.length > 0, rendered, skipped, missed };
+    const finishedAt = now();
+    const timings: FrameTimings = {
+      total: finishedAt - startedAt,
+      runtime: afterRuntime - startedAt,
+      animation: afterAnimation - afterRuntime,
+      render: finishedAt - afterAnimation,
+    };
+    this.#lastTimings = timings;
+
+    return {
+      frame,
+      drawn: rendered.length > 0,
+      rendered,
+      skipped,
+      missed,
+      timings,
+    };
+  }
+
+  /** Timings from the most recent frame. */
+  get lastTimings(): FrameTimings {
+    return this.#lastTimings;
   }
 
   // -------------------------------------------------------------------------

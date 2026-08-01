@@ -82,6 +82,9 @@ export const NON_ENGINE_PACKAGES = [
   "@bracketx/eslint-config",
   "@bracketx/typescript-config",
   "web",
+  // The engine's first consumer and permanent visual verification suite. Not
+  // an engine package: it may depend on any of them and none may depend on it.
+  "showcase",
 ];
 
 /** Bare specifier that may appear in exactly one engine package. */

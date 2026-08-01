@@ -10,12 +10,26 @@ export const ENGINE_PACKAGE = {
   layer: "engine-host",
 } as const;
 
+/**
+ * Re-exported from the reconciler.
+ *
+ * `SceneHost.lastReport` and every projection method return these, so a
+ * consumer cannot type its own code without them. Found by the showcase, which
+ * is exactly the kind of gap a first real consumer is meant to expose.
+ */
+export type {
+  ProjectionReport,
+  MirrorBackend,
+  VariableSource,
+} from "@bracketx/engine-reconciler";
+
 export {
   SceneHost,
   HostError,
   findCameraNode,
   DEFAULT_OUTPUT_ID,
   type FrameResult,
+  type FrameTimings,
   type SceneHostOptions,
 } from "./host";
 
