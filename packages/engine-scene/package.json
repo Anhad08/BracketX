@@ -9,7 +9,10 @@
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "perf": "vitest run --config vitest.perf.config.ts",
+    "bench": "vitest bench --run",
+    "test:stress": "vitest run --config vitest.stress.config.ts"
   },
   "devDependencies": {
     "@bracketx/eslint-config": "workspace:*",

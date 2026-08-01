@@ -1,7 +1,12 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  // Packages ahead of their implementation phase have no tests yet; that is a
-  // schedule fact, not a failure.
-  test: { include: ["src/**/*.test.ts"], passWithNoTests: true },
+  test: {
+    include: ["src/**/*.test.ts"],
+    // Performance and stress suites run separately: they are measurements,
+    // not assertions about behaviour, and a slow suite in the fast path makes
+    // the fast path unreliable.
+    exclude: ["src/stress.test.ts", "node_modules/**"],
+    passWithNoTests: true,
+  },
 });
