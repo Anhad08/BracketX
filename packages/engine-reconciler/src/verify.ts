@@ -12,7 +12,6 @@
 import {
   childrenOf,
   multiply,
-  walk,
   type Mat4,
   type SceneDocument,
   type SceneNode,
@@ -63,10 +62,41 @@ export function verifyConsistency(
   const report = (code: string, nodeId: string | null, message: string) =>
     issues.push({ code, nodeId, message });
 
+  /**
+   * Ids the document accounts for.
+   *
+   * A repeat container's children are a TEMPLATE, never rendered, and the
+   * mirror instead holds instances named `<templateId>#<identity>` (Project
+   * Alpha A2). The verifier re-derives that naming rule independently rather
+   * than importing the expansion — a verifier that shared the implementation's
+   * code would agree with its bugs.
+   *
+   * Instance identities are data-dependent and this function is deliberately
+   * not given the variables, so the shape is checked, not the count: every
+   * mirror node must trace back to a template node under a repeat container,
+   * and every template node must be absent from the mirror.
+   */
   const documentIds = new Set<string>();
-  for (const node of walk(document.root)) documentIds.add(node.id);
+  const templateIds = new Set<string>();
+
+  const collectIds = (node: SceneNode, insideTemplate: boolean): void => {
+    if (insideTemplate) templateIds.add(node.id);
+    else documentIds.add(node.id);
+
+    const childrenAreTemplate = insideTemplate || node.repeat !== undefined;
+    for (const child of childrenOf(node)) collectIds(child, childrenAreTemplate);
+  };
+  collectIds(document.root, false);
 
   const mirrorIds = new Set(mirror.nodeIds());
+
+  /** Splits `nod_row#t2` into its template id and identity. */
+  const instanceOf = (id: string): string | null => {
+    const hash = id.lastIndexOf("#");
+    if (hash <= 0) return null;
+    const templateId = id.slice(0, hash);
+    return templateIds.has(templateId) ? templateId : null;
+  };
 
   // -- Membership ----------------------------------------------------------
   for (const id of documentIds) {
@@ -75,9 +105,21 @@ export function verifyConsistency(
     }
   }
   for (const id of mirrorIds) {
-    if (!documentIds.has(id)) {
-      // An orphan is a leak: the backend object outlives its document node.
-      report("orphan", id, "mirror node has no document node");
+    if (documentIds.has(id)) continue;
+    if (instanceOf(id) !== null) continue;
+    // An orphan is a leak: the backend object outlives its document node.
+    report("orphan", id, "mirror node has no document node");
+  }
+
+  // A template node must never be mirrored directly. If one is, expansion ran
+  // on the wrong nodes and the scene is rendering its own blueprint.
+  for (const id of templateIds) {
+    if (mirrorIds.has(id)) {
+      report(
+        "template-rendered",
+        id,
+        "template node is in the mirror; it should only appear as instances",
+      );
     }
   }
 
@@ -115,17 +157,24 @@ export function verifyConsistency(
       }
     }
 
-    const documentChildren = childrenOf(node).map((child) => child.id);
-    const mirrorChildren = [...mirrorNode.childIds];
-    if (
-      documentChildren.length !== mirrorChildren.length ||
-      documentChildren.some((id, index) => id !== mirrorChildren[index])
-    ) {
-      report(
-        "ordering",
-        node.id,
-        `child order [${mirrorChildren.join(",")}] != document [${documentChildren.join(",")}]`,
-      );
+    // A repeat container's children are instances, and their order comes from
+    // the COLLECTION, not from fractional index keys. This function is
+    // deliberately not given the variables, so it cannot re-derive that order
+    // and does not pretend to — the membership and template-rendered checks
+    // above already prove the instances are well-formed.
+    if (node.repeat === undefined) {
+      const documentChildren = childrenOf(node).map((child) => child.id);
+      const mirrorChildren = [...mirrorNode.childIds];
+      if (
+        documentChildren.length !== mirrorChildren.length ||
+        documentChildren.some((id, index) => id !== mirrorChildren[index])
+      ) {
+        report(
+          "ordering",
+          node.id,
+          `child order [${mirrorChildren.join(",")}] != document [${documentChildren.join(",")}]`,
+        );
+      }
     }
 
     const expectedLocal = localMatrixOf(node.transform);

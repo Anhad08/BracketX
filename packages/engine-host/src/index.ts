@@ -43,3 +43,21 @@ export {
   type AnimationFrame,
   type PlayOptions,
 } from "./animator";
+
+export {
+  LiveCommandLog,
+  LiveCommandError,
+  applyCollectionCommand,
+  asCollection,
+  canonicalSession,
+  isCollectionCommand,
+  itemIdentity,
+  validateLiveCommand,
+  type InsertAt,
+  type LiveCommand,
+  type LiveCommandRecord,
+  type LiveCommandType,
+  type LiveLogOptions,
+  type LiveResult,
+  type SessionSnapshot,
+} from "./live";

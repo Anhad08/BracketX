@@ -41,6 +41,17 @@ import {
 
 import { Animator, type AnimationFrame, type PlayOptions } from "./animator";
 import {
+  LiveCommandLog,
+  applyCollectionCommand,
+  asCollection,
+  canonicalSession,
+  isCollectionCommand,
+  validateLiveCommand,
+  type LiveCommand,
+  type LiveResult,
+  type SessionSnapshot,
+} from "./live";
+import {
   OutputSet,
   type OutputDescriptor,
   type OutputStats,
@@ -117,6 +128,8 @@ export class SceneHost {
   readonly runtime: Runtime;
   readonly reconciler: Reconciler;
   readonly animator = new Animator();
+  /** Every live input, in order, with its outcome. Phase 7. */
+  readonly log = new LiveCommandLog();
 
   #document: SceneDocument | null = null;
   #variables: RuntimeVariableSource;
@@ -126,6 +139,9 @@ export class SceneHost {
   #disposed = false;
   #framesRendered = 0;
   #submissions = 0;
+  /** Monotonic, host-supplied. Recorded, never read during apply. */
+  #timestamp = 0;
+  #lastReport: ProjectionReport | null = null;
 
   constructor(
     private readonly backend: MirrorBackend,
@@ -220,6 +236,216 @@ export class SceneHost {
     this.runtime.tick();
 
     return this.reconciler.invalidateVariables([key], this.#variables);
+  }
+
+  // -------------------------------------------------------------------------
+  // Live Control — Phase 7
+  // -------------------------------------------------------------------------
+
+  /**
+   * The single entry point for every live input.
+   *
+   * An operator keypress, a data feed, an automation cue, and an AI suggestion
+   * all arrive here. There is deliberately no faster path for urgent updates:
+   * the moment one exists, replay stops reproducing reality.
+   *
+   * Never throws for a bad command. A malformed message from a feed is recorded
+   * and reported, not allowed to unwind the frame that a dozen good commands
+   * were applied in.
+   */
+  applyLive(command: LiveCommand): LiveResult {
+    this.#assertUsable();
+
+    const frame = this.runtime.clock.frame;
+    const reason = validateLiveCommand(command) ?? this.#applyLive(command);
+    const record = this.log.record(command, frame, this.#timestamp++, reason);
+
+    return {
+      accepted: record.accepted,
+      sequence: record.sequence,
+      ...(record.reason === undefined ? {} : { reason: record.reason }),
+    };
+  }
+
+  /** Applies commands in order, stopping at none. Returns each outcome. */
+  applyBatch(commands: readonly LiveCommand[]): readonly LiveResult[] {
+    return commands.map((command) => this.applyLive(command));
+  }
+
+  /**
+   * Re-applies a command sequence against the current document.
+   *
+   * Sequence order only — `timestamp` is recorded but never read, because an
+   * engine that behaved differently for a command arriving at a different wall
+   * time would not be replayable, and wall time is the one input a replay
+   * cannot reproduce.
+   */
+  replay(commands: readonly LiveCommand[]): readonly LiveResult[] {
+    this.#assertUsable();
+    return this.applyBatch(commands);
+  }
+
+  /** Deterministic snapshot of the running production. */
+  session(): SessionSnapshot {
+    const variables: Record<string, RuntimeValue> = {};
+    for (const [key, value] of this.runtime.state.variables) {
+      variables[key] = value;
+    }
+
+    return {
+      sceneId: this.#document?.id ?? null,
+      frame: this.runtime.clock.frame,
+      playing: this.runtime.clock.snapshot().status === "playing",
+      states: this.activeStates,
+      variables,
+      outputs: this.outputs.map((output) => ({
+        id: output.id,
+        width: output.width,
+        height: output.height,
+        cadence: output.cadence,
+      })),
+      activeClips: this.animator.playing,
+      heldClips: this.animator.clips
+        .filter((clip) => this.animator.isHeld(clip.id))
+        .map((clip) => clip.id),
+      runtimeHash: this.runtime.stateHash,
+      commandsApplied: this.log.accepted,
+    };
+  }
+
+  /** Canonical form of the session. Equal strings mean equal sessions. */
+  sessionHash(): string {
+    return canonicalSession(this.session());
+  }
+
+  /** The most recent projection report. Diagnostics. */
+  get lastReport(): ProjectionReport | null {
+    return this.#lastReport;
+  }
+
+  /**
+   * Applies one command. Returns a rejection reason, or null on success.
+   *
+   * Every branch routes through either the runtime's command queue or
+   * host-owned state that only this method mutates. Nothing here writes
+   * engine state directly.
+   */
+  #applyLive(command: LiveCommand): string | null {
+    if (this.#document === null && command.type !== "scene.deactivate") {
+      return "no document loaded";
+    }
+
+    switch (command.type) {
+      case "variable.set":
+      case "template.setParameter":
+        this.#lastReport = this.setVariable(command.key, command.value);
+        return null;
+
+      case "variable.clear":
+        this.runtime.dispatch({ type: "variable.clear", key: command.key });
+        this.runtime.tick();
+        this.#lastReport = this.reconciler.invalidateVariables(
+          [command.key],
+          this.#variables,
+        );
+        return null;
+
+      case "state.set":
+        this.setStates(command.states);
+        return null;
+
+      case "state.add": {
+        if (this.activeStates.includes(command.state)) return null;
+        this.setStates([...this.activeStates, command.state]);
+        return null;
+      }
+
+      case "state.remove": {
+        if (!this.activeStates.includes(command.state)) return null;
+        this.setStates(
+          this.activeStates.filter((state) => state !== command.state),
+        );
+        return null;
+      }
+
+      case "output.bind":
+        this.bindOutput(command.output);
+        return null;
+
+      case "output.unbind":
+        return this.unbindOutput(command.id)
+          ? null
+          : `no output bound as "${command.id}"`;
+
+      case "output.resize":
+        try {
+          this.setOutputSize(command.width, command.height, command.id);
+          return null;
+        } catch (error) {
+          return String((error as Error).message);
+        }
+
+      case "playback.play":
+        this.play();
+        return null;
+
+      case "playback.pause":
+        this.pause();
+        return null;
+
+      case "playback.stop":
+        this.stop();
+        return null;
+
+      case "playback.seek":
+        this.seek(command.frame);
+        return null;
+
+      case "clip.play":
+        try {
+          this.playClip(command.clipId, command.options ?? {});
+          return null;
+        } catch (error) {
+          return String((error as Error).message);
+        }
+
+      case "clip.stop":
+        return this.stopClip(command.clipId)
+          ? null
+          : `clip "${command.clipId}" was not playing`;
+
+      case "scene.activate":
+        this.runtime.dispatch({
+          type: "scene.setActive",
+          sceneId: command.sceneId,
+        });
+        this.runtime.tick();
+        return null;
+
+      case "scene.deactivate":
+        this.runtime.dispatch({ type: "scene.setActive", sceneId: null });
+        this.runtime.tick();
+        return null;
+
+      default: {
+        if (!isCollectionCommand(command)) return "unknown command";
+
+        const current = asCollection(this.#variables.read(command.key));
+        const next = applyCollectionCommand(current, command);
+
+        // An operation that changed nothing — a patch that matched no item,
+        // a remove of an absent id — returns the ORIGINAL array by reference,
+        // so the projection is skipped entirely rather than diffing a list
+        // against itself.
+        if (next === current) return null;
+
+        this.#lastReport = this.setVariable(
+          command.key,
+          next as unknown as RuntimeValue,
+        );
+        return null;
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

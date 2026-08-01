@@ -49,6 +49,7 @@ import { channelForPath, localMatrixOf, resolveProps, type VariableSource } from
 import { quadDescriptor, rgbaFromHex } from "./primitives";
 import { ScopedVariables, dependencyKeyOf, readScoped } from "./scope";
 import {
+  ExpansionCache,
   expandRepeat,
   isRepeatContainer,
   readCollection,
@@ -139,6 +140,15 @@ export class Projector {
    * which is the O(scene) defect from Phase 2.4 wearing a different hat.
    */
   #repeatItems = new Map<string, Map<string, unknown>>();
+
+  /**
+   * Expanded node trees, reused across collection changes.
+   *
+   * An instance's structure depends only on (template, identity); its values
+   * come from the scope at apply time. Rebuilding the tree on every change cost
+   * 7.19ms to patch one row of a 10,000-row collection.
+   */
+  #expansions = new ExpansionCache();
 
   /**
    * Placements a layout container decided for its children.
@@ -428,6 +438,7 @@ export class Projector {
     this.#cameras.clear();
     this.#repeats.clear();
     this.#repeatItems.clear();
+    this.#expansions.clear();
     this.#placements.clear();
     for (const id of [...this.#rects.keys()]) this.#releaseRect(id);
     this.#index.clear();
@@ -792,7 +803,12 @@ export class Projector {
       readScoped(scope, repeat.source),
       repeat.limit,
     );
-    const instances = expandRepeat(container, collection, repeat.key);
+    const instances = expandRepeat(
+      container,
+      collection,
+      repeat.key,
+      this.#expansions,
+    );
     this.#repeats.set(
       container.id,
       instances.map((instance) => instance.identity),
