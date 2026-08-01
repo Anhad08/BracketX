@@ -39,6 +39,7 @@ import {
   type VariableSource,
 } from "@bracketx/engine-reconciler";
 
+import { Animator, type AnimationFrame, type PlayOptions } from "./animator";
 import {
   OutputSet,
   type OutputDescriptor,
@@ -115,6 +116,7 @@ class RuntimeVariableSource implements VariableSource {
 export class SceneHost {
   readonly runtime: Runtime;
   readonly reconciler: Reconciler;
+  readonly animator = new Animator();
 
   #document: SceneDocument | null = null;
   #variables: RuntimeVariableSource;
@@ -183,6 +185,7 @@ export class SceneHost {
     this.runtime.tick();
 
     this.#variables.setTokens(tokenMap(document.tokens));
+    this.animator.load(document);
     this.#document = document;
     this.#cameraNodeId = findCameraNode(document);
     this.#bindDefaultOutputFor(document);
@@ -217,6 +220,43 @@ export class SceneHost {
     this.runtime.tick();
 
     return this.reconciler.invalidateVariables([key], this.#variables);
+  }
+
+  // -------------------------------------------------------------------------
+  // Animation
+  // -------------------------------------------------------------------------
+
+  /**
+   * Starts a clip, anchored to the current frame.
+   *
+   * Anchoring to a frame rather than storing a playhead is what makes seeking
+   * free: move the clock and the next sample is already correct.
+   */
+  playClip(clipId: string, options: PlayOptions = {}): void {
+    this.#assertUsable();
+    this.animator.play(clipId, this.runtime.clock.frame, options);
+  }
+
+  stopClip(clipId: string): boolean {
+    this.#assertUsable();
+    const stopped = this.animator.stop(clipId);
+    if (stopped) this.#applyAnimationFrame(false);
+    return stopped;
+  }
+
+  /**
+   * Moves the clock to a frame and re-evaluates without firing events.
+   *
+   * Scrubbing a timeline must not trigger cues. A seek crosses arbitrarily many
+   * events at once, and firing them is how a graphic goes on air during
+   * rehearsal.
+   */
+  seek(frame: number): AnimationFrame {
+    this.#assertUsable();
+    this.#requireDocument("seek");
+    this.runtime.dispatch({ type: "clock.seek", frame });
+    this.runtime.tick();
+    return this.#applyAnimationFrame(false);
   }
 
   // -------------------------------------------------------------------------
@@ -292,6 +332,11 @@ export class SceneHost {
     this.runtime.tick(wallMs);
     this.#framesRendered += 1;
 
+    // Sample before drawing, so the frame that goes out is the frame that was
+    // evaluated. Sampling after would put every output one frame behind the
+    // clock, which is invisible until two outputs disagree.
+    this.#applyAnimationFrame(true);
+
     const frame = this.runtime.clock.frame;
     const rendered: string[] = [];
     const skipped: string[] = [];
@@ -355,6 +400,44 @@ export class SceneHost {
 
   outputStats(): readonly OutputStats[] {
     return this.#outputs.stats();
+  }
+
+  /**
+   * Samples animation and re-projects exactly the nodes that changed.
+   *
+   * O(animated nodes), never O(scene): a lower third animating in must not
+   * re-resolve the 500-node package around it.
+   */
+  #applyAnimationFrame(emitEvents: boolean): AnimationFrame {
+    const document = this.#document;
+    if (document === null) return { changed: [], events: [], completed: [] };
+
+    const rate = this.runtime.clock.snapshot().rate;
+    const framesPerSecond = rate.num / rate.den;
+
+    const result = this.animator.sample(
+      this.runtime.clock.frame,
+      framesPerSecond,
+      emitEvents,
+    );
+
+    if (result.changed.length > 0) {
+      this.reconciler.projector.setAnimatedValues(this.animator.values);
+      this.reconciler.projector.invalidateNodes(
+        result.changed,
+        document,
+        this.#variables,
+      );
+    }
+
+    for (const { clipId, event } of result.events) {
+      this.runtime.events.publish({
+        type: `animation.${event.name}`,
+        payload: { clipId, time: event.time, data: event.payload },
+      });
+    }
+
+    return result;
   }
 
   /**

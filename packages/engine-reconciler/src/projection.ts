@@ -37,6 +37,7 @@ import {
   type Mat4,
   type SceneDocument,
   type SceneNode,
+  type AnimatedValues,
   type SceneOperation,
   type Transaction,
 } from "@bracketx/engine-scene";
@@ -158,6 +159,15 @@ export class Projector {
    */
   #activeStates: readonly string[] = [];
 
+  /**
+   * Values animation sampled this frame, by node then by path.
+   *
+   * The projector STORES nothing about time and computes no curve — the caller
+   * hands it a sample and it applies it. Animation describes how state changes;
+   * it does not own state.
+   */
+  #animated: AnimatedValues = new Map();
+
   #rects = new Map<
     string,
     {
@@ -201,6 +211,50 @@ export class Projector {
   /** Replaces the active state set. The caller re-projects. */
   setActiveStates(states: readonly string[]): void {
     this.#activeStates = [...states];
+  }
+
+  /** Installs this frame's animation sample. The caller invalidates. */
+  setAnimatedValues(values: AnimatedValues): void {
+    this.#animated = values;
+  }
+
+  /**
+   * Re-applies exactly the given nodes.
+   *
+   * The animation path. Costs O(animated nodes), never O(scene) — a lower
+   * third animating in must not re-resolve a 500-node package around it.
+   */
+  invalidateNodes(
+    nodeIds: Iterable<string>,
+    document: SceneDocument,
+    variables: VariableSource,
+  ): ProjectionReport {
+    const dirty = new DirtySet();
+    const before = this.#writeCount();
+
+    for (const nodeId of nodeIds) {
+      if (!this.mirror.has(nodeId)) continue;
+      const node = this.#index.get(nodeId);
+      if (node === undefined) continue;
+      this.#applyNodeState(node, variables);
+      // A track may drive a transform, a colour, or both, and the projector
+      // cannot tell from here which. Marking transform is the safe superset;
+      // material follows from re-resolving the components.
+      // The dirty stats already report how many nodes this touched, so there
+      // is no separate counter to keep in step with them.
+      dirty.mark("transform", nodeId);
+    }
+
+    this.#flush(document, variables, dirty);
+
+    return {
+      operations: 0,
+      nodesCreated: 0,
+      nodesDestroyed: 0,
+      nodesReparented: 0,
+      dirty: dirty.stats(),
+      backendWrites: this.#writeCount() - before,
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -649,7 +703,12 @@ export class Projector {
 
     // States patch the node before anything reads it. Returns the SAME object
     // by reference when nothing applies, so the common path costs a lookup.
-    const resolved = applyStates(node, this.#activeStates);
+    //
+    // Animation is applied ON TOP of states: a state says what a thing is, and
+    // animation says where it is on the way there. Reversing the order would
+    // let a state override the frame animation just produced, which reads as a
+    // graphic snapping back mid-move.
+    const resolved = this.#withAnimation(applyStates(node, this.#activeStates));
 
     // A laid-out or anchored child takes its position from its container
     // rather than from its own transform. Rotation and scale still come from
@@ -958,6 +1017,28 @@ export class Projector {
       node.anchor,
       toInsets(parent.layout?.safeArea),
     );
+  }
+
+  /**
+   * Applies this frame's sampled values to a node.
+   *
+   * Returns the node BY REFERENCE when nothing animates it, so an unanimated
+   * scene pays one map lookup per node and no allocation.
+   */
+  #withAnimation(node: SceneNode): SceneNode {
+    const paths = this.#animated.get(node.id);
+    if (paths === undefined || paths.size === 0) return node;
+
+    let result: SceneNode = node;
+    for (const [path, value] of paths) {
+      try {
+        result = setAtPath(result, path, value);
+      } catch {
+        // A track pointing at a path this node does not have is an authoring
+        // error, not a reason to stop the show. The rest of the frame renders.
+      }
+    }
+    return result;
   }
 
   #computeLayout(container: SceneNode, children: readonly SceneNode[]): void {

@@ -36,3 +36,10 @@ export {
 } from "./loop";
 
 export { makeDemoScene, type DemoSceneOptions } from "./demo-scene";
+
+export {
+  Animator,
+  AnimationError,
+  type AnimationFrame,
+  type PlayOptions,
+} from "./animator";

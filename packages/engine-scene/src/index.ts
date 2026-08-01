@@ -176,3 +176,25 @@ export type {
   TemplateDefinition,
   TemplateParameter,
 } from "./types";
+
+// -- Animation — Phase 5 -----------------------------------------------------
+
+export {
+  clipTime,
+  crossedEvents,
+  ease,
+  interpolate,
+  sampleClip,
+  sampleTrack,
+  targetsOf,
+  validateClip,
+  valueAtPath,
+  type AnimatedValues,
+  type AnimationClip,
+  type AnimationEvent,
+  type AnimationTrack,
+  type CubicBezier,
+  type Easing,
+  type EasingName,
+  type Keyframe,
+} from "./animation";

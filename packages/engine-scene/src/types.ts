@@ -38,6 +38,8 @@ export function isBinding(value: unknown): value is VariableBinding {
   );
 }
 
+import type { AnimationClip } from "./animation";
+
 export type VariableType =
   | "string"
   | "number"
@@ -459,5 +461,7 @@ export interface SceneDocument {
   readonly tokens?: readonly SceneToken[];
   /** Present when this document IS a template. §11.3. */
   readonly template?: TemplateDefinition;
+  /** Animation clips. Pure data; evaluation is a function of (clip, time). §10. */
+  readonly animations?: readonly AnimationClip[];
   readonly [extra: string]: unknown;
 }
