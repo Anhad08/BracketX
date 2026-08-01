@@ -130,8 +130,11 @@ export function generateScene(shape: SceneShape, count: number): GeneratedScene 
     const GROUPS = Math.max(1, Math.floor(Math.sqrt(count)));
     const perGroup = Math.max(1, Math.floor((count - 1) / GROUPS));
     const groups: SceneNode[] = [];
+    /** Tail of each group's chain, so the top-up pass can deepen it. */
+    const tails: SceneNode[] = [];
     let created = 1;
     let groupOrder: string | null = null;
+
     for (let g = 0; g < GROUPS && created < count; g += 1) {
       const groupId = nextId("node");
       ids.push(groupId);
@@ -151,9 +154,27 @@ export function generateScene(shape: SceneShape, count: number): GeneratedScene 
         created += 1;
       }
       groups.push(group);
+      tails.push(current);
     }
+
+    // Integer division loses up to GROUPS-1 nodes. Deepen groups round-robin
+    // until the count is exact — a generator that silently produces 9,901
+    // nodes for a "10,000-node scene" makes every table it feeds wrong.
+    let cursor = 0;
+    while (created < count && tails.length > 0) {
+      const id = nextId("node");
+      ids.push(id);
+      const child = makeNode(id, generateKeyBetween(null, null));
+      (child as unknown as Mutable).children = [];
+      const tail = tails[cursor % tails.length]!;
+      (tail as unknown as Mutable).children = [child];
+      tails[cursor % tails.length] = child;
+      cursor += 1;
+      created += 1;
+    }
+
     (root as unknown as Mutable).children = groups;
-    depth = perGroup + 1;
+    depth = perGroup + Math.ceil(count / Math.max(1, GROUPS)) + 1;
   }
 
   return { document: emptyDocument(root), ids, depth };
