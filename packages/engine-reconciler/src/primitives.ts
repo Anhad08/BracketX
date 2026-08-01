@@ -43,17 +43,44 @@ export function quadDescriptor(
 }
 
 /**
- * Parses `#RGB`, `#RRGGBB`, or `#RRGGBBAA` into linear-ish RGBA 0–1.
+ * sRGB channel to linear. IEC 61966-2-1.
+ *
+ * MirrorBackend C9 requires LINEAR values. Hex colours are sRGB — that is what
+ * a colour picker produces and what an operator pastes in. Handing sRGB values
+ * to a linear pipeline makes everything render washed out, and the failure is
+ * quiet: the graphic appears, so it looks like it works.
+ *
+ * Caught by the browser suite, not by any unit test: #0B1F3A came back from the
+ * framebuffer as #3B6283. Nothing headless could have seen it, because the
+ * error only exists once a real renderer converts linear back to sRGB for
+ * display and the value gets encoded twice.
+ */
+function srgbToLinear(channel: number): number {
+  return channel <= 0.04045
+    ? channel / 12.92
+    : Math.pow((channel + 0.055) / 1.055, 2.4);
+}
+
+/**
+ * Parses `#RGB`, `#RRGGBB`, or `#RRGGBBAA` into linear RGBA 0–1.
  *
  * SCENE_FORMAT §7 stores colours as hex strings because that is what authoring
  * tools and operators exchange. An unparseable value yields opaque magenta
  * rather than throwing: a wrong colour on air is recoverable and obvious, a
  * crash mid-show is neither.
+ *
+ * Alpha is NOT gamma-encoded and so is passed through unconverted. It is also
+ * not premultiplied here: the Three adapter takes colour and opacity as
+ * separate material inputs and premultiplies in the shader, so doing it here
+ * as well would darken every translucent surface twice. Every colour in play
+ * today is opaque, which is why this has no visible consequence yet — it needs
+ * settling when the first translucent material ships.
  */
 export function rgbaFromHex(hex: string): Rgba {
   const value = hex.trim().replace(/^#/, "");
 
-  const expand = (part: string): number => parseInt(part, 16) / 255;
+  const expand = (part: string): number =>
+    srgbToLinear(parseInt(part, 16) / 255);
 
   if (/^[0-9a-fA-F]{3}$/.test(value)) {
     return [
@@ -76,7 +103,7 @@ export function rgbaFromHex(hex: string): Rgba {
       expand(value.slice(0, 2)),
       expand(value.slice(2, 4)),
       expand(value.slice(4, 6)),
-      expand(value.slice(6, 8)),
+      parseInt(value.slice(6, 8), 16) / 255,
     ];
   }
 

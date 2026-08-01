@@ -29,6 +29,11 @@ export {
 } from "./three-backend";
 
 export {
+  createCanvasBackend,
+  type CanvasBackendOptions,
+} from "./canvas-backend";
+
+export {
   HeadlessRendererHost,
   WebGLRendererHost,
   type HostCapabilities,
