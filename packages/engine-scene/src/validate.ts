@@ -189,12 +189,70 @@ export function validateDocument(document: SceneDocument): ValidationResult {
   const assetIds = new Set((document.assets ?? []).map((a) => a.id));
   const stateIds = new Set((document.states ?? []).map((s) => s.id));
 
+  /**
+   * Names introduced by an enclosing `repeat`, and the nodes they cover.
+   *
+   * A binding inside a repeat container may reference the item name — which is
+   * deliberately NOT a document variable, because it exists once per instance
+   * and only inside that instance. Validating it against the flat document
+   * namespace would reject every collection ever authored.
+   *
+   * Collected in a prepass rather than tracked during the walk, because `walk`
+   * yields a flat sequence with no scope stack. SCENE_FORMAT §6.4.
+   */
+  const scopedNames = new Map<string, Set<string>>();
+  if (document.root) {
+    const collect = (node: SceneNode, inherited: Set<string>): void => {
+      let names = inherited;
+      if (node.repeat && typeof node.repeat.as === "string") {
+        names = new Set(inherited);
+        names.add(node.repeat.as);
+      }
+      if (names.size > 0) scopedNames.set(node.id, names);
+      for (const child of childrenOf(node)) collect(child, names);
+    };
+    collect(document.root, new Set());
+  }
+
+  /** `player.color` is in scope when `player` is. */
+  const inScope = (nodeId: string, binding: string): boolean => {
+    const names = scopedNames.get(nodeId);
+    if (names === undefined) return false;
+    const dot = binding.indexOf(".");
+    return names.has(dot > 0 ? binding.slice(0, dot) : binding);
+  };
+
   if (document.root) {
     for (const node of walk(document.root)) {
       const at = `node:${node.id}`;
+
+      if (node.repeat !== undefined) {
+        const repeat = node.repeat;
+        if (typeof repeat.source !== "string" || repeat.source.length === 0) {
+          error("repeat", at, `repeat.source must be a non-empty variable key`);
+        }
+        if (typeof repeat.as !== "string" || repeat.as.length === 0) {
+          error("repeat", at, `repeat.as must be a non-empty name`);
+        }
+        if ((node.children ?? []).length === 0) {
+          // A container with no template produces nothing, forever, silently.
+          warn("repeat", at, `repeats over "${repeat.source}" but has no template children`);
+        }
+        if (
+          repeat.limit !== undefined &&
+          (!Number.isInteger(repeat.limit) || repeat.limit < 0)
+        ) {
+          error("repeat", at, `repeat.limit must be a non-negative integer`);
+        }
+      }
+
       for (const component of node.components ?? []) {
         for (const [key, value] of Object.entries(component.props ?? {})) {
-          if (isBinding(value) && !variableKeys.has(value.$var)) {
+          if (
+            isBinding(value) &&
+            !variableKeys.has(value.$var) &&
+            !inScope(node.id, value.$var)
+          ) {
             error(
               "unresolved-binding",
               at,

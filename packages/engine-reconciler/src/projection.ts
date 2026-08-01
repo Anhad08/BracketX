@@ -39,6 +39,13 @@ import { DirtySet, type DirtyStats } from "./dirty";
 import { MirrorGraph, MirrorViolation } from "./mirror";
 import { channelForPath, localMatrixOf, resolveProps, type VariableSource } from "./resolve";
 import { quadDescriptor, rgbaFromHex } from "./primitives";
+import { ScopedVariables, dependencyKeyOf, readScoped } from "./scope";
+import {
+  expandRepeat,
+  isRepeatContainer,
+  readCollection,
+  type RepeatInstance,
+} from "./repeat";
 import type {
   CameraDescriptor,
   GeometryHandle,
@@ -66,6 +73,34 @@ export interface ProjectionReport {
 
 const IDENTITY: Mat4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
+/**
+ * Shallow equality over an item's own values.
+ *
+ * Reference equality alone is not enough: a polling data source typically
+ * rebuilds its array every tick, so every item is a fresh object even when
+ * nothing changed. Comparing own enumerable values catches that, and is cheap
+ * because production data rows are flat and small.
+ *
+ * Nested objects fall back to reference equality, which is conservative: a
+ * changed nested value with an unchanged reference is impossible for immutable
+ * data, and for mutable data the caller has already broken determinism.
+ */
+function sameItem(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (a === null || b === null) return false;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+
+  for (const key of keys) {
+    if (!Object.is(left[key], right[key])) return false;
+  }
+  return true;
+}
+
 export class Projector {
   #dependencies = new DependencyIndex();
   #cameras = new Map<string, CameraDescriptor>();
@@ -80,6 +115,23 @@ export class Projector {
    * permissive than C2 requires, and MockMirrorBackend rejected it. One
    * destroy per create, at the moment the projector stops needing it.
    */
+  /**
+   * Container id -> the identities currently instantiated, in order.
+   *
+   * Held so re-expansion can diff against what exists rather than rebuilding.
+   * A leaderboard reordering must move handles, not destroy and recreate them.
+   */
+  #repeats = new Map<string, string[]>();
+  /**
+   * Container id -> identity -> the item last resolved for it.
+   *
+   * Held so a survivor whose item did not actually change can be skipped.
+   * Without it, re-expansion re-resolves every instance and costs O(collection)
+   * on every update — measured at 0.76ms for 256 rows when one row changed,
+   * which is the O(scene) defect from Phase 2.4 wearing a different hat.
+   */
+  #repeatItems = new Map<string, Map<string, unknown>>();
+
   #rects = new Map<
     string,
     {
@@ -135,15 +187,30 @@ export class Projector {
     const before = this.#writeCount();
     let created = 0;
 
-    const visit = (node: SceneNode, parentId: string | null) => {
+    const visit = (
+      node: SceneNode,
+      parentId: string | null,
+      scope: VariableSource,
+    ) => {
       this.mirror.create(node.id, parentId, node.order);
       this.#index.set(node.id, node);
       created += 1;
-      this.#applyNodeState(node, variables);
-      for (const child of childrenOf(node)) visit(child, node.id);
+      this.#applyNodeState(node, scope);
+
+      if (isRepeatContainer(node)) {
+        // The container's children are the TEMPLATE and never render. Only the
+        // expanded instances do.
+        for (const instance of this.#expansionOf(node, scope)) {
+          const inner = new ScopedVariables(scope, node.repeat!.as, instance.item);
+          for (const child of instance.nodes) visit(child, node.id, inner);
+        }
+        return;
+      }
+
+      for (const child of childrenOf(node)) visit(child, node.id, scope);
     };
 
-    visit(document.root, null);
+    visit(document.root, null, variables);
     this.#recomputeWorld(document.root.id, IDENTITY, true, dirty);
 
     return {
@@ -221,7 +288,23 @@ export class Projector {
     const dirty = new DirtySet();
     const before = this.#writeCount();
 
-    for (const nodeId of this.#dependencies.dependentsOfAny(variableKeys)) {
+    const changed = new Set(variableKeys);
+
+    // Containers first: a collection change adds or removes nodes, and doing
+    // that after marking dirty would mark nodes that are about to be destroyed.
+    let created = 0;
+    let destroyed = 0;
+    for (const [containerId] of this.#repeats) {
+      const container = this.#index.get(containerId);
+      if (container === undefined || !isRepeatContainer(container)) continue;
+      if (!changed.has(dependencyKeyOf(container.repeat!.source))) continue;
+
+      const result = this.#reexpand(container, variables, dirty);
+      created += result.created;
+      destroyed += result.destroyed;
+    }
+
+    for (const nodeId of this.#dependencies.dependentsOfAny(changed)) {
       if (!this.mirror.has(nodeId)) continue;
       if (!this.#index.has(nodeId)) continue;
       // A binding feeds a component property, which is material-channel: it
@@ -233,8 +316,8 @@ export class Projector {
 
     return {
       operations: 0,
-      nodesCreated: 0,
-      nodesDestroyed: 0,
+      nodesCreated: created,
+      nodesDestroyed: destroyed,
       nodesReparented: 0,
       dirty: dirty.stats(),
       backendWrites: this.#writeCount() - before,
@@ -245,6 +328,8 @@ export class Projector {
     this.mirror.teardown();
     this.#dependencies.clear();
     this.#cameras.clear();
+    this.#repeats.clear();
+    this.#repeatItems.clear();
     for (const id of [...this.#rects.keys()]) this.#releaseRect(id);
     this.#index.clear();
   }
@@ -286,6 +371,8 @@ export class Projector {
         for (const id of removed) {
           this.#dependencies.clearNode(id);
           this.#cameras.delete(id);
+          this.#repeats.delete(id);
+          this.#repeatItems.delete(id);
           this.#releaseRect(id);
           this.#index.delete(id);
           dirty.forget(id);
@@ -557,6 +644,124 @@ export class Projector {
    * resource manager is content-addressed, so every rect sharing a size shares
    * one geometry, and a node that wants to scale already has a transform.
    */
+  /**
+   * Expands a container and records the identities it produced.
+   *
+   * The record is what makes re-expansion a diff instead of a rebuild.
+   */
+  #expansionOf(
+    container: SceneNode,
+    scope: VariableSource,
+  ): readonly RepeatInstance[] {
+    const repeat = container.repeat!;
+    const collection = readCollection(
+      readScoped(scope, repeat.source),
+      repeat.limit,
+    );
+    const instances = expandRepeat(container, collection, repeat.key);
+    this.#repeats.set(
+      container.id,
+      instances.map((instance) => instance.identity),
+    );
+    return instances;
+  }
+
+  /**
+   * Re-expands a container after its collection changed.
+   *
+   * Diffs by identity: instances that survive keep their handles, their GPU
+   * resources, and any animation in flight. Only genuine additions and removals
+   * touch the mirror.
+   *
+   * Returns what changed, so the caller can report it and mark dirty.
+   */
+  #reexpand(
+    container: SceneNode,
+    scope: VariableSource,
+    dirty: DirtySet,
+  ): { created: number; destroyed: number } {
+    const repeat = container.repeat!;
+    const previous = this.#repeats.get(container.id) ?? [];
+    const instances = this.#expansionOf(container, scope);
+
+    const nextIdentities = new Set(instances.map((i) => i.identity));
+    let created = 0;
+    let destroyed = 0;
+
+    // Removals first, so an identity reused at a different position does not
+    // collide with its own predecessor.
+    for (const identity of previous) {
+      if (nextIdentities.has(identity)) continue;
+      for (const child of childrenOf(container)) {
+        const instanceRootId = `${child.id}#${identity}`;
+        if (!this.mirror.has(instanceRootId)) continue;
+        for (const id of this.mirror.destroySubtree(instanceRootId)) {
+          this.#dependencies.clearNode(id);
+          this.#cameras.delete(id);
+          this.#repeats.delete(id);
+          this.#repeatItems.delete(id);
+          this.#releaseRect(id);
+          this.#index.delete(id);
+          dirty.forget(id);
+        }
+        destroyed += 1;
+      }
+    }
+
+    const surviving = new Set(previous);
+    const lastItems = this.#repeatItems.get(container.id) ?? new Map();
+    const nextItems = new Map<string, unknown>();
+
+    for (const instance of instances) {
+      nextItems.set(instance.identity, instance.item);
+      const inner = new ScopedVariables(scope, repeat.as, instance.item);
+
+      for (const node of instance.nodes) {
+        if (surviving.has(instance.identity) && this.mirror.has(node.id)) {
+          // Survivor. Re-resolve ONLY if the item's contents actually changed —
+          // its identity surviving says nothing about its values, and a data
+          // source that rebuilds its array every poll hands us new objects
+          // holding identical values.
+          //
+          // Without this check, one row changing in a 256-row list re-resolves
+          // all 256, which is O(collection) on every update.
+          if (!sameItem(lastItems.get(instance.identity), instance.item)) {
+            this.#refreshInstance(node, inner, dirty);
+          }
+          continue;
+        }
+
+        const visit = (child: SceneNode, parentId: string) => {
+          this.mirror.create(child.id, parentId, child.order);
+          this.#index.set(child.id, child);
+          this.#applyNodeState(child, inner);
+          for (const grandchild of childrenOf(child)) visit(grandchild, child.id);
+        };
+        visit(node, container.id);
+        created += 1;
+        dirty.mark("transform", node.id);
+      }
+    }
+
+    this.#repeatItems.set(container.id, nextItems);
+    if (created > 0 || destroyed > 0) dirty.mark("hierarchy", container.id);
+    return { created, destroyed };
+  }
+
+  /** Re-resolves a surviving instance subtree against its new item value. */
+  #refreshInstance(
+    node: SceneNode,
+    scope: VariableSource,
+    dirty: DirtySet,
+  ): void {
+    this.#index.set(node.id, node);
+    this.#applyNodeState(node, scope);
+    dirty.mark("material", node.id);
+    for (const child of childrenOf(node)) {
+      this.#refreshInstance(child, scope, dirty);
+    }
+  }
+
   #applyRect(node: SceneNode, props: Record<string, unknown>): void {
     const width = typeof props.width === "number" ? props.width : 1;
     const height = typeof props.height === "number" ? props.height : 1;

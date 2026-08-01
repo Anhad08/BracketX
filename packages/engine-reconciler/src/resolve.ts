@@ -20,6 +20,7 @@ import {
 } from "@bracketx/engine-scene";
 
 import type { DependencyRecorder } from "./dependencies";
+import { dependencyKeyOf, readScoped } from "./scope";
 
 /** Reads a variable's effective value. Supplied by the runtime. */
 export interface VariableSource {
@@ -40,8 +41,12 @@ export function resolveValue(
   recorder: DependencyRecorder,
 ): unknown {
   if (!isBinding(value)) return value;
-  recorder.record(value.$var);
-  return variables.read(value.$var);
+  // `player.name` depends on `player`. Recording the full dotted path would
+  // mean a collection change never matched the recorded key and the instance
+  // would silently stop updating — the index has to agree with the resolver
+  // about what a dependency is.
+  recorder.record(dependencyKeyOf(value.$var));
+  return readScoped(variables, value.$var);
 }
 
 export function resolveProps(

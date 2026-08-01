@@ -217,6 +217,40 @@ export interface NodeRuntimeMetadata {
   readonly tags?: readonly string[];
 }
 
+/**
+ * Repeats a node's children once per item in a bound collection.
+ *
+ * The capability every list needs: rosters, leaderboards, brackets, tickers,
+ * agendas, set lists, playlists. Without it each of those is application code
+ * building node trees by hand, which ENGINE_ARCHITECTURE §13 forbids.
+ *
+ * The node carrying `repeat` is the container; its `children` are the TEMPLATE,
+ * instantiated once per item. The template itself never renders.
+ *
+ * Optional with a defined default (absent = no repetition), so this is additive
+ * under SCENE_FORMAT §13 rule 4 and needs no version bump.
+ */
+export interface NodeRepeat {
+  /** Variable key holding an array. A non-array resolves to zero instances. */
+  readonly source: string;
+  /**
+   * Name the item is bound to inside each instance. Children reference it as
+   * `{ $var: "<as>.field" }`.
+   */
+  readonly as: string;
+  /**
+   * Path within each item giving stable identity, e.g. `"id"`.
+   *
+   * Identity is what lets a collection change without churning the mirror: a
+   * keyed instance that survives a reorder keeps its handle, its GPU
+   * resources, and any animation in flight. Without a key, identity falls back
+   * to index, and reordering rebuilds — correct, but wasteful and visible.
+   */
+  readonly key?: string;
+  /** Hard cap on instances. Guards a bad feed from allocating without bound. */
+  readonly limit?: number;
+}
+
 export interface SceneNode {
   readonly id: string;
   readonly name: string;
@@ -228,6 +262,8 @@ export interface SceneNode {
   readonly runtime?: NodeRuntimeMetadata;
   readonly components?: readonly Component[];
   readonly children?: readonly SceneNode[];
+  /** Instantiates `children` per item in a collection. SCENE_FORMAT §6.4. */
+  readonly repeat?: NodeRepeat;
   /** Preserved verbatim for forward compatibility. SCENE_FORMAT §13. */
   readonly [extra: string]: unknown;
 }
