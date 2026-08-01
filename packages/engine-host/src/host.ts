@@ -20,6 +20,7 @@
  */
 import {
   applyTransaction,
+  tokenMap,
   walk,
   type SceneDocument,
   type Transaction,
@@ -88,10 +89,26 @@ export interface FrameResult {
  * over defaults, which is what an operator's manual takeover means.
  */
 class RuntimeVariableSource implements VariableSource {
+  #tokens: ReadonlyMap<string, unknown> = new Map();
+
   constructor(private readonly runtime: Runtime) {}
 
+  setTokens(tokens: ReadonlyMap<string, unknown>): void {
+    this.#tokens = tokens;
+  }
+
+  /**
+   * Variables first, tokens beneath.
+   *
+   * Tokens are design defaults; a variable of the same name is a deliberate
+   * override and must win. Resolving them in one chain rather than two systems
+   * is the whole point — a second resolver would be a second source of truth
+   * (Project Alpha A6).
+   */
   read(key: string): unknown {
-    return resolveVariable(this.runtime.state, key, undefined);
+    const value = resolveVariable(this.runtime.state, key, undefined);
+    if (value !== undefined) return value;
+    return this.#tokens.get(key);
   }
 }
 
@@ -165,6 +182,7 @@ export class SceneHost {
     // command queue (ENGINE_RUNTIME §3). Drain them before projecting.
     this.runtime.tick();
 
+    this.#variables.setTokens(tokenMap(document.tokens));
     this.#document = document;
     this.#cameraNodeId = findCameraNode(document);
     this.#bindDefaultOutputFor(document);
@@ -199,6 +217,33 @@ export class SceneHost {
     this.runtime.tick();
 
     return this.reconciler.invalidateVariables([key], this.#variables);
+  }
+
+  // -------------------------------------------------------------------------
+  // States
+  // -------------------------------------------------------------------------
+
+  /**
+   * Replaces the active state set and re-projects the nodes that declare them.
+   *
+   * States are runtime, not document: activating one is not an edit, is not
+   * undoable, and is not persisted — the same rule variables follow
+   * (RFC-002 §4.3).
+   */
+  setStates(states: readonly string[]): ProjectionReport {
+    this.#assertUsable();
+    const document = this.#requireDocument("setStates");
+
+    this.reconciler.projector.setActiveStates(states);
+    // A state change can alter visibility, transform, size, and component
+    // props, so it re-resolves through the same path a full build uses. Scoped
+    // to nodes that declare the states involved would be an optimisation with
+    // no measurement behind it yet.
+    return this.reconciler.rebuild(document, this.#variables);
+  }
+
+  get activeStates(): readonly string[] {
+    return this.reconciler.projector.activeStates;
   }
 
   // -------------------------------------------------------------------------

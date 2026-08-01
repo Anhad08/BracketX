@@ -134,13 +134,35 @@ export function validateCommand(
   }
 }
 
-function isRuntimeValue(value: unknown): value is RuntimeValue {
+/**
+ * Depth cap for structured values.
+ *
+ * A malformed or hostile feed must not be able to make validation, hashing, or
+ * canonicalization recurse without bound. Production data is flat; 16 levels is
+ * far past anything real and far short of a stack overflow.
+ */
+const MAX_VALUE_DEPTH = 16;
+
+function isRuntimeValue(value: unknown, depth = 0): value is RuntimeValue {
   if (value === null) return true;
   const kind = typeof value;
   if (kind === "string" || kind === "boolean") return true;
+  // Non-finite numbers are rejected: NaN breaks equality and Infinity does not
+  // survive JSON, so neither can be part of deterministic state.
   if (kind === "number") return Number.isFinite(value as number);
+  if (depth >= MAX_VALUE_DEPTH) return false;
+
   if (Array.isArray(value)) {
-    return value.every((n) => typeof n === "number" && Number.isFinite(n));
+    return value.every((item) => isRuntimeValue(item, depth + 1));
+  }
+  if (kind === "object") {
+    // Plain objects only. A class instance, Map, Date, or anything with a
+    // prototype carries identity that canonicalization would silently drop.
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return false;
+    return Object.values(value as Record<string, unknown>).every((item) =>
+      isRuntimeValue(item, depth + 1),
+    );
   }
   return false;
 }

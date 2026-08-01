@@ -117,6 +117,25 @@ export class Reconciler {
     return report;
   }
 
+  /**
+   * Tears down and rebuilds against the same document.
+   *
+   * The recovery path, and the path a state change takes: a state can alter
+   * visibility, transform, size, and component props at once, which is a wider
+   * change than any single dirty channel expresses. Rebuilding is honest about
+   * that rather than pretending a state is a material change.
+   *
+   * NOT a live per-frame path — ENGINE_RECONCILIATION §1.3 still holds. A state
+   * change is an operator action, not a frame event.
+   */
+  rebuild(
+    document: SceneDocument,
+    variables: VariableSource = EMPTY_VARIABLES,
+  ): ProjectionReport {
+    this.teardown();
+    return this.build(document, variables);
+  }
+
   teardown(): void {
     this.projector.teardown();
     this.#document = null;

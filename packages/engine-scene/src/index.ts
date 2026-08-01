@@ -138,3 +138,41 @@ export {
   type ValidationIssue,
   type ValidationResult,
 } from "./validate";
+
+// -- Composition — Project Alpha A4/A5/A6/A8 --------------------------------
+
+export {
+  anchorPlacement,
+  inset,
+  isLayoutContainer,
+  layoutChildren,
+  sizeOf,
+  toInsets,
+  type Box,
+  type Insets,
+  type Placement,
+} from "./layout";
+
+export {
+  CompositionError,
+  applyStates,
+  declaredStates,
+  instantiateTemplate,
+  tokenMap,
+  validateTemplate,
+  validateTokens,
+  type InstantiateOptions,
+} from "./compose";
+
+export type {
+  AnchorX,
+  AnchorY,
+  LayoutMode,
+  NodeAnchor,
+  NodeLayout,
+  NodeSize,
+  NodeStateOverride,
+  SceneToken,
+  TemplateDefinition,
+  TemplateParameter,
+} from "./types";

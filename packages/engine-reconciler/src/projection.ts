@@ -22,8 +22,15 @@
  * Each is proportional to what actually changed, never to scene size.
  */
 import {
+  applyStates,
   childrenOf,
+  isLayoutContainer,
+  layoutChildren,
   setAtPath,
+  anchorPlacement,
+  sizeOf,
+  toInsets,
+  type Placement,
 
   multiply,
   walk,
@@ -132,6 +139,25 @@ export class Projector {
    */
   #repeatItems = new Map<string, Map<string, unknown>>();
 
+  /**
+   * Placements a layout container decided for its children.
+   *
+   * Computed when the container is applied and read when each child is. Build
+   * and projection both visit parents before children, so the entry is always
+   * present by the time it is needed — the ordering is a property of the
+   * traversal, not a coincidence, and #flush preserves it.
+   */
+  #placements = new Map<string, Placement>();
+
+  /**
+   * States currently active, in precedence order. Later wins.
+   *
+   * The engine assigns no meaning to any name. `enter`/`visible`/`exit` and
+   * `normal`/`warning`/`error` are equally opaque; templates declare what they
+   * mean (Project Alpha A8).
+   */
+  #activeStates: readonly string[] = [];
+
   #rects = new Map<
     string,
     {
@@ -168,6 +194,15 @@ export class Projector {
     return this.#dependencies;
   }
 
+  get activeStates(): readonly string[] {
+    return this.#activeStates;
+  }
+
+  /** Replaces the active state set. The caller re-projects. */
+  setActiveStates(states: readonly string[]): void {
+    this.#activeStates = [...states];
+  }
+
   // -------------------------------------------------------------------------
   // build — the ops-free path
   // -------------------------------------------------------------------------
@@ -199,8 +234,17 @@ export class Projector {
 
       if (isRepeatContainer(node)) {
         // The container's children are the TEMPLATE and never render. Only the
-        // expanded instances do.
-        for (const instance of this.#expansionOf(node, scope)) {
+        // expanded instances do — and if the container also lays out, it lays
+        // out those instances, which is why layout runs here rather than in
+        // applyNodeState.
+        const instances = this.#expansionOf(node, scope);
+        if (isLayoutContainer(node)) {
+          this.#computeLayout(
+            node,
+            instances.flatMap((instance) => instance.nodes),
+          );
+        }
+        for (const instance of instances) {
           const inner = new ScopedVariables(scope, node.repeat!.as, instance.item);
           for (const child of instance.nodes) visit(child, node.id, inner);
         }
@@ -330,6 +374,7 @@ export class Projector {
     this.#cameras.clear();
     this.#repeats.clear();
     this.#repeatItems.clear();
+    this.#placements.clear();
     for (const id of [...this.#rects.keys()]) this.#releaseRect(id);
     this.#index.clear();
   }
@@ -602,8 +647,38 @@ export class Projector {
     const mirror = this.mirror.require(node.id, "applyNodeState");
     const recorder = new DependencyRecorder();
 
-    mirror.localMatrix = localMatrixOf(node.transform);
-    mirror.visible = node.visible ?? true;
+    // States patch the node before anything reads it. Returns the SAME object
+    // by reference when nothing applies, so the common path costs a lookup.
+    const resolved = applyStates(node, this.#activeStates);
+
+    // A laid-out or anchored child takes its position from its container
+    // rather than from its own transform. Rotation and scale still come from
+    // the node, so a template can spin something the layout placed.
+    //
+    // Layout wins over anchor: a child of a layout container is positioned by
+    // the run it belongs to, and honouring both would place it twice.
+    const placement =
+      this.#placements.get(resolved.id) ?? this.#anchorPlacementFor(resolved);
+    mirror.localMatrix =
+      placement === undefined
+        ? localMatrixOf(resolved.transform)
+        : localMatrixOf({
+            position: [
+              placement.x,
+              placement.y,
+              resolved.transform?.position?.[2] ?? 0,
+            ],
+            rotation: resolved.transform?.rotation ?? [0, 0, 0],
+            scale: resolved.transform?.scale ?? [1, 1, 1],
+          });
+
+    mirror.visible = resolved.visible ?? true;
+
+    // A repeat container lays out its INSTANCES, not its template, so its
+    // layout runs after expansion rather than here.
+    if (isLayoutContainer(resolved) && !isRepeatContainer(resolved)) {
+      this.#computeLayout(resolved, childrenOf(resolved));
+    }
 
     const runtime = node.runtime;
     const layers = runtime?.layers ? runtime.layers.length : 1;
@@ -620,10 +695,10 @@ export class Projector {
     // Resolve every component's props so bindings are recorded, even for
     // component types this phase does not yet attach. Attaching consumes the
     // RESOLVED values, so a variable-bound width or fill drives the mesh.
-    for (const component of node.components ?? []) {
+    for (const component of resolved.components ?? []) {
       const props = resolveProps(component.props, variables, recorder);
-      if (component.type === "camera") this.#applyCamera(node);
-      else if (component.type === "rect") this.#applyRect(node, props);
+      if (component.type === "camera") this.#applyCamera(resolved);
+      else if (component.type === "rect") this.#applyRect(resolved, props);
     }
 
     this.#dependencies.set(node.id, recorder.take());
@@ -711,6 +786,15 @@ export class Projector {
     const surviving = new Set(previous);
     const lastItems = this.#repeatItems.get(container.id) ?? new Map();
     const nextItems = new Map<string, unknown>();
+
+    // The run changed, so every placement in it did. Recompute before any
+    // instance is applied, since applying reads the placement.
+    if (isLayoutContainer(container)) {
+      this.#computeLayout(
+        container,
+        instances.flatMap((instance) => instance.nodes),
+      );
+    }
 
     for (const instance of instances) {
       nextItems.set(instance.identity, instance.item);
@@ -839,6 +923,53 @@ export class Projector {
     this.#rects.delete(nodeId);
     this.backend.destroyGeometry(rect.geometry);
     this.backend.destroyMaterial(rect.material);
+  }
+
+  /**
+   * Runs a container's layout and records where each child goes.
+   *
+   * The container's box comes from its own declared size. Children do not
+   * influence it: two-way sizing needs iteration, iteration needs a convergence
+   * rule, and a convergence rule is another thing to get wrong on air.
+   */
+  /**
+   * Places an anchored node inside its parent's box.
+   *
+   * Only applies when the parent declares a size and does NOT lay its children
+   * out — a layout container has already decided where this node goes.
+   *
+   * The parent is read from the index rather than the document, because the
+   * index is what projection maintains incrementally and re-reading the
+   * document here would reintroduce the O(scene) lookup that P-001 removed.
+   */
+  #anchorPlacementFor(node: SceneNode): Placement | undefined {
+    if (node.anchor === undefined) return undefined;
+
+    const mirror = this.mirror.get(node.id);
+    if (mirror?.parentId == null) return undefined;
+
+    const parent = this.#index.get(mirror.parentId);
+    if (parent === undefined || parent.size === undefined) return undefined;
+    if (isLayoutContainer(parent)) return undefined;
+
+    return anchorPlacement(
+      node,
+      { x: 0, y: 0, width: parent.size.width, height: parent.size.height },
+      node.anchor,
+      toInsets(parent.layout?.safeArea),
+    );
+  }
+
+  #computeLayout(container: SceneNode, children: readonly SceneNode[]): void {
+    const size = sizeOf(container);
+    const placements = layoutChildren(
+      { ...container, children: [...children] },
+      { x: 0, y: 0, width: size.width, height: size.height },
+      container.layout!,
+    );
+    for (const placement of placements) {
+      this.#placements.set(placement.nodeId, placement);
+    }
   }
 
   #applyCamera(node: SceneNode): void {

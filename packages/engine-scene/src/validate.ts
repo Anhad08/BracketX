@@ -9,6 +9,7 @@
 import { isValidId } from "./ids";
 import { compareOrderKeys } from "./order";
 import { childrenOf, walk } from "./tree";
+import { validateTemplate, validateTokens } from "./compose";
 import {
   KNOWN_COMPONENT_TYPES,
   SCENE_FORMAT_ID,
@@ -183,6 +184,18 @@ export function validateDocument(document: SceneDocument): ValidationResult {
     }
     variableIds.add(variable.id);
     variableKeys.add(variable.key);
+  }
+
+  // Tokens resolve through the same chain as variables (Project Alpha A6), so
+  // a binding to one is resolvable and must not be reported as unknown.
+  for (const token of document.tokens ?? []) {
+    if (typeof token.name === "string") variableKeys.add(token.name);
+  }
+  for (const problem of validateTokens(document.tokens ?? [])) {
+    error("token", "tokens", problem);
+  }
+  for (const problem of validateTemplate(document)) {
+    error("template", "template", problem);
   }
 
   // -- References resolve --------------------------------------------------

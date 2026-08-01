@@ -24,12 +24,26 @@ import { canonicalString, hashString } from "./hash";
 import type { ClockSnapshot } from "./clock";
 
 /** Values a variable may hold at runtime. Mirrors SCENE_FORMAT §9 types. */
+/**
+ * Values a variable may hold at runtime. Mirrors SCENE_FORMAT §9 types.
+ *
+ * Structured values are permitted because a COLLECTION is a runtime value: a
+ * standings table, a match draw, a sponsor list. Data sources write arrays of
+ * records, and a repeat container reads them (Project Alpha A2). Restricting
+ * this to scalars made collections unreachable from the runtime, which the
+ * composition milestone found immediately.
+ *
+ * Constrained to JSON-shaped data on purpose. State must stay canonicalizable
+ * and hashable for determinism (ENGINE_RUNTIME §5), and anything with identity
+ * — a function, a Date, a Map — is not.
+ */
 export type RuntimeValue =
   | string
   | number
   | boolean
   | null
-  | readonly number[];
+  | readonly RuntimeValue[]
+  | { readonly [key: string]: RuntimeValue };
 
 export type PlaybackStatus = "stopped" | "playing" | "paused";
 

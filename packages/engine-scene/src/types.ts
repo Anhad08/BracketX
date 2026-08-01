@@ -251,6 +251,90 @@ export interface NodeRepeat {
   readonly limit?: number;
 }
 
+// ---------------------------------------------------------------------------
+// Composition — SCENE_FORMAT §6.5. Project Alpha A4/A5/A6/A8.
+// ---------------------------------------------------------------------------
+
+/** Intrinsic box, in world units. Layout needs a size to place a child. */
+export interface NodeSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * How a node positions itself inside its parent's box.
+ *
+ * Absolute transforms cannot survive being rendered at two resolutions, and
+ * outputs made that a normal case rather than an edge one (Project Alpha A1).
+ * An anchored node stays where it belongs on a 1920x1080 feed and a 3840x2160
+ * wall without the document knowing either number.
+ */
+export type AnchorX = "left" | "center" | "right" | "stretch";
+export type AnchorY = "top" | "middle" | "bottom" | "stretch";
+
+export interface NodeAnchor {
+  readonly x?: AnchorX;
+  readonly y?: AnchorY;
+  /** Inset from the anchored edges, in world units. */
+  readonly inset?: number | readonly [number, number, number, number];
+  /**
+   * Respect the container's safe area.
+   *
+   * Broadcast has always had title-safe margins; a projector has bezels and a
+   * phone has a notch. Same idea, so it is one flag rather than a broadcast
+   * feature.
+   */
+  readonly safe?: boolean;
+}
+
+export type LayoutMode = "horizontal" | "vertical" | "grid" | "stack";
+
+/**
+ * Positions a node's children. Auto-layout for production graphics.
+ *
+ * Every template depends on this: a scoreboard sizing to team-name length, a
+ * roster spacing evenly, a sponsor row distributing across a bar. Without it,
+ * every one of those is hand-placed coordinates that break the moment the data
+ * changes.
+ *
+ * Deliberately not a constraint solver. One pass, top-down, deterministic.
+ */
+export interface NodeLayout {
+  readonly mode: LayoutMode;
+  /** Space between children along the main axis. */
+  readonly gap?: number;
+  /** Space between rows in a grid. Falls back to `gap`. */
+  readonly rowGap?: number;
+  /** Inside the container's box: uniform, or [top, right, bottom, left]. */
+  readonly padding?: number | readonly [number, number, number, number];
+  /** Cross-axis placement of each child. */
+  readonly align?: "start" | "center" | "end" | "stretch";
+  /** Main-axis distribution of the whole run. */
+  readonly justify?: "start" | "center" | "end" | "between" | "around";
+  /** Grid only. Children flow left-to-right, wrapping every `columns`. */
+  readonly columns?: number;
+  /** Safe-area inset applied inside padding, in world units. */
+  readonly safeArea?: number | readonly [number, number, number, number];
+}
+
+/**
+ * Property overrides that apply while a state is active.
+ *
+ * The engine assigns no meaning to any state name. `enter`/`visible`/`exit` and
+ * `normal`/`warning`/`error` are equally valid, and equally opaque — they are
+ * conventions a template declares, not concepts the engine knows.
+ *
+ * Only the channels a state can meaningfully drive are overridable, which keeps
+ * state resolution O(1) per node instead of a deep merge.
+ */
+export interface NodeStateOverride {
+  readonly visible?: boolean;
+  readonly transform?: Transform;
+  readonly size?: NodeSize;
+  /** Per-component property patches, keyed by component id. */
+  readonly props?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+}
+
 export interface SceneNode {
   readonly id: string;
   readonly name: string;
@@ -264,6 +348,14 @@ export interface SceneNode {
   readonly children?: readonly SceneNode[];
   /** Instantiates `children` per item in a collection. SCENE_FORMAT §6.4. */
   readonly repeat?: NodeRepeat;
+  /** Intrinsic box. Required for a child of a layout container. §6.5. */
+  readonly size?: NodeSize;
+  /** Placement inside the parent's box. §6.5. */
+  readonly anchor?: NodeAnchor;
+  /** Positions this node's children. §6.5. */
+  readonly layout?: NodeLayout;
+  /** Overrides applied while a named state is active. §6.5. */
+  readonly states?: Readonly<Record<string, NodeStateOverride>>;
   /** Preserved verbatim for forward compatibility. SCENE_FORMAT §13. */
   readonly [extra: string]: unknown;
 }
@@ -305,6 +397,44 @@ export interface SceneState {
   readonly loop?: boolean;
 }
 
+/**
+ * Named design values. Project Alpha A6.
+ *
+ * Not a second name-to-value system — tokens resolve through the SAME chain as
+ * variables, sitting beneath them so a variable of the same name wins. A second
+ * resolver would be a second source of truth, which this project has paid for
+ * before.
+ *
+ * Dotted names are convention, not structure: `color.primary`, `space.lg`,
+ * `font.heading`. Changing one updates every template that references it.
+ */
+export interface SceneToken {
+  readonly name: string;
+  readonly value: string | number | boolean;
+  readonly description?: string;
+}
+
+/**
+ * A typed parameter a template declares. Project Alpha A4.
+ *
+ * Parameters become variables at instantiation, which is why a template needs
+ * no mechanism of its own to reach its content — it already has bindings.
+ */
+export interface TemplateParameter {
+  readonly key: string;
+  readonly type: VariableType;
+  readonly label?: string;
+  readonly default?: unknown;
+  /** A parameter with no default must be supplied at instantiation. */
+  readonly required?: boolean;
+}
+
+export interface TemplateDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly parameters: readonly TemplateParameter[];
+}
+
 export interface SceneMeta {
   readonly name: string;
   readonly description?: string;
@@ -325,5 +455,9 @@ export interface SceneDocument {
   readonly assets: readonly SceneAsset[];
   readonly root: SceneNode;
   readonly states: readonly SceneState[];
+  /** Named design values. Resolve beneath variables. §11.2. */
+  readonly tokens?: readonly SceneToken[];
+  /** Present when this document IS a template. §11.3. */
+  readonly template?: TemplateDefinition;
   readonly [extra: string]: unknown;
 }
