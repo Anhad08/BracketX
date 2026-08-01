@@ -45,6 +45,35 @@ function assertValid(key: string, label: string): void {
 }
 
 /**
+ * The shortest key strictly greater than `key`.
+ *
+ * Appending is the dominant real operation — adding a layer to a group asks
+ * for a key after the last one — and it must not make keys grow.
+ *
+ * Taking the midpoint between `key` and "after everything" costs one character
+ * per five appends, because each step covers only half the remaining digit
+ * range and then has to descend a place. Measured before this existed: 1,000
+ * sequential appends produced a 200-character key and 40,000 produced an
+ * 8,000-character key, which made sibling arrays hold O(n²) characters and
+ * every scan, comparison, and serialization pass quadratic (P-001 P1).
+ *
+ * Incrementing instead gives 61 keys per length: bump the rightmost digit that
+ * is not the maximum and drop everything after it. 40,000 appends then need
+ * four characters.
+ */
+function incrementKey(key: string): string {
+  for (let index = key.length - 1; index >= 0; index -= 1) {
+    const digit = DIGITS.indexOf(key[index]!);
+    if (digit < BASE - 1) {
+      // The incremented digit is at least 1, so the result never ends in "0".
+      return key.slice(0, index) + DIGITS[digit + 1]!;
+    }
+  }
+  // Every digit is already the maximum; extend by the smallest non-zero digit.
+  return key + DIGITS[1]!;
+}
+
+/**
  * A key strictly between `a` and `b`.
  *
  * Null `a` means "before everything"; null `b` means "after everything".
@@ -61,6 +90,8 @@ export function generateKeyBetween(
       `lower bound "${a}" must sort before upper bound "${b}"`,
     );
   }
+  // Append: any key greater than `a` is correct, so take the shortest one.
+  if (a !== null && b === null) return incrementKey(a);
   return midpoint(a ?? "", b);
 }
 

@@ -14,7 +14,13 @@
  * additive and breaks nothing.
  */
 import { getAtPath, setAtPath } from "./property-path";
-import { findNode, insertChild, parentOf, removeNode, replaceNode } from "./tree";
+import {
+  findNode,
+  parentOf,
+  removeNode,
+  replaceNode,
+  withChildInserted,
+} from "./tree";
 import type { SceneDocument, SceneNode, SceneVariable } from "./types";
 
 export class OperationError extends Error {
@@ -236,31 +242,42 @@ function requireNode(document: SceneDocument, nodeId: string): SceneNode {
  * invariant R9 (build and project must produce identical mirrors). An
  * operation must not be able to produce a document that fails validation.
  */
-function assertOrderKeyFree(
-  root: SceneNode,
-  parentId: string,
+function assertOrderKeyFreeIn(
+  parent: SceneNode,
   order: string,
   exceptNodeId?: string,
 ): void {
-  const parent = findNode(root, parentId);
-  if (!parent) return;
   for (const child of parent.children ?? []) {
     if (child.id === exceptNodeId) continue;
     if (child.order === order) {
       throw new OperationError(
         `order key "${order}" is already used by sibling "${child.id}" ` +
-          `under parent "${parentId}"`,
+          `under parent "${parent.id}"`,
       );
     }
   }
 }
 
+/**
+ * Applies `update` to one node.
+ *
+ * The existence check rides along with the replacement rather than preceding
+ * it. Calling requireNode first and then replaceNode walked the tree twice for
+ * one edit, and requireNode was 13.1% of engine-scene self time in the
+ * baseline profile (P-001 P1). The replacer only runs when the node is found,
+ * so the flag is an exact existence test, not an approximation of one.
+ */
 function updateNode(
   document: SceneDocument,
   nodeId: string,
   update: (node: SceneNode) => SceneNode,
 ): SceneDocument {
-  const root = replaceNode(document.root, nodeId, update);
+  let found = false;
+  const root = replaceNode(document.root, nodeId, (node) => {
+    found = true;
+    return update(node);
+  });
+  if (!found) throw new OperationError(`node "${nodeId}" not found`);
   if (root === null) {
     throw new OperationError(`updating "${nodeId}" removed the root`);
   }
@@ -274,22 +291,25 @@ export function applyOperation(
   switch (operation.type) {
     case "node.insert": {
       if (findNode(document.root, operation.node.id)) {
-        throw new OperationError(
-          `node "${operation.node.id}" already exists`,
-        );
+        throw new OperationError(`node "${operation.node.id}" already exists`);
       }
-      if (!findNode(document.root, operation.parentId)) {
+      // Finding the parent, checking its children for a duplicate order key,
+      // and inserting are one traversal. Previously three (P-001 P5).
+      let parentFound = false;
+      const root = replaceNode(document.root, operation.parentId, (parent) => {
+        parentFound = true;
+        assertOrderKeyFreeIn(parent, operation.node.order);
+        return withChildInserted(parent, operation.node);
+      });
+      if (!parentFound) {
         throw new OperationError(`parent "${operation.parentId}" not found`);
       }
-      assertOrderKeyFree(
-        document.root,
-        operation.parentId,
-        operation.node.order,
-      );
-      return {
-        ...document,
-        root: insertChild(document.root, operation.parentId, operation.node),
-      };
+      if (root === null) {
+        throw new OperationError(
+          `inserting "${operation.node.id}" removed the root`,
+        );
+      }
+      return { ...document, root };
     }
 
     case "node.remove": {
@@ -299,9 +319,6 @@ export function applyOperation(
 
     case "node.move": {
       const node = requireNode(document, operation.nodeId);
-      if (!findNode(document.root, operation.parentId)) {
-        throw new OperationError(`parent "${operation.parentId}" not found`);
-      }
       // Reparenting a node beneath itself would detach the subtree from the
       // root and lose it. Cheaper to reject than to detect afterwards.
       if (findNode(node, operation.parentId)) {
@@ -310,24 +327,35 @@ export function applyOperation(
         );
       }
       const detached = removeNode(document.root, operation.nodeId);
-      assertOrderKeyFree(detached, operation.parentId, operation.order);
       const moved: SceneNode = { ...node, order: operation.order };
-      return {
-        ...document,
-        root: insertChild(detached, operation.parentId, moved),
-      };
+
+      // As with insert: locating the new parent, validating its order keys,
+      // and attaching are one traversal rather than three.
+      let parentFound = false;
+      const root = replaceNode(detached, operation.parentId, (parent) => {
+        parentFound = true;
+        assertOrderKeyFreeIn(parent, operation.order);
+        return withChildInserted(parent, moved);
+      });
+      if (!parentFound) {
+        throw new OperationError(`parent "${operation.parentId}" not found`);
+      }
+      if (root === null) {
+        throw new OperationError(`moving "${operation.nodeId}" removed the root`);
+      }
+      return { ...document, root };
     }
 
     case "node.setProp":
     case "binding.clear": {
-      requireNode(document, operation.nodeId);
+      // updateNode reports a missing node itself; a separate lookup first
+      // would walk the whole tree a second time for the same answer.
       return updateNode(document, operation.nodeId, (node) =>
         setAtPath(node, operation.path, operation.value),
       );
     }
 
     case "binding.set": {
-      requireNode(document, operation.nodeId);
       return updateNode(document, operation.nodeId, (node) =>
         setAtPath(node, operation.path, { $var: operation.variableKey }),
       );
