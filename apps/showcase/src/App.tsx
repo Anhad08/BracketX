@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getScene, listGroups, type ShowcaseScene } from "./registry";
 import { captureScreenshot, downloadScreenshot } from "./engine/screenshot";
 import { DeveloperOverlay, PerformanceOverlay } from "./ui/overlays";
-import { Viewport, readPanels, type ViewportHandle } from "./ui/viewport";
+import { Panels, Viewport, type ViewportHandle } from "./ui/viewport";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -76,8 +76,6 @@ export function App() {
       update({ lastSceneId: scene.id });
     }
   }, [scene, settings.lastSceneId, update]);
-
-  const { diagnostics, metrics } = readPanels(handle.session);
 
   const onScreenshot = useCallback(() => {
     try {
@@ -179,33 +177,46 @@ export function App() {
 
             <Viewport scene={scene} settings={settings} onReady={setHandle} />
 
-            {scene.controls !== undefined && handle.session !== null && diagnostics !== null ? (
-              <section className="controls">
-                {scene.controls({
-                  send: (command) => handle.session?.send(command),
-                  variables: Object.fromEntries(
-                    handle.session.host.runtime.state.variables,
-                  ),
-                  frame: diagnostics.frame,
-                  playing: diagnostics.playing,
-                  activeStates: handle.session.host.activeStates,
-                })}
-              </section>
+            {scene.controls !== undefined ? (
+              <Panels
+                session={handle.session}
+                developer={false}
+                performance={false}
+                render={({ diagnostics }) => (
+                  <section className="controls">
+                    {scene.controls!({
+                      send: (command) => handle.session?.send(command),
+                      edit: (transaction) => handle.session?.edit(transaction),
+                      variables: Object.fromEntries(
+                        handle.session!.host.runtime.state.variables,
+                      ),
+                      frame: diagnostics.frame,
+                      playing: diagnostics.playing,
+                      activeStates: handle.session!.host.activeStates,
+                    })}
+                  </section>
+                )}
+              />
             ) : null}
           </>
         )}
       </main>
 
-      {(settings.developerOverlay || settings.performanceOverlay) &&
-      diagnostics !== null &&
-      metrics !== null ? (
+      {settings.developerOverlay || settings.performanceOverlay ? (
         <aside className="panels">
-          {settings.performanceOverlay ? (
-            <PerformanceOverlay metrics={metrics} diagnostics={diagnostics} />
-          ) : null}
-          {settings.developerOverlay ? (
-            <DeveloperOverlay diagnostics={diagnostics} />
-          ) : null}
+          <Panels
+            session={handle.session}
+            developer={settings.developerOverlay}
+            performance={settings.performanceOverlay}
+            render={({ diagnostics, metrics, developer, performance }) => (
+              <>
+                {performance ? (
+                  <PerformanceOverlay metrics={metrics} diagnostics={diagnostics} />
+                ) : null}
+                {developer ? <DeveloperOverlay diagnostics={diagnostics} /> : null}
+              </>
+            )}
+          />
         </aside>
       ) : null}
     </div>

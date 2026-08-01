@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createCanvasBackend } from "@bracketx/engine-render-three";
 
 import { ShowcaseSession } from "../engine/session";
@@ -20,16 +20,6 @@ export interface ViewportHandle {
   readonly canvas: HTMLCanvasElement | null;
 }
 
-/**
- * Overlays sample on a timer, not per frame.
- *
- * Re-rendering a React tree sixty times a second to display numbers would make
- * the tool the thing that drops frames, and the measurements would then be
- * measuring the measurement. Ten hertz is faster than an eye reads a changing
- * number.
- */
-const SAMPLE_INTERVAL_MS = 100;
-
 export function Viewport({
   scene,
   settings,
@@ -42,7 +32,6 @@ export function Viewport({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sessionRef = useRef<ShowcaseSession | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [, forceUpdate] = useState(0);
 
   const publish = useCallback(() => {
     onReady({ session: sessionRef.current, canvas: canvasRef.current });
@@ -54,7 +43,6 @@ export function Viewport({
 
     let session: ShowcaseSession | null = null;
     let backend: ReturnType<typeof createCanvasBackend> | null = null;
-    let timer: number | undefined;
 
     try {
       const document_ = scene.build();
@@ -87,10 +75,6 @@ export function Viewport({
 
       sessionRef.current = session;
       publish();
-
-      // Sampling drives the overlays. The session records metrics on every
-      // frame regardless; this only decides how often the DOM sees them.
-      timer = window.setInterval(() => forceUpdate((n) => n + 1), SAMPLE_INTERVAL_MS);
     } catch (cause) {
       // WebGL can be unavailable entirely — a locked-down browser, a headless
       // environment, a GPU lost at startup. Say so rather than showing an empty
@@ -99,7 +83,6 @@ export function Viewport({
     }
 
     return () => {
-      if (timer !== undefined) window.clearInterval(timer);
       session?.dispose();
       backend?.dispose();
       sessionRef.current = null;
@@ -128,13 +111,55 @@ export function Viewport({
   );
 }
 
-/** Reads live numbers out of a session for the overlays. */
-export function readPanels(session: ShowcaseSession | null): {
-  diagnostics: Diagnostics | null;
-  metrics: Metrics | null;
-} {
-  if (session === null || session.disposed) {
-    return { diagnostics: null, metrics: null };
-  }
-  return { diagnostics: session.diagnostics(), metrics: session.metrics() };
+/**
+ * The overlay panels, with their own refresh.
+ *
+ * The timer lives HERE rather than in the shell or the viewport, and that
+ * placement is the whole point: an earlier version ticked in the viewport,
+ * which re-rendered the viewport while the overlays rendered in the shell — so
+ * every number froze at the last shell render. The tool reported "1 frame" for
+ * a session that was rendering sixty a second, and the only reason it was
+ * caught is that the diagnostics disagreed with the picture.
+ *
+ * Scoped to the panels so a refresh does not re-render the canvas host.
+ */
+export function Panels({
+  session,
+  developer,
+  performance: showPerformance,
+  render,
+}: {
+  session: ShowcaseSession | null;
+  developer: boolean;
+  performance: boolean;
+  render: (panels: {
+    diagnostics: Diagnostics;
+    metrics: Metrics;
+    developer: boolean;
+    performance: boolean;
+  }) => ReactNode;
+}) {
+  const [, tick] = useState(0);
+
+  useEffect(() => {
+    if (session === null) return;
+    // 10Hz. Measured: a diagnostics read costs 0.226ms against a 0.0007ms
+    // frame, so sampling per frame would make the tool the thing that drops
+    // frames. Faster than an eye reads a changing number.
+    const timer = window.setInterval(() => tick((n) => n + 1), 100);
+    return () => window.clearInterval(timer);
+  }, [session]);
+
+  if (session === null || session.disposed) return null;
+
+  return (
+    <>
+      {render({
+        diagnostics: session.diagnostics(),
+        metrics: session.metrics(),
+        developer,
+        performance: showPerformance,
+      })}
+    </>
+  );
 }

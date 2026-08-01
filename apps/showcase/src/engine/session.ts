@@ -27,6 +27,7 @@ import {
   type SessionSnapshot,
 } from "@bracketx/engine-host";
 import type { MirrorBackend } from "@bracketx/engine-reconciler";
+import type { Transaction } from "@bracketx/engine-scene";
 
 import type { ShowcaseScene } from "../registry";
 import { MetricsRecorder, type Metrics } from "./metrics";
@@ -127,10 +128,16 @@ export class ShowcaseSession {
     }
   }
 
-  /** The only path from a control to the engine. */
+  /** Runtime state. Not undoable, not persisted (RFC-002 §4.3). */
   send(command: LiveCommand): void {
     if (this.#disposed) return;
     this.host.applyLive(command);
+  }
+
+  /** Document state. Undoable and persisted — the other mutation path. */
+  edit(transaction: Transaction): void {
+    if (this.#disposed) return;
+    this.host.apply(transaction);
   }
 
   /** Advances one frame and records its metrics. */

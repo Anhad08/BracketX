@@ -10,8 +10,13 @@
  * catch projection's mistakes.
  */
 import {
+  anchorPlacement,
   childrenOf,
+  isLayoutContainer,
+  layoutChildren,
   multiply,
+  sizeOf,
+  toInsets,
   type Mat4,
   type SceneDocument,
   type SceneNode,
@@ -59,6 +64,60 @@ export function verifyConsistency(
   document: SceneDocument,
 ): ConsistencyResult {
   const issues: ConsistencyIssue[] = [];
+
+  /** Placements a layout container decided, by child id. */
+  const placements = new Map<string, { x: number; y: number }>();
+  /** Parent of each node, for anchor resolution. */
+  const parents = new Map<string, SceneNode>();
+
+  const collectPlacements = (node: SceneNode): void => {
+    for (const child of childrenOf(node)) parents.set(child.id, node);
+
+    // A repeat container lays out INSTANCES, whose set is data-dependent and
+    // not present in the document. Its children are skipped rather than
+    // mis-derived from the template.
+    if (isLayoutContainer(node) && node.repeat === undefined) {
+      const size = sizeOf(node);
+      for (const placement of layoutChildren(
+        node,
+        { x: 0, y: 0, width: size.width, height: size.height },
+        node.layout!,
+      )) {
+        placements.set(placement.nodeId, placement);
+      }
+    }
+    for (const child of childrenOf(node)) collectPlacements(child);
+  };
+  collectPlacements(document.root);
+
+  /** Where the document says a node sits, layout and anchors included. */
+  const expectedLocalMatrix = (node: SceneNode, parentId: string | null): Mat4 => {
+    let placed = placements.get(node.id);
+
+    if (placed === undefined && node.anchor !== undefined && parentId !== null) {
+      const parent = parents.get(node.id);
+      if (
+        parent !== undefined &&
+        parent.size !== undefined &&
+        !isLayoutContainer(parent)
+      ) {
+        placed = anchorPlacement(
+          node,
+          { x: 0, y: 0, width: parent.size.width, height: parent.size.height },
+          node.anchor,
+          toInsets(parent.layout?.safeArea),
+        );
+      }
+    }
+
+    if (placed === undefined) return localMatrixOf(node.transform);
+
+    return localMatrixOf({
+      position: [placed.x, placed.y, node.transform?.position?.[2] ?? 0],
+      rotation: node.transform?.rotation ?? [0, 0, 0],
+      scale: node.transform?.scale ?? [1, 1, 1],
+    });
+  };
   const report = (code: string, nodeId: string | null, message: string) =>
     issues.push({ code, nodeId, message });
 
@@ -177,7 +236,17 @@ export function verifyConsistency(
       }
     }
 
-    const expectedLocal = localMatrixOf(node.transform);
+    // A node placed by its parent's layout, or by its own anchor, does not take
+    // its position from its own transform — so re-deriving from the transform
+    // alone would report every laid-out node as wrong.
+    //
+    // The verifier re-derives the PLACEMENT instead, calling the same public
+    // layout functions the projector does. That is weaker than an independent
+    // reimplementation and stronger than skipping: a projector that forgets to
+    // apply layout is still caught, though a bug inside layoutChildren itself
+    // would be agreed with. Layout's own arithmetic is covered by its unit
+    // tests, which is the right place for it.
+    const expectedLocal = expectedLocalMatrix(node, parentId);
     if (!matricesEqual(mirrorNode.localMatrix, expectedLocal)) {
       report("localMatrix", node.id, "local matrix does not match the document");
     }

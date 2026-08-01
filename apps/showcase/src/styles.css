@@ -130,3 +130,38 @@ main { display: flex; flex-direction: column; min-width: 0; padding: 16px; gap: 
 .placeholder { margin: auto; text-align: center; color: var(--dim); max-width: 380px; }
 .placeholder h2 { color: var(--text); }
 code { background: #21262d; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+/* Controls */
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim); }
+.control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.control-button {
+  background: #21262d; border: 1px solid var(--line); border-radius: 5px;
+  color: var(--text); padding: 5px 10px; cursor: pointer; font: inherit;
+}
+.control-button:hover { background: #2b3138; }
+.control-button:disabled { opacity: 0.4; cursor: default; }
+.control-button.primary { border-color: var(--accent); color: var(--accent); }
+.control-button.danger { border-color: #a33; color: #ff8888; }
+.control-choice { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.control-choice button {
+  background: #1b2028; border: 0; border-right: 1px solid var(--line);
+  color: var(--dim); padding: 5px 9px; cursor: pointer; font: inherit;
+}
+.control-choice button:last-child { border-right: 0; }
+.control-choice button.active { background: #1f6feb33; color: var(--accent); }
+.control-slider { display: inline-flex; align-items: center; gap: 7px; }
+.control-slider input { width: 120px; }
+.control-value { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 44px; }
+.control-swatches { display: inline-flex; gap: 4px; }
+.control-swatches button {
+  width: 22px; height: 22px; border-radius: 5px;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+}
+.control-swatches button.active { border-color: var(--text); }
+.control-text {
+  background: #0d1117; border: 1px solid var(--line); border-radius: 5px;
+  color: var(--text); padding: 5px 8px; font: inherit; min-width: 160px;
+}
+.control-toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.controls { gap: 16px; align-items: flex-start; }

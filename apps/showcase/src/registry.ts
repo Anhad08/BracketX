@@ -10,7 +10,7 @@
  * its controls. Nothing else.
  */
 import type { ReactNode } from "react";
-import type { SceneDocument } from "@bracketx/engine-scene";
+import type { SceneDocument, Transaction } from "@bracketx/engine-scene";
 import type { LiveCommand } from "@bracketx/engine-host";
 
 export class RegistryError extends Error {
@@ -31,6 +31,19 @@ export interface SceneControlContext {
    * engine API finding, not a reason for an escape hatch.
    */
   readonly send: (command: LiveCommand) => void;
+  /**
+   * Applies a document EDIT.
+   *
+   * The other mutation path, and deliberately distinct from `send`. RFC-002 §4.3
+   * splits them: operations change the document and are undoable and persisted;
+   * commands change runtime state and are neither. A scene that changes a layout
+   * mode is editing the document; one that changes a score is not.
+   *
+   * Both are public engine APIs. Exposing only commands would have made the
+   * layout scene impossible to build honestly, which is itself a useful thing
+   * for the showcase to have surfaced.
+   */
+  readonly edit: (transaction: Transaction) => void;
   /** Current values, for controls that display as well as set. */
   readonly variables: Readonly<Record<string, unknown>>;
   readonly frame: number;

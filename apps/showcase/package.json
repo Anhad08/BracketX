@@ -10,7 +10,8 @@
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
-    "bench": "vitest bench --run"
+    "bench": "vitest bench --run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@bracketx/engine-host": "workspace:*",
@@ -30,6 +31,7 @@
     "eslint": "^9.39.1",
     "typescript": "5.9.2",
     "vite": "^7.3.6",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@playwright/test": "^1.62.1"
   }
 }
