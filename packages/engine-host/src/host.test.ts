@@ -81,7 +81,9 @@ describe("load", () => {
 
   it("takes the output size from the document", () => {
     host.load(makeDemoScene({ width: 1280, height: 720 }));
-    expect(host.size).toEqual({ width: 1280, height: 720 });
+    const [output] = host.outputs;
+    expect(output!.width).toBe(1280);
+    expect(output!.height).toBe(720);
   });
 
   it("finds the camera deterministically", () => {
@@ -210,8 +212,8 @@ describe("renderFrame", () => {
     const result = host.renderFrame(0);
 
     expect(result.drawn).toBe(true);
-    expect(result.camera).toBe(host.activeCamera());
-    expect(host.framesRendered).toBe(1);
+    expect(result.rendered).toEqual(["default"]);
+    expect(host.submissions).toBe(1);
   });
 
   it("advances the clock from host-supplied wall time", () => {
@@ -237,7 +239,7 @@ describe("renderFrame", () => {
 
     const result = host.renderFrame(0);
     expect(result.drawn).toBe(false);
-    expect(result.camera).toBeNull();
+    expect(result.missed).toEqual(["default"]);
   });
 
   it("refuses to render before load", () => {

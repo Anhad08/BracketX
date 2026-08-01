@@ -38,6 +38,13 @@ import {
   type VariableSource,
 } from "@bracketx/engine-reconciler";
 
+import {
+  OutputSet,
+  type OutputDescriptor,
+  type OutputStats,
+  type ResolvedOutput,
+} from "./output";
+
 export class HostError extends Error {
   constructor(message: string) {
     super(message);
@@ -46,22 +53,31 @@ export class HostError extends Error {
 }
 
 export interface SceneHostOptions {
-  /** Output size in pixels. Defaults to the document's world output. */
-  readonly width?: number;
-  readonly height?: number;
   /**
-   * Clear colour. Defaults to fully transparent, because broadcast output
-   * composites over live video — an opaque default is a black hole on air.
+   * Bind a default output sized from the document on load.
+   *
+   * On by default: the overwhelmingly common case is one scene to one surface,
+   * and requiring an explicit bind for it would be ceremony. Set false when the
+   * caller manages outputs itself — a render farm, a multi-surface show.
    */
-  readonly clearColor?: readonly [number, number, number, number];
+  readonly defaultOutput?: boolean;
   /** Re-verify mirror consistency after every projection. Debug builds only. */
   readonly verify?: boolean;
 }
 
+/** The id given to the output bound automatically on load. */
+export const DEFAULT_OUTPUT_ID = "default";
+
 export interface FrameResult {
   readonly frame: number;
+  /** True when at least one output was drawn. */
   readonly drawn: boolean;
-  readonly camera: CameraHandle | null;
+  /** Outputs submitted this frame, in bind order. */
+  readonly rendered: readonly string[];
+  /** Outputs skipped by cadence. Not a fault. */
+  readonly skipped: readonly string[];
+  /** Outputs that resolved no camera. A fault, and reported as one. */
+  readonly missed: readonly string[];
 }
 
 /**
@@ -86,11 +102,11 @@ export class SceneHost {
   #document: SceneDocument | null = null;
   #variables: RuntimeVariableSource;
   #cameraNodeId: string | null = null;
-  #width: number;
-  #height: number;
-  #clearColor: readonly [number, number, number, number];
+  #outputs = new OutputSet();
+  #bindDefaultOutput: boolean;
   #disposed = false;
   #framesRendered = 0;
+  #submissions = 0;
 
   constructor(
     private readonly backend: MirrorBackend,
@@ -101,17 +117,21 @@ export class SceneHost {
       verifyAfterEachProjection: options.verify ?? false,
     });
     this.#variables = new RuntimeVariableSource(this.runtime);
-    this.#width = options.width ?? 1920;
-    this.#height = options.height ?? 1080;
-    this.#clearColor = options.clearColor ?? [0, 0, 0, 0];
+    this.#bindDefaultOutput = options.defaultOutput ?? true;
   }
 
   get document(): SceneDocument | null {
     return this.#document;
   }
 
+  /** Frames the host advanced. Not the number of draws — see `submissions`. */
   get framesRendered(): number {
     return this.#framesRendered;
+  }
+
+  /** Total draws across all outputs. Exceeds framesRendered when multi-output. */
+  get submissions(): number {
+    return this.#submissions;
   }
 
   /** The node whose camera is used for rendering, if the scene has one. */
@@ -146,8 +166,8 @@ export class SceneHost {
     this.runtime.tick();
 
     this.#document = document;
-    this.#applyOutputSize(document);
     this.#cameraNodeId = findCameraNode(document);
+    this.#bindDefaultOutputFor(document);
 
     return this.reconciler.build(document, this.#variables);
   }
@@ -225,23 +245,86 @@ export class SceneHost {
     this.#requireDocument("renderFrame");
 
     this.runtime.tick(wallMs);
+    this.#framesRendered += 1;
 
-    const camera = this.activeCamera();
-    if (camera === null) {
-      // A scene with no camera is a legitimate intermediate state while
-      // authoring. Refusing to draw is correct; throwing would not be.
-      return { frame: this.runtime.clock.frame, drawn: false, camera: null };
+    const frame = this.runtime.clock.frame;
+    const rendered: string[] = [];
+    const skipped: string[] = [];
+    const missed: string[] = [];
+
+    // Bind order, deliberately. Two outputs sharing a render target must
+    // produce the same result every run; Map iteration order is the only
+    // thing standing between that and "usually correct".
+    for (const output of this.#outputs.list()) {
+      if (!this.#outputs.drawsOn(output, frame)) {
+        this.#outputs.recordSkipped(output.id);
+        skipped.push(output.id);
+        continue;
+      }
+
+      const camera = this.cameraFor(output);
+      if (camera === null) {
+        // A scene with no camera is a legitimate state while authoring, and an
+        // output pointed at a camera that has gone away is an operator error.
+        // Neither should throw mid-show; both are counted and reported.
+        this.#outputs.recordMissed(output.id);
+        missed.push(output.id);
+        continue;
+      }
+
+      this.backend.render(camera, {
+        target: output.target,
+        viewport: { width: output.width, height: output.height },
+        clearColor: output.clearColor,
+        layerMask: output.layerMask,
+      } satisfies RenderOptions);
+
+      this.#outputs.recordRendered(output.id);
+      this.#submissions += 1;
+      rendered.push(output.id);
     }
 
-    this.backend.render(camera, {
-      target: null,
-      viewport: { width: this.#width, height: this.#height },
-      clearColor: this.#clearColor,
-      layerMask: 0xffffffff,
-    } satisfies RenderOptions);
+    return { frame, drawn: rendered.length > 0, rendered, skipped, missed };
+  }
 
-    this.#framesRendered += 1;
-    return { frame: this.runtime.clock.frame, drawn: true, camera };
+  // -------------------------------------------------------------------------
+  // Outputs
+  // -------------------------------------------------------------------------
+
+  /** Binds an output, or rebinds one in place, preserving its counters. */
+  bindOutput(descriptor: OutputDescriptor): ResolvedOutput {
+    this.#assertUsable();
+    return this.#outputs.bind(descriptor);
+  }
+
+  /** Returns false when nothing was bound under that id. */
+  unbindOutput(id: string): boolean {
+    this.#assertUsable();
+    return this.#outputs.unbind(id);
+  }
+
+  /** Bound outputs, in bind order. */
+  get outputs(): readonly ResolvedOutput[] {
+    return this.#outputs.list();
+  }
+
+  outputStats(): readonly OutputStats[] {
+    return this.#outputs.stats();
+  }
+
+  /**
+   * The camera an output draws through.
+   *
+   * An output may name its own camera node — that is how a preview differs
+   * from a programme feed, and how a virtual-production texture sees the scene
+   * from somewhere else. Omitting it follows the scene's active camera.
+   */
+  cameraFor(output: ResolvedOutput): CameraHandle | null {
+    const nodeId = output.cameraNodeId ?? this.#cameraNodeId;
+    if (nodeId === null) return null;
+    const node = this.reconciler.mirror.get(nodeId);
+    if (node === undefined) return null;
+    return node.attachment.kind === "camera" ? node.attachment.camera : null;
   }
 
   /** The camera handle for the active camera node, if it has one attached. */
@@ -266,21 +349,25 @@ export class SceneHost {
   }
 
   /**
-   * Resizes the output.
+   * Resizes an output. Defaults to the one bound on load.
    *
-   * Only records the size — it travels to the backend as RenderOptions.viewport
-   * on the next frame. MirrorBackend has no setSize, deliberately: the surface
-   * being drawn into belongs to whoever created it, and a backend that owned
-   * canvas sizing could not render into a texture or an offscreen target.
+   * Size lives on the output, not the host: two outputs of different sizes is
+   * the normal case, and a host-level size could not express it. It reaches the
+   * backend as RenderOptions.viewport on the next frame — MirrorBackend has no
+   * setSize, deliberately, because the surface being drawn into belongs to
+   * whoever created it.
    */
-  setSize(width: number, height: number): void {
+  setOutputSize(
+    width: number,
+    height: number,
+    id: string = DEFAULT_OUTPUT_ID,
+  ): void {
     this.#assertUsable();
-    this.#width = width;
-    this.#height = height;
-  }
-
-  get size(): { width: number; height: number } {
-    return { width: this.#width, height: this.#height };
+    const existing = this.#outputs.get(id);
+    if (existing === undefined) {
+      throw new HostError(`setOutputSize: no output bound as "${id}"`);
+    }
+    this.#outputs.bind({ ...existing, width, height });
   }
 
   // -------------------------------------------------------------------------
@@ -292,18 +379,29 @@ export class SceneHost {
     if (this.#document !== null) this.reconciler.teardown();
     this.#document = null;
     this.#cameraNodeId = null;
+    this.#outputs.clear();
     this.#disposed = true;
   }
 
   // -------------------------------------------------------------------------
 
-  /** The document declares its own output resolution — SCENE_FORMAT §4. */
-  #applyOutputSize(document: SceneDocument): void {
+  /**
+   * Binds the default output from the document's declared resolution.
+   *
+   * SCENE_FORMAT §4 makes the document state its own output size, so the
+   * common single-surface case needs no configuration. Rebinding preserves
+   * counters, so reloading a document does not reset an output's telemetry.
+   */
+  #bindDefaultOutputFor(document: SceneDocument): void {
+    if (!this.#bindDefaultOutput) return;
+    if (this.#outputs.has(DEFAULT_OUTPUT_ID)) return;
+
     const output = document.world?.output;
-    if (output) {
-      this.#width = output.width;
-      this.#height = output.height;
-    }
+    this.#outputs.bind({
+      id: DEFAULT_OUTPUT_ID,
+      width: output?.width ?? 1920,
+      height: output?.height ?? 1080,
+    });
   }
 
   #requireDocument(operation: string): SceneDocument {

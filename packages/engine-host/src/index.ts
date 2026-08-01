@@ -14,9 +14,19 @@ export {
   SceneHost,
   HostError,
   findCameraNode,
+  DEFAULT_OUTPUT_ID,
   type FrameResult,
   type SceneHostOptions,
 } from "./host";
+
+export {
+  OutputSet,
+  OutputError,
+  resolveOutput,
+  type OutputDescriptor,
+  type OutputStats,
+  type ResolvedOutput,
+} from "./output";
 
 export {
   FrameLoop,
