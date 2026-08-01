@@ -336,6 +336,39 @@ against.
 6. [ADR-006](./ARCHITECTURE.md#adr-006) is superseded by a new ADR recording the
    format decision and the G1/G2 answers.
 
+### Tracked robustness task — R-001: traversal depth ceiling
+
+**Status:** Open. **Scheduled:** before any release-quality milestone.
+**Blocks:** nothing in Phase 2.6. **Must not slip past:** Phase 6 (live).
+
+Every traversal in `engine-scene` recurses once per hierarchy level and throws
+`RangeError` past a hard depth, measured by binary search in
+`limits.perf.ts` during [P-001](./ENGINE_SCENE_PERFORMANCE_REPORT.md):
+
+| Function | Max depth | | Function | Max depth |
+| --- | --- | --- | --- | --- |
+| `validateDocument` | ~1,344 | | `countNodes` | ~3,520 |
+| `serialize` | ~1,520 | | `walk` | ~4,416 |
+| `canonicalize` | ~1,728 | | `pathToNode` | ~6,080 |
+| `replaceNode` | ~7,168 | | `findNode` | ~8,832 |
+
+The binding limit is ~1,344. **A scene too deep to validate is also too deep to
+save**, and it fails as a crash rather than as degradation.
+
+This is a correctness and robustness defect, not a performance one, which is
+why P-001 deliberately did not fix it — converting eight traversals to explicit
+stacks is a mechanical change deserving its own commit and its own tests rather
+than riding along inside a performance initiative.
+
+No hand-authored scene is likely to reach 1,344 levels. A programmatically
+generated one — an importer, a procedural template, a badly-formed third-party
+document — is not, and an engine should refuse such a document with a specific
+error rather than crash on save.
+
+**Definition of done:** every `engine-scene` traversal uses an explicit stack;
+a depth-100,000 document validates, serializes, and round-trips; a depth limit,
+if one is kept, is a documented validation error rather than a `RangeError`.
+
 ---
 
 ## Phase 3 — Rendering Engine

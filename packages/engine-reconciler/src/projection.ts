@@ -38,7 +38,14 @@ import { DependencyIndex, DependencyRecorder } from "./dependencies";
 import { DirtySet, type DirtyStats } from "./dirty";
 import { MirrorGraph, MirrorViolation } from "./mirror";
 import { channelForPath, localMatrixOf, resolveProps, type VariableSource } from "./resolve";
-import type { CameraDescriptor, MirrorBackend } from "./mirror-backend";
+import { quadDescriptor, rgbaFromHex } from "./primitives";
+import type {
+  CameraDescriptor,
+  GeometryHandle,
+  MaterialDescriptor,
+  MaterialHandle,
+  MirrorBackend,
+} from "./mirror-backend";
 
 export class ProjectionError extends Error {
   constructor(message: string) {
@@ -62,6 +69,27 @@ const IDENTITY: Mat4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 export class Projector {
   #dependencies = new DependencyIndex();
   #cameras = new Map<string, CameraDescriptor>();
+  /**
+   * Rect state per node: the props last applied, and the resource handles this
+   * projector OWNS for them.
+   *
+   * The handles are held rather than released after attaching because
+   * MirrorBackend C2 puts lifetime on the caller — the backend frees on
+   * destroy*, not when an attachment goes away. Releasing early happened to
+   * work against ThreeMirrorBackend, whose reference counting is more
+   * permissive than C2 requires, and MockMirrorBackend rejected it. One
+   * destroy per create, at the moment the projector stops needing it.
+   */
+  #rects = new Map<
+    string,
+    {
+      width: number;
+      height: number;
+      fill: string;
+      geometry: GeometryHandle;
+      material: MaterialHandle;
+    }
+  >();
   /**
    * id -> current document node.
    *
@@ -217,6 +245,7 @@ export class Projector {
     this.mirror.teardown();
     this.#dependencies.clear();
     this.#cameras.clear();
+    for (const id of [...this.#rects.keys()]) this.#releaseRect(id);
     this.#index.clear();
   }
 
@@ -257,6 +286,7 @@ export class Projector {
         for (const id of removed) {
           this.#dependencies.clearNode(id);
           this.#cameras.delete(id);
+          this.#releaseRect(id);
           this.#index.delete(id);
           dirty.forget(id);
         }
@@ -501,13 +531,109 @@ export class Projector {
     }
 
     // Resolve every component's props so bindings are recorded, even for
-    // component types this phase does not yet attach.
+    // component types this phase does not yet attach. Attaching consumes the
+    // RESOLVED values, so a variable-bound width or fill drives the mesh.
     for (const component of node.components ?? []) {
-      resolveProps(component.props, variables, recorder);
+      const props = resolveProps(component.props, variables, recorder);
       if (component.type === "camera") this.#applyCamera(node);
+      else if (component.type === "rect") this.#applyRect(node, props);
     }
 
     this.#dependencies.set(node.id, recorder.take());
+  }
+
+  /**
+   * Attaches a mesh for a `rect` component. SCENE_FORMAT §7.
+   *
+   * A rect is the first component that produces pixels, and it is deliberately
+   * the first one wired: it needs no external asset, so a scene that renders
+   * one is a scene the engine can draw entirely from its own format. A
+   * lower-third background is exactly this.
+   *
+   * Dimensions are baked into the quad rather than applied as a mesh scale.
+   * A scale would have needed a new MirrorBackend method, and the boundary is
+   * frozen (ADR-013) — extending it for author convenience is exactly the kind
+   * of change the freeze exists to prevent. Baking costs nothing here: the
+   * resource manager is content-addressed, so every rect sharing a size shares
+   * one geometry, and a node that wants to scale already has a transform.
+   */
+  #applyRect(node: SceneNode, props: Record<string, unknown>): void {
+    const width = typeof props.width === "number" ? props.width : 1;
+    const height = typeof props.height === "number" ? props.height : 1;
+    const fill = typeof props.fill === "string" ? props.fill : "#FFFFFF";
+
+    const material: MaterialDescriptor = {
+      kind: "unlit",
+      color: rgbaFromHex(fill),
+      // Broadcast graphics composite over live video, so alpha is the norm.
+      transparent: true,
+      doubleSided: true,
+    };
+
+    const previous = this.#rects.get(node.id);
+    if (
+      previous !== undefined &&
+      previous.width === width &&
+      previous.height === height &&
+      previous.fill === fill
+    ) {
+      return;
+    }
+
+    if (previous !== undefined) {
+      const sizeChanged =
+        previous.width !== width || previous.height !== height;
+
+      if (!sizeChanged) {
+        // Colour only. Update in place so the handle stays stable — recreating
+        // would free and reallocate a GPU resource to change a colour.
+        this.backend.updateMaterial(previous.material, material);
+        this.#rects.set(node.id, { ...previous, fill });
+        return;
+      }
+      // The quad's dimensions are baked in, so a resize needs new geometry.
+      this.#releaseRect(node.id);
+    }
+
+    const geometry = this.backend.createGeometry(quadDescriptor(width, height));
+    if (!geometry.ok) {
+      // Refusing over budget is the documented behaviour (ENGINE_RUNTIME §4.4).
+      // The node survives unattached rather than the show stopping.
+      return;
+    }
+    const materialHandle = this.backend.createMaterial(material);
+    if (!materialHandle.ok) {
+      this.backend.destroyGeometry(geometry.value);
+      return;
+    }
+
+    this.mirror.setAttachment(node.id, {
+      kind: "mesh",
+      geometry: geometry.value,
+      material: materialHandle.value,
+    });
+
+    this.#rects.set(node.id, {
+      width,
+      height,
+      fill,
+      geometry: geometry.value,
+      material: materialHandle.value,
+    });
+  }
+
+  /**
+   * Frees the resources a rect owned. Safe to call for a node without one.
+   *
+   * Every create* in #applyRect is matched here exactly once, which is what
+   * MirrorBackend C2 requires of a caller.
+   */
+  #releaseRect(nodeId: string): void {
+    const rect = this.#rects.get(nodeId);
+    if (rect === undefined) return;
+    this.#rects.delete(nodeId);
+    this.backend.destroyGeometry(rect.geometry);
+    this.backend.destroyMaterial(rect.material);
   }
 
   #applyCamera(node: SceneNode): void {

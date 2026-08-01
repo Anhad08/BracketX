@@ -37,6 +37,18 @@ export const ENGINE_PACKAGES = {
     allow: ["@bracketx/engine-scene", "@bracketx/engine-runtime"],
   },
 
+  "@bracketx/engine-host": {
+    layer: "engine-host",
+    // The COMPOSITION ROOT. The only package that may know both the reconciler
+    // and a concrete frame loop. Deliberately NOT allowed to import a backend:
+    // it takes a MirrorBackend, so swapping renderers never touches it.
+    allow: [
+      "@bracketx/engine-scene",
+      "@bracketx/engine-runtime",
+      "@bracketx/engine-reconciler",
+    ],
+  },
+
   "@bracketx/engine-render-three": {
     layer: "render-adapter",
     // The ONLY package permitted to import three. Implements MirrorBackend.
