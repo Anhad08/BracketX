@@ -37,6 +37,14 @@ export const ENGINE_PACKAGES = {
     allow: ["@bracketx/engine-scene", "@bracketx/engine-runtime"],
   },
 
+  "@bracketx/engine-text": {
+    layer: "engine-core",
+    // Owns the whole pipeline from font binary to geometry (TEXT_ENGINE §1).
+    // Depends on the scene graph for component and asset types; knows nothing
+    // about a renderer, because glyph geometry is backend-neutral.
+    allow: ["@bracketx/engine-scene"],
+  },
+
   "@bracketx/engine-host": {
     layer: "engine-host",
     // The COMPOSITION ROOT. The only package that may know both the reconciler

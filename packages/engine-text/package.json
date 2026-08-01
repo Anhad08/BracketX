@@ -1,0 +1,29 @@
+{
+  "name": "@bracketx/engine-text",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "spike": "vitest run --config vitest.spike.config.ts"
+  },
+  "dependencies": {
+    "@bracketx/engine-scene": "workspace:*",
+    "bidi-js": "^1.0.3",
+    "harfbuzzjs": "^1.5.0",
+    "linebreak": "^1.1.0",
+    "unicode-properties": "^1.4.1"
+  },
+  "devDependencies": {
+    "@bracketx/eslint-config": "workspace:*",
+    "@bracketx/typescript-config": "workspace:*",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
