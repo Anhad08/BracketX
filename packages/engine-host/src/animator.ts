@@ -23,6 +23,7 @@
  */
 import {
   crossedEvents,
+  normalizeClip,
   sampleClip,
   targetsOf,
   type AnimatedValues,
@@ -88,8 +89,14 @@ export class Animator {
 
   /** Registers a document's clips. Replaces any previously registered. */
   load(document: SceneDocument): void {
+    // Sorted once, here, so sampling never pays for the check. Documents
+    // arrive from disk, other clients, and generators — the order cannot be
+    // assumed, but it must not be re-verified 60 times a second either.
     this.#clips = new Map(
-      (document.animations ?? []).map((clip) => [clip.id, clip]),
+      (document.animations ?? []).map((clip) => {
+        const normalized = normalizeClip(clip);
+        return [normalized.id, normalized];
+      }),
     );
     this.#active.clear();
     this.#held.clear();

@@ -8,6 +8,7 @@ import {
   ease,
   generateKeyBetween,
   interpolate,
+  normalizeClip,
   sampleClip,
   sampleTrack,
   validateClip,
@@ -221,17 +222,29 @@ describe("sampling", () => {
     expect(sampleTrack(track, 1)).toBe(0);
   });
 
-  it("sorts out-of-order keyframes defensively", () => {
-    // Documents arrive from disk, other clients, and generators.
-    const scrambled = {
-      target: "n",
-      path: "p",
-      keyframes: [
-        { time: 1, value: 10 },
-        { time: 0, value: 0 },
+  it("normalizes out-of-order keyframes at load, not on every sample", () => {
+    // Documents arrive from disk, other clients, and generators, so the order
+    // cannot be assumed — but checking it 60 times a second per track defeats
+    // the binary search, measured at 22x for 100x the keyframes.
+    const scrambled: AnimationClip = {
+      id: "anm_scrambled",
+      name: "Scrambled",
+      duration: 1,
+      tracks: [
+        {
+          target: "nod_bar",
+          path: "transform.position.0",
+          keyframes: [
+            { time: 1, value: 10 },
+            { time: 0, value: 0 },
+          ],
+        },
       ],
     };
-    expect(sampleTrack(scrambled, 0.5)).toBe(5);
+
+    expect(sampleTrack(normalizeClip(scrambled).tracks[0]!, 0.5)).toBe(5);
+    // Already-sorted clips are returned by reference — no allocation.
+    expect(normalizeClip(SLIDE)).toBe(SLIDE);
   });
 
   it("is a pure function of clip and time", () => {

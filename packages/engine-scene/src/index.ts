@@ -184,6 +184,7 @@ export {
   crossedEvents,
   ease,
   interpolate,
+  normalizeClip,
   sampleClip,
   sampleTrack,
   targetsOf,
