@@ -16,9 +16,12 @@ export type CommandSection =
   | "File"
   | "Edit"
   | "Create"
+  | "Arrange"
+  | "Motion"
   | "Select"
   | "View"
   | "Transport"
+  | "Program"
   | "Help";
 
 export interface StudioCommand {
@@ -66,6 +69,14 @@ export const KEYMAP: readonly KeyBinding[] = [
   { id: "edit.delete", key: "delete", label: "Delete", description: "Delete selection" },
   { id: "edit.deleteBack", key: "backspace", label: "Backspace", description: "Delete selection" },
   { id: "edit.rename", key: "f2", label: "F2", description: "Rename" },
+  // Arrange. ⌘G / ⌘⇧G for group and ungroup, and bracket keys for layer order,
+  // because that is what a designer's hands already do in every other tool.
+  { id: "arrange.group", key: "g", mod: true, label: "Ctrl/⌘ G", description: "Group selection" },
+  { id: "arrange.ungroup", key: "g", mod: true, shift: true, label: "Ctrl/⌘ ⇧ G", description: "Ungroup" },
+  { id: "arrange.front", key: "]", mod: true, shift: true, label: "Ctrl/⌘ ⇧ ]", description: "Bring to front" },
+  { id: "arrange.forward", key: "]", mod: true, label: "Ctrl/⌘ ]", description: "Bring forward" },
+  { id: "arrange.backward", key: "[", mod: true, label: "Ctrl/⌘ [", description: "Send backward" },
+  { id: "arrange.back", key: "[", mod: true, shift: true, label: "Ctrl/⌘ ⇧ [", description: "Send to back" },
   { id: "select.all", key: "a", mod: true, label: "Ctrl/⌘ A", description: "Select all" },
   { id: "select.none", key: "escape", label: "Esc", description: "Deselect", whileTyping: true },
   { id: "select.up", key: "arrowup", label: "↑", description: "Select previous node" },

@@ -1,11 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import {
-  findNode,
-  makeSetDocProp,
-  type SceneDocument,
-  type SceneNode,
-  type Timeline,
-} from "@bracketx/engine-scene";
+import { useRef, useState } from "react";
+import { findNode, type SceneDocument } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "../studio/session";
 import type { Selection } from "../studio/selection";
@@ -18,8 +12,8 @@ import {
   removeVariable,
   setProp,
   setVariableDefault,
-  transaction,
   type NodeKind,
+  type ToolboxSection,
 } from "../studio/editing";
 import { dropTarget, outline, type OutlineRow } from "../studio/outline";
 import type { IdFactory } from "../studio/ids";
@@ -37,29 +31,47 @@ import type { IdFactory } from "../studio/ids";
 // Toolbox
 // ===========================================================================
 
+const TOOLBOX_SECTIONS: readonly { section: ToolboxSection; title: string }[] = [
+  { section: "shape", title: "Shapes" },
+  { section: "3d", title: "3D" },
+  { section: "layout", title: "Structure" },
+  { section: "scene", title: "Scene" },
+];
+
 export function Toolbox({ onCreate }: { onCreate: (kind: NodeKind) => void }) {
   return (
     <section className="panel toolbox" aria-label="Toolbox">
       <h2>Create</h2>
-      <div className="tool-grid">
-        {TOOLBOX.map((entry) => (
-          <button
-            key={entry.kind}
-            type="button"
-            className="tool"
-            onClick={() => onCreate(entry.kind)}
-            title={entry.hint}
-          >
-            {entry.label}
-          </button>
-        ))}
-      </div>
-      {/* Stated on screen, not just in a doc: there is no lower-third tool and
-          there must not be one. A lower third is a group with a rectangle. */}
+      {TOOLBOX_SECTIONS.map(({ section, title }) => (
+        <div className="tool-section" key={section}>
+          <h3>{title}</h3>
+          <div className="tool-grid">
+            {TOOLBOX.filter((entry) => entry.section === section).map((entry) => (
+              <button
+                key={entry.kind}
+                type="button"
+                className="tool"
+                onClick={() => onCreate(entry.kind)}
+                title={entry.hint}
+                data-testid={`tool-${entry.kind}`}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {/* Both rules stated on screen, not just in a doc: nothing here is a
+          broadcast noun, and nothing here is a promise the engine cannot keep. */}
       <p className="note">
         General primitives only. A lower third, scoreboard or bracket is built
         from these — the engine has no special case for any of them and neither
         does Studio.
+      </p>
+      <p className="note">
+        Text, Image and SVG are absent because the engine cannot draw them yet
+        (IF-003). A tool that produced an invisible node would teach you to
+        distrust the rest of this palette.
       </p>
     </section>
   );
@@ -409,31 +421,24 @@ export function Inspector({ session, selection, onEdit }: InspectorProps) {
         </Group>
       ) : null}
 
-      {rect !== undefined ? (
-        <Group title="Appearance">
-          <label className="prop">
-            <span>fill</span>
-            <input
-              className="field colour"
-              type="color"
-              value={typeof rectProps.fill === "string" ? rectProps.fill : "#2f6feb"}
-              onChange={(event) =>
-                set(
-                  `components.${(node.components ?? []).indexOf(rect)}.props.fill`,
-                  event.target.value,
-                  "Set fill",
-                )
-              }
-              aria-label="Fill"
-            />
-          </label>
-          {typeof rectProps.fill === "object" && rectProps.fill !== null ? (
-            <p className="note">
-              Bound to <span className="mono">{JSON.stringify(rectProps.fill)}</span>. The
-              value comes from a variable at runtime.
-            </p>
-          ) : null}
-        </Group>
+      {/* One editor per component, driven by a DESCRIPTION of the component's
+          properties rather than by a hand-written panel per type. That is what
+          makes the inspector generic: a component type nobody has written a
+          panel for still gets every field the schema below can describe, and a
+          future text node needs a row in COMPONENT_FIELDS, not a new panel. */}
+      {(node.components ?? []).map((component, index) => (
+        <ComponentEditor
+          key={component.id}
+          component={component}
+          index={index}
+          onSet={set}
+        />
+      ))}
+      {rect !== undefined && typeof rectProps.fill === "object" && rectProps.fill !== null ? (
+        <p className="note">
+          Fill is bound to <span className="mono">{JSON.stringify(rectProps.fill)}</span>.
+          The value comes from a variable at runtime.
+        </p>
       ) : null}
 
       <Group title="Layout">
@@ -499,6 +504,217 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
+// ---------------------------------------------------------------------------
+// Component editing — described, not hand-written
+// ---------------------------------------------------------------------------
+
+type FieldKind = "number" | "colour" | "text" | "checkbox";
+
+interface FieldSpec {
+  /** Dot path WITHIN the component's props. */
+  readonly path: string;
+  readonly label: string;
+  readonly kind: FieldKind;
+  readonly step?: number;
+  readonly options?: readonly string[];
+}
+
+/**
+ * What each component type exposes.
+ *
+ * A table rather than a component per type, and the reason is the phase brief's
+ * hardest requirement: *"the authoring tools must treat every node generically
+ * so that a future TextNode automatically gains every editor capability without
+ * Studio modifications."* A hand-written `<TextInspector>` would be one more
+ * place to remember. A row here is a declaration, and everything that reads the
+ * table — the inspector, and anything later that wants to know what is editable
+ * — gains the type at once.
+ *
+ * A component type absent from this table still renders: every property it has
+ * appears as a raw field, because the underlying edit is a dot path and the
+ * engine makes every property animatable and bindable without a per-type
+ * vocabulary (SCENE_FORMAT §7).
+ */
+const COMPONENT_FIELDS: Record<string, readonly FieldSpec[]> = {
+  rect: [
+    { path: "width", label: "width", kind: "number" },
+    { path: "height", label: "height", kind: "number" },
+    { path: "fill", label: "fill", kind: "colour" },
+  ],
+  meshRenderer: [
+    { path: "primitive.width", label: "width", kind: "number" },
+    { path: "primitive.height", label: "height", kind: "number" },
+    { path: "primitive.depth", label: "depth", kind: "number" },
+    { path: "primitive.radius", label: "radius", kind: "number", step: 0.05 },
+    { path: "primitive.segments", label: "segments", kind: "number", step: 1 },
+    { path: "material.baseColor", label: "colour", kind: "colour" },
+    { path: "material.opacity", label: "opacity", kind: "number", step: 0.05 },
+    { path: "material.metallic", label: "metallic", kind: "number", step: 0.05 },
+    { path: "material.roughness", label: "roughness", kind: "number", step: 0.05 },
+  ],
+  camera: [
+    { path: "orthographicSize", label: "ortho size", kind: "number", step: 0.25 },
+    { path: "focalLength", label: "focal length", kind: "number", step: 1 },
+    { path: "near", label: "near", kind: "number", step: 0.01 },
+    { path: "far", label: "far", kind: "number", step: 1 },
+  ],
+  light: [
+    { path: "color", label: "colour", kind: "colour" },
+    { path: "intensity", label: "intensity", kind: "number", step: 0.1 },
+    { path: "distance", label: "distance", kind: "number", step: 0.5 },
+    { path: "angle", label: "cone angle", kind: "number", step: 0.05 },
+    { path: "penumbra", label: "penumbra", kind: "number", step: 0.05 },
+    { path: "decay", label: "decay", kind: "number", step: 0.1 },
+  ],
+};
+
+/** Enumerations, where the format constrains a value to a set. */
+const COMPONENT_CHOICES: Record<string, Record<string, readonly string[]>> = {
+  camera: { projection: ["orthographic", "perspective"] },
+  light: { kind: ["ambient", "directional", "point", "spot"] },
+  meshRenderer: {
+    "primitive.shape": ["box", "plane", "sphere", "cylinder", "disc"],
+  },
+};
+
+function readAt(source: unknown, path: string): unknown {
+  let current = source;
+  for (const segment of path.split(".")) {
+    if (current === null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
+function ComponentEditor({
+  component,
+  index,
+  onSet,
+}: {
+  component: { readonly id: string; readonly type: string; readonly props: unknown };
+  index: number;
+  onSet: (path: string, value: unknown, label?: string) => void;
+}) {
+  const props = (component.props ?? {}) as Record<string, unknown>;
+  const specs = COMPONENT_FIELDS[component.type] ?? [];
+  const choices = COMPONENT_CHOICES[component.type] ?? {};
+
+  const at = (path: string) => `components.${index}.props.${path}`;
+
+  // Only fields the component actually carries. A sphere has a radius and no
+  // depth; showing every field of every primitive would put six meaningless
+  // boxes in front of a designer editing a cube.
+  const present = specs.filter((spec) => readAt(props, spec.path) !== undefined);
+  const described = new Set([
+    ...specs.map((spec) => spec.path),
+    ...Object.keys(choices),
+  ]);
+  const undescribed = Object.keys(props).filter(
+    (key) => !described.has(key) && !described.has(`${key}.shape`) && typeof props[key] !== "object",
+  );
+
+  return (
+    <Group title={component.type}>
+      {Object.entries(choices).map(([path, options]) =>
+        readAt(props, path) === undefined ? null : (
+          <label className="prop" key={path}>
+            <span>{path.split(".").at(-1)}</span>
+            <select
+              className="field"
+              value={String(readAt(props, path))}
+              onChange={(event) => onSet(at(path), event.target.value, `Set ${path}`)}
+              aria-label={path}
+            >
+              {options.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+        ),
+      )}
+
+      {present.map((spec) => {
+        const value = readAt(props, spec.path);
+        // A bound property is `{ $var: "key" }` and must not be shown as an
+        // editable literal — typing into it would silently drop the binding.
+        if (value !== null && typeof value === "object") {
+          return (
+            <p className="note" key={spec.path}>
+              {spec.label} is bound to{" "}
+              <span className="mono">{JSON.stringify(value)}</span>
+            </p>
+          );
+        }
+        if (spec.kind === "colour") {
+          return (
+            <label className="prop" key={spec.path}>
+              <span>{spec.label}</span>
+              <input
+                className="field colour"
+                type="color"
+                // A `#RRGGBBAA` colour is legal in the format and illegal in an
+                // `<input type=color>`, which silently shows black. Truncated
+                // for display; the alpha survives because the edit writes a
+                // whole new value only when the designer picks one.
+                value={String(value).slice(0, 7)}
+                onChange={(event) => onSet(at(spec.path), event.target.value, `Set ${spec.label}`)}
+                aria-label={spec.label}
+              />
+            </label>
+          );
+        }
+        if (spec.kind === "checkbox") {
+          return (
+            <label className="prop check" key={spec.path}>
+              <span>{spec.label}</span>
+              <input
+                type="checkbox"
+                checked={value === true}
+                onChange={(event) =>
+                  onSet(at(spec.path), event.target.checked, `Set ${spec.label}`)
+                }
+              />
+            </label>
+          );
+        }
+        return (
+          <NumberField
+            key={spec.path}
+            label={spec.label}
+            step={spec.step ?? 0.1}
+            value={typeof value === "number" ? value : 0}
+            onCommit={(next) => onSet(at(spec.path), next, `Set ${spec.label}`)}
+          />
+        );
+      })}
+
+      {undescribed.map((key) => (
+        <label className="prop" key={key}>
+          <span>{key}</span>
+          <input
+            className="field"
+            defaultValue={String(props[key])}
+            key={`${component.id}:${key}:${String(props[key])}`}
+            onBlur={(event) => {
+              const parsed = Number(event.target.value);
+              onSet(
+                at(key),
+                Number.isFinite(parsed) && event.target.value.trim() !== ""
+                  ? parsed
+                  : event.target.value,
+                `Set ${key}`,
+              );
+            }}
+            aria-label={key}
+          />
+        </label>
+      ))}
+    </Group>
+  );
+}
+
 // ===========================================================================
 // Variables
 // ===========================================================================
@@ -537,8 +753,8 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
         <thead>
           <tr>
             <th>key</th>
-            <th>default</th>
-            <th>runtime</th>
+            <th>default (saved)</th>
+            <th>live (not saved)</th>
             <th>readers</th>
             <th />
           </tr>
@@ -553,6 +769,7 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
           ) : (
             document_.variables.map((variable) => {
               const runtime = session.host.runtime.state.variables.get(variable.key);
+              const overridden = session.isOverridden(variable.key);
               const readers = session.host.reconciler.projector.dependencies.dependents(
                 variable.key,
               ).size;
@@ -570,11 +787,35 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
                       aria-label={`Default for ${variable.key}`}
                     />
                   </td>
-                  {/* The runtime value, shown and NOT editable here. Editing it
-                      would be a command, not an operation — not undoable, not
-                      saved. Mixing the two in one cell is how a designer loses
-                      work believing they had changed the document. */}
-                  <td className="mono dim">{String(runtime ?? "—")}</td>
+                  {/* The runtime value, editable — and visibly a DIFFERENT act.
+                      Setting it is a command, not an operation: not undoable,
+                      not saved, exactly what an operator does on air. Kept in
+                      its own column with its own reset, because a designer who
+                      cannot tell which of the two they just changed will lose
+                      work believing they had edited the document. */}
+                  <td>
+                    <span className={overridden ? "override" : ""}>
+                      <input
+                        className="field"
+                        value={String(runtime ?? "")}
+                        onChange={(event) =>
+                          session.overrideVariable(variable.key, event.target.value)
+                        }
+                        aria-label={`Runtime value for ${variable.key}`}
+                        title="Live. Not undoable and not saved — RFC-002 §4.3"
+                      />
+                      {overridden ? (
+                        <button
+                          type="button"
+                          className="link"
+                          onClick={() => session.resetVariable(variable.key)}
+                          title="Back to the document's default"
+                        >
+                          reset
+                        </button>
+                      ) : null}
+                    </span>
+                  </td>
                   <td className="num">{readers}</td>
                   <td>
                     {nodeId !== null ? (
@@ -631,184 +872,4 @@ export function makeClearBinding(
   value: unknown,
 ) {
   return clearBinding(document_, nodeId, path, value);
-}
-
-// ===========================================================================
-// Timeline
-// ===========================================================================
-
-export interface TimelinePanelProps {
-  readonly session: StudioSession;
-  readonly revision: number;
-  readonly onEdit: (transaction: ReturnType<typeof setProp>) => void;
-}
-
-/**
- * The timeline.
- *
- * Reads the engine's ONE timeline model and edits it through the operation
- * system. There is no second timeline here: the playhead is
- * `Animator.clipState(...).seconds`, scrubbing is `playback.seek`, and dragging
- * a keyframe is a `doc.setMeta` on `animations.i.tracks.j.keyframes.k.time` —
- * which means it is undoable and saved like every other edit.
- */
-export function TimelinePanel({ session, revision, onEdit }: TimelinePanelProps) {
-  const document_ = session.document;
-  const timelines = (document_.animations ?? []) as readonly Timeline[];
-  const rate = 60;
-  const [dragging, setDragging] = useState<{
-    timeline: number;
-    track: number;
-    keyframe: number;
-  } | null>(null);
-
-  const states = useMemo(
-    () => new Map(session.host.animator.clipStates().map((state) => [state.clipId, state])),
-    [session, revision, session.frame],
-  );
-
-  if (timelines.length === 0) {
-    return (
-      <section className="panel timeline" aria-label="Timeline">
-        <p className="note pad">
-          This scene declares no timelines. A timeline is document data —
-          `animations` in SCENE_FORMAT — so adding one is an edit like any other.
-        </p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="panel timeline" aria-label="Timeline" data-testid="timeline">
-      {timelines.map((timeline, timelineIndex) => {
-        const state = states.get(timeline.id);
-        const span = timeline.duration > 0 ? timeline.duration : 1;
-        const progress = state === undefined ? 0 : Math.min(1, state.seconds / span);
-
-        return (
-          <div className="clip" key={timeline.id}>
-            <header>
-              <strong>{timeline.name}</strong>
-              <span className="dim">
-                {timeline.duration}s{timeline.loop ? " · loop" : ""}
-                {state === undefined ? "" : ` · ${state.seconds.toFixed(2)}s`}
-              </span>
-              <span className="spacer" />
-              <button
-                type="button"
-                className="link"
-                onClick={() => session.playClip(timeline.id)}
-              >
-                play
-              </button>
-              <button
-                type="button"
-                className="link"
-                onClick={() => session.stopClip(timeline.id)}
-              >
-                stop
-              </button>
-            </header>
-
-            <div
-              className="ruler"
-              onPointerDown={(event) => {
-                // Scrubbing seeks the ENGINE clock. The timeline never advances
-                // anything itself — a second clock would drift from the first.
-                const box = event.currentTarget.getBoundingClientRect();
-                const ratio = (event.clientX - box.left) / box.width;
-                session.seek(Math.round(ratio * span * rate));
-              }}
-              onPointerMove={(event) => {
-                if (dragging === null || event.buttons === 0) return;
-                const box = event.currentTarget.getBoundingClientRect();
-                const ratio = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
-                const time = Math.round(ratio * span * 1000) / 1000;
-                onEdit(
-                  transaction("Move keyframe", [
-                    makeSetDocProp(
-                      document_,
-                      `animations.${dragging.timeline}.tracks.${dragging.track}.keyframes.${dragging.keyframe}.time`,
-                      time,
-                    ),
-                  ]),
-                );
-              }}
-              onPointerUp={() => setDragging(null)}
-            >
-              {timeline.tracks.map((track, trackIndex) => (
-                <div className="track" key={`${track.target}:${track.path}`}>
-                  <span className="track-name mono">
-                    {track.path}
-                    {track.delay ? <span className="badge">+{track.delay}s</span> : null}
-                    {track.stagger ? <span className="badge">stagger</span> : null}
-                  </span>
-                  {track.keyframes.map((keyframe, keyframeIndex) => (
-                    <button
-                      key={keyframeIndex}
-                      type="button"
-                      className="keyframe"
-                      style={{ left: `${((keyframe.time + (track.delay ?? 0)) / span) * 100}%` }}
-                      title={`${keyframe.time}s — drag to move`}
-                      data-testid="keyframe"
-                      onPointerDown={(event) => {
-                        event.stopPropagation();
-                        setDragging({
-                          timeline: timelineIndex,
-                          track: trackIndex,
-                          keyframe: keyframeIndex,
-                        });
-                      }}
-                    />
-                  ))}
-                </div>
-              ))}
-
-              {(timeline.markers ?? []).map((marker) => (
-                <span
-                  key={marker.id}
-                  className={`marker ${marker.kind}`}
-                  style={{ left: `${(marker.time / span) * 100}%` }}
-                  title={`${marker.id} · ${marker.kind} @ ${marker.time}s`}
-                  data-testid="timeline-marker"
-                />
-              ))}
-
-              {state !== undefined ? (
-                <div
-                  className="playhead"
-                  style={{ left: `${progress * 100}%` }}
-                  data-testid="playhead"
-                />
-              ) : null}
-            </div>
-          </div>
-        );
-      })}
-      <p className="note">
-        Dragging a keyframe is a document operation, so it is undoable and saved.
-        The playhead is the engine&apos;s — this panel owns no clock.
-      </p>
-    </section>
-  );
-}
-
-/** Exported so the shell can offer "add a timeline" without a second model. */
-export function makeTimeline(node: SceneNode | null, ids: IdFactory): Timeline {
-  const target = node?.id ?? "nod_root";
-  return {
-    id: ids("timeline"),
-    name: "Timeline",
-    duration: 1,
-    tracks: [
-      {
-        target,
-        path: "transform.position.0",
-        keyframes: [
-          { time: 0, value: -4, easing: "easeOutCubic" },
-          { time: 1, value: 0 },
-        ],
-      },
-    ],
-  };
 }

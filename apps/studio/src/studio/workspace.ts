@@ -15,7 +15,17 @@ const KEY = "streamatrix.studio.workspace.v1";
 
 export type Theme = "dark" | "light";
 
-export type BottomTab = "timeline" | "variables";
+/**
+ * The bottom dock's tabs.
+ *
+ * Ordered the way the work runs — build it, animate it, parameterise it, put it
+ * somewhere reusable — rather than alphabetically or by how hard each was to
+ * write. `program` is deliberately NOT here: Preview/Program is a permanent row,
+ * not a tab, because an operator must never have to find the on-air state.
+ */
+export const BOTTOM_TABS = ["timeline", "presets", "variables", "library"] as const;
+
+export type BottomTab = (typeof BOTTOM_TABS)[number];
 
 export interface Workspace {
   readonly theme: Theme;
@@ -29,6 +39,10 @@ export interface Workspace {
   readonly rightOpen: boolean;
   readonly bottomOpen: boolean;
   readonly bottomTab: BottomTab;
+  /** The Preview/Program row. Off for a designer who is not airing anything. */
+  readonly programOpen: boolean;
+  /** Seconds visible in the timeline editor. Zoom, not a clock. */
+  readonly timelineZoom: number;
 
   // -- Scene view toggles ---------------------------------------------------
   readonly showSafeAreas: boolean;
@@ -50,6 +64,8 @@ export const DEFAULT_WORKSPACE: Workspace = {
   rightOpen: true,
   bottomOpen: true,
   bottomTab: "timeline",
+  programOpen: false,
+  timelineZoom: 1,
   showSafeAreas: true,
   showGrid: false,
   showGuides: true,
@@ -93,7 +109,13 @@ function sanitize(value: unknown): Workspace {
     leftOpen: bool("leftOpen"),
     rightOpen: bool("rightOpen"),
     bottomOpen: bool("bottomOpen"),
-    bottomTab: raw.bottomTab === "variables" ? "variables" : "timeline",
+    bottomTab: BOTTOM_TABS.includes(raw.bottomTab as BottomTab)
+      ? (raw.bottomTab as BottomTab)
+      : "timeline",
+    programOpen: bool("programOpen"),
+    // Clamped like every other size: a zoom of zero divides by nothing and
+    // renders a timeline with no width, which cannot be dragged back.
+    timelineZoom: clamp(raw.timelineZoom, 0.1, 20, DEFAULT_WORKSPACE.timelineZoom),
     showSafeAreas: bool("showSafeAreas"),
     showGrid: bool("showGrid"),
     showGuides: bool("showGuides"),

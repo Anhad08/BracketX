@@ -516,6 +516,32 @@ describe("lights are nodes", () => {
     scene.dispose();
   });
 
+  it("reaches the BACKEND, not just the mirror's record of it", () => {
+    // Regression. `#applyLight` set the mirror's attachment and
+    // `MirrorGraph.setAttachment` had no `light` case, so `attachLight` was
+    // never called: the light existed on the backend, unparented, with no
+    // position and no direction - because the descriptor deliberately carries
+    // neither.
+    //
+    // Every assertion above passed throughout, because `attachmentOf` reads the
+    // MIRROR and the conformance suite calls `attachLight` DIRECTLY. Nothing
+    // asserted the one step between them. Found by Studio's toolbox, the first
+    // consumer to create a light through a document.
+    const backend = new MockMirrorBackend();
+    const scene = new SceneHost(backend);
+    scene.load(
+      document_({ root: node("nod_root", { children: [lit({ kind: "directional" })] }) }),
+    );
+    scene.renderFrame(0);
+
+    const lights = backend.snapshot().nodes.filter((entry) => entry.attachment === "light");
+    expect(lights).toHaveLength(1);
+    // And it is placed by the node's world matrix, which only an ATTACHED
+    // light has at all.
+    expect(lights[0]!.worldMatrix[13]).toBe(5);
+    scene.dispose();
+  });
+
   it("is animated by the existing timeline, with no new machinery", () => {
     const scene = host(
       document_({

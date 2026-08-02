@@ -90,10 +90,22 @@ export function orderAtIndex(
 // Creation
 // ---------------------------------------------------------------------------
 
-export type NodeKind = "group" | "rect" | "camera";
+export type NodeKind =
+  | "group"
+  | "rect"
+  | "ellipse"
+  | "box"
+  | "sphere"
+  | "cylinder"
+  | "plane"
+  | "camera"
+  | "light";
+
+export type ToolboxSection = "layout" | "shape" | "3d" | "scene";
 
 export interface ToolboxEntry {
   readonly kind: NodeKind;
+  readonly section: ToolboxSection;
   readonly label: string;
   readonly hint: string;
 }
@@ -101,68 +113,194 @@ export interface ToolboxEntry {
 /**
  * The toolbox.
  *
- * Three entries, and deliberately no fourth. There is no "lower third" tool and
- * there must never be one: a lower third is a group with a rectangle and some
- * text, and the moment Studio ships a component that knows what a lower third
- * is, the engine's general-purpose capabilities stop being the thing that gets
- * exercised. Everything a designer builds has to emerge from these.
+ * ========================================================================
+ * EVERY ENTRY DRAWS. NOTHING HERE IS A PROMISE
+ * ========================================================================
+ * A tool exists here only when the projector attaches something for it and a
+ * backend puts it on screen. That rule is what excludes **Text, Image and SVG**
+ * today — the text engine is a spike (IF-003) and images need the asset
+ * pipeline — and it is the same rule that kept Blur and Glow out of the
+ * animation presets. A toolbox entry that produces an invisible node teaches a
+ * designer to distrust the whole palette.
+ *
+ * ========================================================================
+ * AND NOTHING HERE IS A BROADCAST NOUN
+ * ========================================================================
+ * There is no "lower third" tool and there must never be one. A lower third is
+ * a group with a rectangle and some text; the moment Studio ships a component
+ * that knows what a lower third IS, the engine's general-purpose capabilities
+ * stop being the thing that gets exercised, and the Marketplace has to ship
+ * code instead of data. Everything a designer builds emerges from these.
  */
 export const TOOLBOX: readonly ToolboxEntry[] = [
-  { kind: "group", label: "Group", hint: "A container. Layout and repeat live here." },
-  { kind: "rect", label: "Rectangle", hint: "The engine's visual primitive." },
-  { kind: "camera", label: "Camera", hint: "What an output draws through." },
+  { kind: "group", section: "layout", label: "Group", hint: "A container. Layout and repeat live here." },
+
+  { kind: "rect", section: "shape", label: "Rectangle", hint: "A flat quad. The background of most graphics." },
+  { kind: "ellipse", section: "shape", label: "Ellipse", hint: "A flat disc. Bugs, dots, pie segments." },
+
+  { kind: "box", section: "3d", label: "Box", hint: "A cube. Set pieces, plinths, bars." },
+  { kind: "sphere", section: "3d", label: "Sphere", hint: "A UV sphere. Balls, globes." },
+  { kind: "cylinder", section: "3d", label: "Cylinder", hint: "A capped tube. Podiums, trophy stems." },
+  { kind: "plane", section: "3d", label: "Plane", hint: "A ground plane facing up. The floor of a set." },
+
+  { kind: "camera", section: "scene", label: "Camera", hint: "What an output draws through." },
+  { kind: "light", section: "scene", label: "Light", hint: "Lights a lit material. Points down its own −Z." },
 ];
+
+/** The default fill for anything a designer creates. */
+export const DEFAULT_FILL = "#2f6feb";
+
+function primitiveNode(
+  base: SceneNode,
+  name: string,
+  ids: IdFactory,
+  primitive: Record<string, unknown>,
+  size: { width: number; height: number },
+): SceneNode {
+  return {
+    ...base,
+    name,
+    // `size` is what LAYOUT, picking and the gizmos read; the primitive spec is
+    // what the projector turns into geometry. They are two consumers of the
+    // same intent and both have to be written, which is the same duplication
+    // `rect` already carries between `size` and its component props.
+    size,
+    components: [
+      {
+        id: ids("component"),
+        type: "meshRenderer",
+        props: {
+          primitive,
+          // `unlit` unless a designer adds metallic/roughness. A `pbr` material
+          // in a scene with no light renders black, and a new object that
+          // appears black looks broken rather than unlit.
+          material: { baseColor: DEFAULT_FILL },
+        },
+      },
+    ],
+  };
+}
 
 export function makeNode(kind: NodeKind, order: string, ids: IdFactory): SceneNode {
   const id = ids("node");
-  const base = {
+  const base: SceneNode = {
     id,
     order,
+    name: "Node",
     transform: {
-      position: [0, 0, 0] as const,
-      rotation: [0, 0, 0] as const,
-      scale: [1, 1, 1] as const,
+      position: [0, 0, 0],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
     },
   };
 
-  if (kind === "camera") {
-    return {
-      ...base,
-      name: "Camera",
-      components: [
-        {
-          id: ids("component"),
-          type: "camera",
-          props: { projection: "orthographic", orthographicSize: 5, near: 0.1, far: 100 },
-        },
-      ],
-      transform: { position: [0, 0, 10], rotation: [0, 0, 0], scale: [1, 1, 1] },
-    };
-  }
+  switch (kind) {
+    case "camera":
+      return {
+        ...base,
+        name: "Camera",
+        components: [
+          {
+            id: ids("component"),
+            type: "camera",
+            props: { projection: "orthographic", orthographicSize: 5, near: 0.1, far: 100 },
+          },
+        ],
+        transform: { position: [0, 0, 10], rotation: [0, 0, 0], scale: [1, 1, 1] },
+      };
 
-  if (kind === "rect") {
-    const width = 4;
-    const height = 1;
-    return {
-      ...base,
-      name: "Rectangle",
-      size: { width, height },
-      components: [
-        {
-          id: ids("component"),
-          type: "rect",
-          // Dimensions are duplicated onto the component because that is what
-          // the renderer consumes; `size` is what layout and the editor use.
-          props: { width, height, fill: "#2f6feb" },
-        },
-      ],
-    };
-  }
+    case "light":
+      return {
+        ...base,
+        name: "Light",
+        components: [
+          {
+            id: ids("component"),
+            type: "light",
+            props: { kind: "directional", color: "#FFFFFF", intensity: 1 },
+          },
+        ],
+        // Above and in front, aimed back at the origin by its own rotation.
+        // ADR-013 amendment 1: a light carries no direction of its own, so
+        // where it points is entirely this transform's business.
+        transform: { position: [0, 3, 4], rotation: [-35, 0, 0], scale: [1, 1, 1] },
+      };
 
-  // NOT `children: []`. Canonical form omits an empty array, so a group that
-  // carried one would fail to round-trip the moment a child was inserted and
-  // the insert undone — the document would differ by a field the format drops.
-  return { ...base, name: "Group", size: { width: 4, height: 2 } };
+    case "rect": {
+      const width = 4;
+      const height = 1;
+      return {
+        ...base,
+        name: "Rectangle",
+        size: { width, height },
+        components: [
+          {
+            id: ids("component"),
+            type: "rect",
+            // Dimensions are duplicated onto the component because that is what
+            // the renderer consumes; `size` is what layout and the editor use.
+            props: { width, height, fill: DEFAULT_FILL },
+          },
+        ],
+      };
+    }
+
+    case "ellipse":
+      return primitiveNode(
+        base,
+        "Ellipse",
+        ids,
+        { shape: "disc", width: 2, height: 2 },
+        { width: 2, height: 2 },
+      );
+
+    case "box":
+      return primitiveNode(
+        base,
+        "Box",
+        ids,
+        { shape: "box", width: 1, height: 1, depth: 1 },
+        { width: 1, height: 1 },
+      );
+
+    case "sphere":
+      return primitiveNode(
+        base,
+        "Sphere",
+        ids,
+        { shape: "sphere", radius: 0.5 },
+        { width: 1, height: 1 },
+      );
+
+    case "cylinder":
+      return primitiveNode(
+        base,
+        "Cylinder",
+        ids,
+        { shape: "cylinder", radius: 0.5, height: 1 },
+        { width: 1, height: 1 },
+      );
+
+    case "plane":
+      return primitiveNode(
+        base,
+        "Plane",
+        ids,
+        { shape: "plane", width: 4, depth: 4 },
+        { width: 4, height: 4 },
+      );
+
+    case "group":
+    default:
+      // NOT `children: []`. Canonical form omits an empty array, so a group that
+      // carried one would fail to round-trip the moment a child was inserted and
+      // the insert undone — the document would differ by a field the format drops.
+      return { ...base, name: "Group", size: { width: 4, height: 2 } };
+  }
+}
+
+export function toolboxEntry(kind: NodeKind): ToolboxEntry | undefined {
+  return TOOLBOX.find((entry) => entry.kind === kind);
 }
 
 export function createNode(

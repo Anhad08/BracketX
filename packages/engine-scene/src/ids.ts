@@ -29,6 +29,15 @@ export const ID_PREFIXES = {
   timeline: "anm",
   /** A declared state transition. Phase 6 R3. */
   transition: "trn",
+  /**
+   * A `TemplateDefinition`. §11.3.
+   *
+   * Its own kind rather than reusing `scene`, because a template's id is its
+   * LINEAGE: instantiating one remints the document id and keeps this, so
+   * "which template is this graphic from" stays answerable. Two ids that mean
+   * different things sharing a prefix is how that stops being obvious.
+   */
+  template: "tpl",
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;

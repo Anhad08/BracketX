@@ -82,17 +82,30 @@ template instantiated at two output resolutions anchors correctly.
 
 ## Phase 5 — Authoring Surface · **APPLICATION** · *was: Scene Editor*
 
-**9–12 weeks. Not started.** Scope unchanged; the shared-runtime and
+**In progress.** Shipping as **Streamatrix Studio**. The shared-runtime and
 operation-log-undo rules are unchanged and remain non-negotiable.
 
 Only correction: the frame guide derives from `world.output`, never a hardcoded
 1920×1080.
 
-> **Unblocked 2026-08-02.** The timeline UI binds to the model Phase 6 froze.
-> The contract it should bind to is written down in
-> [PHASE_6_COMPLETION_REPORT.md §8](./PHASE_6_COMPLETION_REPORT.md), and the
-> workbench's Timeline tool already uses exactly those calls — so the pattern is
-> running rather than hypothetical.
+| | | |
+| --- | --- | --- |
+| Studio Phase 1 | The engine's first editor — document store, selection, viewport, file management | ✅ 2026-08-02 |
+| Studio Phase 3A | Authoring — timeline, keyframes, presets, arrange, templates, Preview/Program | ✅ 2026-08-02 |
+| Studio Phase 3B | **Text engine** — blocked on T2/T3/T4 | ⛔ [IF-003](./IMPLEMENTATION_FINDING_IF-003.md) |
+| Studio Phase 3C | The six official templates | ⛔ needs 3B |
+| — | 3D viewport | ⏳ after 3B |
+
+> **The timeline UI binds to the model Phase 6 froze** — no second abstraction.
+> `cursorSeconds` is the one playhead calculation, and Studio's editor derives
+> from it, which is what "one timeline" means operationally.
+>
+> **Phase 3A found a Phase 2 bug the amendment's own tests could not see:**
+> lights were created and never attached, because `MirrorGraph.setAttachment`
+> had no `light` case. Predicted by IF-003 §6 and caught the first time a light
+> was authored through a **document**. Fixed, with the regression asserted at the
+> backend rather than at the mirror. See
+> [IMPLEMENTATION_REPORT_STUDIO_PHASE_3.md §3](./IMPLEMENTATION_REPORT_STUDIO_PHASE_3.md).
 
 ---
 

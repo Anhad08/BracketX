@@ -260,6 +260,21 @@ export class MirrorGraph {
       case "camera":
         this.backend.attachCamera(node.handle, attachment.camera);
         break;
+      case "light":
+        // ADR-013 amendment 1. Missing when lights landed: `#applyLight`
+        // recorded the attachment on the mirror node and this switch had no
+        // `light` case, so `attachLight` was never called. The light existed on
+        // the backend, unparented — and a light with no node has no position
+        // and no direction, because the descriptor deliberately carries
+        // neither (C3).
+        //
+        // Nothing caught it because the conformance suite calls `attachLight`
+        // DIRECTLY, and the amendment's other tests assert on descriptors and
+        // handles. Exactly the gap IF-003 §6 named: "every lighting claim is a
+        // headless assertion about descriptors and handles". Found the first
+        // time a light was created through a document, by Studio's toolbox.
+        this.backend.attachLight(node.handle, attachment.light);
+        break;
       case "none":
         this.backend.detach(node.handle);
         break;

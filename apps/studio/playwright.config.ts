@@ -1,11 +1,15 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Visual smoke test for the showcase.
+ * Studio in a browser.
  *
- * Deliberately thin: the 158 headless tests already prove every scene loads,
- * validates, renders, and frees. What only a browser can prove is that the
- * shell mounts and real pixels appear.
+ * Deliberately thin: the 125 headless tests already prove every claim about
+ * documents, transactions and engine state. What only a browser can prove is
+ * that a GESTURE reaches those code paths — that clicking a tool creates a
+ * node, that a preset lands on a timeline, that Take puts the tally on air.
+ *
+ * (The header said "showcase" until Phase 3A, having been copied from that app
+ * along with the config. The `e2e` directory it points at was empty.)
  */
 export default defineConfig({
   testDir: "./e2e",

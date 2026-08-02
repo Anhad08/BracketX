@@ -20,7 +20,7 @@
  */
 import type { GeometryDescriptor } from "./mirror-backend";
 
-export type PrimitiveShape = "box" | "plane" | "sphere" | "cylinder";
+export type PrimitiveShape = "box" | "plane" | "sphere" | "cylinder" | "disc";
 
 export interface PrimitiveSpec {
   readonly shape: PrimitiveShape;
@@ -217,6 +217,69 @@ export function cylinderDescriptor(
   };
 }
 
+/**
+ * A filled ellipse in the XY plane facing +Z. The 2D companion to `quad`.
+ *
+ * ========================================================================
+ * WHY THIS EXISTS RATHER THAN `rect.cornerRadius`
+ * ========================================================================
+ * SCENE_FORMAT declares `cornerRadius` on `rect`, and **nothing implements
+ * it** — no backend reads it, so a "circle" authored as a square rect with a
+ * corner radius renders as a square. Shipping that in a toolbox would put a
+ * tool in a designer's hand whose name describes something the graphic does not
+ * do, which is the same failure that kept Blur and Glow out of the animation
+ * presets.
+ *
+ * Implementing `cornerRadius` properly is a shader concern — a rounded rect is
+ * a signed-distance fill, not a triangle fan — and that is a real piece of
+ * renderer work with a material-kind consequence. A disc is geometry, needs no
+ * backend method, no `MaterialDescriptor` change and no format version bump
+ * (`primitive.shape` is a free string that `readPrimitive` already reads
+ * defensively, SCENE_FORMAT §13 rule 4). So the honest circle is a disc, and
+ * the rounded rect waits for the renderer work it actually needs.
+ *
+ * Separately parameterised in width and height so the same shape is an ellipse:
+ * a radius-only disc would make "circle, but wider" a scale on the node, which
+ * then fights any scale the animation wants.
+ */
+export function discDescriptor(
+  width = 1,
+  height = 1,
+  segments = 48,
+): GeometryDescriptor {
+  const radial = Math.max(3, Math.floor(segments));
+  const rx = width / 2;
+  const ry = height / 2;
+
+  // Centre first, then the rim, then a duplicate of the first rim vertex so U
+  // runs 0..1 without wrapping backwards at the seam — the same seam handling
+  // the cylinder's side needs, for the same reason.
+  const positions: number[] = [0, 0, 0];
+  const normals: number[] = [0, 0, 1];
+  const uvs: number[] = [0.5, 0.5];
+  const indices: number[] = [];
+
+  for (let segment = 0; segment <= radial; segment += 1) {
+    const theta = (segment / radial) * Math.PI * 2;
+    const x = Math.cos(theta);
+    const y = Math.sin(theta);
+    positions.push(x * rx, y * ry, 0);
+    normals.push(0, 0, 1);
+    uvs.push(x * 0.5 + 0.5, y * 0.5 + 0.5);
+  }
+  for (let segment = 0; segment < radial; segment += 1) {
+    // Counter-clockwise, so the fan faces the camera under SCENE_FORMAT §5.
+    indices.push(0, segment + 1, segment + 2);
+  }
+
+  return {
+    positions: new Float32Array(positions),
+    indices: new Uint32Array(indices),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+  };
+}
+
 /** The geometry a spec describes. Defaults are one world unit. */
 export function primitiveDescriptor(spec: PrimitiveSpec): GeometryDescriptor {
   switch (spec.shape) {
@@ -226,6 +289,8 @@ export function primitiveDescriptor(spec: PrimitiveSpec): GeometryDescriptor {
       return sphereDescriptor(spec.radius ?? 0.5, spec.segments ?? 32, spec.rings ?? 16);
     case "cylinder":
       return cylinderDescriptor(spec.radius ?? 0.5, spec.height ?? 1, spec.segments ?? 32);
+    case "disc":
+      return discDescriptor(spec.width ?? 1, spec.height ?? 1, spec.segments ?? 48);
     case "box":
     default:
       return boxDescriptor(spec.width ?? 1, spec.height ?? 1, spec.depth ?? 1);
@@ -262,7 +327,7 @@ export function readPrimitive(value: unknown): PrimitiveSpec | null {
     typeof raw[key] === "number" && Number.isFinite(raw[key]) ? (raw[key] as number) : undefined;
 
   return {
-    shape: (["box", "plane", "sphere", "cylinder"] as const).includes(
+    shape: (["box", "plane", "sphere", "cylinder", "disc"] as const).includes(
       shape as PrimitiveShape,
     )
       ? (shape as PrimitiveShape)

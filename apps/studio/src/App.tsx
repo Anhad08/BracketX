@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createCanvasBackend } from "@bracketx/engine-render-three";
-import {
-  findNode,
-  makeSetDocProp,
-  type SceneDocument,
-  type Transaction,
-} from "@bracketx/engine-scene";
+import { findNode, type SceneDocument, type Transaction } from "@bracketx/engine-scene";
 
 import { StudioSession } from "./studio/session";
 import {
@@ -18,13 +13,13 @@ import {
   type Selection,
 } from "./studio/selection";
 import {
+  TOOLBOX,
   createNode,
   deleteNodes,
   duplicateNodes,
   moveNode,
   renameNode,
   setProp,
-  transaction,
   type NodeKind,
 } from "./studio/editing";
 import { outline, pathTo } from "./studio/outline";
@@ -41,6 +36,7 @@ import {
   type RecentProject,
 } from "./studio/project";
 import {
+  BOTTOM_TABS,
   DEFAULT_WORKSPACE,
   loadWorkspace,
   saveWorkspace,
@@ -48,15 +44,23 @@ import {
   type Workspace,
 } from "./studio/workspace";
 import { matchBinding, shortcutFor, type StudioCommand } from "./studio/commands";
-import { SceneView } from "./ui/scene-view";
+import { ProgramBus } from "./studio/program";
+import { PRESETS, applyPreset } from "./studio/presets";
+import { align, distribute, group, reorder, ungroup } from "./studio/arrange";
+import { createTimeline } from "./studio/keyframes";
+import { nodeBounds } from "./studio/viewport";
 import {
-  Hierarchy,
-  Inspector,
-  TimelinePanel,
-  Toolbox,
-  Variables,
-  makeTimeline,
-} from "./ui/panels";
+  describeDocument,
+  loadLibrary,
+  promoteToTemplate,
+  saveToLibrary,
+  type LibraryEntry,
+} from "./studio/library";
+import { SceneView } from "./ui/scene-view";
+import { Hierarchy, Inspector, Toolbox, Variables } from "./ui/panels";
+import { TimelineEditor } from "./ui/timeline";
+import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
+import { ProgramRow } from "./ui/program";
 import { CommandPalette, KeyboardHelp } from "./ui/palette";
 
 /**
@@ -85,8 +89,17 @@ export function App() {
   if (canvasRef.current === null && typeof document !== "undefined") {
     canvasRef.current = document.createElement("canvas");
   }
+  // Program gets its OWN canvas and its own session, for the reason
+  // `program.ts` argues at length: Program has its own clock, and one runtime
+  // cannot be at two frames. A graphic must keep animating on air while a
+  // designer scrubs Preview to frame zero.
+  const programCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  if (programCanvasRef.current === null && typeof document !== "undefined") {
+    programCanvasRef.current = document.createElement("canvas");
+  }
 
   const [session, setSession] = useState<StudioSession | null>(null);
+  const [bus, setBus] = useState<ProgramBus | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
 
@@ -99,6 +112,7 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [recents, setRecents] = useState<readonly RecentProject[]>([]);
+  const [library, setLibrary] = useState<readonly LibraryEntry[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const openInput = useRef<HTMLInputElement | null>(null);
 
@@ -107,17 +121,29 @@ export function App() {
   useEffect(() => {
     setWorkspace(loadWorkspace());
     setRecents(loadRecents());
+    setLibrary(loadLibrary(storage()));
   }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (canvas === null || session !== null) return;
+    const programCanvas = programCanvasRef.current;
+    if (canvas === null || programCanvas === null || session !== null) return;
     try {
       const created = newDocument("Untitled", ids, new Date().toISOString());
-      canvas.width = created.world.output.width;
-      canvas.height = created.world.output.height;
-      const backend = createCanvasBackend(canvas);
-      setSession(new StudioSession(backend, created));
+      for (const surface of [canvas, programCanvas]) {
+        surface.width = created.world.output.width;
+        surface.height = created.world.output.height;
+      }
+      const preview = new StudioSession(createCanvasBackend(canvas), created);
+      // Program starts on a document of its own rather than a reference to
+      // Preview's: sharing one would be the exact leak the whole split exists
+      // to prevent, and it would be invisible until the first edit.
+      const program = new StudioSession(
+        createCanvasBackend(programCanvas),
+        newDocument("Program", ids, new Date().toISOString()),
+      );
+      setSession(preview);
+      setBus(new ProgramBus(preview, program));
       setExpanded(new Set([created.root.id]));
     } catch (cause) {
       // WebGL can be unavailable entirely. An editor that shows a blank page in
@@ -136,6 +162,33 @@ export function App() {
       setSelection((current) => prune(current, (id) => session.exists(id)));
     });
   }, [session]);
+
+  // Runtime changes — a seek, a cue, a live variable — are NOT document edits,
+  // so they do not reach the store. Without this the shell renders the engine
+  // to its canvas and never re-reads it: the frame counter, the timeline
+  // playhead and the live variable column are each correct once and then
+  // frozen. Every panel individually right, collectively stale.
+  useEffect(() => (session === null ? undefined : session.subscribe(() => {
+    setRevision((value) => value + 1);
+  })), [session]);
+
+  // While the clock is RUNNING, the engine advances with no discrete event to
+  // notify on, so the UI is ticked per animation frame — and only then. An
+  // unconditional loop would re-render an idle editor sixty times a second for
+  // nothing, which is what makes a tool feel heavy on a laptop.
+  useEffect(() => {
+    if (session === null || !session.playing) return;
+    let handle = 0;
+    const tick = () => {
+      setRevision((value) => value + 1);
+      handle = requestAnimationFrame(tick);
+    };
+    handle = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(handle);
+    // `playing` and not `revision`: pausing notifies, which re-renders, which
+    // changes this dep and tears the loop down. Depending on `revision` would
+    // rebuild the effect on every frame it caused.
+  }, [session, session?.playing]);
 
   const update = useCallback((patch: Partial<Workspace>) => {
     setWorkspace((current) => {
@@ -339,26 +392,210 @@ export function App() {
         hint: "Animations are document data, so this is an undoable edit",
         keywords: ["animation", "clip", "keyframe"],
         run: () => {
-          const primary = primaryOf(selection);
-          const node = primary === null ? null : findNode(document_.root, primary);
-          edit(
-            transaction("Add timeline", [
-              makeSetDocProp(
-                document_,
-                `animations.${(document_.animations ?? []).length}`,
-                makeTimeline(node, ids),
-              ),
-            ]),
-          );
+          edit(createTimeline(document_, "Timeline", ids).transaction);
           update({ bottomOpen: true, bottomTab: "timeline" });
         },
       },
-      ...(["group", "rect", "camera"] as const).map((kind) => ({
-        id: `create.${kind}`,
-        title: `Add ${kind}`,
+      ...TOOLBOX.map((entry) => ({
+        id: `create.${entry.kind}`,
+        title: `Add ${entry.label.toLowerCase()}`,
         section: "Create" as const,
-        run: () => create(kind),
+        hint: entry.hint,
+        run: () => create(entry.kind),
       })),
+
+      // -- Arrange ----------------------------------------------------------
+      //
+      // Bounds are read from the MIRROR at run time, not captured here: a
+      // command built against a stale snapshot would align to where things were
+      // before the last edit.
+      ...(
+        [
+          ["left", "Align left"],
+          ["centerX", "Align centres horizontally"],
+          ["right", "Align right"],
+          ["top", "Align top"],
+          ["middle", "Align middles vertically"],
+          ["bottom", "Align bottom"],
+        ] as const
+      ).map(([edge, title]) => ({
+        id: `arrange.align.${edge}`,
+        title,
+        section: "Arrange" as const,
+        keywords: ["align", "arrange"],
+        enabled: selected.length >= 2,
+        run: () =>
+          edit(
+            align(
+              document_,
+              selected,
+              nodeBounds(document_, (id) => session.worldMatrixOf(id)),
+              edge,
+            ),
+          ),
+      })),
+      ...(["horizontal", "vertical"] as const).map((axis) => ({
+        id: `arrange.distribute.${axis}`,
+        title: `Distribute ${axis}ly`,
+        section: "Arrange" as const,
+        keywords: ["space", "even"],
+        enabled: selected.length >= 3,
+        run: () =>
+          edit(
+            distribute(
+              document_,
+              selected,
+              nodeBounds(document_, (id) => session.worldMatrixOf(id)),
+              axis,
+            ),
+          ),
+      })),
+      {
+        id: "arrange.group",
+        title: "Group selection",
+        section: "Arrange",
+        shortcut: shortcutFor("arrange.group"),
+        enabled: selected.length > 0,
+        run: () => {
+          const result = group(document_, selected, ids);
+          if (result !== null && store.apply(result.transaction)) {
+            setSelection(selectOnly(result.groupId));
+          }
+        },
+      },
+      {
+        id: "arrange.ungroup",
+        title: "Ungroup",
+        section: "Arrange",
+        shortcut: shortcutFor("arrange.ungroup"),
+        enabled: selected.length === 1,
+        run: () => {
+          const id = primaryOf(selection);
+          if (id !== null) edit(ungroup(document_, id));
+        },
+      },
+      ...(
+        [
+          ["front", "Bring to front"],
+          ["forward", "Bring forward"],
+          ["backward", "Send backward"],
+          ["back", "Send to back"],
+        ] as const
+      ).map(([move, title]) => ({
+        id: `arrange.${move}`,
+        title,
+        section: "Arrange" as const,
+        keywords: ["layer", "order", "z"],
+        shortcut: shortcutFor(`arrange.${move}`),
+        enabled: selected.length === 1,
+        run: () => {
+          const id = primaryOf(selection);
+          if (id !== null) edit(reorder(document_, id, move));
+        },
+      })),
+
+      // -- Motion -----------------------------------------------------------
+      ...PRESETS.map((preset) => ({
+        id: `motion.${preset.id}`,
+        title: `${preset.label}`,
+        section: "Motion" as const,
+        hint: preset.hint,
+        keywords: ["preset", "animate", preset.kind],
+        enabled: selected.length > 0,
+        run: () => {
+          edit(applyPreset(document_, selected, preset, ids));
+          update({ bottomOpen: true, bottomTab: "timeline" });
+        },
+      })),
+
+      // -- Program ----------------------------------------------------------
+      ...(bus === null
+        ? []
+        : [
+            {
+              id: "program.take",
+              title: "Take to Program",
+              section: "Program" as const,
+              hint: bus.pending ? "Preview differs from air" : "nothing pending",
+              keywords: ["air", "live", "transition"],
+              run: () => {
+                bus.take();
+                update({ programOpen: true });
+              },
+            },
+            {
+              id: "program.cut",
+              title: "Cut to Program",
+              section: "Program" as const,
+              hint: "No entrance animation",
+              run: () => {
+                bus.cut();
+                update({ programOpen: true });
+              },
+            },
+            {
+              id: "program.continue",
+              title: "Continue",
+              section: "Program" as const,
+              hint: "Resume a hold, or play the exit",
+              enabled: bus.onAir,
+              run: () => bus.continue(),
+            },
+            {
+              id: "program.hold",
+              title: "Hold",
+              section: "Program" as const,
+              enabled: bus.onAir,
+              run: () => bus.hold(),
+            },
+            {
+              id: "program.clear",
+              title: "Clear Program",
+              section: "Program" as const,
+              enabled: bus.onAir,
+              run: () => bus.clear(),
+            },
+            {
+              id: "program.toggle",
+              title: workspace.programOpen ? "Hide Program row" : "Show Program row",
+              section: "Program" as const,
+              run: () => update({ programOpen: !workspace.programOpen }),
+            },
+          ]),
+
+      // -- Library ----------------------------------------------------------
+      {
+        id: "file.saveTemplate",
+        title: "Save as template",
+        section: "File",
+        hint:
+          document_.variables.length === 0
+            ? "declare a variable first"
+            : `${document_.variables.length} parameters`,
+        keywords: ["template", "reusable", "marketplace"],
+        enabled: document_.variables.length > 0,
+        run: () => {
+          edit(promoteToTemplate(document_, document_.meta.name, ids));
+          update({ bottomOpen: true, bottomTab: "library" });
+        },
+      },
+      {
+        id: "file.saveToLibrary",
+        title: "Save to library",
+        section: "File",
+        keywords: ["library", "shelf"],
+        run: () => {
+          setLibrary((current) =>
+            saveToLibrary(
+              current,
+              describeDocument(document_, new Date().toISOString()),
+              storage(),
+            ),
+          );
+          setNotice(`${document_.meta.name} saved to the library`);
+          update({ bottomOpen: true, bottomTab: "library" });
+        },
+      },
       {
         id: "select.all",
         title: "Select all",
@@ -673,6 +910,14 @@ export function App() {
             ))}
           </div>
 
+          <ArrangeBar
+            session={session}
+            selection={selection}
+            ids={ids}
+            onEdit={edit}
+            onSelect={(nodeIds) => setSelection(selectMany(nodeIds))}
+          />
+
           <SceneView
             session={session}
             canvas={canvasRef.current}
@@ -686,6 +931,10 @@ export function App() {
             fitToken={fitToken}
           />
 
+          {workspace.programOpen && bus !== null && programCanvasRef.current !== null ? (
+            <ProgramRow bus={bus} canvas={programCanvasRef.current} revision={revision} />
+          ) : null}
+
           {workspace.bottomOpen ? (
             <>
               <Divider
@@ -694,7 +943,7 @@ export function App() {
               />
               <section className="dock bottom" style={{ height: workspace.bottomHeight }}>
                 <nav className="tabs" role="tablist">
-                  {(["timeline", "variables"] as const).map((tab: BottomTab) => (
+                  {BOTTOM_TABS.map((tab: BottomTab) => (
                     <button
                       key={tab}
                       type="button"
@@ -706,11 +955,42 @@ export function App() {
                       {tab}
                     </button>
                   ))}
+                  <span className="spacer" />
+                  <button
+                    type="button"
+                    className={`chip ${workspace.programOpen ? "on" : ""}`}
+                    onClick={() => update({ programOpen: !workspace.programOpen })}
+                    title="Preview / Program is a row, not a tab — on-air state is never behind something else"
+                  >
+                    Program
+                  </button>
                 </nav>
+
                 {workspace.bottomTab === "timeline" ? (
-                  <TimelinePanel session={session} revision={revision} onEdit={edit} />
-                ) : (
+                  <TimelineEditor
+                    session={session}
+                    revision={revision}
+                    selection={selection}
+                    ids={ids}
+                    zoom={workspace.timelineZoom}
+                    onZoom={(timelineZoom) => update({ timelineZoom })}
+                    onEdit={edit}
+                  />
+                ) : workspace.bottomTab === "presets" ? (
+                  <PresetPanel session={session} selection={selection} ids={ids} onEdit={edit} />
+                ) : workspace.bottomTab === "variables" ? (
                   <Variables session={session} selection={selection} ids={ids} onEdit={edit} />
+                ) : (
+                  <LibraryPanel
+                    session={session}
+                    ids={ids}
+                    library={library}
+                    onLibrary={setLibrary}
+                    storage={storage()}
+                    onEdit={edit}
+                    onOpen={(next) => openJson(serializeDocument(next))}
+                    now={() => new Date().toISOString()}
+                  />
                 )}
               </section>
             </>
@@ -784,6 +1064,24 @@ function Divider({ axis, onDelta }: { axis: "x" | "y"; onDelta: (delta: number) 
       }}
     />
   );
+}
+
+/**
+ * Local storage, or nothing.
+ *
+ * Returns null rather than throwing when storage is unavailable — private
+ * browsing, a blocked origin, a quota-full profile. The library and the recents
+ * are conveniences; the document is the truth, and an editor that will not open
+ * because it cannot read a shelf is worse than one that forgets the shelf.
+ */
+function storage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    localStorage.getItem("streamatrix.studio.probe");
+    return localStorage;
+  } catch {
+    return null;
+  }
 }
 
 function allIds(document_: SceneDocument): readonly string[] {

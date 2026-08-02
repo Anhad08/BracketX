@@ -25,6 +25,7 @@ import {
   type ProjectionReport,
 } from "@bracketx/engine-host";
 import type { MirrorBackend } from "@bracketx/engine-reconciler";
+import type { RuntimeValue } from "@bracketx/engine-runtime";
 import type { Mat4, SceneDocument } from "@bracketx/engine-scene";
 
 import { DocumentStore } from "./document-store";
@@ -40,6 +41,7 @@ export class StudioSession {
 
   #disposed = false;
   #frame = 0;
+  #listeners = new Set<() => void>();
 
   constructor(
     backend: MirrorBackend,
@@ -66,6 +68,7 @@ export class StudioSession {
     this.host.load(document);
     this.store.reset();
     this.#frame = 0;
+    this.#notify();
   }
 
   /** World matrix of a node, from the mirror. What gizmos and picking read. */
@@ -77,16 +80,43 @@ export class StudioSession {
     return this.host.reconciler.mirror.has(nodeId);
   }
 
+  // -- Runtime notifications -------------------------------------------------
+
+  /**
+   * Notified when RUNTIME state changes — the clock, a clip, a live variable.
+   *
+   * Separate from `store.subscribe`, which fires on document edits, because
+   * these are different kinds of change and a reader usually wants one of them.
+   * The UI needs both: the store tells it the document moved, this tells it the
+   * engine did.
+   *
+   * Without this the shell renders the engine to a canvas and never re-reads
+   * it, so the frame counter, the timeline playhead and the live variable
+   * column are correct once and then frozen — every panel individually right
+   * and collectively stale. That was true from Phase 1 and invisible until a
+   * browser test looked, because a headless test reads the session directly.
+   */
+  subscribe(listener: () => void): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  }
+
+  #notify(): void {
+    for (const listener of this.#listeners) listener();
+  }
+
   // -- Transport ------------------------------------------------------------
   //
   // Every one of these is an engine call. Studio owns no clock.
 
   play(): void {
     this.host.applyLive({ type: "playback.play" }, "studio");
+    this.#notify();
   }
 
   pause(): void {
     this.host.applyLive({ type: "playback.pause" }, "studio");
+    this.#notify();
   }
 
   stop(): void {
@@ -97,6 +127,7 @@ export class StudioSession {
   seek(frame: number): void {
     this.host.applyLive({ type: "playback.seek", frame: Math.max(0, frame) }, "studio");
     this.render();
+    this.#notify();
   }
 
   /**
@@ -120,12 +151,77 @@ export class StudioSession {
     return this.host.runtime.clock.snapshot().status === "playing";
   }
 
+  // -- Variables ------------------------------------------------------------
+  //
+  // RFC-002 §4.3 draws the line these three sit on: a variable's DEFAULT is a
+  // document edit — undoable, persisted, and it goes through `editing.ts`. A
+  // variable's current VALUE is runtime state — not undoable, not persisted,
+  // and it goes through here. Studio has to offer both, because a designer
+  // changing what a template ships with and an operator typing a score into it
+  // are different acts on the same field.
+
+  /**
+   * Overrides a variable for this session only.
+   *
+   * This is exactly what an operator does on air, which is why the preview
+   * panel uses it rather than editing the default: a designer trying values
+   * must not have every trial land in the document and the undo stack.
+   */
+  overrideVariable(key: string, value: RuntimeValue): void {
+    this.host.applyLive({ type: "variable.set", key, value }, "studio");
+    this.render();
+    this.#notify();
+  }
+
+  /**
+   * Drops an override, restoring the document's default.
+   *
+   * `variable.clear` alone would leave the key ABSENT rather than default —
+   * the runtime has no memory of the document — so the default is re-set
+   * explicitly. A designer who resets a field and sees it go blank has lost
+   * their default, which is the opposite of what the button says.
+   */
+  resetVariable(key: string): void {
+    const variable = this.document.variables.find((entry) => entry.key === key);
+    if (variable === undefined) {
+      this.host.applyLive({ type: "variable.clear", key }, "studio");
+    } else {
+      this.host.applyLive(
+        { type: "variable.set", key, value: variable.default as RuntimeValue },
+        "studio",
+      );
+    }
+    this.render();
+    this.#notify();
+  }
+
+  /** The value the engine is currently resolving for a key. */
+  variableValue(key: string): unknown {
+    return this.host.runtime.state.variables.get(key);
+  }
+
+  /**
+   * True when the runtime value differs from the document's default.
+   *
+   * `Object.is`, not a deep compare, and for the same reason the host's own
+   * default-sync uses it: an operator who typed a value equal to the default
+   * has still typed it, and the badge saying so is what tells them the field
+   * is no longer following the template.
+   */
+  isOverridden(key: string): boolean {
+    const variable = this.document.variables.find((entry) => entry.key === key);
+    if (variable === undefined) return false;
+    return !Object.is(this.variableValue(key), variable.default);
+  }
+
   playClip(clipId: string): void {
     this.host.applyLive({ type: "clip.play", clipId }, "studio");
+    this.#notify();
   }
 
   stopClip(clipId: string): void {
     this.host.applyLive({ type: "clip.stop", clipId }, "studio");
+    this.#notify();
   }
 
   /** Draws one frame at the current wall time. */
@@ -141,6 +237,7 @@ export class StudioSession {
   dispose(): void {
     if (this.#disposed) return;
     this.host.dispose();
+    this.#listeners.clear();
     this.#disposed = true;
   }
 

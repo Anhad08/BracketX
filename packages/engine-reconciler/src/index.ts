@@ -85,6 +85,7 @@ export {
 export {
   boxDescriptor,
   cylinderDescriptor,
+  discDescriptor,
   planeDescriptor,
   primitiveDescriptor,
   primitiveKey,

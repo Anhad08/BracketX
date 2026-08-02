@@ -233,9 +233,44 @@ consumer to understand every product feature forever.
 }
 ```
 
-Geometry is **never** stored in the scene document. It lives in a glTF/GLB asset
-and is referenced. Materials default to the asset's own and may be overridden —
-which is how one model serves many teams' colours.
+Authored geometry is **never** stored in the scene document. It lives in a
+glTF/GLB asset and is referenced. Materials default to the asset's own and may be
+overridden — which is how one model serves many teams' colours.
+
+**Or a generated primitive**, which stores a *description* rather than geometry:
+
+```json
+"props": {
+  "primitive": { "shape": "disc", "width": 2, "height": 2 },
+  "material": { "baseColor": "#2f6feb", "metallic": 0.1, "roughness": 0.6 }
+}
+```
+
+| `shape` | Parameters | |
+| --- | --- | --- |
+| `box` | `width`, `height`, `depth` | 24 vertices, so hard edges stay hard |
+| `plane` | `width`, `depth` | In XZ, facing +Y. The floor of a set |
+| `sphere` | `radius`, `segments`, `rings` | UV, so it is texturable |
+| `cylinder` | `radius`, `height`, `segments` | Capped |
+| `disc` | `width`, `height`, `segments` | In XY, facing +Z. The 2D companion to `rect` |
+
+A spec is a handful of numbers, not a mesh, so this does not reintroduce
+geometry into the document — and the resource manager is content-addressed, so a
+thousand identical seats are one buffer. An unknown `shape` reads as `box` rather
+than failing, per §14.
+
+A material with `metallic` or `roughness` is `pbr`; otherwise `unlit`. That split
+is not cosmetic: a `pbr` material with no light in the scene renders black.
+
+> `primitive` added 2026-08-02 (Phase 2); `disc` 2026-08-02 (Studio Phase 3A).
+> Optional properties with defined defaults, so per §13 rule 4 neither is
+> breaking and neither needs a version bump.
+>
+> **`cornerRadius` on `rect` is declared and unimplemented.** No backend
+> reads it. A rounded rectangle is a signed-distance fill, which is renderer
+> work with a material-kind consequence — not a geometry change. `disc` exists
+> because a circle authored as a square rect with a corner radius renders a
+> square.
 
 ### 7.2 `text`
 
