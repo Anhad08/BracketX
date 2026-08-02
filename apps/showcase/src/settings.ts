@@ -1,23 +1,34 @@
 /**
- * Persistent developer settings.
+ * Persistent workspace.
  *
- * Which overlays are open, whether the clock auto-plays, the preferred output
- * size. Small things, but a tool that forgets them is a tool that gets closed:
- * an engineer debugging a frame-timing problem should not re-enable the
- * performance overlay every time they reload.
+ * Which overlays are open, which tool was in front, what was pinned, what was
+ * being watched, where the panel divider sat. Small things, and together they
+ * are the difference between a tool that is picked up and one that is closed:
+ * an engineer who has to re-pin four nodes and re-enable the performance
+ * overlay after every reload will stop reloading, which means they stop using
+ * the tool.
  *
- * Versioned, so a settings shape change does not resurrect stale keys. A
- * corrupt or unreadable store falls back to defaults rather than throwing —
- * localStorage is unavailable in private modes and absent in tests, and a
- * developer tool that will not start because it cannot remember a checkbox is
- * worse than one that forgets.
+ * Versioned, so a shape change does not resurrect stale keys. A corrupt or
+ * unreadable store falls back to defaults rather than throwing — localStorage
+ * is unavailable in private modes and absent in tests, and a developer tool
+ * that will not start because it cannot remember a checkbox is worse than one
+ * that forgets.
  */
+import type { StressConfig } from "./tools/stress";
 
-const STORAGE_KEY = "bracketx.showcase.settings.v1";
+/**
+ * v2. The v1 key is deliberately NOT migrated.
+ *
+ * A migration would be maybe forty lines to preserve five booleans that take
+ * two seconds to set again. Carrying a migration path for a debugging tool's
+ * checkbox state is technical debt bought for nothing.
+ */
+const STORAGE_KEY = "bracketx.workbench.v2";
 
 export interface ShowcaseSettings {
   readonly developerOverlay: boolean;
   readonly performanceOverlay: boolean;
+  readonly alertsOverlay: boolean;
   /** Advance the clock on load. Off is useful for frame-exact inspection. */
   readonly autoPlay: boolean;
   /** Bind a second, lower-cadence output to exercise the multi-output path. */
@@ -25,16 +36,44 @@ export interface ShowcaseSettings {
   /** Scale the canvas to the pane. Off renders at the document's own size. */
   readonly fitCanvas: boolean;
   readonly lastSceneId: string | null;
+
+  // --- Workspace ---------------------------------------------------------
+  readonly tool: string;
+  readonly workbenchOpen: boolean;
+  /** Workbench height as a percentage of the viewport. */
+  readonly workbenchSize: number;
+  /** Most recent first, capped. Feeds the palette's ordering. */
+  readonly recentSceneIds: readonly string[];
+  /** Node ids kept in view across scenes and reloads. */
+  readonly pinnedNodeIds: readonly string[];
+  /** Variable keys in the watch window. */
+  readonly watchedKeys: readonly string[];
+  readonly layers: Readonly<Record<string, boolean>>;
+  readonly savedStress: readonly StressConfig[];
 }
 
 export const DEFAULT_SETTINGS: ShowcaseSettings = {
   developerOverlay: true,
   performanceOverlay: true,
+  alertsOverlay: true,
   autoPlay: true,
   previewOutput: false,
   fitCanvas: true,
   lastSceneId: null,
+
+  tool: "inspector",
+  workbenchOpen: true,
+  workbenchSize: 42,
+  recentSceneIds: [],
+  pinnedNodeIds: [],
+  watchedKeys: [],
+  layers: { bounds: false, layout: false, anchors: false, origins: false },
+  savedStress: [],
 };
+
+const RECENT_LIMIT = 8;
+const PIN_LIMIT = 32;
+const WATCH_LIMIT = 32;
 
 /**
  * The slice of Storage this module uses.
@@ -60,6 +99,11 @@ function defaultStorage(): SettingsStorage | null {
   }
 }
 
+function stringList(value: unknown, limit: number): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string").slice(0, limit);
+}
+
 /** Keeps only known keys, so a stale or hostile store cannot inject fields. */
 function sanitize(value: unknown): ShowcaseSettings {
   if (value === null || typeof value !== "object") return DEFAULT_SETTINGS;
@@ -68,14 +112,42 @@ function sanitize(value: unknown): ShowcaseSettings {
   const bool = (key: keyof ShowcaseSettings, fallback: boolean): boolean =>
     typeof raw[key] === "boolean" ? (raw[key] as boolean) : fallback;
 
+  const layers: Record<string, boolean> = { ...DEFAULT_SETTINGS.layers };
+  if (raw.layers !== null && typeof raw.layers === "object") {
+    for (const [key, entry] of Object.entries(raw.layers as Record<string, unknown>)) {
+      if (key in layers && typeof entry === "boolean") layers[key] = entry;
+    }
+  }
+
+  const savedStress = Array.isArray(raw.savedStress)
+    ? (raw.savedStress.filter(
+        (entry) =>
+          entry !== null &&
+          typeof entry === "object" &&
+          typeof (entry as StressConfig).id === "string",
+      ) as StressConfig[]).slice(0, 20)
+    : [];
+
   return {
     developerOverlay: bool("developerOverlay", DEFAULT_SETTINGS.developerOverlay),
     performanceOverlay: bool("performanceOverlay", DEFAULT_SETTINGS.performanceOverlay),
+    alertsOverlay: bool("alertsOverlay", DEFAULT_SETTINGS.alertsOverlay),
     autoPlay: bool("autoPlay", DEFAULT_SETTINGS.autoPlay),
     previewOutput: bool("previewOutput", DEFAULT_SETTINGS.previewOutput),
     fitCanvas: bool("fitCanvas", DEFAULT_SETTINGS.fitCanvas),
-    lastSceneId:
-      typeof raw.lastSceneId === "string" ? raw.lastSceneId : null,
+    lastSceneId: typeof raw.lastSceneId === "string" ? raw.lastSceneId : null,
+
+    tool: typeof raw.tool === "string" ? raw.tool : DEFAULT_SETTINGS.tool,
+    workbenchOpen: bool("workbenchOpen", DEFAULT_SETTINGS.workbenchOpen),
+    workbenchSize:
+      typeof raw.workbenchSize === "number" && Number.isFinite(raw.workbenchSize)
+        ? Math.min(80, Math.max(15, raw.workbenchSize))
+        : DEFAULT_SETTINGS.workbenchSize,
+    recentSceneIds: stringList(raw.recentSceneIds, RECENT_LIMIT),
+    pinnedNodeIds: stringList(raw.pinnedNodeIds, PIN_LIMIT),
+    watchedKeys: stringList(raw.watchedKeys, WATCH_LIMIT),
+    layers,
+    savedStress,
   };
 }
 
@@ -107,4 +179,23 @@ export function clearSettings(
   store: SettingsStorage | null = defaultStorage(),
 ): void {
   store?.removeItem(STORAGE_KEY);
+}
+
+/** Most-recent-first, deduplicated, capped. */
+export function pushRecent(
+  recent: readonly string[],
+  id: string,
+): readonly string[] {
+  return [id, ...recent.filter((entry) => entry !== id)].slice(0, RECENT_LIMIT);
+}
+
+/** Adds or removes an id, keeping order stable so pins do not jump around. */
+export function toggleInList(
+  list: readonly string[],
+  value: string,
+  limit = PIN_LIMIT,
+): readonly string[] {
+  return list.includes(value)
+    ? list.filter((entry) => entry !== value)
+    : [...list, value].slice(-limit);
 }

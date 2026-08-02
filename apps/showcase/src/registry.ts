@@ -51,6 +51,25 @@ export interface SceneControlContext {
   readonly activeStates: readonly string[];
 }
 
+/**
+ * Build-time knobs for a scene.
+ *
+ * Node count and hierarchy depth are properties of the DOCUMENT, so no runtime
+ * command can vary them — the stress laboratory needs a scene that can be built
+ * at a requested shape. Declaring the axes as data keeps the laboratory generic:
+ * it drives whatever a scene declares rather than knowing about any scene.
+ */
+export interface SceneParameter {
+  readonly key: string;
+  readonly label: string;
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+  readonly default: number;
+}
+
+export type SceneParameters = Readonly<Record<string, number>>;
+
 export interface ShowcaseScene {
   /** URL slug. Stable forever — links to a showcase should not rot. */
   readonly id: string;
@@ -69,8 +88,20 @@ export interface ShowcaseScene {
    */
   readonly capability: string;
 
-  /** Builds the document. Must be deterministic — called on every load. */
-  build(): SceneDocument;
+  /**
+   * Builds the document. Must be deterministic — called on every load.
+   *
+   * The same parameters must always produce the same document, byte for byte.
+   * A scene that builds differently on a second call makes every replay
+   * verification meaningless, so this is a hard rule rather than a preference.
+   */
+  build(parameters?: SceneParameters): SceneDocument;
+
+  /** Build axes this scene exposes to the stress laboratory. */
+  readonly parameters?: readonly SceneParameter[];
+
+  /** Extra search terms, for the command palette. Optional. */
+  readonly keywords?: readonly string[];
 
   /** Commands issued once after load, e.g. starting a clip. */
   readonly onLoad?: readonly LiveCommand[];
@@ -151,6 +182,29 @@ export function listGroups(): readonly SceneGroup[] {
     else groups.set(scene.group, [scene]);
   }
   return [...groups.entries()].map(([name, list]) => ({ name, scenes: list }));
+}
+
+/** The declared defaults, as a parameter set. Empty when a scene declares none. */
+export function defaultParameters(scene: ShowcaseScene): SceneParameters {
+  const out: Record<string, number> = {};
+  for (const parameter of scene.parameters ?? []) {
+    out[parameter.key] = parameter.default;
+  }
+  return out;
+}
+
+/** Clamps a parameter set to what the scene declares. Unknown keys are dropped. */
+export function clampParameters(
+  scene: ShowcaseScene,
+  values: SceneParameters,
+): SceneParameters {
+  const out: Record<string, number> = {};
+  for (const parameter of scene.parameters ?? []) {
+    const raw = values[parameter.key];
+    const value = typeof raw === "number" && Number.isFinite(raw) ? raw : parameter.default;
+    out[parameter.key] = Math.min(parameter.max, Math.max(parameter.min, Math.round(value)));
+  }
+  return out;
 }
 
 /** Test-only. Registration is otherwise permanent for the process. */

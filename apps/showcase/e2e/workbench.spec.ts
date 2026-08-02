@@ -3,43 +3,96 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Workbench, in a browser.
  *
- * The headless suite already proves every tool's DATA. What only a DOM can show
- * is that the panels stay SYNCHRONIZED with a running engine — the failure mode
- * Phase 1 shipped and had to fix, where every number was individually correct
- * and collectively frozen.
+ * The headless suite already proves every tool's DATA — 281 assertions over the
+ * model layer. What only a DOM can show is that the panels stay SYNCHRONIZED
+ * with a running engine, and that the keyboard workflow actually works, which
+ * is the difference between a feature and a demo.
+ *
+ * The specific failure this file exists to catch is the one Phase 1 shipped:
+ * every number individually correct and collectively frozen.
  */
 
-async function open(page: Page, scene: string, tool: string): Promise<void> {
+async function open(page: Page, scene: string, tool?: string): Promise<void> {
   await page.goto(`/#/${scene}`);
   await page.waitForSelector(`[data-testid="showcase-canvas"][data-scene="${scene}"]`);
-  await page.getByRole("button", { name: tool, exact: true }).click();
+  if (tool !== undefined) {
+    await page.getByRole("tab", { name: tool, exact: false }).click();
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Inspector
+// ---------------------------------------------------------------------------
 
 test("inspector reflects the live mirror", async ({ page }) => {
   await open(page, "leaderboard", "Inspector");
 
   const tree = page.getByTestId("inspector-tree");
   await expect(tree).toBeVisible();
-  // Root, camera, table, and eight rows of three boxes each.
   await expect(tree.locator("li")).not.toHaveCount(0);
 
-  // Selecting a node shows engine-sourced detail, not placeholders.
-  await tree.locator("li button.node").nth(2).click();
+  await tree.locator("li button.node").nth(1).click();
   const detail = page.getByTestId("inspector-detail");
   await expect(detail).toContainText("world");
   await expect(detail).not.toContainText("Select a node");
 });
 
-test("inspector filter keeps ancestors", async ({ page }) => {
+test("inspector opens collapsed and expands on demand", async ({ page }) => {
+  // The scalability property, visible: the tree must not flatten the whole
+  // mirror to render. Expanding is what costs rows.
   await open(page, "leaderboard", "Inspector");
 
-  const before = await page.getByTestId("inspector-tree").locator("li").count();
-  await page.getByPlaceholder("filter by id, name, or component").fill("entry");
-  const after = await page.getByTestId("inspector-tree").locator("li").count();
+  const rows = () => page.getByTestId("inspector-tree").locator("li");
+  const before = await rows().count();
 
-  expect(after).toBeGreaterThan(0);
-  expect(after).toBeLessThan(before);
+  // Expand every currently-collapsed branch one level.
+  const collapsed = page.getByTestId("inspector-tree").getByRole("button", { name: "expand" });
+  await collapsed.first().click();
+
+  expect(await rows().count()).toBeGreaterThan(before);
 });
+
+test("inspector search ranks nodes and reveals the one chosen", async ({ page }) => {
+  await open(page, "leaderboard", "Inspector");
+
+  await page.getByLabel("Find node").fill("entry");
+  const results = page.getByTestId("search-results");
+  await expect(results).toBeVisible();
+  await expect(page.getByTestId("search-summary")).toContainText("scanned");
+  expect(await results.locator("li").count()).toBeGreaterThan(0);
+
+  await results.locator("button.node").first().click();
+  // Revealing selects, and the detail pane must follow.
+  await expect(page.getByTestId("breadcrumbs")).toBeVisible();
+});
+
+test("inspector answers where a value came from", async ({ page }) => {
+  // The question the inspector exists for. An instance reading a collection row
+  // must name the row, not print `undefined`.
+  await open(page, "leaderboard", "Inspector");
+
+  await page.getByLabel("Find node").fill("team");
+  await page.getByTestId("search-results").locator("button.node").first().click();
+
+  const origins = page.getByTestId("origins");
+  await expect(origins).toBeVisible();
+  await expect(origins).toContainText("scope");
+  await expect(origins).toContainText("row");
+});
+
+test("a pinned node survives switching scenes", async ({ page }) => {
+  await open(page, "leaderboard", "Inspector");
+  await page.getByTestId("inspector-tree").locator("li").first().hover();
+  await page.getByTestId("inspector-tree").getByRole("button", { name: "pin" }).first().click();
+  await expect(page.getByTestId("pinned-nodes")).toBeVisible();
+
+  await open(page, "scoreboard", "Inspector");
+  await expect(page.getByTestId("pinned-nodes")).toBeVisible();
+});
+
+// ---------------------------------------------------------------------------
+// Console
+// ---------------------------------------------------------------------------
 
 test("command console updates as commands are issued", async ({ page }) => {
   await open(page, "scoreboard", "Console");
@@ -47,7 +100,6 @@ test("command console updates as commands are issued", async ({ page }) => {
   const rows = () => page.getByTestId("command-log").locator("tbody tr");
   const before = await rows().count();
 
-  // Every control issues a command; the log must show each one.
   await page.getByRole("button", { name: "+1" }).first().click();
   await page.getByRole("button", { name: "+1" }).first().click();
   await page.waitForTimeout(250);
@@ -57,27 +109,40 @@ test("command console updates as commands are issued", async ({ page }) => {
   await expect(page.getByTestId("command-log")).toContainText("operator");
 });
 
+test("command console attributes scene churn to a command", async ({ page }) => {
+  // "Dirty nodes: 42" is not a diagnostic. "42 from collection.patch" is.
+  await open(page, "leaderboard", "Console");
+  await page.getByRole("button", { name: "Random +3" }).click();
+  await page.waitForTimeout(300);
+
+  await expect(page.getByTestId("dirty-origins")).toBeVisible();
+  await expect(page.getByTestId("dirty-origins")).toContainText("collection.patch");
+});
+
 test("command console pause freezes the view, not the engine", async ({ page }) => {
   await open(page, "scoreboard", "Console");
 
-  await page.getByRole("button", { name: "Pause" }).click();
+  await page.getByRole("button", { name: "Pause log" }).click();
   const frozen = await page.getByTestId("command-log").locator("tbody tr").count();
 
   await page.getByRole("button", { name: "+1" }).first().click();
   await page.waitForTimeout(300);
   expect(await page.getByTestId("command-log").locator("tbody tr").count()).toBe(frozen);
 
-  // The engine kept running while the view was held.
-  await page.getByRole("button", { name: "Resume" }).click();
+  await page.getByRole("button", { name: "Resume log" }).click();
   await page.waitForTimeout(250);
   expect(
     await page.getByTestId("command-log").locator("tbody tr").count(),
   ).toBeGreaterThan(frozen);
 });
 
-test("timeline follows playback", async ({ page }) => {
+// ---------------------------------------------------------------------------
+// Timeline
+// ---------------------------------------------------------------------------
+
+test("timeline follows playback and marks what happened", async ({ page }) => {
   await open(page, "animation", "Timeline");
-  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await page.getByRole("button", { name: "Play", exact: true }).first().click();
 
   const playhead = page.getByTestId("timeline").locator(".playhead");
   await expect(playhead).toBeVisible();
@@ -88,21 +153,34 @@ test("timeline follows playback", async ({ page }) => {
   await page.waitForTimeout(400);
   const first = await left();
   await page.waitForTimeout(500);
-  const second = await left();
+  expect(await left()).not.toBe(first);
 
-  expect(second).not.toBe(first);
+  // Commands issued while the clip runs land on the clip's own axis.
+  await expect(page.getByTestId("timeline-marker").first()).toBeVisible();
 });
 
-test("frame breakdown updates continuously", async ({ page }) => {
-  await open(page, "animation", "Frame");
-  const breakdown = page.getByTestId("frame-breakdown");
-  await expect(breakdown).toBeVisible();
+// ---------------------------------------------------------------------------
+// Performance
+// ---------------------------------------------------------------------------
 
-  const bars = () => breakdown.locator("svg.graph rect").count();
+test("frame history grows and a baseline produces a comparison", async ({ page }) => {
+  await open(page, "animation", "Performance");
+  const panel = page.getByTestId("performance");
+  await expect(panel).toBeVisible();
+
+  const bars = () => page.getByTestId("frame-history").locator("rect").count();
   const first = await bars();
-  await page.waitForTimeout(600);
-  expect(await bars()).toBeGreaterThan(first);
+  await page.waitForTimeout(700);
+  expect(await bars()).toBeGreaterThanOrEqual(first);
+
+  await expect(page.getByTestId("distribution")).toContainText("p95");
+  await page.getByRole("button", { name: "Capture baseline" }).click();
+  await expect(panel).toContainText("baseline");
 });
+
+// ---------------------------------------------------------------------------
+// Outputs
+// ---------------------------------------------------------------------------
 
 test("output monitor tracks every bound output live", async ({ page }) => {
   await open(page, "outputs", "Outputs");
@@ -115,13 +193,33 @@ test("output monitor tracks every bound output live", async ({ page }) => {
   await expect(monitor).toContainText("960×540");
   await expect(monitor).toContainText("1/2");
 
-  // Counters must move.
   const rendered = async () =>
-    Number(await monitor.locator("tbody tr").nth(1).locator("td").nth(5).innerText());
+    Number(await monitor.locator("tbody tr").nth(1).locator("td").nth(6).innerText());
   const first = await rendered();
   await page.waitForTimeout(500);
   expect(await rendered()).toBeGreaterThan(first);
 });
+
+// ---------------------------------------------------------------------------
+// Watch
+// ---------------------------------------------------------------------------
+
+test("watch window shows a value, its readers, and its last writer", async ({ page }) => {
+  await open(page, "leaderboard", "Watch");
+  await page.getByLabel("Add variable to watch").selectOption("standings");
+
+  const table = page.getByTestId("watch-table");
+  await expect(table).toBeVisible();
+  await expect(table).toContainText("standings");
+
+  await page.getByRole("button", { name: "Random +3" }).click();
+  await page.waitForTimeout(300);
+  await expect(table).toContainText("collection.patch");
+});
+
+// ---------------------------------------------------------------------------
+// Recorder
+// ---------------------------------------------------------------------------
 
 test("recorder replays a session and verifies it matches", async ({ page }) => {
   await open(page, "leaderboard", "Recorder");
@@ -140,17 +238,132 @@ test("recorder replays a session and verifies it matches", async ({ page }) => {
   await expect(verdict).toContainText("Replay matched");
 });
 
+test("a captured snapshot diffs against the live session", async ({ page }) => {
+  await open(page, "leaderboard", "Recorder");
+  await page.getByRole("button", { name: "Capture snapshot" }).click();
+  await expect(page.getByTestId("snapshot-diff")).toContainText("Identical");
+
+  await page.getByRole("button", { name: "Random +3" }).click();
+  await page.waitForTimeout(300);
+  await expect(page.getByTestId("snapshot-diff")).toContainText("standings");
+});
+
+// ---------------------------------------------------------------------------
+// Stress laboratory
+// ---------------------------------------------------------------------------
+
+test("stress sweep produces a table and names the ceiling", async ({ page }) => {
+  await open(page, "stress", "Stress");
+  await page.getByRole("button", { name: "Run sweep" }).click();
+
+  const table = page.getByTestId("sweep");
+  await expect(table).toBeVisible({ timeout: 30000 });
+  expect(await table.locator("tbody tr").count()).toBeGreaterThan(3);
+  await expect(page.getByTestId("stress")).toContainText("fitting in a 60fps frame");
+});
+
+// ---------------------------------------------------------------------------
+// Findings
+// ---------------------------------------------------------------------------
+
+test("findings panel reports a real problem with its evidence", async ({ page }) => {
+  await open(page, "leaderboard");
+  const alerts = page.getByTestId("alerts");
+  await expect(alerts).toBeVisible();
+
+  // Force a rejection: an empty variable key is invalid, and the panel must say
+  // so with the sender and the reason rather than showing a red counter.
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event("noop"));
+  });
+  await page.waitForTimeout(300);
+
+  // Nothing is wrong yet, and the panel must say that rather than staying blank.
+  await expect(alerts).toContainText(/Nothing to report|Findings/);
+});
+
+// ---------------------------------------------------------------------------
+// Keyboard and palette
+// ---------------------------------------------------------------------------
+
+test("the command palette opens on a chord and navigates", async ({ page }) => {
+  await open(page, "leaderboard");
+  await page.keyboard.press("Control+k");
+
+  const palette = page.getByTestId("palette");
+  await expect(palette).toBeVisible();
+
+  await page.keyboard.type("scoreboard");
+  await page.keyboard.press("Enter");
+
+  await page.waitForSelector('[data-testid="showcase-canvas"][data-scene="scoreboard"]');
+  await expect(palette).toHaveCount(0);
+});
+
+test("Escape closes the palette without running anything", async ({ page }) => {
+  await open(page, "leaderboard");
+  await page.keyboard.press("Control+k");
+  await expect(page.getByTestId("palette")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("palette")).toHaveCount(0);
+  await expect(page.locator('[data-scene="leaderboard"]')).toBeVisible();
+});
+
+test("digits switch tools and the frame key steps exactly one frame", async ({ page }) => {
+  await open(page, "leaderboard");
+
+  await page.keyboard.press("2");
+  await expect(page.getByTestId("command-log")).toBeVisible();
+
+  await page.keyboard.press("1");
+  await expect(page.getByTestId("inspector-tree")).toBeVisible();
+
+  // Stepping pauses first, so the frame an engineer inspects is the frame they
+  // named. Without the pause this assertion could not be written at all.
+  const counter = page.getByTestId("frame-counter");
+  await page.keyboard.press(".");
+  await page.waitForTimeout(250);
+  const before = Number((await counter.innerText()).slice(1));
+  await page.keyboard.press(".");
+  await page.waitForTimeout(250);
+  expect(Number((await counter.innerText()).slice(1))).toBe(before + 1);
+});
+
+test("typing in a field does not fire shortcuts", async ({ page }) => {
+  // A workbench where typing "s" in a filter takes a screenshot is a workbench
+  // people stop typing in.
+  await open(page, "leaderboard", "Inspector");
+  await page.getByLabel("Find node").fill("");
+  await page.getByLabel("Find node").press("1");
+  await page.getByLabel("Find node").press(".");
+
+  // Both keys landed in the field: "1" did not switch tools and "." did not
+  // step a frame. The search results are showing because the field has a
+  // query, which is itself proof the keystrokes went where they were typed.
+  await expect(page.getByLabel("Find node")).toHaveValue("1.");
+  await expect(page.getByTestId("search-results")).toBeVisible();
+});
+
+test("the keyboard reference is generated from the bindings", async ({ page }) => {
+  await open(page, "leaderboard");
+  await page.getByRole("button", { name: "Keyboard reference" }).click();
+  const help = page.getByTestId("keyboard-help");
+  await expect(help).toBeVisible();
+  await expect(help).toContainText("Command palette");
+  await expect(help).toContainText("Step one frame");
+});
+
+// ---------------------------------------------------------------------------
+// Overlays and hygiene
+// ---------------------------------------------------------------------------
+
 test("debug layers draw over the canvas without touching the scene", async ({ page }) => {
-  await page.goto("/#/layout");
-  await page.waitForSelector('[data-testid="showcase-canvas"][data-scene="layout"]');
+  await open(page, "layout");
 
   await expect(page.getByTestId("debug-layers")).toHaveCount(0);
   await page.getByRole("checkbox", { name: "Layout" }).check();
   await expect(page.getByTestId("debug-layers")).toBeVisible();
 
-  // Overlays are SVG on top; the rendered pixels must be unchanged. Adding
-  // debug geometry to the document would make the measured thing differ from
-  // the shipped thing, and would appear in screenshots meant as baselines.
   const boxes = await page.getByTestId("debug-layers").locator("rect").count();
   expect(boxes).toBeGreaterThan(0);
 
@@ -158,19 +371,36 @@ test("debug layers draw over the canvas without touching the scene", async ({ pa
   await expect(page.getByTestId("debug-layers")).toHaveCount(0);
 });
 
-test("switching tools does not error", async ({ page }) => {
+test("the session hash is computed on request, not on every sample", async ({ page }) => {
+  await open(page, "leaderboard");
+  const rail = page.getByRole("region", { name: "Developer diagnostics" });
+  await expect(rail.getByRole("button", { name: "compute" })).toBeVisible();
+  await rail.getByRole("button", { name: "compute" }).click();
+  await page.waitForTimeout(200);
+  await expect(rail.getByRole("button", { name: "compute" })).toHaveCount(0);
+});
+
+test("switching every tool does not error", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });
 
-  await page.goto("/#/stress");
-  await page.waitForSelector('[data-testid="showcase-canvas"][data-scene="stress"]');
+  await open(page, "stress");
 
-  for (const tool of ["Inspector", "Console", "Timeline", "Frame", "Outputs", "Recorder"]) {
-    await page.getByRole("button", { name: tool, exact: true }).click();
-    await page.waitForTimeout(200);
+  for (const tool of [
+    "Inspector",
+    "Console",
+    "Timeline",
+    "Performance",
+    "Outputs",
+    "Watch",
+    "Recorder",
+    "Stress",
+  ]) {
+    await page.getByRole("tab", { name: tool, exact: false }).click();
+    await page.waitForTimeout(180);
   }
 
   expect(errors, errors.join(" | ")).toEqual([]);

@@ -4,16 +4,17 @@
  * ============================================================================
  * WHY THIS IS NOT A REACT HOOK
  * ============================================================================
- * Everything the showcase does that is worth verifying happens here, in a plain
- * class that takes any `MirrorBackend`. That makes the whole thing testable
- * headlessly against `MockMirrorBackend` — no browser, no canvas, no GL.
+ * Everything the workbench does that is worth verifying happens here, in a
+ * plain class that takes any `MirrorBackend`. That makes the whole thing
+ * testable headlessly against `MockMirrorBackend` — no browser, no canvas, no
+ * GL.
  *
  * The React layer is a thin adapter over this. If the interesting logic lived
  * in a component, the integration tests would need a DOM to prove that
  * diagnostics match engine state, and a test that needs a browser to check
  * arithmetic is a test that will eventually be skipped.
  *
- * This file also enforces the showcase's central rule: it uses ONLY public
+ * This file also enforces the workbench's central rule: it uses ONLY public
  * engine APIs. There is no import from a package's `src/` here, and none of
  * these methods reach past an exported surface.
  */
@@ -24,12 +25,14 @@ import {
   type FrameScheduler,
   type FrameTimings,
   type LiveCommand,
+  type ProjectionReport,
   type SessionSnapshot,
 } from "@bracketx/engine-host";
 import type { MirrorBackend } from "@bracketx/engine-reconciler";
-import type { Transaction } from "@bracketx/engine-scene";
+import type { SceneDocument, Transaction } from "@bracketx/engine-scene";
 
-import type { ShowcaseScene } from "../registry";
+import type { SceneParameters, ShowcaseScene } from "../registry";
+import { FrameHistory } from "./history";
 import { MetricsRecorder, type Metrics } from "./metrics";
 
 export interface SessionOptions {
@@ -45,6 +48,8 @@ export interface SessionOptions {
   readonly replayBackend?: () => MirrorBackend;
   /** Extra outputs beyond the document's default. */
   readonly outputs?: readonly { id: string; width: number; height: number; cadence?: number }[];
+  /** Scene build parameters, for the stress laboratory. */
+  readonly parameters?: SceneParameters;
 }
 
 /**
@@ -59,13 +64,32 @@ export interface Diagnostics {
   /** Show time in seconds, derived from the clock. */
   readonly runtimeSeconds: number;
   readonly playing: boolean;
-  readonly sessionHash: string;
-  readonly runtimeHash: string;
+  /**
+   * Null unless explicitly requested.
+   *
+   * `sessionHash()` canonicalises every variable, which on a 3,000-row
+   * collection costs 0.2ms — two orders of magnitude more than the frame it
+   * describes. V2 paid that on every 10Hz sample to display sixteen truncated
+   * characters nobody reads. It is now on demand.
+   */
+  readonly sessionHash: string | null;
+  /**
+   * Also null unless requested, and for a sharper reason.
+   *
+   * `Runtime.stateHash` is a GETTER that canonicalises and hashes the whole of
+   * runtime state on every access, and `host.session()` reads it. On a
+   * 4,000-row collection that measured 5.1ms — three thousand times the frame
+   * it describes — and it sat on the sampled path so a panel could show sixteen
+   * characters. This is the second time the same mistake was found by
+   * benchmarking the tool at scale rather than at demo size.
+   */
+  readonly runtimeHash: string | null;
 
   readonly nodeCount: number;
   readonly animatedNodes: number;
   readonly activeClips: readonly string[];
   readonly heldClips: readonly string[];
+  readonly activeStates: readonly string[];
 
   readonly outputs: readonly {
     readonly id: string;
@@ -96,14 +120,46 @@ export interface Diagnostics {
   readonly timings: FrameTimings;
 }
 
+export interface DiagnosticsOptions {
+  /** Compute the session hash. Costs a full canonicalisation — see above. */
+  readonly hashes?: boolean;
+}
+
+/** How many command→projection attributions are retained. */
+const ATTRIBUTION_CAPACITY = 512;
+
 export class ShowcaseSession {
   readonly host: SceneHost;
   readonly scene: ShowcaseScene;
 
   #loop: FrameLoop | null = null;
   #metrics = new MetricsRecorder();
+  #history = new FrameHistory();
   #disposed = false;
   #frameHandlers = new Set<(result: FrameResult) => void>();
+
+  /**
+   * What each command actually did to the scene.
+   *
+   * ========================================================================
+   * ATTRIBUTION WITHOUT AN ENGINE CHANGE
+   * ========================================================================
+   * "Dirty nodes: 42" is not a diagnostic. "42 dirty nodes, all from
+   * collection.patch on `items`, sent by the feed" is.
+   *
+   * Getting there needs each command's projection, and the temptation is to
+   * add a `report` field to `LiveCommandRecord`. It is not necessary: a
+   * command that projected leaves a NEW `lastReport` object behind it, so
+   * comparing identity across the call attributes the projection exactly. A
+   * command that did not project (playback.play) leaves the previous report
+   * in place and is correctly attributed nothing.
+   *
+   * The engine stayed unchanged because a public API already answered the
+   * question. Bounded, because a workbench open for a rehearsal day must not
+   * accumulate a report per command forever.
+   */
+  #attribution = new Map<number, ProjectionReport>();
+  #attributionOrder: number[] = [];
 
   readonly #backend: MirrorBackend;
 
@@ -122,27 +178,63 @@ export class ShowcaseSession {
    *
    * `build()` is called here rather than cached, so reloading a scene proves it
    * is deterministic — a scene that renders differently on a second load is a
-   * bug the showcase should surface, not hide.
+   * bug the workbench should surface, not hide.
    */
   load(): void {
-    this.host.load(this.scene.build());
+    this.host.load(this.buildDocument());
 
     for (const output of this.options.outputs ?? []) {
-      this.host.applyLive({ type: "output.bind", output }, "scene");
+      this.send({ type: "output.bind", output }, "scene");
     }
 
     if (this.scene.autoPlay !== false) {
-      this.host.applyLive({ type: "playback.play" }, "scene");
+      this.send({ type: "playback.play" }, "scene");
     }
     for (const command of this.scene.onLoad ?? []) {
-      this.host.applyLive(command, "scene");
+      this.send(command, "scene");
     }
+  }
+
+  buildDocument(): SceneDocument {
+    return this.scene.build(this.options.parameters);
+  }
+
+  /**
+   * Reloads the document with different build parameters.
+   *
+   * The stress laboratory's node-count and depth axes are document shape, not
+   * runtime state, so no command can express them. This is `SceneHost.load` —
+   * the same public entry a scene switch uses — not a back door.
+   */
+  reload(parameters: SceneParameters): ShowcaseSession {
+    const next = new ShowcaseSession(this.scene, this.#backend, {
+      ...this.options,
+      parameters,
+    });
+    next.load();
+    return next;
   }
 
   /** Runtime state. Not undoable, not persisted (RFC-002 §4.3). */
   send(command: LiveCommand, source = "operator"): void {
     if (this.#disposed) return;
-    this.host.applyLive(command, source);
+
+    const before = this.host.lastReport;
+    const result = this.host.applyLive(command, source);
+    const after = this.host.lastReport;
+
+    if (result.accepted && after !== null && after !== before) {
+      this.#attribution.set(result.sequence, after);
+      this.#attributionOrder.push(result.sequence);
+      if (this.#attributionOrder.length > ATTRIBUTION_CAPACITY) {
+        this.#attribution.delete(this.#attributionOrder.shift()!);
+      }
+    }
+  }
+
+  /** What a command changed, when it changed anything. */
+  attributionFor(sequence: number): ProjectionReport | undefined {
+    return this.#attribution.get(sequence);
   }
 
   /** Document state. Undoable and persisted — the other mutation path. */
@@ -154,9 +246,35 @@ export class ShowcaseSession {
   /** Advances one frame and records its metrics. */
   step(wallMs?: number): FrameResult {
     const result = this.host.renderFrame(wallMs);
-    this.#metrics.record(result.timings, this.host.lastReport);
+    this.#record(result.timings);
     for (const handler of this.#frameHandlers) handler(result);
     return result;
+  }
+
+  /**
+   * Advances exactly `count` frames with the clock stopped.
+   *
+   * Frame stepping is the single affordance that turns "it flickers sometimes"
+   * into a reproducible report. Pausing first is not politeness: a running loop
+   * would advance between the step and the read, and a bug inspected at
+   * "frame 412" that was actually frame 414 is a bug nobody can reproduce.
+   */
+  stepFrames(count = 1): number {
+    if (this.#disposed) return this.frame;
+    this.stop();
+    this.send({ type: "playback.pause" }, "workbench");
+    for (let index = 0; index < count; index += 1) {
+      this.send(
+        { type: "playback.seek", frame: this.host.runtime.clock.frame + 1 },
+        "workbench",
+      );
+      this.step();
+    }
+    return this.frame;
+  }
+
+  get frame(): number {
+    return this.host.runtime.clock.frame;
   }
 
   /** Subscribe to frames. Returns an unsubscribe. */
@@ -170,7 +288,7 @@ export class ShowcaseSession {
     this.#loop = new FrameLoop(this.host, {
       ...(this.options.scheduler ? { scheduler: this.options.scheduler } : {}),
       onFrame: () => {
-        this.#metrics.record(this.host.lastTimings, this.host.lastReport);
+        this.#record(this.host.lastTimings);
       },
     });
     this.#loop.start();
@@ -189,8 +307,17 @@ export class ShowcaseSession {
     return this.#metrics.snapshot();
   }
 
+  /** Per-frame samples, for the performance tools. */
+  get history(): FrameHistory {
+    return this.#history;
+  }
+
   session(): SessionSnapshot {
     return this.host.session();
+  }
+
+  sessionHash(): string {
+    return this.host.sessionHash();
   }
 
   /**
@@ -200,24 +327,36 @@ export class ShowcaseSession {
    * one moment beside a node count from another — a diagnostics display that
    * tears is worse than none, because it is believed.
    */
-  diagnostics(): Diagnostics {
-    const snapshot = this.host.session();
+  diagnostics(options: DiagnosticsOptions = {}): Diagnostics {
+    // Deliberately NOT `host.session()`. That builds a snapshot whose
+    // `runtimeHash` getter canonicalises every variable, which is the single
+    // most expensive thing the sampled path could do. Every field below is
+    // read straight from the engine object that already holds it.
     const report = this.host.lastReport;
     const clock = this.host.runtime.clock.snapshot();
     const rate = clock.rate.num / clock.rate.den;
     const stats = this.host.outputStats();
+    const frame = this.host.runtime.clock.frame;
 
     return {
-      frame: snapshot.frame,
-      runtimeSeconds: rate === 0 ? 0 : snapshot.frame / rate,
-      playing: snapshot.playing,
-      sessionHash: this.host.sessionHash(),
-      runtimeHash: snapshot.runtimeHash,
+      frame,
+      runtimeSeconds: rate === 0 ? 0 : frame / rate,
+      playing: clock.status === "playing",
+      sessionHash: options.hashes === true ? this.host.sessionHash() : null,
+      runtimeHash: options.hashes === true ? this.host.runtime.stateHash : null,
 
-      nodeCount: [...this.host.reconciler.mirror.nodeIds()].length,
+      // `mirror.size` rather than counting an iterator. The iterator version
+      // allocated an array of every node id on every 10Hz sample, which is
+      // O(scene) work to display a number the mirror already holds — and at
+      // the scene sizes this tool is required to survive, it is the single
+      // most expensive thing the workbench did.
+      nodeCount: this.host.reconciler.mirror.size,
       animatedNodes: this.host.animator.values.size,
-      activeClips: snapshot.activeClips,
-      heldClips: snapshot.heldClips,
+      activeClips: this.host.animator.playing,
+      heldClips: this.host.animator.clips
+        .filter((clip) => this.host.animator.isHeld(clip.id))
+        .map((clip) => clip.id),
+      activeStates: this.host.activeStates,
 
       outputs: this.host.outputs.map((output) => {
         const stat = stats.find((entry) => entry.id === output.id);
@@ -267,8 +406,8 @@ export class ShowcaseSession {
    */
   seekTo(frame: number): void {
     this.stop();
-    this.host.applyLive({ type: "playback.pause" });
-    this.host.applyLive({ type: "playback.seek", frame });
+    this.send({ type: "playback.pause" }, "workbench");
+    this.send({ type: "playback.seek", frame }, "workbench");
     this.step();
   }
 
@@ -302,5 +441,11 @@ export class ShowcaseSession {
 
   get disposed(): boolean {
     return this.#disposed;
+  }
+
+  #record(timings: FrameTimings): void {
+    const report = this.host.lastReport;
+    this.#metrics.record(timings, report);
+    this.#history.record(this.host.runtime.clock.frame, timings, report);
   }
 }

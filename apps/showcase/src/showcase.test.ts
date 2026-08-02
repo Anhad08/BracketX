@@ -317,9 +317,19 @@ describe("diagnostics match engine state", () => {
 
     const d = session.diagnostics();
     expect(d.frame).toBe(session.host.runtime.clock.frame);
-    expect(d.sessionHash).toBe(session.host.sessionHash());
-    expect(d.runtimeHash).toBe(session.host.session().runtimeHash);
     expect(d.nodeCount).toBe([...session.host.reconciler.mirror.nodeIds()].length);
+
+    // BOTH hashes are opt-in. Each canonicalises the whole of runtime state,
+    // which measured 5.1ms and 10.9ms on a 4,000-row collection against a
+    // 0.0016ms frame — and V2 paid it on every 10Hz sample so a panel could
+    // show sixteen characters nobody reads.
+    expect(d.sessionHash).toBeNull();
+    expect(d.runtimeHash).toBeNull();
+
+    const withHashes = session.diagnostics({ hashes: true });
+    expect(withHashes.sessionHash).toBe(session.host.sessionHash());
+    expect(withHashes.runtimeHash).toBe(session.host.session().runtimeHash);
+
     expect(d.framesRendered).toBe(session.host.framesRendered);
     expect(d.submissions).toBe(session.host.submissions);
     expect(d.commandsAccepted).toBe(session.host.log.accepted);

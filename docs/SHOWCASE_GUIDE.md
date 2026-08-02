@@ -77,7 +77,9 @@ import "./live-variables";
 | --- | --- |
 | `id` | Lowercase slug. It is the URL — links to a showcase should not rot. |
 | `capability` | Names the engine capability this proves. The link between a subsystem and its verification, and why a capability without a showcase is visible. |
-| `build()` | Must be **deterministic**. Called on every load, so a scene that differs between loads is a bug the showcase surfaces rather than caches away. |
+| `build(parameters?)` | Must be **deterministic**: the same parameters must always produce the same document. Called on every load, so a scene that differs between loads is a bug the workbench surfaces rather than caches away — and a non-deterministic build makes every replay verification meaningless. |
+| `parameters` | Optional build axes (node count, hierarchy depth) the stress laboratory can drive. Declared as data, so the laboratory drives whatever a scene offers without knowing about any scene. Document shape cannot be changed by a command — that is the RFC-002 §4.3 boundary — so these go through a rebuild. |
+| `keywords` | Optional extra search terms for the command palette. |
 | `controls` | Receives `send`, **not a host**. A control that could reach the host could bypass the command path — and proving that path sufficient is half the reason this app exists. |
 
 ---
@@ -91,8 +93,19 @@ engine/
   session.ts       ShowcaseSession — the whole thing, headlessly testable
   metrics.ts       rolling frame statistics
   screenshot.ts    deterministic capture
+  history.ts       per-frame samples, percentiles, spikes, baselines
 ui/
   viewport.tsx     canvas mount and lifecycle
+  palette.tsx      command palette and the generated keyboard reference
+tools/
+  model.ts         every tool's data, labelled SAMPLED or INVOKED
+  scene-index.ts   authored-document index, cached on document identity
+  alerts.ts        the findings rules
+  diff.ts          snapshot and recording comparison
+  search.ts        fuzzy matching
+  palette.ts       actions and the keymap — one list, two surfaces
+  stress.ts        the stress laboratory
+  recorder.ts      session recording and replay verification
   overlays.tsx     developer and performance panels
 App.tsx            shell, routing, navigation
 ```

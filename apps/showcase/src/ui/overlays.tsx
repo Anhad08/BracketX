@@ -1,8 +1,9 @@
 import type { Diagnostics } from "../engine/session";
 import type { Metrics, Stat } from "../engine/metrics";
+import type { Alert } from "../tools/alerts";
 
 /**
- * The overlays.
+ * The always-visible panels.
  *
  * Every number displayed here is read from a public engine API and shown
  * unmodified. The overlay computes nothing the engine already knows — a panel
@@ -18,15 +19,17 @@ function Row({
   label,
   value,
   tone,
+  title,
 }: {
   label: string;
   value: string;
   tone?: "good" | "warn" | "bad";
+  title?: string;
 }) {
   const color =
     tone === "bad" ? "#ff6b6b" : tone === "warn" ? "#ffd166" : tone === "good" ? "#7ae582" : "#c9d1d9";
   return (
-    <div className="row">
+    <div className="row" title={title}>
       <span className="label">{label}</span>
       <span className="value" style={{ color }}>
         {value}
@@ -52,7 +55,58 @@ function StatRow({ label, stat }: { label: string; stat: Stat }) {
   );
 }
 
-export function DeveloperOverlay({ diagnostics }: { diagnostics: Diagnostics }) {
+/**
+ * Findings, not numbers.
+ *
+ * The panel V3 exists to add. Numbers tell an engineer what is happening;
+ * these tell them what is WRONG, with the evidence attached and somewhere to
+ * go next. Everything here is derived by `alerts()` — a pure function over a
+ * snapshot, so every line on screen is asserted in the headless suite.
+ */
+export function AlertsOverlay({
+  alerts,
+  onAction,
+}: {
+  alerts: readonly Alert[];
+  onAction: (alert: Alert) => void;
+}) {
+  return (
+    <section className="overlay alerts" aria-label="Diagnostics" data-testid="alerts">
+      <h2>
+        Findings
+        {alerts.length > 0 ? <span className="dim"> {alerts.length}</span> : null}
+      </h2>
+      {alerts.length === 0 ? (
+        <p className="dim" data-testid="alerts-empty">
+          Nothing to report. Every rule that could fire is passing.
+        </p>
+      ) : (
+        <ul className="alert-list">
+          {alerts.map((alert) => (
+            <li key={alert.id} className={`alert ${alert.severity}`}>
+              <strong>{alert.title}</strong>
+              <p>{alert.detail}</p>
+              {alert.action !== undefined ? (
+                <button type="button" className="linkish" onClick={() => onAction(alert)}>
+                  {alert.action.label} →
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function DeveloperOverlay({
+  diagnostics,
+  onHash,
+}: {
+  diagnostics: Diagnostics;
+  /** Computes the session hash once, on request. It is not free — see Diagnostics. */
+  onHash: () => void;
+}) {
   const d = diagnostics;
 
   return (
@@ -65,26 +119,46 @@ export function DeveloperOverlay({ diagnostics }: { diagnostics: Diagnostics }) 
         value={d.playing ? "playing" : "stopped"}
         tone={d.playing ? "good" : undefined}
       />
-      {/* Truncated: the full hash is 64 characters and the eye compares the
-          first few. The title carries the whole thing for copying. */}
-      <div className="row">
-        <span className="label">session</span>
-        <span className="value mono" title={d.sessionHash}>
-          {d.sessionHash.slice(0, 16)}…
-        </span>
-      </div>
-      <div className="row">
-        <span className="label">runtime hash</span>
-        <span className="value mono" title={d.runtimeHash}>
-          {d.runtimeHash.slice(0, 16)}…
-        </span>
-      </div>
+      {/* Both hashes are on demand. Each canonicalises the whole of runtime
+          state; on a 4,000-row collection that measured 5.1ms and 10.9ms
+          against a 0.0016ms frame, and V2 paid it ten times a second so a
+          panel could show sixteen characters nobody reads. */}
+      {d.runtimeHash === null || d.sessionHash === null ? (
+        <div className="row">
+          <span className="label">identity</span>
+          <span className="value">
+            <button type="button" className="linkish" onClick={onHash}>
+              compute hashes
+            </button>
+          </span>
+        </div>
+      ) : (
+        <>
+          <div className="row">
+            <span className="label">runtime hash</span>
+            <span className="value mono" title={d.runtimeHash}>
+              {d.runtimeHash.slice(0, 16)}…
+            </span>
+          </div>
+          <div className="row">
+            <span className="label">session hash</span>
+            <span className="value mono" title={d.sessionHash}>
+              {d.sessionHash.slice(0, 16)}…
+            </span>
+          </div>
+        </>
+      )}
 
       <h2>Scene</h2>
       <Row label="nodes" value={String(d.nodeCount)} />
       <Row label="animated" value={String(d.animatedNodes)} />
+      <Row label="states" value={d.activeStates.join(", ") || "—"} />
       <Row label="clips playing" value={d.activeClips.join(", ") || "—"} />
-      <Row label="clips held" value={d.heldClips.join(", ") || "—"} />
+      <Row
+        label="clips held"
+        value={d.heldClips.join(", ") || "—"}
+        title="A completed clip holds its final frame; only clip.stop reverts it."
+      />
 
       <h2>Projection</h2>
       <Row label="dirty nodes" value={String(d.dirtyNodes)} />
@@ -163,6 +237,7 @@ export function PerformanceOverlay({
         label="capacity"
         value={m.capacityFps > 0 ? `${m.capacityFps.toFixed(0)} fps` : "—"}
         tone={overBudget ? "bad" : nearBudget ? "warn" : "good"}
+        title="Frames per second the engine could produce. The loop is capped at the display refresh."
       />
       <Row
         label="budget"

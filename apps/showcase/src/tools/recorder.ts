@@ -28,6 +28,28 @@ export interface RecordedCommand {
 
 export interface Checkpoint {
   readonly frame: number;
+  /**
+   * The log's next sequence number at capture. The ORDERING watermark.
+   *
+   * ========================================================================
+   * WHY A FRAME NUMBER IS NOT ENOUGH — a bug this tool had, found in a browser
+   * ========================================================================
+   * Several commands can arrive while the clock reads frame F, and a checkpoint
+   * can be taken before them, between them, or after them. A checkpoint that
+   * records only `frame: F` therefore describes one of several different
+   * states, and replay had to guess which — it assumed "before any of frame F's
+   * commands" and compared there.
+   *
+   * When an operator's click landed on the same frame as a checkpoint tick, the
+   * guess was wrong and the verifier reported a divergence that had not
+   * happened. Intermittently. In the one tool whose entire value is that a red
+   * result means something.
+   *
+   * The sequence number removes the ambiguity: a checkpoint is now a position
+   * in the command stream, not just a moment on the clock, and replay compares
+   * at exactly that position.
+   */
+  readonly sequence: number;
   readonly sessionHash: string;
   readonly runtimeHash: string;
   readonly nodeCount: number;
@@ -130,9 +152,12 @@ export class SessionRecorder {
     this.#lastCheckpointFrame = frame;
     this.#checkpoints.push({
       frame,
+      sequence: session.host.log.nextSequence,
       sessionHash: session.host.sessionHash(),
       runtimeHash: session.host.session().runtimeHash,
-      nodeCount: [...session.host.reconciler.mirror.nodeIds()].length,
+      // `mirror.size` rather than materialising every id: a checkpoint tick
+      // runs while the show is live, and it must not be O(scene).
+      nodeCount: session.host.reconciler.mirror.size,
     });
   }
 }
@@ -171,56 +196,85 @@ export function replayRecording(
     if (existing) existing.push(entry);
     else byFrame.set(entry.frame, [entry]);
   }
+  for (const list of byFrame.values()) list.sort((a, b) => a.sequence - b.sequence);
 
-  const checkpoints = new Map(
-    recording.checkpoints.map((checkpoint) => [checkpoint.frame, checkpoint]),
-  );
+  /**
+   * Where each checkpoint sits in the command stream.
+   *
+   * A checkpoint taken after k of the recording's commands must be compared
+   * after exactly k have been replayed — not merely on the same frame. This is
+   * the fix for the ordering ambiguity described on `Checkpoint.sequence`.
+   */
+  const positions = new Map<string, Checkpoint[]>();
+  for (const checkpoint of recording.checkpoints) {
+    const before = recording.commands.filter(
+      (entry) => entry.sequence < checkpoint.sequence,
+    ).length;
+    const key = `${checkpoint.frame}:${before}`;
+    const existing = positions.get(key);
+    if (existing) existing.push(checkpoint);
+    else positions.set(key, [checkpoint]);
+  }
 
   let replayed = 0;
   let checked = 0;
   const lastFrame = Math.max(
     0,
     ...recording.checkpoints.map((checkpoint) => checkpoint.frame),
+    ...recording.commands.map((entry) => entry.frame),
   );
 
-  const compare = (frame: number): void => {
-    const checkpoint = checkpoints.get(frame);
-    if (checkpoint === undefined) return;
-    checked += 1;
+  // A checkpoint is compared once. `compare()` is called at several points that
+  // can describe the same position — a step that does not advance the clock
+  // reaches the same (frame, sequence) twice — and counting a checkpoint twice
+  // would inflate `checkpointsChecked` into a number that means nothing.
+  const consumed = new Set<Checkpoint>();
 
-    const actualSession = target.host.sessionHash();
-    if (actualSession !== checkpoint.sessionHash) {
-      mismatches.push({
-        frame,
-        kind: "session",
-        expected: checkpoint.sessionHash,
-        actual: actualSession,
-      });
-    }
+  const compare = (): void => {
+    const frame = target.host.runtime.clock.frame;
+    for (const checkpoint of positions.get(`${frame}:${replayed}`) ?? []) {
+      if (consumed.has(checkpoint)) continue;
+      consumed.add(checkpoint);
+      checked += 1;
 
-    const actualNodes = [...target.host.reconciler.mirror.nodeIds()].length;
-    if (actualNodes !== checkpoint.nodeCount) {
-      mismatches.push({
-        frame,
-        kind: "nodes",
-        expected: String(checkpoint.nodeCount),
-        actual: String(actualNodes),
-      });
+      const actualSession = target.host.sessionHash();
+      if (actualSession !== checkpoint.sessionHash) {
+        mismatches.push({
+          frame,
+          kind: "session",
+          expected: checkpoint.sessionHash,
+          actual: actualSession,
+        });
+      }
+
+      const actualNodes = target.host.reconciler.mirror.size;
+      if (actualNodes !== checkpoint.nodeCount) {
+        mismatches.push({
+          frame,
+          kind: "nodes",
+          expected: String(checkpoint.nodeCount),
+          actual: String(actualNodes),
+        });
+      }
     }
   };
 
-  compare(target.host.runtime.clock.frame);
-
-  // Frame-by-frame, applying each frame's commands before advancing. Replaying
-  // every command up front and then running the frames would produce the right
-  // final state by the wrong route, and would not catch an ordering bug.
+  // Frame by frame. Within a frame, compare before the frame's commands, after
+  // each one, and again after the step — because a live checkpoint could have
+  // been taken at any of those points, and the sequence watermark says which.
+  //
+  // Replaying every command up front and then running the frames would produce
+  // the right final state by the wrong route, and would not catch an ordering
+  // bug — which is most of what this tool is for.
+  compare();
   for (let frame = 0; frame <= lastFrame; frame += 1) {
     for (const entry of byFrame.get(frame) ?? []) {
       target.host.applyLive(entry.command, "replay");
       replayed += 1;
+      compare();
     }
     target.step((frame * 1000) / 60);
-    compare(target.host.runtime.clock.frame);
+    compare();
   }
 
   return {

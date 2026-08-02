@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { SceneNode } from "@bracketx/engine-scene";
 
 import { registerScene } from "../registry";
 import { Action, Group, Slider } from "../ui/controls";
@@ -35,6 +36,29 @@ function clips(count: number) {
   }));
 }
 
+/**
+ * Wraps a node in `depth - 1` identity containers.
+ *
+ * Depth on its own is a real cost: every level is a matrix multiply on the way
+ * down and a visibility walk on the way back, so a scene that is deep rather
+ * than wide fails differently, and the laboratory needs to be able to say so.
+ * The containers are transform-identity and size-free, so nothing about the
+ * picture changes — only the shape of the traversal.
+ */
+function nest(depth: number, leaf: SceneNode): SceneNode {
+  let node = leaf;
+  for (let level = 1; level < Math.max(1, depth); level += 1) {
+    node = {
+      id: `nod_depth${level}`,
+      name: `Depth ${level}`,
+      order: "V",
+      transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+      children: [node],
+    };
+  }
+  return node;
+}
+
 registerScene({
   id: "stress",
   title: "Stress Dashboard",
@@ -44,14 +68,26 @@ registerScene({
   summary:
     "Drive node count, collection size, outputs, and command rate. Watch the frame budget.",
 
-  build: () =>
+  /**
+   * Build axes the stress laboratory can drive.
+   *
+   * Hierarchy depth is DOCUMENT shape — no runtime command can change it, and
+   * inventing one would be a command that edits the document, which is exactly
+   * the RFC-002 §4.3 boundary the engine is built on. So the laboratory varies
+   * it by rebuilding, through the same `SceneHost.load` a scene switch uses.
+   */
+  parameters: [
+    { key: "depth", label: "hierarchy depth", min: 1, max: 64, step: 1, default: 1 },
+  ],
+
+  build: (parameters) =>
     sceneDocument({
       id: "scn_stress",
       name: "Stress",
       variables: [variable("items", "string", rows(50))],
       animations: clips(CLIP_COUNT),
       children: [
-        {
+        nest(parameters?.depth ?? 1, {
           id: "nod_grid",
           name: "Grid",
           order: "V",
@@ -60,7 +96,7 @@ registerScene({
           layout: { mode: "grid", columns: 12, gap: 0.06, rowGap: 0.06, align: "start", padding: 0.1 },
           repeat: { source: "items", as: "item", key: "id", limit: 5000 },
           children: [box("nod_cell", 1.2, 0.5, { fill: { $var: "item.color" } })],
-        },
+        }),
         // Animated movers sit outside the collection so animation load and
         // collection load can be varied independently.
         ...Array.from({ length: CLIP_COUNT }, (_, i) =>

@@ -9,13 +9,19 @@ import {
   commandTarget,
   debugBoxes,
   filterCommands,
-  filterTree,
   frameForClipTime,
-  inspectorTree,
+  inspectorRows,
   nodeDetail,
   outputRows,
   timeline,
+  type InspectorRow,
 } from "./model";
+
+/** Every mirror id, by expanding everything. Only for tests on small scenes. */
+function allRows(target: ShowcaseSession): readonly InspectorRow[] {
+  const expanded = new Set(target.host.reconciler.mirror.nodeIds());
+  return inspectorRows(target, { expanded, limit: 5000 }).rows;
+}
 import {
   SessionRecorder,
   parseRecording,
@@ -55,52 +61,48 @@ describe("scene inspector", () => {
     // The document says what was authored; the mirror says what exists. An
     // inspector reading the document would be missing exactly the nodes that
     // are hardest to reason about.
-    const tree = inspectorTree(session);
-    const instances = tree.filter((node) => node.instance);
+    const rows = allRows(session);
+    const instances = rows.filter((node) => node.instance);
 
-    expect(tree.length).toBeGreaterThan(instances.length);
+    expect(rows.length).toBeGreaterThan(instances.length);
     expect(instances.length).toBeGreaterThan(0);
   });
 
   it("matches the engine's own hierarchy exactly", () => {
-    const tree = inspectorTree(session);
-    for (const node of tree) {
+    for (const node of allRows(session)) {
       const mirror = session.host.reconciler.mirror.get(node.id)!;
       expect(node.parentId, node.id).toBe(mirror.parentId);
-      expect(node.childIds, node.id).toEqual(mirror.childIds);
+      expect(node.childCount, node.id).toBe(mirror.childIds.length);
       expect(node.effectiveVisible, node.id).toBe(mirror.effectiveVisible);
     }
   });
 
   it("reports depth as real nesting", () => {
-    const tree = inspectorTree(session);
-    expect(tree[0]!.depth).toBe(0);
-    expect(Math.max(...tree.map((node) => node.depth))).toBeGreaterThan(1);
+    const rows = allRows(session);
+    expect(rows[0]!.depth).toBe(0);
+    expect(Math.max(...rows.map((node) => node.depth))).toBeGreaterThan(1);
   });
 
-  it("keeps ancestors of a filtered match", () => {
-    // A filtered tree that drops the parents of its matches is a list, and a
-    // list loses the one thing a tree view is for.
-    const tree = inspectorTree(session);
-    const filtered = filterTree(tree, "entry");
+  it("descends only into expanded nodes", () => {
+    // The scalability property. A collapsed collection of any size costs one
+    // row, which is what keeps the sampled read off the O(scene) path.
+    const collapsed = inspectorRows(session, { expanded: new Set() });
+    expect(collapsed.rows).toHaveLength(1);
+    expect(collapsed.rows[0]!.expandable).toBe(true);
 
-    expect(filtered.length).toBeGreaterThan(0);
-    for (const node of filtered) {
-      if (node.parentId === null) continue;
-      expect(
-        filtered.some((other) => other.id === node.parentId),
-        node.id,
-      ).toBe(true);
-    }
+    const one = new Set([session.host.reconciler.mirror.rootId!]);
+    expect(inspectorRows(session, { expanded: one }).rows.length).toBeGreaterThan(1);
   });
 
-  it("returns everything for an empty filter", () => {
-    const tree = inspectorTree(session);
-    expect(filterTree(tree, "")).toHaveLength(tree.length);
+  it("reports truncation rather than silently cutting the tree", () => {
+    const expanded = new Set(session.host.reconciler.mirror.nodeIds());
+    const result = inspectorRows(session, { expanded, limit: 3 });
+    expect(result.rows).toHaveLength(3);
+    expect(result.truncated).toBe(true);
   });
 
   it("details a node from engine sources only", () => {
-    const target = inspectorTree(session).find((node) => node.instance)!;
+    const target = allRows(session).find((node) => node.instance)!;
     const detail = nodeDetail(session, target.id)!;
     const mirror = session.host.reconciler.mirror.get(target.id)!;
 
@@ -110,19 +112,18 @@ describe("scene inspector", () => {
   });
 
   it("lists the variables a node reads, with their live values", () => {
-    const tree = inspectorTree(session);
-    const withDeps = tree
+    const withDeps = allRows(session)
       .map((node) => nodeDetail(session, node.id)!)
-      .find((detail) => detail.dependencies.length > 0);
+      .find((detail) => detail.origins.length > 0);
 
     expect(withDeps).toBeDefined();
-    for (const key of withDeps!.dependencies) {
+    for (const origin of withDeps!.origins) {
       // The engine's own reverse index. Recomputing it here would be a second
       // answer to a question the engine already answers.
       expect(
         session.host.reconciler.projector.dependencies
           .dependenciesOf(withDeps!.id)
-          .has(key),
+          .has(origin.key),
       ).toBe(true);
     }
   });
@@ -405,6 +406,47 @@ describe("session recorder", () => {
     expect(result.mismatches).toEqual([]);
     expect(result.matched).toBe(true);
     expect(result.checkpointsChecked).toBeGreaterThan(1);
+    fresh.dispose();
+  });
+
+  it("compares a checkpoint at its position in the command stream, not just its frame", () => {
+    // REGRESSION GUARD. Found in a browser, and only in a browser, because it
+    // needs a click to land on the same frame as a checkpoint tick.
+    //
+    // Several commands can arrive while the clock reads frame F, and a
+    // checkpoint can be taken before, between, or after them. Keying a
+    // checkpoint on the frame alone made replay guess which of those states it
+    // described; when the guess was wrong the verifier reported a divergence
+    // that had not happened. A verification tool that cries wolf is worse than
+    // no verification tool, because the next real red is ignored.
+    const recorder = new SessionRecorder();
+    recorder.start(session);
+
+    for (let frame = 1; frame <= 31; frame += 1) session.step((frame * 1000) / 60);
+
+    // A command and a checkpoint on the same frame, checkpoint AFTER.
+    session.send({
+      type: "collection.patch",
+      key: "standings",
+      id: "t2",
+      keyField: "id",
+      patch: { score: 42 },
+    });
+    recorder.tick(session);
+
+    for (let frame = 32; frame <= 40; frame += 1) session.step((frame * 1000) / 60);
+    const recording = recorder.stop(session);
+
+    const onSameFrame = recording.checkpoints.filter(
+      (checkpoint) => checkpoint.frame === recording.commands[0]!.frame,
+    );
+    expect(onSameFrame.length, "the setup must actually collide").toBeGreaterThan(0);
+    expect(onSameFrame[0]!.sequence).toBeGreaterThan(recording.commands[0]!.sequence);
+
+    const fresh = session.forkForReplay();
+    const result = replayRecording(fresh, recording);
+    expect(result.mismatches).toEqual([]);
+    expect(result.checkpointsChecked).toBe(recording.checkpoints.length);
     fresh.dispose();
   });
 
