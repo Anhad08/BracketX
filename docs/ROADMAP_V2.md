@@ -17,8 +17,23 @@ where it did, the delta is stated.
 | Phase 0 | Foundation | ✅ |
 | Phase 1 | Assets | ✅ |
 | Phase 2 | Scene Engine (2.1–2.6) | ✅ — renders its own format to verified pixels |
+| Phase 3 | Rendering & Outputs | ✅ — `1436938` |
+| Phase 4 | Composition | ✅ — `a8275a9`, `beb1f75` |
+| Phase 6 | Time & Animation | ⚠️ **INCOMPLETE** — see below |
+| Phase 7 | Live Control | ✅ — `6b4338d` |
 | P-001 | Scene performance | ✅ |
 | R-001 | Traversal depth ceiling | ⏳ open, scheduled pre-release |
+
+> **Numbering warning.** Commit `6ec5f29` is titled *"Phase 5 — animation"* using
+> the numbering of the superseded `ROADMAP.md`, where Phase 5 was the Animation
+> Engine. Under **this** roadmap that work is **Phase 6**. ROADMAP_V2 Phase 5
+> (Authoring Surface) has not been started — correctly; it is the application
+> layer Studio will be.
+>
+> The mislabel is not itself harmful. What it hid is: the work was checked
+> against old Phase 5's exit criteria rather than this phase's, and the
+> difference is exactly what is missing. See
+> [PHASE_6_AUDIT.md](./PHASE_6_AUDIT.md).
 
 ---
 
@@ -67,27 +82,41 @@ template instantiated at two output resolutions anchors correctly.
 
 ## Phase 5 — Authoring Surface · **APPLICATION** · *was: Scene Editor*
 
-**9–12 weeks.** Scope unchanged; the shared-runtime and operation-log-undo rules
-are unchanged and remain non-negotiable.
+**9–12 weeks. Not started.** Scope unchanged; the shared-runtime and
+operation-log-undo rules are unchanged and remain non-negotiable.
 
 Only correction: the frame guide derives from `world.output`, never a hardcoded
 1920×1080.
+
+> **Blocked by Phase 6.** This phase's timeline UI binds to the animation and
+> timing API. Building it against the current clip-shaped API before Phase 6's
+> timing model is final means rebuilding a shipped editor's timeline — the most
+> expensive version of that mistake.
 
 ---
 
 ## Phase 6 — Time & Animation · **ENGINE** · *was: Animation Engine*
 
-**6–8 weeks**
+**6–8 weeks · ⚠️ INCOMPLETE — roughly 60% delivered by `6ec5f29` + `d473e6e`.**
+Audited 2026-08-02: [PHASE_6_AUDIT.md](./PHASE_6_AUDIT.md).
 
-- **One timeline model** — ordered addressable positions with typed events.
-  Animation and Phase 9 sequencing are two readers of it, not two timelines.
-- Property interpolation, easing, duration/delay/stagger.
-- **Named states with declared transitions.** The engine assigns no meaning to
-  any state name; `in`/`idle`/`out` become a convention of the broadcast pack.
-- Deterministic playback; late-join settles to a correct state.
+| | Requirement | Status |
+| --- | --- | --- |
+| R1 | **One timeline model** — ordered addressable positions with typed events. Animation and Phase 9 sequencing are two readers of it, not two timelines. | ❌ **not built** — what exists is a clip sampler; `AnimationEvent.payload` is `unknown` |
+| R2 | Property interpolation, easing, duration/**delay**/**stagger**. | ⚠️ interpolation and easing ✅; `delay` and `stagger` appear nowhere in the codebase. A staggered reveal over a data-driven collection is currently **not expressible** |
+| R3 | **Named states with declared transitions.** The engine assigns no meaning to any state name; `in`/`idle`/`out` become a convention of the broadcast pack. | ⚠️ names ✅ (Phase 4); **transitions ❌** — a state change is an instantaneous swap |
+| R4 | Deterministic playback; late-join settles to a correct state. | ⚠️ determinism ✅ Proven; late-join **Derived, untested** |
+| R5 | **Exit:** a scene using state names other than in/idle/out animates correctly, proving no name is privileged. | ✅ met — showcase `states` scene |
 
-**Exit:** as before, plus: a scene using state names other than in/idle/out
-animates correctly, proving no name is privileged.
+Also open: `SCENE_FORMAT §10` describes a **state-bound** animation model
+(`stateId`, `t` in ms from the state's start) that was never built; the
+implementation is document-level clips in seconds. `SceneDocument.states` is
+declared, validated, and read by nothing — `validate.ts` ends with a bare
+`void stateIds;`. `SCENE_FORMAT` open item **F3** is answered but still marked
+open.
+
+**Remaining: ≈2–3 weeks** for R2/R3/R4 and the format reconciliation, plus a
+decision on R1.
 
 ---
 
@@ -122,7 +151,14 @@ existing work untouched.
 
 ## Phase 9 — Sequencing · **ENGINE** · *was: Automation (moved earlier)*
 
-**4–6 weeks** (down from 6–8 — the timeline already exists from Phase 6)
+**4–6 weeks if Phase 6 R1 is delivered · otherwise 6–8 weeks**
+
+> **Estimate correction, 2026-08-02.** This phase carried a two-week discount on
+> the premise that *"the timeline already exists from Phase 6"*. It does not —
+> see [PHASE_6_AUDIT.md](./PHASE_6_AUDIT.md) §3.1. Either Phase 6 R1 is
+> delivered and the discount stands, or R1 is withdrawn and this returns to 6–8
+> weeks. It must not stay unresolved: two timelines is exactly what R1 was
+> written to prevent.
 
 Cue sequences over the Phase 6 timeline. Triggers: time, data condition, manual.
 Conditional logic. Dry-run.
