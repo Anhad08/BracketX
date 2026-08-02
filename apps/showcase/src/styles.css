@@ -398,6 +398,8 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-si
 .track { position: relative; height: 18px; display: flex; align-items: center; }
 .track-name { position: absolute; left: var(--s1); font-size: 10px; color: var(--dim); z-index: 1; }
 .keyframe { position: absolute; width: 7px; height: 7px; background: var(--accent); transform: translateX(-50%) rotate(45deg); }
+.track-extent { position: absolute; height: 3px; border-radius: 2px; background: #62a8ff33; }
+.tag.stagger { border-color: var(--warn); color: var(--warn); }
 .event {
   position: absolute; top: -2px; transform: translateX(-50%);
   background: #63d29733; border: 1px solid var(--good); color: var(--good);

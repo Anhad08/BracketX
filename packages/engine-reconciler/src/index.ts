@@ -57,6 +57,16 @@ export {
   type MirrorStats,
 } from "./mirror";
 
+/**
+ * The keyed-identity naming rule.
+ *
+ * Exported because it is a CONTRACT, not an implementation detail: an instance
+ * id is `<templateId>#<identity>`, and the host, the workbench inspector and
+ * any future tool all have to agree with it. Three private copies of one
+ * separator is how a naming change becomes three silent bugs.
+ */
+export { INSTANCE_SEPARATOR, identityOf } from "./repeat";
+
 export {
   DIRTY_CHANNELS,
   DirtySet,

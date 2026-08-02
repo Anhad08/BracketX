@@ -1,5 +1,17 @@
 /**
- * Animation. Phase 5, SCENE_FORMAT §10.
+ * Animation values. Phase 6, SCENE_FORMAT §10.
+ *
+ * ============================================================================
+ * WHAT LIVES HERE, AND WHAT LIVES IN timeline.ts
+ * ============================================================================
+ * This file is the VALUE layer: easing curves, interpolation between two
+ * values, and sampling one keyframed track. It knows nothing about timelines,
+ * markers, stagger, or playback.
+ *
+ * `timeline.ts` is the MODEL layer and imports this one. The split is what lets
+ * there be exactly one timeline model: a timeline needs to interpolate, but
+ * interpolation must not need a timeline, or the two would be circular and the
+ * next subsystem would define its own copy of one of them.
  *
  * ============================================================================
  * ANIMATION DESCRIBES HOW STATE CHANGES OVER TIME. IT NEVER OWNS STATE.
@@ -158,45 +170,22 @@ export function ease(easing: Easing | undefined, t: number): number {
 // ---------------------------------------------------------------------------
 
 export interface Keyframe {
-  /** Seconds from the clip's start. */
+  /** Seconds from the timeline's start. */
   readonly time: number;
   readonly value: unknown;
   /** Applied on the segment LEAVING this keyframe. */
   readonly easing?: Easing;
 }
 
-export interface AnimationTrack {
-  /** Node the track drives. */
-  readonly target: string;
-  /** Dot path within the node, e.g. `transform.position.1`. */
-  readonly path: string;
-  /** Ascending by time. Guaranteed by `normalizeClip` at load. */
+/**
+ * Anything with keyframes can be sampled.
+ *
+ * Structural rather than named so `sampleTrack` does not need `TimelineTrack`,
+ * which would make this file depend on the model that depends on it.
+ */
+export interface KeyframedTrack {
   readonly keyframes: readonly Keyframe[];
 }
-
-/**
- * A marker that fires when the playhead crosses it.
- *
- * Events fire on ADVANCE only, never on a seek — see `crossedEvents`.
- */
-export interface AnimationEvent {
-  readonly time: number;
-  readonly name: string;
-  readonly payload?: unknown;
-}
-
-export interface AnimationClip {
-  readonly id: string;
-  readonly name: string;
-  /** Seconds. Sampling past it clamps, or wraps when `loop` is set. */
-  readonly duration: number;
-  readonly loop?: boolean;
-  readonly tracks: readonly AnimationTrack[];
-  readonly events?: readonly AnimationEvent[];
-}
-
-/** Values a clip produced, by node then by path. */
-export type AnimatedValues = ReadonlyMap<string, ReadonlyMap<string, unknown>>;
 
 // ---------------------------------------------------------------------------
 // Interpolation
@@ -292,28 +281,16 @@ export function interpolate(from: unknown, to: unknown, t: number): unknown {
 // Sampling
 // ---------------------------------------------------------------------------
 
-/** Normalises a time into the clip, honouring `loop`. */
-export function clipTime(clip: AnimationClip, seconds: number): number {
-  if (clip.duration <= 0) return 0;
-  if (clip.loop !== true) {
-    return seconds < 0 ? 0 : seconds > clip.duration ? clip.duration : seconds;
-  }
-  // Positive modulo, so a clock running backwards wraps rather than going
-  // negative and sampling before the first keyframe forever.
-  const wrapped = seconds % clip.duration;
-  return wrapped < 0 ? wrapped + clip.duration : wrapped;
-}
-
 /**
  * Value of one track at a time.
  *
- * ASSUMES KEYFRAMES ARE SORTED. Call `normalizeClip` once at load; do not sort
+ * ASSUMES KEYFRAMES ARE SORTED. Call `normalizeTimeline` once at load; do not sort
  * here. An earlier version checked sortedness defensively on every sample,
  * which is O(keyframes) and defeated the binary search below entirely —
  * measured at 22x for 100x the keyframes where log would be ~7x. Sorting is a
  * load-time concern, exactly as font parsing is.
  */
-export function sampleTrack(track: AnimationTrack, seconds: number): unknown {
+export function sampleTrack(track: KeyframedTrack, seconds: number): unknown {
   const sorted = track.keyframes;
   if (sorted.length === 0) return undefined;
   if (sorted.length === 1) return sorted[0]!.value;
@@ -340,170 +317,6 @@ export function sampleTrack(track: AnimationTrack, seconds: number): unknown {
 
   const raw = (seconds - a.time) / span;
   return interpolate(a.value, b.value, ease(a.easing, raw));
-}
-
-function isSorted(keyframes: readonly Keyframe[]): boolean {
-  for (let i = 1; i < keyframes.length; i += 1) {
-    if (keyframes[i - 1]!.time > keyframes[i]!.time) return false;
-  }
-  return true;
-}
-
-/**
- * Returns a clip whose keyframes and events are in ascending time order.
- *
- * Call once, when a document is loaded. Documents arrive from disk, other
- * clients, and generators, so the ordering cannot simply be assumed — but it
- * also must not be re-checked 60 times a second per track.
- *
- * Returns the SAME clip by reference when nothing needed sorting, so a
- * well-formed document costs one scan per track at load and nothing after.
- */
-export function normalizeClip(clip: AnimationClip): AnimationClip {
-  let changed = false;
-
-  const tracks = clip.tracks.map((track) => {
-    if (isSorted(track.keyframes)) return track;
-    changed = true;
-    return {
-      ...track,
-      keyframes: [...track.keyframes].sort((a, b) => a.time - b.time),
-    };
-  });
-
-  const events = clip.events;
-  let sortedEvents = events;
-  if (events !== undefined && events.length > 1) {
-    for (let i = 1; i < events.length; i += 1) {
-      if (events[i - 1]!.time > events[i]!.time) {
-        sortedEvents = [...events].sort((a, b) => a.time - b.time);
-        changed = true;
-        break;
-      }
-    }
-  }
-
-  if (!changed) return clip;
-  return { ...clip, tracks, events: sortedEvents };
-}
-
-/**
- * Samples a whole clip.
- *
- * Pure. Returns only the paths the clip drives, so a caller can apply exactly
- * those and leave everything else to the document.
- */
-export function sampleClip(
-  clip: AnimationClip,
-  seconds: number,
-): AnimatedValues {
-  const time = clipTime(clip, seconds);
-  const byNode = new Map<string, Map<string, unknown>>();
-
-  for (const track of clip.tracks) {
-    const value = sampleTrack(track, time);
-    if (value === undefined) continue;
-
-    let paths = byNode.get(track.target);
-    if (paths === undefined) {
-      paths = new Map();
-      byNode.set(track.target, paths);
-    }
-    // Later tracks on the same path win, which makes track order the author's
-    // precedence control rather than an accident of iteration.
-    paths.set(track.path, value);
-  }
-
-  return byNode;
-}
-
-/**
- * Events the playhead crossed moving from `previous` to `current`.
- *
- * Fires on ADVANCE only. A seek or a scrub crosses arbitrarily many events at
- * once, and firing them would mean dragging a timeline slider triggers every
- * cue in a show — which is exactly the accident that takes a graphic on air
- * during rehearsal. Playback fires; seeking does not, and the caller says which
- * it is doing.
- *
- * Half-open interval `(previous, current]`, so an event exactly at the current
- * time fires once and never twice.
- */
-export function crossedEvents(
-  clip: AnimationClip,
-  previousSeconds: number,
-  currentSeconds: number,
-): readonly AnimationEvent[] {
-  const events = clip.events;
-  if (events === undefined || events.length === 0) return [];
-  if (currentSeconds === previousSeconds) return [];
-
-  const forward = currentSeconds > previousSeconds;
-  const low = forward ? previousSeconds : currentSeconds;
-  const high = forward ? currentSeconds : previousSeconds;
-
-  const crossed = events.filter(
-    (event) => event.time > low && event.time <= high,
-  );
-  // Chronological in the direction of travel, so a handler sees them in the
-  // order they happened rather than in document order.
-  return forward
-    ? [...crossed].sort((a, b) => a.time - b.time)
-    : [...crossed].sort((a, b) => b.time - a.time);
-}
-
-/** Every node a clip touches. Lets a caller invalidate exactly those. */
-export function targetsOf(clip: AnimationClip): readonly string[] {
-  return [...new Set(clip.tracks.map((track) => track.target))];
-}
-
-/** Rejects a clip that cannot evaluate deterministically. */
-export function validateClip(clip: AnimationClip): string[] {
-  const problems: string[] = [];
-
-  if (typeof clip.id !== "string" || clip.id.length === 0) {
-    problems.push("clip id must be a non-empty string");
-  }
-  if (!Number.isFinite(clip.duration) || clip.duration < 0) {
-    problems.push(`clip "${clip.id}" has invalid duration ${clip.duration}`);
-  }
-  if (clip.loop === true && clip.duration <= 0) {
-    // Would divide by zero on every wrap.
-    problems.push(`clip "${clip.id}" loops but has zero duration`);
-  }
-
-  for (const track of clip.tracks) {
-    if (typeof track.target !== "string" || track.target.length === 0) {
-      problems.push(`clip "${clip.id}" has a track with no target`);
-    }
-    if (typeof track.path !== "string" || track.path.length === 0) {
-      problems.push(`clip "${clip.id}" has a track with no path`);
-      continue;
-    }
-    if (track.keyframes.length === 0) {
-      problems.push(
-        `clip "${clip.id}" track "${track.path}" has no keyframes`,
-      );
-    }
-    for (const keyframe of track.keyframes) {
-      if (!Number.isFinite(keyframe.time)) {
-        problems.push(
-          `clip "${clip.id}" track "${track.path}" has a non-finite keyframe time`,
-        );
-      }
-    }
-  }
-
-  for (const event of clip.events ?? []) {
-    if (!Number.isFinite(event.time)) {
-      problems.push(`clip "${clip.id}" has a non-finite event time`);
-    }
-    if (typeof event.name !== "string" || event.name.length === 0) {
-      problems.push(`clip "${clip.id}" has an event with no name`);
-    }
-  }
-
-  return problems;
 }
 
 /** Reads a node's current value at a track's path. For authoring tools. */

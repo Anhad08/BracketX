@@ -15,6 +15,8 @@ import {
   generateKeyBetween,
   type AnimationClip,
   type SceneDocument,
+  type SceneState,
+  type StateTransition,
   type SceneNode,
   type SceneToken,
   type SceneVariable,
@@ -133,6 +135,10 @@ export interface DocumentOptions {
   readonly children: readonly SceneNode[];
   readonly variables?: readonly SceneVariable[];
   readonly animations?: readonly AnimationClip[];
+  /** Declared states. Phase 6 R3 — `duration` is the default transition in. */
+  readonly states?: readonly SceneState[];
+  /** Declared transitions between states. Phase 6 R3. */
+  readonly transitions?: readonly StateTransition[];
   readonly template?: TemplateDefinition;
   readonly cameraSize?: number;
   readonly rootExtra?: Partial<SceneNode>;
@@ -163,9 +169,10 @@ export function sceneDocument(options: DocumentOptions): SceneDocument {
     },
     variables: options.variables ?? [],
     assets: [],
-    states: [],
+    states: options.states ?? [],
     tokens: TOKENS,
     ...(options.animations ? { animations: options.animations } : {}),
+    ...(options.transitions ? { transitions: options.transitions } : {}),
     ...(options.template ? { template: options.template } : {}),
     root: {
       id: "nod_root",

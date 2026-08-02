@@ -19,7 +19,7 @@ where it did, the delta is stated.
 | Phase 2 | Scene Engine (2.1–2.6) | ✅ — renders its own format to verified pixels |
 | Phase 3 | Rendering & Outputs | ✅ — `1436938` |
 | Phase 4 | Composition | ✅ — `a8275a9`, `beb1f75` |
-| Phase 6 | Time & Animation | ⚠️ **INCOMPLETE** — see below |
+| Phase 6 | Time & Animation | ✅ — `6ec5f29`, completed 2026-08-02 |
 | Phase 7 | Live Control | ✅ — `6b4338d` |
 | P-001 | Scene performance | ✅ |
 | R-001 | Traversal depth ceiling | ⏳ open, scheduled pre-release |
@@ -88,35 +88,37 @@ operation-log-undo rules are unchanged and remain non-negotiable.
 Only correction: the frame guide derives from `world.output`, never a hardcoded
 1920×1080.
 
-> **Blocked by Phase 6.** This phase's timeline UI binds to the animation and
-> timing API. Building it against the current clip-shaped API before Phase 6's
-> timing model is final means rebuilding a shipped editor's timeline — the most
-> expensive version of that mistake.
+> **Unblocked 2026-08-02.** The timeline UI binds to the model Phase 6 froze.
+> The contract it should bind to is written down in
+> [PHASE_6_COMPLETION_REPORT.md §8](./PHASE_6_COMPLETION_REPORT.md), and the
+> workbench's Timeline tool already uses exactly those calls — so the pattern is
+> running rather than hypothetical.
 
 ---
 
 ## Phase 6 — Time & Animation · **ENGINE** · *was: Animation Engine*
 
-**6–8 weeks · ⚠️ INCOMPLETE — roughly 60% delivered by `6ec5f29` + `d473e6e`.**
-Audited 2026-08-02: [PHASE_6_AUDIT.md](./PHASE_6_AUDIT.md).
+**6–8 weeks · ✅ COMPLETE.** Partially delivered by `6ec5f29`; audited
+2026-08-02 ([PHASE_6_AUDIT.md](./PHASE_6_AUDIT.md)) and completed the same day
+([PHASE_6_COMPLETION_REPORT.md](./PHASE_6_COMPLETION_REPORT.md)).
 
 | | Requirement | Status |
 | --- | --- | --- |
-| R1 | **One timeline model** — ordered addressable positions with typed events. Animation and Phase 9 sequencing are two readers of it, not two timelines. | ❌ **not built** — what exists is a clip sampler; `AnimationEvent.payload` is `unknown` |
-| R2 | Property interpolation, easing, duration/**delay**/**stagger**. | ⚠️ interpolation and easing ✅; `delay` and `stagger` appear nowhere in the codebase. A staggered reveal over a data-driven collection is currently **not expressible** |
-| R3 | **Named states with declared transitions.** The engine assigns no meaning to any state name; `in`/`idle`/`out` become a convention of the broadcast pack. | ⚠️ names ✅ (Phase 4); **transitions ❌** — a state change is an instantaneous swap |
-| R4 | Deterministic playback; late-join settles to a correct state. | ⚠️ determinism ✅ Proven; late-join **Derived, untested** |
-| R5 | **Exit:** a scene using state names other than in/idle/out animates correctly, proving no name is privileged. | ✅ met — showcase `states` scene |
+| R1 | **One timeline model** — ordered addressable positions with typed events. Animation and Phase 9 sequencing are two readers of it, not two timelines. | ✅ `engine-scene/timeline.ts`. One playhead calculation, shared by every reader |
+| R2 | Property interpolation, easing, duration/**delay**/**stagger**. | ✅ including stagger direction, per-instance interval or fixed total, and collection fan-out with identity preserved |
+| R3 | **Named states with declared transitions.** | ✅ a transition compiles to a `Timeline` and runs on the same player as a clip |
+| R4 | Deterministic playback; late-join settles to a correct state. | ✅ Proven four ways on a full-state fingerprint |
+| R5 | **Exit:** a scene using state names other than in/idle/out animates correctly. | ✅ `transitions` scene: `warning → success` |
 
-Also open: `SCENE_FORMAT §10` describes a **state-bound** animation model
-(`stateId`, `t` in ms from the state's start) that was never built; the
-implementation is document-level clips in seconds. `SceneDocument.states` is
-declared, validated, and read by nothing — `validate.ts` ends with a bare
-`void stateIds;`. `SCENE_FORMAT` open item **F3** is answered but still marked
-open.
+`SCENE_FORMAT §10` is reconciled to the implemented model and **F3 is closed**
+(states are author-defined). Evidence:
+[PHASE_6_REQUIREMENT_TRACE.md](./PHASE_6_REQUIREMENT_TRACE.md) — every
+requirement points at implementation, tests and benchmarks.
 
-**Remaining: ≈2–3 weeks** for R2/R3/R4 and the format reconciliation, plus a
-decision on R1.
+> **The rule this phase leaves behind.** There is exactly one timeline model.
+> Animation playback, state transitions, sequencing, the Studio timeline and
+> replay are all readers of it. Future phases may **extend** it; none may
+> replace it or add a second.
 
 ---
 
@@ -151,14 +153,16 @@ existing work untouched.
 
 ## Phase 9 — Sequencing · **ENGINE** · *was: Automation (moved earlier)*
 
-**4–6 weeks if Phase 6 R1 is delivered · otherwise 6–8 weeks**
+**4–6 weeks** (down from 6–8 — the timeline exists, verified 2026-08-02)
 
-> **Estimate correction, 2026-08-02.** This phase carried a two-week discount on
-> the premise that *"the timeline already exists from Phase 6"*. It does not —
-> see [PHASE_6_AUDIT.md](./PHASE_6_AUDIT.md) §3.1. Either Phase 6 R1 is
-> delivered and the discount stands, or R1 is withdrawn and this returns to 6–8
-> weeks. It must not stay unresolved: two timelines is exactly what R1 was
-> written to prevent.
+> **Estimate restored.** The audit found this discount resting on a timeline
+> that had not been built. Phase 6 R1 delivered it, so the discount stands.
+>
+> **Phase 9 extends the model; it does not replace it.** `MARKER_CUE` is
+> reserved, `crossedMarkers(..., kind)` filters, and `cursorSeconds` is the one
+> playhead calculation — all executing today, asserted by
+> `timeline.test.ts` → *lets two readers share one timeline without seeing each
+> other*. A second timeline abstraction is the one outcome R1 exists to prevent.
 
 Cue sequences over the Phase 6 timeline. Triggers: time, data condition, manual.
 Conditional logic. Dry-run.

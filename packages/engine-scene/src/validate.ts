@@ -201,6 +201,10 @@ export function validateDocument(document: SceneDocument): ValidationResult {
   // -- References resolve --------------------------------------------------
   const assetIds = new Set((document.assets ?? []).map((a) => a.id));
   const stateIds = new Set((document.states ?? []).map((s) => s.id));
+  // NAMES, not ids: overrides, commands and transitions all address a state by
+  // name. Collecting ids and never using them is exactly the fossil the Phase 6
+  // audit found here.
+  const stateNames = new Set((document.states ?? []).map((s) => s.name));
 
   /**
    * Names introduced by an enclosing `repeat`, and the nodes they cover.
@@ -304,16 +308,61 @@ export function validateDocument(document: SceneDocument): ValidationResult {
     );
   }
 
+  const seenStateNames = new Set<string>();
   for (const state of document.states ?? []) {
     if (!isValidId(state.id)) {
       error("id", `state:${state.id}`, `"${state.id}" is not a valid identifier`);
     }
+    if (typeof state.name !== "string" || state.name.length === 0) {
+      error("state", `state:${state.id}`, "a state must have a name");
+    } else if (seenStateNames.has(state.name)) {
+      // Two states with one name makes `state.set(["x"])` ambiguous.
+      error("state", `state:${state.id}`, `duplicate state name "${state.name}"`);
+    }
+    seenStateNames.add(state.name);
     if (typeof state.duration !== "number" || state.duration < 0) {
       error(
         "state",
         `state:${state.id}`,
-        "duration must be a non-negative number",
+        "duration must be a non-negative number of seconds",
       );
+    }
+  }
+
+  // -- Transitions reference declared states -------------------------------
+  //
+  // Only enforced when the document declares states at all. A scene that names
+  // its states inline and declares none is the existing, valid shape; requiring
+  // declarations retroactively would invalidate every scene written before
+  // Phase 6.
+  const seenTransitionIds = new Set<string>();
+  for (const transition of document.transitions ?? []) {
+    const at = `transition:${transition.id}`;
+    if (!isValidId(transition.id)) {
+      error("id", at, `"${transition.id}" is not a valid identifier`);
+    }
+    if (seenTransitionIds.has(transition.id)) {
+      error("transition", at, `duplicate transition id "${transition.id}"`);
+    }
+    seenTransitionIds.add(transition.id);
+
+    if (typeof transition.duration !== "number" || transition.duration < 0) {
+      error("transition", at, "duration must be a non-negative number of seconds");
+    }
+    if (transition.delay !== undefined && transition.delay < 0) {
+      error("transition", at, "delay must not be negative");
+    }
+    for (const [side, name] of [
+      ["from", transition.from],
+      ["to", transition.to],
+    ] as const) {
+      if (typeof name !== "string" || name.length === 0) {
+        error("transition", at, `${side} must be a state name or "*"`);
+        continue;
+      }
+      if (name !== "*" && stateNames.size > 0 && !stateNames.has(name)) {
+        error("unresolved-state", at, `${side} names an undeclared state "${name}"`);
+      }
     }
   }
   void stateIds;

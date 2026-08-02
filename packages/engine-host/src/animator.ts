@@ -23,13 +23,16 @@
  */
 import {
   crossedEvents,
-  normalizeClip,
-  sampleClip,
+  cursorSeconds,
+  normalizeTimeline,
+  sampleTimeline,
   targetsOf,
+  timelineSpan,
   type AnimatedValues,
-  type AnimationClip,
   type AnimationEvent,
+  type SampleOptions,
   type SceneDocument,
+  type Timeline,
 } from "@bracketx/engine-scene";
 
 export class AnimationError extends Error {
@@ -40,20 +43,30 @@ export class AnimationError extends Error {
 }
 
 export interface PlayOptions {
-  /** Frame the clip is anchored to. Defaults to the current frame. */
+  /** Frame the timeline is anchored to. Defaults to the current frame. */
   readonly startFrame?: number;
-  /** Overrides the clip's own `loop`. */
+  /** Overrides the timeline's own `loop`. */
   readonly loop?: boolean;
-  /** Playback rate multiplier. Negative runs the clip backwards. */
+  /** Playback rate multiplier. Negative runs it backwards. */
   readonly speed?: number;
+  /**
+   * Hold the final frame on completion. Defaults to true.
+   *
+   * True is right for a clip: a lower third that slides in must not snap back
+   * off-screen the instant its clip ends. False is right for a compiled state
+   * transition, whose end values are already what the state produces — holding
+   * would pin a duplicate of the state on top of itself forever.
+   */
+  readonly hold?: boolean;
 }
 
 interface ActiveClip {
-  readonly clip: AnimationClip;
+  readonly clip: Timeline;
   readonly startFrame: number;
   readonly loop: boolean;
   readonly speed: number;
-  /** Seconds sampled last frame, for event crossing. */
+  readonly hold: boolean;
+  /** Seconds sampled last frame, for marker crossing. */
   lastSeconds: number;
 }
 
@@ -95,7 +108,16 @@ const EMPTY_FRAME: AnimationFrame = {
 };
 
 export class Animator {
-  #clips = new Map<string, AnimationClip>();
+  #clips = new Map<string, Timeline>();
+  /**
+   * Timelines that are not in the document — compiled state transitions.
+   *
+   * They live in the same map and run through the same player, because they
+   * are the same model. Tracked separately only so `stop` can forget them; a
+   * transition that outlived its state change would sit on Studio's ruler
+   * forever.
+   */
+  #transient = new Set<string>();
   #active = new Map<string, ActiveClip>();
   /**
    * Clips that finished but whose final frame still applies.
@@ -105,7 +127,7 @@ export class Animator {
    * clip ends is broken, and reverting is exactly what a naive "remove from
    * active" does. Only an explicit stop reverts.
    */
-  #held = new Map<string, { clip: AnimationClip; seconds: number }>();
+  #held = new Map<string, { clip: Timeline; seconds: number }>();
   #previous: AnimatedValues = new Map();
   #sample: AnimatedValues = new Map();
 
@@ -116,18 +138,28 @@ export class Animator {
     // assumed, but it must not be re-verified 60 times a second either.
     this.#clips = new Map(
       (document.animations ?? []).map((clip) => {
-        const normalized = normalizeClip(clip);
+        const normalized = normalizeTimeline(clip);
         return [normalized.id, normalized];
       }),
     );
+    this.#transient.clear();
     this.#active.clear();
     this.#held.clear();
     this.#previous = new Map();
     this.#sample = new Map();
   }
 
-  get clips(): readonly AnimationClip[] {
+  get clips(): readonly Timeline[] {
     return [...this.#clips.values()];
+  }
+
+  /** True when this timeline was compiled rather than authored. */
+  isTransient(timelineId: string): boolean {
+    return this.#transient.has(timelineId);
+  }
+
+  timeline(timelineId: string): Timeline | undefined {
+    return this.#clips.get(timelineId);
   }
 
   get playing(): readonly string[] {
@@ -158,20 +190,43 @@ export class Animator {
       startFrame,
       loop: options.loop ?? clip.loop === true,
       speed: options.speed ?? 1,
+      hold: options.hold ?? true,
       // Seeded so the first frame does not fire every event from zero to now.
       lastSeconds: 0,
     });
   }
 
-  /** Stops and RELEASES the hold, so the clip's nodes revert. */
+  /**
+   * Plays a timeline that is not in the document.
+   *
+   * The entry point compiled state transitions use, and the one Phase 9 will
+   * use for a cue sequence. Deliberately the SAME player: a second one would
+   * mean a second playhead, and two playheads disagree.
+   */
+  playTimeline(
+    timeline: Timeline,
+    currentFrame: number,
+    options: PlayOptions = {},
+  ): void {
+    const normalized = normalizeTimeline(timeline);
+    this.#clips.set(normalized.id, normalized);
+    this.#transient.add(normalized.id);
+    this.play(normalized.id, currentFrame, options);
+  }
+
+  /** Stops and RELEASES the hold, so the timeline's nodes revert. */
   stop(clipId: string): boolean {
     const held = this.#held.delete(clipId);
-    return this.#active.delete(clipId) || held;
+    const active = this.#active.delete(clipId);
+    if (this.#transient.delete(clipId)) this.#clips.delete(clipId);
+    return active || held;
   }
 
   stopAll(): void {
     this.#active.clear();
     this.#held.clear();
+    for (const id of this.#transient) this.#clips.delete(id);
+    this.#transient.clear();
   }
 
   /** True while the clip is still advancing. A held clip is not playing. */
@@ -196,6 +251,7 @@ export class Animator {
     frame: number,
     rate: number,
     emitEvents = true,
+    options: SampleOptions = {},
   ): AnimationFrame {
     if (this.#active.size === 0 && this.#held.size === 0) {
       if (this.#previous.size === 0) return EMPTY_FRAME;
@@ -211,7 +267,7 @@ export class Animator {
     // Held clips first, so a newly playing clip overrides a finished one on a
     // shared property rather than fighting it.
     for (const entry of this.#held.values()) {
-      mergeInto(merged, sampleClip(entry.clip, entry.seconds));
+      mergeInto(merged, sampleTimeline(entry.clip, entry.seconds, options));
     }
     const events: { clipId: string; event: AnimationEvent }[] = [];
     const completed: string[] = [];
@@ -233,22 +289,28 @@ export class Animator {
       }
       active.lastSeconds = seconds;
 
-      mergeInto(merged, sampleClip(active.clip, seconds));
+      mergeInto(merged, sampleTimeline(active.clip, seconds, options));
 
       // A non-looping clip past its duration stops advancing, but its final
       // frame keeps applying. See #held.
-      if (!active.loop && this.#isComplete(active, seconds)) {
+      if (!active.loop && this.#isComplete(active, seconds, options)) {
         completed.push(clipId);
       }
     }
 
     for (const clipId of completed) {
       const active = this.#active.get(clipId)!;
+      this.#active.delete(clipId);
+      if (!active.hold) {
+        // A compiled transition. Its end values equal what the state already
+        // produces, so releasing is correct and holding would pin a duplicate.
+        if (this.#transient.delete(clipId)) this.#clips.delete(clipId);
+        continue;
+      }
       this.#held.set(clipId, {
         clip: active.clip,
-        seconds: active.speed >= 0 ? active.clip.duration : 0,
+        seconds: active.speed >= 0 ? this.#spanFor(active.clip, options) : 0,
       });
-      this.#active.delete(clipId);
     }
 
     const changed = diffTargets(this.#previous, merged);
@@ -320,13 +382,32 @@ export class Animator {
    * show has been running for an hour.
    */
   #secondsFor(active: ActiveClip, frame: number, rate: number): number {
-    const elapsedFrames = (frame - active.startFrame) * active.speed;
-    return rate === 0 ? 0 : elapsedFrames / rate;
+    // The ONE playhead calculation, shared with every other reader of the
+    // timeline model. Duplicating it here is how two readers start disagreeing.
+    return cursorSeconds(active, frame, rate);
   }
 
-  #isComplete(active: ActiveClip, seconds: number): boolean {
+  /**
+   * When a timeline is truly finished.
+   *
+   * NOT `duration`. A staggered track is still moving after the nominal
+   * duration — the last instance starts late and takes as long as the track
+   * does — so completing at `duration` would freeze the tail of every staggered
+   * reveal part-way through.
+   */
+  #spanFor(timeline: Timeline, options: SampleOptions): number {
+    const instancesOf = options.instancesOf;
+    if (instancesOf === undefined) return timeline.duration;
+    return timelineSpan(timeline, (templateId) => instancesOf(templateId).length);
+  }
+
+  #isComplete(
+    active: ActiveClip,
+    seconds: number,
+    options: SampleOptions,
+  ): boolean {
     return active.speed >= 0
-      ? seconds >= active.clip.duration
+      ? seconds >= this.#spanFor(active.clip, options)
       : seconds <= 0;
   }
 }

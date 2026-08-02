@@ -177,25 +177,64 @@ export type {
   TemplateParameter,
 } from "./types";
 
-// -- Animation — Phase 5 -----------------------------------------------------
+// -- Animation values — Phase 6 ----------------------------------------------
 
 export {
-  clipTime,
-  crossedEvents,
   ease,
   interpolate,
-  normalizeClip,
-  sampleClip,
   sampleTrack,
-  targetsOf,
-  validateClip,
   valueAtPath,
-  type AnimatedValues,
-  type AnimationClip,
-  type AnimationEvent,
-  type AnimationTrack,
   type CubicBezier,
   type Easing,
   type EasingName,
   type Keyframe,
+  type KeyframedTrack,
 } from "./animation";
+
+// -- The timeline — Phase 6 R1 -----------------------------------------------
+//
+// THE canonical timeline model. Animation clips, state transitions, Phase 9
+// sequencing and the Studio timeline are all readers of this one interface.
+// Extending it is expected; replacing it is not. See timeline.ts.
+
+export {
+  MARKER_CUE,
+  MARKER_EVENT,
+  clipTime,
+  crossedEvents,
+  crossedMarkers,
+  cursorSeconds,
+  frameForSeconds,
+  markerAt,
+  normalizeClip,
+  normalizeTimeline,
+  sampleClip,
+  sampleTimeline,
+  staggerOffset,
+  targetsOf,
+  timelineSpan,
+  timelineTime,
+  validateClip,
+  validateTimeline,
+  type AnimatedValues,
+  type AnimationClip,
+  type AnimationEvent,
+  type AnimationTrack,
+  type SampleOptions,
+  type StaggerDirection,
+  type Timeline,
+  type TimelineCursor,
+  type TimelineMarker,
+  type TimelineStagger,
+  type TimelineTrack,
+} from "./timeline";
+
+// -- State transitions — Phase 6 R3 ------------------------------------------
+
+export {
+  ANIMATABLE_STATE_PATHS,
+  compileStateTransition,
+  resolveTransition,
+  type StateTransition,
+  type TransitionResolution,
+} from "./transition";

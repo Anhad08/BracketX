@@ -405,3 +405,73 @@ test("switching every tool does not error", async ({ page }) => {
 
   expect(errors, errors.join(" | ")).toEqual([]);
 });
+
+// ---------------------------------------------------------------------------
+// Phase 6 — the timeline, on screen
+// ---------------------------------------------------------------------------
+
+test("a staggered reveal runs in collection order, top to bottom", async ({ page }) => {
+  // The defect this guards is specific and was real: instances of one template
+  // share the template's order key, and the mirror breaks that tie REVERSED.
+  // A stagger driven by mirror order ran bottom-to-top and looked deliberate.
+  await open(page, "stagger", "Inspector");
+  await page.getByRole("button", { name: "Reveal", exact: true }).click();
+  await page.waitForTimeout(120);
+  // Freeze mid-reveal. Reading two nodes through the inspector takes long
+  // enough that the reveal finishes underneath the test and both rows report
+  // their final position — the frame an engineer inspects must be the frame
+  // they meant, which is the whole reason the transport pauses before stepping.
+  await page.getByRole("button", { name: "Pause" }).click();
+
+  const xOf = async (identity: string) => {
+    await page.getByLabel("Find node").fill(`nod_slide#${identity}`);
+    await page.getByTestId("search-results").locator("button.node").first().click();
+    const text = await page.getByTestId("world-position").innerText();
+    return Number(text.split(",")[0]);
+  };
+
+  const first = await xOf("t1");
+  const later = await xOf("t4");
+  // Row 1 started first, so it is further along its slide than row 4.
+  expect(first).toBeGreaterThan(later);
+});
+
+test("a declared transition animates a state change instead of cutting", async ({ page }) => {
+  await open(page, "transitions", "Timeline");
+  await page.getByRole("button", { name: "Reveal", exact: true }).click();
+
+  // A transition is a TIMELINE, so it appears on the same ruler as a clip.
+  const timeline = page.getByTestId("timeline");
+  await expect(timeline).toContainText("transition");
+
+  // And it is released when it finishes rather than held — the end values are
+  // what the state already produces, so holding would pin a duplicate forever.
+  // This scene authors no clips, so the ruler empties entirely.
+  await page.waitForTimeout(900);
+  await expect(page.getByTestId("timeline")).toHaveCount(0);
+});
+
+test("the timeline shows delay and stagger, not just keyframes", async ({ page }) => {
+  await open(page, "delay", "Timeline");
+  await expect(page.getByTestId("timeline")).toContainText("+0.3s");
+
+  await open(page, "stagger", "Timeline");
+  await expect(page.getByTestId("timeline")).toContainText("stagger");
+  // The ruler is drawn to the SPAN, which a stagger pushes past the duration.
+  await expect(page.getByTestId("timeline")).toContainText("span");
+});
+
+test("seeking far into a running timeline lands somewhere coherent", async ({ page }) => {
+  await open(page, "late-join");
+  // Pause first. A running clock advances between the seek and the read, and a
+  // test that asserted "f3600" against a moving counter would be flaky forever
+  // — the same reason `stepFrames` pauses.
+  await page.locator(".controls").getByRole("button", { name: "Pause" }).click();
+  await page.getByRole("button", { name: "Seek 3600" }).click();
+  await page.waitForTimeout(250);
+
+  await expect(page.getByTestId("frame-counter")).toHaveText("f3600");
+  // No error, no blank canvas: the scene is simply at the state it would have
+  // played to. Convergence itself is proven exactly in timeline.test.ts.
+  await expect(page.locator('[data-scene="late-join"]')).toBeVisible();
+});

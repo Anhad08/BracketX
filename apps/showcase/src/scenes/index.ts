@@ -8,4 +8,5 @@
  */
 import "./engine";
 import "./production";
+import "./timeline";
 import "./stress";

@@ -62,11 +62,14 @@ faster, it does not belong here.
 }
 ```
 
-> **`timeline` removed ([FINAL_REVIEW R3](./ARCHITECTURE_FINAL_REVIEW.md#3-reversals-of-prior-decisions)).**
-> A draft envelope carried a `timeline` field. It was over-engineering: within a
-> scene, `states` plus per-node tracks are sufficient, and sequencing *across*
-> scenes is show state (Phase 6), not scene state. It shipped a concept before
-> its consumer existed.
+> **`timeline` removed, then reintroduced with its consumer
+> ([FINAL_REVIEW R3](./ARCHITECTURE_FINAL_REVIEW.md#3-reversals-of-prior-decisions)).**
+> A draft envelope carried a `timeline` field and it was cut as over-engineering:
+> it shipped a concept before its consumer existed. That was the right call at
+> the time, and the reasoning has held — the field came back in Phase 6 as
+> `animations` (§10), driven by three concrete consumers rather than by
+> anticipation: animation playback, state transitions, and Phase 9 sequencing.
+> A scene-level timeline is now the ONE time abstraction, not an extra one.
 
 All fields required; collections may be empty. A reader never has to distinguish
 "absent" from "empty".
@@ -360,44 +363,166 @@ now so adding expressions later is additive rather than ambiguous.
 ([ENGINE_ARCHITECTURE §13](./ENGINE_ARCHITECTURE.md#13-engine--application-separation)).
 The tournament application writes `homeScore`; it never touches a node.
 
-## 10. Animation
+## 10. Timelines
 
-A scene declares **states**; nodes carry **tracks** bound to a state. There is
-no scene-level timeline — see the R3 note in §3.
+> **Reconciled in Phase 6 R5 (2026-08-02).** This section previously specified a
+> *state-bound* model: per-node `animation.tracks` carrying a `stateId`, with `t`
+> in milliseconds from the state's start. That model was never implemented. What
+> shipped in the Animation phase was document-level clips in seconds, and the two
+> descriptions sat side by side for a phase — long enough for
+> [PHASE_6_AUDIT.md](./PHASE_6_AUDIT.md) to find `SceneDocument.states` declared,
+> validated, and read by nothing.
+>
+> The **implementation won**, deliberately, and §10.5 records why. Additive under
+> §13 rule 4: `states` keeps its shape and gains a meaning, `transitions` is new
+> and optional, and a document written before Phase 6 loads unchanged. No version
+> bump.
+
+### 10.1 One timeline model
+
+A **timeline** is the only time abstraction in BracketX. An animation clip is a
+timeline. A state transition compiles to a timeline. A cue sequence (Phase 9)
+will be a timeline. The editor's timeline binds to this.
+
+They are not five similar things; they are five *readers* of one thing. Two
+timelines would mean two playhead calculations, and two playhead calculations
+disagree — which shows up as a cue firing a frame late in a show, the class of
+bug nobody can reproduce.
 
 ```json
-"states": [
-  { "id": "st_in",   "name": "In",   "duration": 600 },
-  { "id": "st_idle", "name": "Idle", "duration": 0, "loop": true },
-  { "id": "st_out",  "name": "Out",  "duration": 400 }
+"animations": [
+  {
+    "id": "tl_reveal",
+    "name": "Reveal",
+    "duration": 0.5,
+    "loop": false,
+    "tracks": [ ],
+    "markers": [ ]
+  }
 ]
 ```
 
-Per node:
+The field is named `animations` because it always has been; the element is a
+timeline. A timeline with no `tracks` is a pure cue list. A timeline with no
+`markers` is a pure animation.
+
+**Time is in seconds**, everywhere, because seconds are what an author reasons
+in and what the runtime clock divides into. The playhead is never stored: it is
+`(frame - startFrame) × speed / rate`, recomputed from the clock every sample.
+That is the whole reason seeking, scrubbing, replay, reverse, multi-output and
+late-join need no special cases — see
+[ENGINE_RUNTIME](./ENGINE_RUNTIME.md) on the delta-time prohibition.
+
+### 10.2 Tracks
 
 ```json
-"animation": {
-  "tracks": [
-    { "id": "trk_1", "stateId": "st_in",
-      "property": "transform.position.y",
-      "keyframes": [
-        { "t": 0,   "value": -2, "easing": "easeOutQuint" },
-        { "t": 600, "value": 1.2 }
-      ]}
+{
+  "target": "nod_row",
+  "path": "transform.position.0",
+  "delay": 0.1,
+  "stagger": { "total": 0.6, "direction": "forward" },
+  "keyframes": [
+    { "time": 0, "value": -4, "easing": "easeOutQuint" },
+    { "time": 0.5, "value": 0 }
   ]
 }
 ```
 
-- `property` is a **dot path**, so any property — including component props and
+- `path` is a **dot path**, so any property — including component props and
   camera focal length — is animatable with no per-type vocabulary.
-- `t` is milliseconds from the **state's** start, not the scene's, because
-  states are independently cued on air.
 - Easing is a named function or explicit cubic-bezier control points. **No
   expressions, no physics, no springs** — each would break the determinism
   requirement in [ENGINE_ARCHITECTURE §4](./ENGINE_ARCHITECTURE.md#4-runtime)
   that evaluating at `t` equals playing forward to `t`.
+- `delay` shifts this track without shifting the timeline.
+- `stagger` fans the track across the **instances of a repeat**, and `target` is
+  then the template id. `interval` is per instance; `total` fixes the overall
+  spread and derives the interval, which is what data-driven content needs —
+  *reveal over 0.6 seconds* must hold whether eight rows arrive or eighty.
+  Directions: `forward`, `reverse`, `center`, `edges`.
+- Stagger shifts sample **time**, never a node id. A staggered reveal cannot
+  churn the mirror and cannot cost a GPU resource.
+- A staggered timeline is finished at its **span**, not its `duration`: the last
+  instance starts late and takes as long as the track does.
 - **Reserved:** `skeletal` and `morph` tracks for character content, declared so
   adding them is not a migration.
+
+### 10.3 Markers
+
+Ordered, addressable positions with typed payloads.
+
+```json
+"markers": [
+  { "id": "midpoint", "time": 0.5, "kind": "event" },
+  { "id": "cue_lower_third", "time": 1.2, "kind": "cue", "payload": { } }
+]
+```
+
+- `id` is unique within the timeline. *Addressable* means addressable: "seek to
+  `midpoint`" must not be ambiguous.
+- `kind` is free-form and the engine assigns meaning to **none** of them, for
+  the same reason `LiveCommandRecord.source` is free-form: an engine that
+  enumerates its readers needs extending for every new one. `event` is what
+  animation emits; `cue` is reserved for Phase 9.
+- Markers fire on **advance only**, never on a seek, on the half-open interval
+  `(previous, current]`. A scrub crosses arbitrarily many at once and firing
+  them is how a graphic goes on air during rehearsal.
+- `events: [{ time, name }]` is the older authored spelling and still loads. It
+  is folded into `markers` with `kind: "event"` at load, so there is exactly one
+  representation at runtime.
+
+### 10.4 States and transitions
+
+A scene declares **states**; nodes carry per-state **overrides**; the document
+declares how to move between them.
+
+```json
+"states": [
+  { "id": "st_hidden",  "name": "hidden",  "duration": 0 },
+  { "id": "st_visible", "name": "visible", "duration": 0.25 }
+],
+"transitions": [
+  { "id": "tr_reveal", "from": "hidden", "to": "visible",
+    "duration": 0.5, "easing": "easeOutCubic", "stagger": { "total": 0.4 } }
+]
+```
+
+- `name` is what `state.set` / `state.add` and node overrides address. **The
+  engine assigns no meaning to any state name.** `in`/`idle`/`out` is a
+  convention of a broadcast pack, not a rule of the format —
+  **this closes open item F3.**
+- `SceneState.duration` is the **default transition duration into that state, in
+  seconds**. It is what the original §10 example implied and what nothing read
+  until Phase 6. *(Unit changed from milliseconds; nothing consumed the field, so
+  nothing broke.)*
+- `from` and `to` are state names, or `"*"` for any. First match in document
+  order wins — ordering rather than specificity scoring, because an author can
+  reorder rules and see the result, whereas a scoring rule has to be
+  reverse-engineered.
+- An explicit `duration: 0` is a deliberate cut and beats a state default.
+- A state change **compiles to a timeline** and runs on the same player as a
+  clip. Interpolable properties tween; booleans and other non-interpolable
+  values step at the **end**, so a node animating out stays visible until it
+  finishes and a node animating in is visible from its first frame.
+- Absent `transitions` and zero durations mean every state change cuts, which is
+  the behaviour of every document written before Phase 6.
+
+### 10.5 Why the implementation won the reconciliation
+
+The state-bound model could not express three things the engine already needs:
+
+1. **A timeline that spans states.** Binding tracks to a `stateId` means an
+   animation cannot outlive the state that started it, and a lower third whose
+   exit is interrupted by a data change has to be expressed as two animations
+   that do not know about each other.
+2. **Sequencing.** Phase 9 cues are not per-node and belong to no state. Under
+   the state-bound model they would have needed a second timeline — the exact
+   outcome R1 exists to prevent.
+3. **Staggered collections.** A track bound to one node cannot fan out across
+   instances that do not exist until the data resolves.
+
+Document-level timelines have none of those problems and cost one indirection:
+a track names its target instead of living inside it.
 
 ## 11. Assets
 
@@ -447,7 +572,8 @@ they can be enforced; a field in a user-editable document is not access control.
 Carried forward from v1 unchanged.
 
 - **Ids** are opaque, kind-prefixed (`scn_`, `nod_`, `cmp_`, `var_`, `ast_`,
-  `trk_`, `st_`, `mat_`), client-generated with enough entropy to be
+  `trk_`, `st_`, `mat_`, and — added in Phase 6 — `anm_` for a timeline and
+  `trn_` for a declared transition), client-generated with enough entropy to be
   collision-safe across concurrent editors, unique within a document, and stable
   for the node's lifetime.
 - **Serialization**: JSON, UTF-8. `NaN`/`Infinity` invalid. Floats round to 5
@@ -484,7 +610,7 @@ overflows.
 |---|---|---|---|
 | F1 | Fractional-index scheme and rebalancing rule | Engineering | Phase 2 |
 | F2 | Euler-vs-quaternion for **imported** glTF animation — euler is authorable, quaternion is what imports carry, and slerp differs from per-axis lerp | Engineering | Phase 2 |
-| F3 | Whether `states` are fixed (`in`/`idle`/`out`) or author-defined; gates the Phase 6 control surface | Product | Phase 2 |
+| ~~F3~~ | ~~Whether `states` are fixed (`in`/`idle`/`out`) or author-defined~~ — **CLOSED, Phase 6 (2026-08-02): author-defined.** The engine privileges no state name; `in`/`idle`/`out` is a broadcast-pack convention. See §10.4 | Product | ~~Phase 2~~ |
 | F4 | Material definition: our own PBR schema vs glTF material JSON verbatim | Engineering | Phase 2 |
 | F5 | Wide-gamut / HDR colour — broadcast will want it and `#RRGGBBAA` cannot carry it | Product | Post-launch |
 | F6 | Whether templates are scenes with variables or a distinct document type; gates Phase 14 | Product | Phase 7 |

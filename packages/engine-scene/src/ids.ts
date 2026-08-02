@@ -25,6 +25,10 @@ export const ID_PREFIXES = {
   track: "trk",
   state: "st",
   material: "mat",
+  /** A timeline. `anm` rather than `tml` because documents already carry it. */
+  timeline: "anm",
+  /** A declared state transition. Phase 6 R3. */
+  transition: "trn",
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;

@@ -38,7 +38,8 @@ export function isBinding(value: unknown): value is VariableBinding {
   );
 }
 
-import type { AnimationClip } from "./animation";
+import type { Timeline } from "./timeline";
+import type { StateTransition } from "./transition";
 
 export type VariableType =
   | "string"
@@ -392,9 +393,31 @@ export interface SceneAsset {
   readonly generator?: string;
 }
 
+/**
+ * A named state the scene declares.
+ *
+ * ========================================================================
+ * WHAT `duration` MEANS — reconciled in Phase 6 R5
+ * ========================================================================
+ * The DEFAULT TRANSITION DURATION into this state, in **seconds**. A state
+ * change with no matching `StateTransition` falls back to it, so a scene can
+ * say "entering `visible` takes 0.4s" once instead of writing a rule per pair.
+ *
+ * SCENE_FORMAT §10 declared this field when the format was written and nothing
+ * ever read it — `validate.ts` collected the ids and discarded them with a bare
+ * `void stateIds;`. The Phase 6 audit found the fossil. Rather than delete the
+ * field (a version bump under §13 rule 4) it now carries the meaning the
+ * original example implied. The unit changed from milliseconds to seconds to
+ * match every other time in the engine; nothing read it, so nothing broke.
+ *
+ * The engine assigns NO meaning to any state name. `in`/`idle`/`out` is a
+ * convention of the broadcast pack, not a rule of the engine.
+ */
 export interface SceneState {
   readonly id: string;
+  /** The name used in `state.set` / `state.add` and in node overrides. */
   readonly name: string;
+  /** Default transition duration into this state, in seconds. May be 0. */
   readonly duration: number;
   readonly loop?: boolean;
 }
@@ -462,6 +485,16 @@ export interface SceneDocument {
   /** Present when this document IS a template. §11.3. */
   readonly template?: TemplateDefinition;
   /** Animation clips. Pure data; evaluation is a function of (clip, time). §10. */
-  readonly animations?: readonly AnimationClip[];
+  /**
+   * Timelines. Pure data; evaluation is a function of (timeline, time). §10.
+   *
+   * The field is named `animations` because it always has been and renaming it
+   * would be a version bump, but the element type is `Timeline` — the ONE
+   * timeline model. A clip, a compiled state transition and a Phase 9 cue
+   * sequence are the same shape and the same player runs all three.
+   */
+  readonly animations?: readonly Timeline[];
+  /** Declared state transitions. §10.4. Absent means every state change cuts. */
+  readonly transitions?: readonly StateTransition[];
   readonly [extra: string]: unknown;
 }

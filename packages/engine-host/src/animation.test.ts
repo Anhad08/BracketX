@@ -32,7 +32,7 @@ import { AnimationError } from "./animator";
  * drift because neither accumulates.
  */
 
-const SLIDE: AnimationClip = {
+const AUTHORED_SLIDE: AnimationClip = {
   id: "anm_slide",
   name: "Slide In",
   duration: 1,
@@ -51,6 +51,17 @@ const SLIDE: AnimationClip = {
     { time: 1, name: "arrived" },
   ],
 };
+
+/**
+ * Normalised once, exactly as a document is at load.
+ *
+ * `events` is the AUTHORED form; `markers` is the one runtime representation.
+ * Sampling and crossing read markers only — the same discipline `sampleTrack`
+ * already follows by assuming sorted keyframes, and for the same reason: a
+ * check that runs sixty times a second to verify something that can only change
+ * at load is pure waste.
+ */
+const SLIDE: AnimationClip = normalizeClip(AUTHORED_SLIDE);
 
 function scene(clips: AnimationClip[] = [SLIDE]): SceneDocument {
   return {
@@ -243,7 +254,13 @@ describe("sampling", () => {
     };
 
     expect(sampleTrack(normalizeClip(scrambled).tracks[0]!, 0.5)).toBe(5);
-    // Already-sorted clips are returned by reference — no allocation.
+    // A timeline that needs nothing done is returned BY REFERENCE — no
+    // allocation. `scrambled` has no events, so normalising it twice is a
+    // no-op the second time.
+    const once = normalizeClip(scrambled);
+    expect(normalizeClip(once)).toBe(once);
+    // And normalising an already-normalised timeline is idempotent, which is
+    // what lets the animator normalise defensively on every playTimeline.
     expect(normalizeClip(SLIDE)).toBe(SLIDE);
   });
 
@@ -256,6 +273,18 @@ describe("sampling", () => {
 });
 
 describe("events", () => {
+  it("folds authored events into markers at load, leaving one representation", () => {
+    // Two ways to say the same thing at runtime is how two subsystems start
+    // disagreeing. `events` is authored; `markers` is what anything reads.
+    expect(AUTHORED_SLIDE.markers).toBeUndefined();
+    expect(SLIDE.markers?.map((marker) => marker.id)).toEqual([
+      "halfway",
+      "arrived",
+    ]);
+    expect(SLIDE.markers?.every((marker) => marker.kind === "event")).toBe(true);
+    expect(SLIDE.events).toBeUndefined();
+  });
+
   it("fires on the half-open interval, so never twice", () => {
     expect(crossedEvents(SLIDE, 0, 0.5).map((e) => e.name)).toEqual(["halfway"]);
     // 0.5 was already fired above; crossing from it must not repeat it.

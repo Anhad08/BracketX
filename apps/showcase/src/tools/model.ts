@@ -22,7 +22,7 @@
  *
  * Every exported function below says which it is.
  */
-import type { AnimationClip, Mat4 } from "@bracketx/engine-scene";
+import { timelineSpan, type AnimationClip, type Mat4 } from "@bracketx/engine-scene";
 import type { ClipState, LiveCommandRecord, ProjectionReport } from "@bracketx/engine-host";
 
 import type { ShowcaseSession } from "../engine/session";
@@ -657,6 +657,10 @@ export interface TimelineTrack {
   readonly target: string;
   readonly path: string;
   readonly keyframes: readonly { time: number; easing: string }[];
+  /** Seconds this track waits. Drawn as a lead-in on the ruler. */
+  readonly delay: number;
+  /** Present when the track fans across a collection's instances. */
+  readonly stagger: { interval: number | null; total: number | null; direction: string } | null;
 }
 
 export type MarkerKind = "command" | "checkpoint" | "state" | "seek";
@@ -678,6 +682,16 @@ export interface TimelineClip {
   readonly events: readonly { time: number; name: string }[];
   /** Undefined when the clip is neither playing nor held. */
   readonly state: ClipState | undefined;
+  /** True when this timeline was compiled rather than authored — a transition. */
+  readonly transient: boolean;
+  /**
+   * When the timeline is actually finished.
+   *
+   * Not `duration`: a staggered track is still moving after the nominal end,
+   * and a ruler drawn to `duration` would show the playhead leaving the track
+   * while rows were still arriving.
+   */
+  readonly span: number;
   /** What happened while this clip was running. The debugging part. */
   readonly markers: readonly TimelineMarker[];
 }
@@ -693,6 +707,22 @@ export interface TimelineClip {
  * "looks wrong at about a second in" is unactionable; the same clip with a
  * `collection.replace` marker at 0.98s is solved.
  */
+/** Instances of a repeat template, for drawing a stagger's true extent. */
+function instanceCount(session: ShowcaseSession, templateId: string): number {
+  const document = session.host.document;
+  if (document === null) return 0;
+  const index = sceneIndex(document);
+  const source = index.sourceFor(templateId);
+  if (source === null) return 0;
+
+  for (const ancestor of [...index.ancestorsOf(templateId)].reverse()) {
+    if (ancestor.repeat === undefined) continue;
+    const collection = session.host.runtime.state.variables.get(ancestor.repeat.source);
+    return Array.isArray(collection) ? collection.length : 0;
+  }
+  return 0;
+}
+
 export function timeline(
   session: ShowcaseSession,
   options: { markers?: boolean; rate?: number } = {},
@@ -710,6 +740,15 @@ export function timeline(
       tracks: clip.tracks.map((track) => ({
         target: track.target,
         path: track.path,
+        delay: track.delay ?? 0,
+        stagger:
+          track.stagger === undefined
+            ? null
+            : {
+                interval: track.stagger.interval ?? null,
+                total: track.stagger.total ?? null,
+                direction: track.stagger.direction ?? "forward",
+              },
         keyframes: track.keyframes.map((keyframe) => ({
           time: keyframe.time,
           easing:
@@ -720,10 +759,14 @@ export function timeline(
                 : String(keyframe.easing),
         })),
       })),
-      events: (clip.events ?? []).map((event) => ({
-        time: event.time,
-        name: event.name,
-      })),
+      // Read from MARKERS, not from `events`. Authored events are folded into
+      // markers at load, so a panel reading `events` would show nothing for
+      // every document the engine has actually loaded.
+      events: (clip.markers ?? [])
+        .filter((marker) => marker.kind === "event")
+        .map((marker) => ({ time: marker.time, name: marker.id })),
+      transient: session.host.animator.isTransient(clip.id),
+      span: timelineSpan(clip, (templateId) => instanceCount(session, templateId)),
       state,
       markers: state === undefined ? [] : clipMarkers(records, state, clip.duration, rate),
     };

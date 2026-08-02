@@ -395,7 +395,9 @@ function NodeDetailView({
           ) : null}
         </dd>
         <dt>world</dt>
-        <dd className="mono">{detail.worldPosition.map((n) => n.toFixed(3)).join(", ")}</dd>
+        <dd className="mono" data-testid="world-position">
+          {detail.worldPosition.map((n) => n.toFixed(3)).join(", ")}
+        </dd>
         <dt>size</dt>
         <dd>{detail.size ? `${detail.size.width} × ${detail.size.height}` : "—"}</dd>
         {detail.outputs.length > 0 ? (
@@ -726,16 +728,26 @@ function Timeline({ session }: { session: ShowcaseSession }) {
 
       {clips.map((clip) => {
         const progress =
-          clip.state === undefined || clip.duration === 0
+          clip.state === undefined || clip.span === 0
             ? 0
-            : Math.min(1, Math.max(0, clip.state.seconds / clip.duration));
+            : Math.min(1, Math.max(0, clip.state.seconds / clip.span));
 
         return (
           <section key={clip.id} className="clip">
             <header>
               <strong>{clip.name}</strong>
+              {clip.transient ? (
+                <span className="tag" title="Compiled from a state change, not authored">
+                  transition
+                </span>
+              ) : null}
               <span className="dim">
-                {clip.duration}s{clip.loop ? " · loop" : ""}
+                {clip.duration}s
+                {/* The span, when a stagger pushes the true end past the
+                    nominal duration. A ruler drawn to `duration` would show the
+                    playhead leaving while rows were still arriving. */}
+                {clip.span > clip.duration ? ` (span ${clip.span.toFixed(2)}s)` : ""}
+                {clip.loop ? " · loop" : ""}
                 {clip.state
                   ? clip.state.playing
                     ? ` · ${clip.state.speed > 0 ? "▶" : "◀"} ${clip.state.speed}× · ${clip.state.seconds.toFixed(2)}s`
@@ -768,29 +780,66 @@ function Timeline({ session }: { session: ShowcaseSession }) {
                 const ratio = (event.clientX - rect.left) / rect.width;
                 session.send({
                   type: "playback.seek",
-                  frame: frameForClipTime(clip.state, ratio * clip.duration, rate),
+                  frame: frameForClipTime(clip.state, ratio * clip.span, rate),
                 });
               }}
             >
-              {clip.tracks.map((track) => (
-                <div className="track" key={`${track.target}:${track.path}`}>
-                  <span className="track-name mono">{track.path}</span>
-                  {track.keyframes.map((keyframe, index) => (
+              {clip.tracks.map((track) => {
+                // Everything is drawn against the SPAN, so a delayed or
+                // staggered track sits where it actually runs rather than
+                // where its keyframes happen to be numbered.
+                const scale = clip.span > 0 ? clip.span : 1;
+                const last = track.keyframes.at(-1)?.time ?? 0;
+                return (
+                  <div className="track" key={`${track.target}:${track.path}`}>
+                    <span className="track-name mono">
+                      {track.path}
+                      {track.delay > 0 ? (
+                        <span className="tag" title={`delayed ${track.delay}s`}>
+                          +{track.delay}s
+                        </span>
+                      ) : null}
+                      {track.stagger !== null ? (
+                        <span
+                          className="tag stagger"
+                          title={`staggered ${track.stagger.direction}, ${
+                            track.stagger.total !== null
+                              ? `${track.stagger.total}s total`
+                              : `${track.stagger.interval}s apart`
+                          }`}
+                        >
+                          stagger
+                        </span>
+                      ) : null}
+                    </span>
+                    {/* The track's own extent, so a delay reads as a lead-in
+                        rather than as a track that starts late for no reason. */}
                     <span
-                      key={index}
-                      className="keyframe"
-                      style={{ left: `${(keyframe.time / clip.duration) * 100}%` }}
-                      title={`${keyframe.time}s · ${keyframe.easing}`}
+                      className="track-extent"
+                      style={{
+                        left: `${(track.delay / scale) * 100}%`,
+                        width: `${(last / scale) * 100}%`,
+                      }}
                     />
-                  ))}
-                </div>
-              ))}
+                    {track.keyframes.map((keyframe, index) => (
+                      <span
+                        key={index}
+                        className="keyframe"
+                        style={{
+                          left: `${((keyframe.time + track.delay) / scale) * 100}%`,
+                        }}
+                        title={`${keyframe.time}s${track.delay > 0 ? ` +${track.delay}s delay` : ""} · ${keyframe.easing}`}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
 
               {clip.markers.map((marker, index) => (
                 <span
                   key={index}
                   className={`marker ${marker.kind}`}
-                  style={{ left: `${(marker.time / clip.duration) * 100}%` }}
+                  style={{ left: `${(marker.time / (clip.span || 1)) * 100}%` }}
                   title={`${marker.label} — ${marker.detail}`}
                   data-testid="timeline-marker"
                 />
@@ -801,7 +850,7 @@ function Timeline({ session }: { session: ShowcaseSession }) {
                   key={event.name}
                   type="button"
                   className="event"
-                  style={{ left: `${(event.time / clip.duration) * 100}%` }}
+                  style={{ left: `${(event.time / (clip.span || 1)) * 100}%` }}
                   title={`${event.name} @ ${event.time}s`}
                   onClick={(mouse) => {
                     mouse.stopPropagation();

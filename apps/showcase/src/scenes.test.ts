@@ -35,16 +35,20 @@ describe("the registry is populated", () => {
     expect(scenes.map((scene) => scene.id).sort()).toEqual([
       "animation",
       "collections",
+      "delay",
+      "late-join",
       "layout",
       "leaderboard",
       "lower-third",
       "outputs",
       "primitive-rendering",
       "scoreboard",
+      "stagger",
       "states",
       "stress",
       "templates",
       "tournament-bracket",
+      "transitions",
       "variables",
     ]);
   });

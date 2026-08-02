@@ -20,10 +20,14 @@
  */
 import {
   applyTransaction,
+  compileStateTransition,
+  resolveTransition,
   tokenMap,
   walk,
   type SceneDocument,
+  type SceneNode,
   type Transaction,
+  type TransitionResolution,
 } from "@bracketx/engine-scene";
 import {
   Runtime,
@@ -31,7 +35,9 @@ import {
   type RuntimeValue,
 } from "@bracketx/engine-runtime";
 import {
+  INSTANCE_SEPARATOR,
   Reconciler,
+  identityOf,
   type CameraHandle,
   type MirrorBackend,
   type ProjectionReport,
@@ -188,6 +194,18 @@ export class SceneHost {
   #timestamp = 0;
   #lastReport: ProjectionReport | null = null;
   #lastTimings: FrameTimings = ZERO_TIMINGS;
+  /**
+   * Repeat template id to the container that expands it. Phase 6 R2.
+   *
+   * Built once per document so a staggered track can resolve its instances in
+   * O(instances) rather than scanning the mirror. A stagger resolver that was
+   * O(scene) would be the tool becoming the load, sixty times a second.
+   */
+  #repeatContainers = new Map<string, { source: string; key?: string }>();
+  /** Instance ids resolved during the current sample. Cleared every frame. */
+  #instanceCache = new Map<string, readonly string[]>();
+  /** Sequence for compiled transition ids, so two never collide. */
+  #transitionSequence = 0;
 
   constructor(
     private readonly backend: MirrorBackend,
@@ -249,6 +267,7 @@ export class SceneHost {
     this.#variables.setTokens(tokenMap(document.tokens));
     this.animator.load(document);
     this.#document = document;
+    this.#indexRepeats(document);
     this.#cameraNodeId = findCameraNode(document);
     this.#bindDefaultOutputFor(document);
 
@@ -562,12 +581,48 @@ export class SceneHost {
     this.#assertUsable();
     const document = this.#requireDocument("setStates");
 
+    // Compiled BEFORE the state is applied, because the transition needs the
+    // values the scene is leaving and those only exist while the old state is
+    // still active.
+    const previous = this.activeStates;
+    const resolution = resolveTransition(document, previous, states);
+    const timeline =
+      resolution === null
+        ? null
+        : compileStateTransition(
+            document,
+            previous,
+            states,
+            resolution,
+            `transition_${this.#transitionSequence++}`,
+          );
+
     this.reconciler.projector.setActiveStates(states);
     // A state change can alter visibility, transform, size, and component
     // props, so it re-resolves through the same path a full build uses. Scoped
     // to nodes that declare the states involved would be an optimisation with
     // no measurement behind it yet.
-    return this.reconciler.rebuild(document, this.#variables);
+    const report = this.reconciler.rebuild(document, this.#variables);
+
+    if (timeline !== null) {
+      // Runs through the SAME player as an animation clip, because it is the
+      // same model. `hold: false` because the transition's end values are what
+      // the state already produces — holding would pin a duplicate on top of
+      // itself forever.
+      this.animator.playTimeline(timeline, this.runtime.clock.frame, {
+        hold: false,
+      });
+      this.#applyAnimationFrame(false);
+    }
+
+    return report;
+  }
+
+  /** The transition a state change would use, without performing it. */
+  transitionFor(states: readonly string[]): TransitionResolution | null {
+    const document = this.#document;
+    if (document === null) return null;
+    return resolveTransition(document, this.activeStates, states);
   }
 
   get activeStates(): readonly string[] {
@@ -728,10 +783,12 @@ export class SceneHost {
     const rate = this.runtime.clock.snapshot().rate;
     const framesPerSecond = rate.num / rate.den;
 
+    this.#instanceCache.clear();
     const result = this.animator.sample(
       this.runtime.clock.frame,
       framesPerSecond,
       emitEvents,
+      { instancesOf: this.#instancesOf },
     );
 
     if (result.changed.length > 0) {
@@ -833,6 +890,88 @@ export class SceneHost {
    * common single-surface case needs no configuration. Rebinding preserves
    * counters, so reloading a document does not reset an output's telemetry.
    */
+  /**
+   * Ordered instance ids for a repeat template. Phase 6 R2.
+   *
+   * ========================================================================
+   * WHY THE HOST OWNS THIS AND engine-scene DOES NOT
+   * ========================================================================
+   * Stagger fans a track across a collection's instances, and instances live in
+   * the mirror — which engine-scene must never know about. So the sampler takes
+   * a resolver and the host supplies one. The alternative, teaching the pure
+   * evaluator about the mirror, would have made the whole animation layer
+   * untestable without a backend.
+   *
+   * The order comes from the COLLECTION, not from the mirror. That is not a
+   * detail: instances of one template share the template's order key, and the
+   * mirror breaks that tie by insertion — which measured out as exactly
+   * REVERSED. A staggered reveal driven by mirror child order would have run
+   * bottom-to-top and looked like a deliberate design choice, which is the
+   * worst kind of wrong. The collection is the authority on its own order.
+   *
+   * Instances of a node NESTED inside a template are derived from the instance
+   * roots rather than scanned for, which is what keeps this O(instances).
+   */
+  #instancesOf = (templateId: string): readonly string[] => {
+    // Memoised for the duration of one sample.
+    //
+    // `sampleTimeline` asks once per staggered track, and `timelineSpan` asks
+    // again to decide where the timeline clamps. Rebuilding a 5,000-element id
+    // list twice per track per frame is the kind of quiet O(collection) that
+    // benchmarking at demo size never reveals. Cleared every frame, so a
+    // collection change cannot be served a stale list.
+    const cached = this.#instanceCache.get(templateId);
+    if (cached !== undefined) return cached;
+
+    const resolved = this.#resolveInstances(templateId);
+    this.#instanceCache.set(templateId, resolved);
+    return resolved;
+  };
+
+  #resolveInstances(templateId: string): readonly string[] {
+    const repeat = this.#repeatContainers.get(templateId);
+    if (repeat === undefined) return [];
+
+    const collection = resolveVariable(this.runtime.state, repeat.source);
+    if (!Array.isArray(collection)) return [];
+
+    const mirror = this.reconciler.mirror;
+    const out: string[] = [];
+    for (let index = 0; index < collection.length; index += 1) {
+      // The SAME identity rule the expander used. Re-deriving it here is one
+      // copy too many, which is why `identityOf` is exported rather than
+      // reimplemented.
+      const identity = identityOf(collection[index], index, repeat.key);
+      const id = `${templateId}${INSTANCE_SEPARATOR}${identity}`;
+      if (mirror.has(id)) out.push(id);
+    }
+    return out;
+  }
+
+  /** Maps every node inside a repeat to the collection that expands it. */
+  #indexRepeats(document: SceneDocument): void {
+    this.#repeatContainers.clear();
+    const stack: { node: SceneNode; repeat: { source: string; key?: string } | null }[] =
+      [{ node: document.root, repeat: null }];
+
+    while (stack.length > 0) {
+      const { node, repeat } = stack.pop()!;
+      if (repeat !== null) this.#repeatContainers.set(node.id, repeat);
+      // A repeat container expands its own children; the container itself is
+      // not an instance, so it inherits the enclosing repeat, not its own.
+      const next =
+        node.repeat === undefined
+          ? repeat
+          : {
+              source: node.repeat.source,
+              ...(node.repeat.key === undefined ? {} : { key: node.repeat.key }),
+            };
+      for (const child of node.children ?? []) {
+        stack.push({ node: child, repeat: next });
+      }
+    }
+  }
+
   #bindDefaultOutputFor(document: SceneDocument): void {
     if (!this.#bindDefaultOutput) return;
     if (this.#outputs.has(DEFAULT_OUTPUT_ID)) return;
