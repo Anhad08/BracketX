@@ -73,6 +73,7 @@ export {
   type SceneWorld,
   type ScreenSpaceComponent,
   type TextComponent,
+  type TextRange,
   type TextFit,
   type TextFitMode,
   type Transform,

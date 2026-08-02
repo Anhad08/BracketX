@@ -299,6 +299,9 @@ importers:
       '@bracketx/engine-scene':
         specifier: workspace:*
         version: link:../engine-scene
+      '@bracketx/engine-text':
+        specifier: workspace:*
+        version: link:../engine-text
     devDependencies:
       '@bracketx/eslint-config':
         specifier: workspace:*

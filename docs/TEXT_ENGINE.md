@@ -1,6 +1,11 @@
 # BracketX Text Engine
 
-**Status:** Phase 2 design · **Authored:** 2026-07-30 · **Owner:** @Pixelborne
+**Status:** Phase 2 design · **IMPLEMENTED 2026-08-03** · **Owner:** @Pixelborne
+**The built system is specified in
+[TEXT_ENGINE_ARCHITECTURE.md](./TEXT_ENGINE_ARCHITECTURE.md).** This document
+remains the design rationale; where the implementation chose differently — one
+font parser rather than two, a port rather than a direct dependency — that
+document says so and why.
 **Closes:** [FINAL_REVIEW C1](./ARCHITECTURE_FINAL_REVIEW.md#c1--text-pipeline-breaks-determinism--critical--reverses-a-documented-decision) ·
 supersedes [RFC-003 §7](./RFC-003-rendering-architecture-3d.md#7-text--the-largest-technical-risk)
 **Constrained by:** [ADR-013](./ARCHITECTURE.md#adr-013)
@@ -248,8 +253,9 @@ determinism properties have been examined against §5 and §8.
 
 | # | Item | Owner | Due |
 |---|---|---|---|
-| T1 | Prototype stages 2–5 (itemize → bidi → shape → break) before committing Phase 3 | Engineering | Phase 3 wk 1 |
-| T2 | MSDF quality trial at 24–96pt including thin faces and CJK | Engineering | Phase 3 |
-| T3 | Adopt vs re-implement troika, judged on atlas pinning and determinism | Engineering | Phase 3 |
-| T4 | Per-scene pre-warm character-set declaration — format addition or asset metadata? | Engineering | Phase 3 |
-| T5 | Minimum on-air font size, documented as a product constraint | Product | Phase 7 |
+| T1 | Prototype stages 2–5 | ✅ `8154791`. Its Thai assertion was **vacuous** — see IF-004 |
+| T2 | MSDF quality trial at 24–96pt including thin faces and CJK | ⚠️ **Partly closed.** Latin/Arabic/Hebrew/Thai passed at 32/48/64px. **CJK untested** — the font is too heavy to vendor as a fixture |
+| T3 | Adopt vs re-implement troika | ✅ **Re-implement.** Four independent grounds, evidenced — [architecture §2](./TEXT_ENGINE_ARCHITECTURE.md) |
+| T4 | Per-scene pre-warm character set — format or asset metadata? | ✅ **Format, scene-level.** `world.textPrewarm`, additive under §13 rule 4 |
+| T5 | Minimum on-air font size, documented as a product constraint | ⏳ Phase 7. Unblocked — the engine now has a measurable quality floor |
+| — | **Thai/Khmer/Lao/Burmese wrapping** | ❌ **Open.** UAX #14 does not define it. [IF-004](./IMPLEMENTATION_FINDING_IF-004.md) |

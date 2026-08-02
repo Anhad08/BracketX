@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createCanvasBackend } from "@bracketx/engine-render-three";
+import { HostTextProvider } from "@bracketx/engine-host";
 import { findNode, type SceneDocument, type Transaction } from "@bracketx/engine-scene";
 
 import { StudioSession } from "./studio/session";
@@ -24,6 +25,7 @@ import {
 } from "./studio/editing";
 import { outline, pathTo } from "./studio/outline";
 import { randomIdFactory } from "./studio/ids";
+import { PREWARM_ASCII, loadStudioFonts } from "./studio/fonts";
 import { DEFAULT_VIEWPORT, zoomAt, type Viewport } from "./studio/viewport";
 import {
   fileNameFor,
@@ -100,6 +102,7 @@ export function App() {
 
   const [session, setSession] = useState<StudioSession | null>(null);
   const [bus, setBus] = useState<ProgramBus | null>(null);
+  const [fontsReady, setFontsReady] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
 
@@ -124,23 +127,50 @@ export function App() {
     setLibrary(loadLibrary(storage()));
   }, []);
 
+  // One text provider, shared by Preview and Program.
+  //
+  // Shared deliberately: the atlas is a cache, and two of them would rasterise
+  // every glyph twice for two views of the same graphic. Layout is a pure
+  // function of its inputs, so sharing cannot leak state between the two — the
+  // thing Preview/Program must never do is share a CLOCK, and they do not.
+  const textRef = useRef<HostTextProvider | null>(null);
+  if (textRef.current === null && typeof document !== "undefined") {
+    textRef.current = new HostTextProvider({ pageSize: 2048, pxRange: 4 });
+  }
+
+  useEffect(() => {
+    const provider = textRef.current;
+    if (provider === null) return;
+    void loadStudioFonts(provider).then((loaded) => {
+      // Pre-warm before anything is on screen. TEXT_ENGINE §5 — this is what
+      // turns a mid-show generation spike into load-time cost.
+      if (loaded.length > 0) provider.prewarm(PREWARM_ASCII, [loaded[0]!], 48);
+      setFontsReady(true);
+    });
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const programCanvas = programCanvasRef.current;
     if (canvas === null || programCanvas === null || session !== null) return;
+    if (!fontsReady) return;
     try {
       const created = newDocument("Untitled", ids, new Date().toISOString());
       for (const surface of [canvas, programCanvas]) {
         surface.width = created.world.output.width;
         surface.height = created.world.output.height;
       }
-      const preview = new StudioSession(createCanvasBackend(canvas), created);
+      const text = textRef.current ?? undefined;
+      const preview = new StudioSession(createCanvasBackend(canvas), created, {
+        ...(text === undefined ? {} : { text }),
+      });
       // Program starts on a document of its own rather than a reference to
       // Preview's: sharing one would be the exact leak the whole split exists
       // to prevent, and it would be invisible until the first edit.
       const program = new StudioSession(
         createCanvasBackend(programCanvas),
         newDocument("Program", ids, new Date().toISOString()),
+        { ...(text === undefined ? {} : { text }) },
       );
       setSession(preview);
       setBus(new ProgramBus(preview, program));
@@ -150,7 +180,7 @@ export function App() {
       // that case reads as broken software rather than as a missing GPU.
       setBootError(String(cause));
     }
-  }, [session]);
+  }, [session, fontsReady]);
 
   useEffect(() => {
     if (session === null) return;
@@ -755,7 +785,10 @@ export function App() {
     );
   }
   if (session === null || canvasRef.current === null) {
-    return <div className="boot">Starting…</div>;
+    // "Loading fonts" rather than a spinner, because that is what is happening
+    // and because TEXT_ENGINE §3 makes it a real wait: the first frame is not
+    // painted until every font has parsed.
+    return <div className="boot">{fontsReady ? "Starting…" : "Loading fonts…"}</div>;
   }
 
   const store = session.store;

@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { MockMirrorBackend } from "@bracketx/engine-reconciler";
+import { HostTextProvider } from "@bracketx/engine-host";
 import {
   canonicalize,
   childrenOf,
@@ -22,6 +25,7 @@ import {
   type NodeKind,
 } from "./studio/editing";
 import { newDocument, serializeDocument } from "./studio/project";
+import { DEFAULT_FONT_ASSET } from "./studio/editing";
 import { align, distribute, group, reorder, ungroup } from "./studio/arrange";
 import { nodeBounds } from "./studio/viewport";
 import {
@@ -83,6 +87,17 @@ import {
  * here is about a document, a transaction or engine state, and a test that
  * needed a browser to check one would eventually be skipped.
  */
+
+/** The font Studio ships, read from the engine's own fixtures. */
+function interFont(): Uint8Array {
+  return new Uint8Array(
+    readFileSync(
+      fileURLToPath(
+        new URL("../../../packages/engine-text/fixtures/fonts/inter-latin-400.ttf", import.meta.url),
+      ),
+    ),
+  );
+}
 
 let ids: IdFactory;
 
@@ -1014,7 +1029,14 @@ describe("the object toolbox", () => {
     for (const entry of TOOLBOX) {
       const backend = new MockMirrorBackend();
       const factory = testIdFactory();
-      const studio = new StudioSession(backend, newDocument("Toolbox", factory));
+      // Text needs a provider with a real font, exactly as it does in the
+      // running editor. Wiring it here rather than exempting `text` is what
+      // keeps this assertion honest: the rule is that every tool DRAWS.
+      const provider = new HostTextProvider({ pageSize: 512, pxRange: 4 });
+      provider.addFont(DEFAULT_FONT_ASSET, interFont());
+      const studio = new StudioSession(backend, newDocument("Toolbox", factory), {
+        text: provider,
+      });
       const before = attachments(studio, backend);
 
       const created = createNode(studio.document, entry.kind, studio.document.root.id, factory);
@@ -1032,6 +1054,18 @@ describe("the object toolbox", () => {
             : entry.kind === "light"
               ? "light"
               : "mesh";
+      // Text attaches its mesh to a CHILD of the node, one per atlas page,
+      // because a mesh samples one texture. The node itself carries nothing.
+      if (entry.kind === "text") {
+        expect(
+          [...studio.host.reconciler.mirror.nodeIds()].some((id) =>
+            id.startsWith(`${created.nodeId}\u00a7text`),
+          ),
+          "text attached no mesh",
+        ).toBe(true);
+        studio.dispose();
+        continue;
+      }
       expect(
         (after.get(expected) ?? 0) - (before.get(expected) ?? 0),
         `${entry.kind} attached no ${expected}`,
@@ -1053,7 +1087,10 @@ describe("the object toolbox", () => {
   it("promises nothing the engine cannot draw", () => {
     // Text, Image and SVG are absent by the same rule, and IF-003 is why.
     const kinds = TOOLBOX.map((entry) => entry.kind);
-    for (const missing of ["text", "image", "svg", "video"]) {
+    // `text` left this list in Phase 3B — the engine can draw it now, and the
+    // rule was never "no text", it was "nothing the engine cannot draw".
+    expect(kinds).toContain("text");
+    for (const missing of ["image", "svg", "video"]) {
       expect(kinds).not.toContain(missing);
     }
   });

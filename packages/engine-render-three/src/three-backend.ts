@@ -491,17 +491,58 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
     return { ok: true, value: acquired.id as TextureHandle };
   }
 
+  /**
+   * Writes a sub-rectangle into a texture. TEXT_ENGINE §5.
+   *
+   * ========================================================================
+   * THE REGION IS HONOURED, AND IT HAS TO BE
+   * ========================================================================
+   * This previously ignored `region` and did `image.data.set(pixels)` — which
+   * copies a glyph-sized buffer to offset ZERO of a 2048² page. Two failures at
+   * once: every novel glyph was written into the atlas's top-left corner over
+   * whatever was already there, and the size mismatch made the driver reject
+   * the upload outright:
+   *
+   *   THREE.WebGLState: TypeError: Failed to execute 'texSubImage2D' ...
+   *   Overload resolution failed.
+   *
+   * Harmless while nothing produced a growing atlas. Phase 3B produces one on
+   * every unexpected name, so it is now the live path.
+   *
+   * ========================================================================
+   * WHAT IS STILL NOT OPTIMAL, STATED PLAINLY
+   * ========================================================================
+   * The rows are copied into the texture's own CPU-side image and the whole
+   * image is then re-uploaded. That is CORRECT but not cheap: a 2048² RGBA page
+   * is 16MB, and a novel glyph pays all of it.
+   *
+   * Acceptable because §5 makes pre-warm the on-air path and atlas generation
+   * scheduler class P2, so this runs at load or during a novel-glyph miss and
+   * never per frame. A true partial upload needs `copyTextureToTexture` against
+   * a live renderer, which is a renderer-lifetime dependency this class does
+   * not have. Recorded rather than hidden.
+   */
   updateTexture(
     texture: TextureHandle,
-    _region: { x: number; y: number; width: number; height: number },
+    region: { x: number; y: number; width: number; height: number },
     pixels: Uint8Array,
   ): void {
     const object = this.#resources.texture.require(texture, "updateTexture");
-    const image = object.image as { data?: Uint8Array } | undefined;
-    if (image && image.data) image.data.set(pixels);
-    // Sub-rectangle upload needs WebGLRenderer.copyTextureToTexture or a
-    // manual texSubImage2D; the descriptor-level path replaces the whole
-    // image. Recorded as a limitation rather than silently ignoring `region`.
+    const image = object.image as
+      | { data?: Uint8Array; width?: number; height?: number }
+      | undefined;
+    const data = image?.data;
+    const width = image?.width;
+    if (data === undefined || typeof width !== "number") return;
+
+    // Four channels: the atlas is rgba8, which is what an MSDF page is.
+    const stride = 4;
+    for (let row = 0; row < region.height; row += 1) {
+      const source = row * region.width * stride;
+      const target = ((region.y + row) * width + region.x) * stride;
+      if (target + region.width * stride > data.length) break;
+      data.set(pixels.subarray(source, source + region.width * stride), target);
+    }
     object.needsUpdate = true;
   }
 

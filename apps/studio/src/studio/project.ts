@@ -28,6 +28,7 @@ import {
 } from "@bracketx/engine-scene";
 
 import { makeNode } from "./editing";
+import { STUDIO_FONTS } from "./fonts";
 import type { IdFactory } from "./ids";
 
 export class ProjectError extends Error {
@@ -56,7 +57,16 @@ export function newDocument(
       output: { width: 1920, height: 1080, fps: 60 },
     },
     variables: [],
-    assets: [],
+    // The fonts Studio ships, declared as assets because a text node references
+    // an asset id and `validateDocument` warns about one that is not in the
+    // manifest. Declaring them costs four lines and makes every saved document
+    // self-describing.
+    assets: STUDIO_FONTS.map((font) => ({
+      id: font.assetId,
+      kind: "font" as const,
+      name: font.label,
+      hash: `studio-${font.assetId}`,
+    })),
     states: [],
     root: {
       id: ids("node"),

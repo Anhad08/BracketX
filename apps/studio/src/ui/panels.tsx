@@ -558,6 +558,16 @@ const COMPONENT_FIELDS: Record<string, readonly FieldSpec[]> = {
     { path: "near", label: "near", kind: "number", step: 0.01 },
     { path: "far", label: "far", kind: "number", step: 1 },
   ],
+  // Phase 3B. A row, not a panel — which is the whole point of describing
+  // components rather than hand-writing an inspector per type.
+  text: [
+    { path: "content", label: "content", kind: "text" },
+    { path: "font.size", label: "size", kind: "number", step: 1 },
+    { path: "color", label: "colour", kind: "colour" },
+    { path: "lineHeight", label: "line height", kind: "number", step: 0.05 },
+    { path: "maxLines", label: "max lines", kind: "number", step: 1 },
+    { path: "fit.minSize", label: "min size", kind: "number", step: 1 },
+  ],
   light: [
     { path: "color", label: "colour", kind: "colour" },
     { path: "intensity", label: "intensity", kind: "number", step: 0.1 },
@@ -570,6 +580,11 @@ const COMPONENT_FIELDS: Record<string, readonly FieldSpec[]> = {
 
 /** Enumerations, where the format constrains a value to a set. */
 const COMPONENT_CHOICES: Record<string, Record<string, readonly string[]>> = {
+  text: {
+    "fit.mode": ["wrap", "shrink", "truncate", "overflow"],
+    align: ["start", "center", "end"],
+    verticalAlign: ["top", "middle", "bottom"],
+  },
   camera: { projection: ["orthographic", "perspective"] },
   light: { kind: ["ambient", "directional", "point", "spot"] },
   meshRenderer: {
@@ -660,6 +675,30 @@ function ComponentEditor({
                 // whole new value only when the designer picks one.
                 value={String(value).slice(0, 7)}
                 onChange={(event) => onSet(at(spec.path), event.target.value, `Set ${spec.label}`)}
+                aria-label={spec.label}
+              />
+            </label>
+          );
+        }
+        if (spec.kind === "text") {
+          // Declared in `FieldKind` since Phase 3A and never implemented —
+          // every text field fell through to the number editor below, which
+          // rendered a string property as `0`. Nothing had a text field until
+          // Phase 3B, so nothing surfaced it until a browser test looked.
+          //
+          // Committed on blur, not per keystroke: a transaction per character
+          // would put a hundred entries on the undo stack for one name.
+          return (
+            <label className="prop" key={spec.path}>
+              <span>{spec.label}</span>
+              <input
+                className="field"
+                defaultValue={String(value ?? "")}
+                key={`${component.id}:${spec.path}:${String(value)}`}
+                onBlur={(event) => onSet(at(spec.path), event.target.value, `Set ${spec.label}`)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
                 aria-label={spec.label}
               />
             </label>

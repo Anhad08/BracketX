@@ -10,6 +10,7 @@
 import type { SceneDocument, Transaction } from "@bracketx/engine-scene";
 
 import { DirtySet } from "./dirty";
+import type { TextProvider } from "./text-provider";
 import { MirrorGraph } from "./mirror";
 import type { MirrorBackend } from "./mirror-backend";
 import { Projector, type ProjectionReport } from "./projection";
@@ -18,6 +19,13 @@ import { EMPTY_VARIABLES } from "./resolve";
 import { verifyConsistency, type ConsistencyResult } from "./verify";
 
 export interface ReconcilerOptions {
+  /**
+   * Supplies text layout and rasterisation. Phase 3B.
+   *
+   * Injected rather than imported so a scene with no text does not pay for
+   * HarfBuzz's WASM — see `text-provider.ts`. Absent is a supported state.
+   */
+  readonly text?: TextProvider;
   /**
    * Verify structural consistency after every projection.
    *
@@ -53,7 +61,7 @@ export class Reconciler {
     options: ReconcilerOptions = {},
   ) {
     this.mirror = new MirrorGraph(backend);
-    this.projector = new Projector(this.mirror, backend);
+    this.projector = new Projector(this.mirror, backend, options.text);
     this.#verifyAlways = options.verifyAfterEachProjection ?? false;
   }
 

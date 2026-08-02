@@ -69,7 +69,9 @@ import type {
   MaterialHandle,
   MirrorBackend,
   Rgba,
+  TextureHandle,
 } from "./mirror-backend";
+import type { TextProvider, TextRequest } from "./text-provider";
 
 export class ProjectionError extends Error {
   constructor(message: string) {
@@ -89,6 +91,14 @@ export interface ProjectionReport {
 }
 
 const IDENTITY: Mat4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
+interface TextInstance {
+  readonly geometry: GeometryHandle;
+  readonly material: MaterialHandle;
+  /** The mirror child carrying this batch. No document node corresponds to it. */
+  readonly child: string;
+  descriptor: MaterialDescriptor;
+}
 
 /**
  * Shallow equality over an item's own values.
@@ -205,6 +215,43 @@ export class Projector {
 
   #lights = new Map<string, { handle: LightHandle; descriptor: LightDescriptor }>();
 
+  /**
+   * One drawable batch of a text node. Several when it spans atlas pages.
+   *
+   * The descriptor is kept so a colour change can be applied in place. Without
+   * it the only way to recolour is to rebuild the material from scratch, which
+   * means knowing the atlas and the pxRange again at a point where neither is
+   * to hand.
+   */
+  #texts = new Map<
+    string,
+    { signature: string; colour: string; instances: TextInstance[] }
+  >();
+
+  /** Atlas page index -> the texture holding it, and the revision uploaded. */
+  #atlasTextures = new Map<number, { handle: TextureHandle; revision: number }>();
+
+  /**
+   * Node id -> the collection scope it was expanded in.
+   *
+   * ========================================================================
+   * WHY THIS HAS TO BE REMEMBERED
+   * ========================================================================
+   * A collection instance resolves its bindings against a SCOPED source: inside
+   * a repeat with `as: "player"`, `{ $var: "player.name" }` means the current
+   * item, not a document variable. Expansion builds that scope and uses it.
+   *
+   * `#flush` then re-applies dirty nodes — and had only the document-level
+   * source to hand. So any instance node re-applied after its first projection
+   * resolved every scoped binding to `undefined`: a bound fill fell back to
+   * white, and a bound text became the empty string, which released its meshes
+   * and drew nothing.
+   *
+   * Recording the scope per node is what lets `#flush` re-apply an instance the
+   * same way expansion did. Cleared with the node, like every other index here.
+   */
+  #instanceOf = new Map<string, { containerId: string; identity: string }>();
+
   #rects = new Map<
     string,
     {
@@ -235,6 +282,15 @@ export class Projector {
   constructor(
     private readonly mirror: MirrorGraph,
     private readonly backend: MirrorBackend,
+    /**
+     * Supplied by the composition root, or absent.
+     *
+     * Absent is a supported state, not a degraded one: a scene with no text
+     * must not pay for HarfBuzz's WASM. A `text` component with no provider
+     * attaches nothing and the node survives, which is the same behaviour an
+     * asset-backed mesh already has.
+     */
+    private readonly text?: TextProvider,
   ) {}
 
   get dependencies(): DependencyIndex {
@@ -337,7 +393,10 @@ export class Projector {
         }
         for (const instance of instances) {
           const inner = new ScopedVariables(scope, node.repeat!.as, instance.item);
-          for (const child of instance.nodes) visit(child, node.id, inner);
+          for (const child of instance.nodes) {
+            this.#rememberScope(child, node.id, instance.identity);
+            visit(child, node.id, inner);
+          }
         }
         return;
       }
@@ -423,7 +482,29 @@ export class Projector {
     const dirty = new DirtySet();
     const before = this.#writeCount();
 
-    const changed = new Set(variableKeys);
+    // Expanded to include each key's dependency ROOT.
+    //
+    // A binding to `{ $var: "team.accent" }` records its dependency under
+    // `team`, because `dependencyKeyOf` takes the segment before the first dot
+    // — a dotted binding is a PATH into a variable. But a live command sets the
+    // flat key `team.accent`, and looking that up found nobody: the node
+    // resolved correctly on the first build and then never updated again.
+    //
+    // Every dotted binding was affected, which is the documented idiomatic form
+    // (`player.color`, `team.accent`). The lighting tests that exercise it
+    // passed VACUOUSLY — they assert that an attachment did not change, which is
+    // trivially true when the invalidation never fires. Found by Phase 3B, by a
+    // text node bound to `player.name` that would not update live.
+    //
+    // Over-invalidating by root is the right side to err on: a node bound to
+    // `team.name` being re-resolved when `team.accent` changes costs one
+    // resolve, and the alternative is a graphic that silently stops updating on
+    // air.
+    const changed = new Set<string>();
+    for (const key of variableKeys) {
+      changed.add(key);
+      changed.add(dependencyKeyOf(key));
+    }
 
     // Containers first: a collection change adds or removes nodes, and doing
     // that after marking dirty would mark nodes that are about to be destroyed.
@@ -470,6 +551,16 @@ export class Projector {
     for (const id of [...this.#rects.keys()]) this.#releaseRect(id);
     for (const id of [...this.#meshes.keys()]) this.#releaseMesh(id);
     for (const id of [...this.#lights.keys()]) this.#releaseLight(id);
+    for (const id of [...this.#texts.keys()]) this.#releaseText(id);
+    this.#instanceOf.clear();
+    // The atlas textures are released here rather than in `#releaseText`,
+    // because a page is shared by every text node drawing from it — freeing it
+    // with the first node would blank the rest. It belongs to the projector's
+    // lifetime, not to any one node's.
+    for (const texture of this.#atlasTextures.values()) {
+      this.backend.destroyTexture(texture.handle);
+    }
+    this.#atlasTextures.clear();
     this.#index.clear();
   }
 
@@ -515,7 +606,9 @@ export class Projector {
           this.#releaseRect(id);
           this.#releaseMesh(id);
           this.#releaseLight(id);
+          this.#releaseText(id);
           this.#index.delete(id);
+          this.#instanceOf.delete(id);
           dirty.forget(id);
         }
 
@@ -631,7 +724,7 @@ export class Projector {
     for (const nodeId of localRefresh) {
       if (!this.mirror.has(nodeId)) continue;
       const node = this.#lookup(nodeId);
-      if (node) this.#applyNodeState(node, variables);
+      if (node) this.#applyNodeState(node, this.#scopeFor(nodeId, variables));
     }
 
     // Transforms first: world matrices are recomputed from the highest dirty
@@ -664,7 +757,7 @@ export class Projector {
     for (const nodeId of dirty.get("material")) {
       if (!this.mirror.has(nodeId)) continue;
       const node = this.#lookup(nodeId);
-      if (node) this.#applyNodeState(node, variables);
+      if (node) this.#applyNodeState(node, this.#scopeFor(nodeId, variables));
     }
 
     for (const nodeId of dirty.get("camera")) {
@@ -802,6 +895,7 @@ export class Projector {
       else if (component.type === "rect") this.#applyRect(resolved, props);
       else if (component.type === "meshRenderer") this.#applyMesh(resolved, props);
       else if (component.type === "light") this.#applyLight(resolved, props);
+      else if (component.type === "text") this.#applyText(resolved, props);
     }
 
     this.#dependencies.set(node.id, recorder.take());
@@ -886,7 +980,9 @@ export class Projector {
           this.#releaseRect(id);
           this.#releaseMesh(id);
           this.#releaseLight(id);
+          this.#releaseText(id);
           this.#index.delete(id);
+          this.#instanceOf.delete(id);
           dirty.forget(id);
         }
         destroyed += 1;
@@ -931,6 +1027,7 @@ export class Projector {
           this.#applyNodeState(child, inner);
           for (const grandchild of childrenOf(child)) visit(grandchild, child.id);
         };
+        this.#rememberScope(node, container.id, instance.identity);
         visit(node, container.id);
         created += 1;
         dirty.mark("transform", node.id);
@@ -940,6 +1037,32 @@ export class Projector {
     this.#repeatItems.set(container.id, nextItems);
     if (created > 0 || destroyed > 0) dirty.mark("hierarchy", container.id);
     return { created, destroyed };
+  }
+
+  /** Records the instance scope for a node and everything beneath it. */
+  #rememberScope(node: SceneNode, containerId: string, identity: string): void {
+    this.#instanceOf.set(node.id, { containerId, identity });
+    for (const child of childrenOf(node)) {
+      this.#rememberScope(child, containerId, identity);
+    }
+  }
+
+  /**
+   * The variable source a node must be resolved against.
+   *
+   * The document source for an ordinary node; the instance's scoped source for
+   * anything inside a repeat. Falls back to the document source when the item
+   * has gone, which happens for one flush between a row being removed and the
+   * mirror catching up.
+   */
+  #scopeFor(nodeId: string, variables: VariableSource): VariableSource {
+    const record = this.#instanceOf.get(nodeId);
+    if (record === undefined) return variables;
+    const container = this.#index.get(record.containerId);
+    if (container?.repeat === undefined) return variables;
+    const item = this.#repeatItems.get(record.containerId)?.get(record.identity);
+    if (item === undefined) return variables;
+    return new ScopedVariables(variables, container.repeat.as, item);
   }
 
   /** Re-resolves a surviving instance subtree against its new item value. */
@@ -1144,6 +1267,221 @@ export class Projector {
    * Every create* in #applyRect is matched here exactly once, which is what
    * MirrorBackend C2 requires of a caller.
    */
+  /**
+   * Attaches text. TEXT_ENGINE 6, SCENE_FORMAT 7.2.
+   *
+   * ========================================================================
+   * TEXT IS A MESH, AND THAT IS THE WHOLE INTEGRATION
+   * ========================================================================
+   * Deliberately the same shape as `#applyRect`: resolve props, compare against
+   * what is attached, recreate only what changed. A text node therefore
+   * inherits the hierarchy, the transform, the dirty channels, the variable
+   * bindings, the timeline, collections and states without any of them knowing
+   * it is text - which is the entire objective of this phase.
+   *
+   * `props.content` is `Bindable<string>`, so it arrives here already RESOLVED.
+   * That single fact is why text participates in variables, in live commands
+   * and in collections with no code below this line: by the time the projector
+   * sees it, a `{ $var: "player.name" }` is a string.
+   *
+   * ========================================================================
+   * ONE MESH PER ATLAS PAGE, AS A CHILD NODE
+   * ========================================================================
+   * A mesh samples one texture, and a long multilingual string can span two
+   * atlas pages. So geometry comes back batched by page and each batch becomes
+   * a CHILD of the text node - sharing its transform exactly, but able to carry
+   * its own material.
+   *
+   * The children are mirror nodes with no document counterpart. That is already
+   * an established shape: a repeat's instances are exactly that.
+   */
+  #applyText(node: SceneNode, props: Record<string, unknown>): void {
+    const provider = this.text;
+    if (provider === undefined) {
+      this.#releaseText(node.id);
+      return;
+    }
+
+    const font = (props.font ?? {}) as Record<string, unknown>;
+    const fit = (props.fit ?? { mode: "overflow" }) as Record<string, unknown>;
+    const colour = typeof props.color === "string" ? props.color : "#FFFFFF";
+    const size = typeof font.size === "number" && font.size > 0 ? font.size : 48;
+    const fonts = [
+      typeof font.assetId === "string" ? font.assetId : "",
+      ...(Array.isArray(font.fallback) ? (font.fallback as string[]) : []),
+    ].filter((id) => id.length > 0);
+
+    // The node declares its box in WORLD units; layout runs in the same units
+    // as `size`. So the box is converted up by the size and the geometry is
+    // emitted back down by it. This is the one place the two spaces meet, and
+    // it is the entire difference between screen-space and world-space text.
+    const scale = 1 / size;
+    const box =
+      node.size === undefined
+        ? { width: Infinity, height: Infinity }
+        : { width: node.size.width / scale, height: node.size.height / scale };
+
+    const request: TextRequest = {
+      content: typeof props.content === "string" ? props.content : "",
+      fonts,
+      size,
+      align: (props.align as TextRequest["align"]) ?? "start",
+      verticalAlign: (props.verticalAlign as TextRequest["verticalAlign"]) ?? "top",
+      lineHeight: typeof props.lineHeight === "number" ? props.lineHeight : 1.2,
+      ...(typeof props.maxLines === "number" ? { maxLines: props.maxLines } : {}),
+      box,
+      fit: {
+        mode: typeof fit.mode === "string" ? fit.mode : "overflow",
+        ...(typeof fit.minSize === "number" ? { minSize: fit.minSize } : {}),
+      },
+      direction: (props.direction as TextRequest["direction"]) ?? "auto",
+      scale,
+    };
+
+    // Everything the geometry depends on, compared before any GPU work: a
+    // scoreboard re-projects on every tick and almost every text node in it is
+    // unchanged.
+    const signature = JSON.stringify(request);
+    const previous = this.#texts.get(node.id);
+    // The batches must still EXIST. A collection reorder or a state rebuild can
+    // destroy a subtree, taking the mirror children with it, and an unchanged
+    // signature would then short-circuit past recreating them — the row keeps
+    // its identity and silently loses its words. Found by the reorder test.
+    const intact =
+      previous !== undefined &&
+      previous.instances.every((instance) => this.mirror.has(instance.child));
+
+    if (intact && previous!.signature === signature) {
+      if (previous!.colour === colour) return;
+      // Colour only. Update the materials in place rather than rebuilding
+      // geometry - a team colour bound to a variable changes sixty times a
+      // second and must not reallocate a vertex buffer to do it.
+      const rgba = rgbaFromHex(colour);
+      for (const instance of previous!.instances) {
+        // Rebuilt rather than spread: `MaterialDescriptor` is a discriminated
+        // union, and spreading loses the discriminant that makes the atlas and
+        // pxRange fields legal.
+        instance.descriptor =
+          instance.descriptor.kind === "msdf-text"
+            ? { ...instance.descriptor, color: rgba }
+            : instance.descriptor;
+        this.backend.updateMaterial(instance.material, instance.descriptor);
+      }
+      this.#texts.set(node.id, { ...previous!, colour });
+      return;
+    }
+
+    const draw = provider.draw(request);
+    this.#releaseText(node.id);
+    if (draw === null || draw.batches.length === 0) return;
+
+    this.#syncAtlasTextures(provider);
+
+    const instances: TextInstance[] = [];
+    draw.batches.forEach((batch, index) => {
+      const texture = this.#atlasTextures.get(batch.page);
+      if (texture === undefined) return;
+
+      const geometry = this.backend.createGeometry({
+        positions: batch.positions,
+        indices: batch.indices,
+        uvs: batch.uvs,
+      });
+      if (!geometry.ok) return;
+
+      const descriptor: MaterialDescriptor = {
+        kind: "msdf-text",
+        color: rgbaFromHex(colour),
+        atlas: texture.handle,
+        pxRange: draw.pxRange,
+      };
+      const material = this.backend.createMaterial(descriptor);
+      if (!material.ok) {
+        this.backend.destroyGeometry(geometry.value);
+        return;
+      }
+
+      const childId = `${node.id}\u00a7text${index}`;
+      const mirrored = this.mirror.create(childId, node.id, node.order);
+      // The batch shares its parent's world matrix EXACTLY. It is a child only
+      // so it can carry its own material; it must never introduce a transform
+      // of its own, or text would drift from the node it belongs to.
+      mirrored.worldMatrix = this.mirror.get(node.id)!.worldMatrix;
+      this.backend.setWorldMatrix(mirrored.handle, mirrored.worldMatrix);
+      this.mirror.setAttachment(childId, {
+        kind: "mesh",
+        geometry: geometry.value,
+        material: material.value,
+      });
+      instances.push({
+        geometry: geometry.value,
+        material: material.value,
+        child: childId,
+        descriptor,
+      });
+    });
+
+    this.#texts.set(node.id, { signature, colour, instances });
+  }
+
+  /**
+   * Creates or updates the textures holding the atlas pages.
+   *
+   * One texture per page, created once and then updated BY REGION - which is
+   * what `updateTexture` exists for; its doc comment names this exact case. A
+   * page is up to 16MB, so re-uploading it because one glyph arrived would cost
+   * more than everything else in the frame put together.
+   */
+  #syncAtlasTextures(provider: TextProvider): void {
+    const pages = provider.pages();
+    const dirty = new Map(provider.flushDirty().map((entry) => [entry.page, entry.regions]));
+
+    pages.forEach((page, index) => {
+      const existing = this.#atlasTextures.get(index);
+      if (existing === undefined) {
+        const texture = this.backend.createTexture({
+          width: page.width,
+          height: page.height,
+          pixels: page.pixels,
+          format: "rgba8",
+          // Linear: the shader interpolates the distance field, which is the
+          // entire point of a distance field. Nearest would stair-step it.
+          filter: "linear",
+        });
+        if (texture.ok) {
+          this.#atlasTextures.set(index, { handle: texture.value, revision: page.revision });
+        }
+        return;
+      }
+      if (existing.revision === page.revision) return;
+
+      for (const region of dirty.get(index) ?? []) {
+        const pixels = new Uint8Array(region.width * region.height * 4);
+        for (let row = 0; row < region.height; row += 1) {
+          const source = ((region.y + row) * page.width + region.x) * 4;
+          pixels.set(
+            page.pixels.subarray(source, source + region.width * 4),
+            row * region.width * 4,
+          );
+        }
+        this.backend.updateTexture(existing.handle, region, pixels);
+      }
+      this.#atlasTextures.set(index, { ...existing, revision: page.revision });
+    });
+  }
+
+  /** Frees a text node's meshes. Every create above is matched here once (C2). */
+  #releaseText(nodeId: string): void {
+    const text = this.#texts.get(nodeId);
+    if (text === undefined) return;
+    this.#texts.delete(nodeId);
+    for (const instance of text.instances) {
+      if (this.mirror.has(instance.child)) this.mirror.destroySubtree(instance.child);
+      this.backend.destroyGeometry(instance.geometry);
+      this.backend.destroyMaterial(instance.material);
+    }
+  }
+
   #releaseRect(nodeId: string): void {
     const rect = this.#rects.get(nodeId);
     if (rect === undefined) return;

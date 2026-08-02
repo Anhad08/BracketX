@@ -15,7 +15,8 @@
   "dependencies": {
     "@bracketx/engine-reconciler": "workspace:*",
     "@bracketx/engine-runtime": "workspace:*",
-    "@bracketx/engine-scene": "workspace:*"
+    "@bracketx/engine-scene": "workspace:*",
+    "@bracketx/engine-text": "workspace:*"
   },
   "devDependencies": {
     "@bracketx/eslint-config": "workspace:*",

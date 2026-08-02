@@ -16,6 +16,7 @@
  */
 import {
   AmbientLight,
+  DataTexture,
   DirectionalLight,
   Light,
   Matrix4,
@@ -31,6 +32,8 @@ import {
   Material,
   MeshBasicMaterial,
   MeshStandardMaterial,
+  ShaderMaterial,
+  Vector2,
   NearestFilter,
   OrthographicCamera,
   PerspectiveCamera,
@@ -245,20 +248,38 @@ export function createMaterial(
     }
 
     case "msdf-text": {
-      // Placeholder until the text engine lands (TEXT_ENGINE Phase 3). The
-      // shape is fixed now so the backend does not need a breaking change:
-      // MSDF needs a custom shader, and this is a visually-wrong stand-in
-      // rather than a silently-wrong one.
-      const material = new MeshBasicMaterial({
-        color: colorOf(descriptor.color),
-        opacity: descriptor.color[3],
+      // The real MSDF shader. Phase 3B replaced the placeholder that stood here
+      // since Phase 2.5e — it sampled the distance field as a COLOUR map, which
+      // drew text as three-channel noise. Deliberately visually-wrong rather
+      // than silently-wrong, and this is the phase that was waiting for.
+      const atlas = options.resolveTexture?.(descriptor.atlas);
+      // `Texture.image` is `any` in three's types, so the dimensions are read
+      // defensively. Guessing 2048 would put the wrong texel size into the
+      // shader and blur every glyph by a constant factor — visible, and the
+      // kind of wrongness that gets blamed on the font.
+      const image = atlas?.image as { width?: number; height?: number } | undefined;
+      const width = typeof image?.width === "number" ? image.width : 2048;
+      const height = typeof image?.height === "number" ? image.height : 2048;
+
+      const material = new ShaderMaterial({
+        uniforms: {
+          uAtlas: { value: atlas ?? null },
+          uColor: { value: colorOf(descriptor.color) },
+          uOpacity: { value: descriptor.color[3] },
+          uPxRange: { value: descriptor.pxRange },
+          uAtlasSize: { value: new Vector2(width, height) },
+        },
+        vertexShader: MSDF_VERTEX,
+        fragmentShader: MSDF_FRAGMENT,
         transparent: true,
+        // Text sits over other graphics and over itself — adjacent glyph quads
+        // overlap where letters kern tightly. Writing depth would make one
+        // glyph punch a hole in its neighbour's antialiased edge.
+        depthWrite: false,
         side: DoubleSide,
       });
-      applyMap(material, descriptor.atlas, options);
       material.premultipliedAlpha = true;
       material.userData.msdfPxRange = descriptor.pxRange;
-      material.userData.placeholder = "msdf-text";
       return material;
     }
 
@@ -278,6 +299,63 @@ export function createMaterial(
     }
   }
 }
+
+/**
+ * MSDF shaders. TEXT_ENGINE §4.
+ *
+ * ========================================================================
+ * WHY THE MEDIAN, AND WHY THE SCREEN-SPACE RANGE
+ * ========================================================================
+ * The three channels each carry the distance to a different subset of the
+ * glyph's edges, coloured so that two edges meeting at a corner share exactly
+ * one channel. Taking the MEDIAN reconstructs the true distance right up to the
+ * corner point — which is the entire reason this is multi-channel rather than
+ * a plain SDF, and the reason a sharp serif stays sharp.
+ *
+ * `screenPxRange` converts the field's texel range into SCREEN pixels using
+ * the UV derivatives. Without it the antialiasing width is fixed in texture
+ * space, so text is crisp at one scale and either blurry or aliased at every
+ * other — and broadcast graphics animate their scale constantly.
+ */
+const MSDF_VERTEX = `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+const MSDF_FRAGMENT = `
+uniform sampler2D uAtlas;
+uniform vec3 uColor;
+uniform float uOpacity;
+uniform float uPxRange;
+uniform vec2 uAtlasSize;
+varying vec2 vUv;
+
+float median(float r, float g, float b) {
+  return max(min(r, g), min(max(r, g), b));
+}
+
+void main() {
+  vec3 field = texture2D(uAtlas, vUv).rgb;
+  float distance = median(field.r, field.g, field.b);
+
+  // Texels per screen pixel, from the UV derivatives.
+  vec2 unitRange = vec2(uPxRange) / uAtlasSize;
+  vec2 screenTexSize = vec2(1.0) / max(fwidth(vUv), vec2(1e-6));
+  float screenPxRange = max(0.5 * dot(unitRange, screenTexSize), 1.0);
+
+  float alpha = clamp((distance - 0.5) * screenPxRange + 0.5, 0.0, 1.0) * uOpacity;
+  // Fully-transparent fragments are discarded rather than blended: a glyph quad
+  // is mostly empty, and blending its empty half against everything behind it
+  // is wasted bandwidth on every frame.
+  if (alpha < 0.004) discard;
+
+  // RFC-003 §6: premultiplied throughout, converted at output only.
+  gl_FragColor = vec4(uColor * alpha, alpha);
+}
+`;
 
 function applyMap(
   material: MeshBasicMaterial | MeshStandardMaterial,
@@ -313,12 +391,25 @@ export function estimateTextureBytes(descriptor: TextureDescriptor): number {
 }
 
 export function createTexture(descriptor: TextureDescriptor): Texture {
-  const texture = new Texture();
-  texture.image = {
-    data: descriptor.pixels,
-    width: descriptor.width,
-    height: descriptor.height,
-  };
+  // `DataTexture`, not `Texture`.
+  //
+  // A plain `Texture` holding `{ data, width, height }` looks right and uploads
+  // wrong: three dispatches on `isDataTexture` to decide whether it is handing
+  // the driver a typed array or an image, and without the flag it takes the
+  // image path and the call is rejected outright —
+  //
+  //   THREE.WebGLState: TypeError: Failed to execute 'texSubImage2D' ...
+  //   Overload resolution failed.
+  //
+  // Dormant since Phase 2.5e because nothing in the engine produced a texture
+  // until the glyph atlas did. Found the first time text was rendered in a
+  // browser; the headless conformance suite cannot see it, because
+  // `MockMirrorBackend` has no driver to reject anything.
+  const texture = new DataTexture(
+    descriptor.pixels,
+    descriptor.width,
+    descriptor.height,
+  );
   texture.format = descriptor.format === "rgba8" ? RGBAFormat : RedFormat;
   texture.type = UnsignedByteType;
   // Nearest for atlases: filtering across glyph boundaries bleeds neighbouring

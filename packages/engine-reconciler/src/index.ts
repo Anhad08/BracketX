@@ -135,3 +135,11 @@ export {
   type HierarchySnapshot,
   type LifetimeSnapshot,
 } from "./diagnostics";
+
+export type {
+  TextAtlasPage,
+  TextBatch,
+  TextDraw,
+  TextProvider,
+  TextRequest,
+} from "./text-provider";

@@ -50,10 +50,17 @@ export const ENGINE_PACKAGES = {
     // The COMPOSITION ROOT. The only package that may know both the reconciler
     // and a concrete frame loop. Deliberately NOT allowed to import a backend:
     // it takes a MirrorBackend, so swapping renderers never touches it.
+    //
+    // It IS allowed to know engine-text, and that edge is the reason a
+    // composition root exists. The reconciler declares a TextProvider port and
+    // never imports the text engine, because `harfbuzzjs` instantiates a WASM
+    // binary at import time and a colour-bar scene must not pay for it. Someone
+    // has to join the two; this is the package whose job that is.
     allow: [
       "@bracketx/engine-scene",
       "@bracketx/engine-runtime",
       "@bracketx/engine-reconciler",
+      "@bracketx/engine-text",
     ],
   },
 

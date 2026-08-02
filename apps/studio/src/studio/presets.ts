@@ -88,6 +88,12 @@ function colourPath(node: SceneNode): { path: string; value: string } | null {
     if (component.type === "rect" && typeof props.fill === "string") {
       return { path: `components.${index}.props.fill`, value: props.fill };
     }
+    // Phase 3B. One line, which is what Phase 3A's generic-node audit predicted
+    // it would cost: a text node fades because `color` is where its colour
+    // lives, and nothing else in the preset system needed to learn about text.
+    if (component.type === "text" && typeof props.color === "string") {
+      return { path: `components.${index}.props.color`, value: props.color };
+    }
     if (component.type === "meshRenderer") {
       const material = props.material as Record<string, unknown> | undefined;
       if (material !== undefined && typeof material.baseColor === "string") {

@@ -92,13 +92,20 @@ Only correction: the frame guide derives from `world.output`, never a hardcoded
 | --- | --- | --- |
 | Studio Phase 1 | The engine's first editor — document store, selection, viewport, file management | ✅ 2026-08-02 |
 | Studio Phase 3A | Authoring — timeline, keyframes, presets, arrange, templates, Preview/Program | ✅ 2026-08-02 |
-| Studio Phase 3B | **Text engine** — blocked on T2/T3/T4 | ⛔ [IF-003](./IMPLEMENTATION_FINDING_IF-003.md) |
-| Studio Phase 3C | The six official templates | ⛔ needs 3B |
-| — | 3D viewport | ⏳ after 3B |
+| Studio Phase 3B | **Text engine** — all 8 stages, T2/T3/T4 closed | ✅ 2026-08-03 |
+| Studio Phase 3C | The six official templates | ✅ unblocked |
+| — | **3D viewport** | ⏳ **next.** The last outstanding engine capability |
 
 > **The timeline UI binds to the model Phase 6 froze** — no second abstraction.
 > `cursorSeconds` is the one playhead calculation, and Studio's editor derives
 > from it, which is what "one timeline" means operationally.
+>
+> **Phase 3B closed the text engine** and found five pre-existing engine bugs
+> doing it — every dotted variable binding was dead, collection instances were
+> re-resolved against the wrong variable scope, the texture upload path had never
+> run, and Studio's inspector rendered string fields as numbers. Details in
+> [IMPLEMENTATION_REPORT_TEXT_ENGINE.md §4](./IMPLEMENTATION_REPORT_TEXT_ENGINE.md).
+> Thai/Khmer wrapping remains open — [IF-004](./IMPLEMENTATION_FINDING_IF-004.md).
 >
 > **Phase 3A found a Phase 2 bug the amendment's own tests could not see:**
 > lights were created and never attached, because `MirrorGraph.setAttachment`

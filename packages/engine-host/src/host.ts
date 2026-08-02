@@ -45,6 +45,7 @@ import {
   type ProjectionReport,
   type RenderOptions,
   type VariableSource,
+  type TextProvider,
 } from "@bracketx/engine-reconciler";
 
 import { Animator, type AnimationFrame, type PlayOptions } from "./animator";
@@ -104,6 +105,16 @@ export interface SceneHostOptions {
   readonly defaultOutput?: boolean;
   /** Re-verify mirror consistency after every projection. Debug builds only. */
   readonly verify?: boolean;
+  /**
+   * Enables text. Phase 3B.
+   *
+   * Opt-in, and the opt-in IS the lazy load: constructing a `HostTextProvider`
+   * is what pulls HarfBuzz's WASM in, so a scene with no words never touches
+   * it. A document containing a `text` component with no provider wired renders
+   * everything else and attaches nothing for the text, which is the same
+   * behaviour an asset-backed mesh already has.
+   */
+  readonly text?: TextProvider;
 }
 
 /** The id given to the output bound automatically on load. */
@@ -208,6 +219,19 @@ export class SceneHost {
   #instanceCache = new Map<string, readonly string[]>();
   /** Sequence for compiled transition ids, so two never collide. */
   #transitionSequence = 0;
+  /** The text provider, when one was wired. Null is a supported state. */
+  #text: TextProvider | null = null;
+
+  /**
+   * The text provider, or null.
+   *
+   * Exposed so a caller can pre-warm a character set and read layout facts —
+   * whether a name was truncated is engine state a production system must be
+   * able to see, not a rendering detail.
+   */
+  get text(): TextProvider | null {
+    return this.#text;
+  }
 
   constructor(
     private readonly backend: MirrorBackend,
@@ -216,7 +240,9 @@ export class SceneHost {
     this.runtime = new Runtime();
     this.reconciler = new Reconciler(backend, {
       verifyAfterEachProjection: options.verify ?? false,
+      ...(options.text === undefined ? {} : { text: options.text }),
     });
+    this.#text = options.text ?? null;
     this.#variables = new RuntimeVariableSource(this.runtime);
     this.#bindDefaultOutput = options.defaultOutput ?? true;
   }

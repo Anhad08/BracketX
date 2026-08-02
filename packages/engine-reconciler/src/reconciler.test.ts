@@ -452,6 +452,58 @@ describe("dirty channels are isolated", () => {
     expect(report.dirty.transform).toBe(0);
   });
 
+  it("invalidates a DOTTED binding when the flat key is set", () => {
+    // Regression. `{ $var: "team.accent" }` records its dependency under
+    // `team`, because a dotted binding is a PATH into a variable and
+    // `dependencyKeyOf` takes the segment before the first dot. A live command
+    // sets the flat key `team.accent`, and looking THAT up found nobody — so
+    // the node resolved once at build and never updated again.
+    //
+    // Every dotted binding was affected, and dotted is the documented idiomatic
+    // form. Nothing caught it because the tests that use `team.accent` assert
+    // that an attachment did NOT change, which is trivially true when the
+    // invalidation never fires. Found by a text node bound to `player.name`.
+    const ka = generateKeyBetween(null, null);
+    const document: SceneDocument = {
+      ...emptyDocument(
+        node("nod_root", generateKeyBetween(null, null), {
+          children: [
+            node("nod_bound", ka, {
+              components: [
+                {
+                  id: "cmp_a",
+                  type: "rect",
+                  props: { width: 1, height: 1, fill: { $var: "team.accent" } },
+                },
+              ],
+            }),
+          ],
+        }),
+      ),
+      variables: [
+        {
+          id: "var_1",
+          key: "team.accent",
+          type: "color",
+          label: "Accent",
+          default: "#FF0000",
+        },
+      ],
+    };
+
+    const variables: VariableSource = { read: () => "#00FF00" };
+    reconciler.build(document, variables);
+
+    // The dependency really is recorded under the ROOT. Asserted, so the fix
+    // cannot be mistaken for a change to how bindings are keyed.
+    expect([...reconciler.projector.dependencies.dependenciesOf("nod_bound")]).toEqual([
+      "team",
+    ]);
+
+    const report = reconciler.invalidateVariables(["team.accent"], variables);
+    expect(report.dirty.material).toBe(1);
+  });
+
   it("records no dependency for an unbound node", () => {
     const document = makeTree();
     reconciler.build(document);

@@ -24,7 +24,7 @@ import {
   type FrameResult,
   type ProjectionReport,
 } from "@bracketx/engine-host";
-import type { MirrorBackend } from "@bracketx/engine-reconciler";
+import type { MirrorBackend, TextProvider } from "@bracketx/engine-reconciler";
 import type { RuntimeValue } from "@bracketx/engine-runtime";
 import type { Mat4, SceneDocument } from "@bracketx/engine-scene";
 
@@ -33,6 +33,14 @@ import { DocumentStore } from "./document-store";
 export interface SessionOptions {
   /** Bind the document's default output. Off for headless editing tests. */
   readonly output?: boolean;
+  /**
+   * Supplies text. Phase 3B.
+   *
+   * Passed straight through to `SceneHost`, which passes it to the reconciler.
+   * Studio adds no text logic of its own — the moment it did, there would be
+   * two text engines and the cross-target guarantee would be gone.
+   */
+  readonly text?: TextProvider;
 }
 
 export class StudioSession {
@@ -48,7 +56,10 @@ export class StudioSession {
     document: SceneDocument,
     options: SessionOptions = {},
   ) {
-    this.host = new SceneHost(backend, { defaultOutput: options.output ?? true });
+    this.host = new SceneHost(backend, {
+      defaultOutput: options.output ?? true,
+      ...(options.text === undefined ? {} : { text: options.text }),
+    });
     this.host.load(document);
     this.store = new DocumentStore(this.host);
   }

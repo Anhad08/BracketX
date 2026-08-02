@@ -383,7 +383,53 @@ export interface SceneWorld {
     readonly fps: number;
   };
   readonly safeAreas?: { readonly title: number; readonly action: number };
+  /**
+   * Glyphs to rasterise before the scene may go on air. TEXT_ENGINE §5, T4.
+   *
+   * ========================================================================
+   * WHY THIS IS SCENE-LEVEL AND NOT ASSET METADATA
+   * ========================================================================
+   * T4 asked where a pre-warm character set belongs. It belongs here.
+   *
+   * A font asset is shared by many scenes: one is Latin-only, the next needs
+   * Hangul. Declaring the set on the ASSET would make it wrong for every scene
+   * but the one it was authored against, and the cost of being wrong is a
+   * mid-show rasterisation spike — the exact thing pre-warm exists to prevent.
+   *
+   * The engine already derives most of the set on its own: every glyph in
+   * static text and in variable DEFAULTS is known at load. This field covers
+   * only what cannot be derived — the range LIVE data will draw from. "This
+   * scoreboard will show Korean names" is a fact about the show, and a human
+   * is the only one who knows it.
+   *
+   * Optional with a defined default (the empty set), so SCENE_FORMAT §13 rule 4
+   * makes it additive: no version bump.
+   */
+  readonly textPrewarm?: {
+    /** Named ranges, so a document stays small and Studio can offer tick-boxes. */
+    readonly ranges?: readonly TextRange[];
+    /** Literal characters, for anything a range does not cover. */
+    readonly characters?: string;
+  };
 }
+
+/**
+ * A named block of codepoints to pre-warm.
+ *
+ * Names rather than numeric ranges: an author picks "the scene shows Korean
+ * names", not "U+AC00–U+D7A3", and a name survives the range being refined.
+ */
+export type TextRange =
+  | "latin"
+  | "latin-ext"
+  | "cyrillic"
+  | "greek"
+  | "arabic"
+  | "hebrew"
+  | "thai"
+  | "hangul"
+  | "kana"
+  | "punctuation";
 
 export interface SceneAsset {
   readonly id: string;

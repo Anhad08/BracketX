@@ -92,6 +92,7 @@ export function orderAtIndex(
 
 export type NodeKind =
   | "group"
+  | "text"
   | "rect"
   | "ellipse"
   | "box"
@@ -135,6 +136,7 @@ export interface ToolboxEntry {
 export const TOOLBOX: readonly ToolboxEntry[] = [
   { kind: "group", section: "layout", label: "Group", hint: "A container. Layout and repeat live here." },
 
+  { kind: "text", section: "shape", label: "Text", hint: "Words. Shaped, wrapped and fitted by the engine." },
   { kind: "rect", section: "shape", label: "Rectangle", hint: "A flat quad. The background of most graphics." },
   { kind: "ellipse", section: "shape", label: "Ellipse", hint: "A flat disc. Bugs, dots, pie segments." },
 
@@ -149,6 +151,16 @@ export const TOOLBOX: readonly ToolboxEntry[] = [
 
 /** The default fill for anything a designer creates. */
 export const DEFAULT_FILL = "#2f6feb";
+
+/**
+ * The font a new text node references.
+ *
+ * An asset id, not a font name: SCENE_FORMAT declares fonts as assets and the
+ * engine loads binaries, because `FontFace` and `document.fonts` do not exist
+ * on two of the four targets. Studio registers this id with the text provider
+ * at boot, which is what makes a new text node draw immediately.
+ */
+export const DEFAULT_FONT_ASSET = "ast_studio_ui";
 
 function primitiveNode(
   base: SceneNode,
@@ -244,6 +256,34 @@ export function makeNode(kind: NodeKind, order: string, ids: IdFactory): SceneNo
         ],
       };
     }
+
+    case "text":
+      return {
+        ...base,
+        name: "Text",
+        // A box, because `fit` needs one. SCENE_FORMAT §7.2 makes fit REQUIRED
+        // precisely so unbounded text cannot reach air.
+        size: { width: 6, height: 1.2 },
+        components: [
+          {
+            id: ids("component"),
+            type: "text",
+            props: {
+              content: "Text",
+              font: { assetId: DEFAULT_FONT_ASSET, size: 48 },
+              color: "#f2f5fb",
+              align: "start",
+              verticalAlign: "middle",
+              lineHeight: 1.2,
+              // `shrink` rather than `overflow`: a name slot that must hold
+              // both "Li" and "Konstantinos Papadopoulos" is the normal case in
+              // broadcast, and a default that overflows is one that will one
+              // day paint over the graphic beside it.
+              fit: { mode: "shrink", minSize: 16 },
+            },
+          },
+        ],
+      };
 
     case "ellipse":
       return primitiveNode(

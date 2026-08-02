@@ -813,12 +813,21 @@ describe("frame stepping", () => {
 
 describe("command attribution", () => {
   it("attributes a projection to the command that caused it, with no engine change", () => {
+    // `color`, not `score`. The leaderboard rows bind `{ $var: "row.color" }`
+    // and nothing in the scene renders `score`, so patching the score correctly
+    // produces ZERO backend writes — there is nothing to redraw.
+    //
+    // This test previously patched `score` and passed, because a projector bug
+    // re-resolved collection instances against the DOCUMENT variable source
+    // instead of the row's scope: `row.color` came back undefined, the row was
+    // repainted white, and that repaint was the write being asserted. The rows
+    // stayed white afterwards. Fixed in Phase 3B; see the implementation report.
     session.send({
       type: "collection.patch",
       key: "standings",
       id: "t2",
       keyField: "id",
-      patch: { score: 77 },
+      patch: { color: "#00FF88" },
     });
     const record = session.host.log.entries().at(-1)!;
     const report = session.attributionFor(record.sequence);
