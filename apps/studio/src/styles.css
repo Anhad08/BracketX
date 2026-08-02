@@ -83,7 +83,11 @@ button, input, select { font: inherit; color: inherit; }
 
 /* --- Layout ------------------------------------------------------------- */
 
-.studio { display: flex; flex-direction: column; height: 100vh; }
+/* `.studio` is laid out in shell.css, which owns the rail + workspace grid.
+   It was declared HERE too — `display:flex; flex-direction: column` — and the
+   two rules only resolved correctly because of the order the stylesheets happen
+   to be imported in. Reordering them would have collapsed the layout, which is
+   the sort of fragility that produces a black page nobody can explain. */
 .body { display: flex; flex: 1; min-height: 0; }
 .dock { background: var(--panel); display: flex; flex-direction: column; position: relative; min-height: 0; }
 .dock.left { border-right: 1px solid var(--line); overflow-y: auto; flex: none; }

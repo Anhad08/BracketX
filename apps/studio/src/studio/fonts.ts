@@ -21,7 +21,7 @@
  * references has parsed, because a font resolving mid-broadcast reflows every
  * graphic using it. So the editor waits, once, at boot.
  */
-import type { HostTextProvider } from "@bracketx/engine-host";
+import type { HostTextProvider } from "@bracketx/engine-host/text";
 
 export interface StudioFont {
   /** The asset id a document references. */

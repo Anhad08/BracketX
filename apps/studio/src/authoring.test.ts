@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { MockMirrorBackend } from "@bracketx/engine-reconciler";
-import { HostTextProvider } from "@bracketx/engine-host";
+import { HostTextProvider } from "@bracketx/engine-host/text";
 import {
   canonicalize,
   childrenOf,

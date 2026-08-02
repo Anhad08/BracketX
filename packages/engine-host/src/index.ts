@@ -77,5 +77,18 @@ export {
   type SessionSnapshot,
 } from "./live";
 
-export { HostTextProvider } from "./text";
+/**
+ * `HostTextProvider` is deliberately NOT exported here.
+ *
+ * It lives at `@bracketx/engine-host/text`, because importing it imports the
+ * text engine, which imports `harfbuzzjs`, which instantiates a WASM binary at
+ * import time. Re-exporting it from the package root meant that anyone
+ * importing `SceneHost` — every consumer — was silently put behind that
+ * instantiation succeeding.
+ *
+ * When it failed, the module graph rejected before `createRoot().render()` ran
+ * and Studio was a completely black page with no error on screen. The subpath
+ * makes the cost opt-in, which is what the `TextProvider` port in the
+ * reconciler was already doing one layer down.
+ */
 export type { HostTextOptions } from "./text";

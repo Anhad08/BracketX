@@ -167,9 +167,15 @@ function sanitize(value: unknown): Workspace {
 
   return {
     theme: raw.theme === "light" ? "light" : "dark",
-    section: SECTIONS.some((entry) => entry.id === raw.section)
-      ? (raw.section as Section)
-      : "home",
+    // A section that no longer exists, or the Developer section with the mode
+    // off, both fall back to Home. Without the second check a stale preference
+    // renders the Developer panel while the rail hides its entry — Developer
+    // Mode replacing the normal interface, which it must never do.
+    section:
+      SECTIONS.some((entry) => entry.id === raw.section) &&
+      !(raw.section === "developer" && bool("developerMode") === false)
+        ? (raw.section as Section)
+        : "home",
     developerMode: bool("developerMode"),
     // The free tier is always present, even if a stored list dropped it: a
     // corrupt preference must not take a user's starter content away.

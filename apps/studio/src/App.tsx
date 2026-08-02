@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createCanvasBackend } from "@bracketx/engine-render-three";
-import { HostTextProvider } from "@bracketx/engine-host";
+import type { TextProvider } from "@bracketx/engine-reconciler";
 import { findNode, type SceneDocument, type Transaction } from "@bracketx/engine-scene";
 
 import { StudioSession } from "./studio/session";
@@ -129,6 +129,7 @@ export function App() {
   const [session, setSession] = useState<StudioSession | null>(null);
   const [bus, setBus] = useState<ProgramBus | null>(null);
   const [fontsReady, setFontsReady] = useState(false);
+  const [textError, setTextError] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
 
@@ -153,26 +154,62 @@ export function App() {
     setLibrary(loadLibrary(storage()));
   }, []);
 
-  // One text provider, shared by Preview and Program.
+  // One text provider, shared by Preview and Program, LOADED LAZILY.
   //
-  // Shared deliberately: the atlas is a cache, and two of them would rasterise
-  // every glyph twice for two views of the same graphic. Layout is a pure
-  // function of its inputs, so sharing cannot leak state between the two — the
-  // thing Preview/Program must never do is share a CLOCK, and they do not.
-  const textRef = useRef<HostTextProvider | null>(null);
-  if (textRef.current === null && typeof document !== "undefined") {
-    textRef.current = new HostTextProvider({ pageSize: 2048, pxRange: 4 });
-  }
+  // ==========================================================================
+  // WHY THIS IS A DYNAMIC IMPORT AND NOT A TOP-LEVEL ONE
+  // ==========================================================================
+  // `@bracketx/engine-host` re-exports the text engine, which imports
+  // `harfbuzzjs`, which instantiates a WASM binary AT IMPORT TIME via top-level
+  // await. A static import therefore puts the entire product behind that
+  // instantiation succeeding: if the WASM is blocked, mis-served, or unsupported,
+  // the module graph rejects, `createRoot().render()` never runs, and the page
+  // is completely black with the real error only in a console nobody opened.
+  //
+  // That is not hypothetical — it happened in this repository. Vite pre-bundling
+  // rewrote the loader's `import.meta.url`, the request fell through to the SPA
+  // fallback, and the browser was handed `<!doctype html>` where it expected a
+  // WASM magic word. The editor showed nothing at all.
+  //
+  // `optimizeDeps.exclude` fixed that one cause. This fixes the CLASS: the text
+  // engine is now loaded after mount, inside a try/catch, and a failure degrades
+  // to "text is unavailable" rather than to a blank application.
+  //
+  // The reconciler already refuses to import the text engine for exactly this
+  // reason (see `text-provider.ts`). The shell should not have been doing what
+  // the engine's own layering forbids.
+  const textRef = useRef<TextProvider | null>(null);
 
   useEffect(() => {
-    const provider = textRef.current;
-    if (provider === null) return;
-    void loadStudioFonts(provider).then((loaded) => {
-      // Pre-warm before anything is on screen. TEXT_ENGINE §5 — this is what
-      // turns a mid-show generation spike into load-time cost.
-      if (loaded.length > 0) provider.prewarm(PREWARM_ASCII, [loaded[0]!], 48);
-      setFontsReady(true);
-    });
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const { HostTextProvider } = await import("@bracketx/engine-host/text");
+        if (cancelled) return;
+        const provider = new HostTextProvider({ pageSize: 2048, pxRange: 4 });
+        textRef.current = provider;
+
+        const loaded = await loadStudioFonts(provider);
+        if (cancelled) return;
+        // Pre-warm before anything is on screen. TEXT_ENGINE §5 — this is what
+        // turns a mid-show generation spike into load-time cost.
+        if (loaded.length > 0) provider.prewarm(PREWARM_ASCII, [loaded[0]!], 48);
+      } catch (cause) {
+        // Text is unavailable. Every other capability still works, and a
+        // graphic containing text renders without it rather than not at all.
+        console.error("Text is unavailable", cause);
+        if (!cancelled) setTextError(String(cause));
+      } finally {
+        // ALWAYS. `fontsReady` gates the session, and a gate that can stay shut
+        // forever is the blank screen wearing a different hat.
+        if (!cancelled) setFontsReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -201,6 +238,20 @@ export function App() {
       setSession(preview);
       setBus(new ProgramBus(preview, program));
       setExpanded(new Set([created.root.id]));
+
+      // Apply whatever the user asked for while we were starting.
+      const queued = pendingOpen.current;
+      if (queued !== null) {
+        pendingOpen.current = null;
+        try {
+          const parsed = parseDocument(queued);
+          preview.open(parsed);
+          setExpanded(expandedOnOpen(parsed));
+        } catch {
+          // A malformed queued document is no worse than a malformed opened
+          // one: the blank scene stays, and nothing crashes.
+        }
+      }
     } catch (cause) {
       // WebGL can be unavailable entirely. An editor that shows a blank page in
       // that case reads as broken software rather than as a missing GPU.
@@ -330,9 +381,25 @@ export function App() {
     [session],
   );
 
+  /**
+   * A document chosen before the session existed.
+   *
+   * Removing the boot gate means Home renders immediately — which is the point
+   * — but it also means a user can click a template during the few hundred
+   * milliseconds the fonts take. `openJson` used to return silently in that
+   * window, so the click did nothing and the editor opened Untitled.
+   *
+   * Dropping a user's action because we were not ready is not acceptable, so it
+   * is held and applied the moment the session appears.
+   */
+  const pendingOpen = useRef<string | null>(null);
+
   const openJson = useCallback(
     (json: string) => {
-      if (session === null) return;
+      if (session === null) {
+        pendingOpen.current = json;
+        return;
+      }
       try {
         const parsed = parseDocument(json);
         session.open(parsed);
@@ -866,26 +933,42 @@ export function App() {
 
   // -- Render ---------------------------------------------------------------
 
-  if (bootError !== null) {
-    return (
-      <div className="boot-error" role="alert">
-        <h1>Streamatrix Studio</h1>
-        <p>Rendering is unavailable: {bootError}</p>
-      </div>
-    );
-  }
-  if (session === null || canvasRef.current === null) {
-    // "Loading fonts" rather than a spinner, because that is what is happening
-    // and because TEXT_ENGINE §3 makes it a real wait: the first frame is not
-    // painted until every font has parsed.
-    return <div className="boot">{fontsReady ? "Starting…" : "Loading fonts…"}</div>;
-  }
-
-  const store = session.store;
-  const document_ = session.document;
+  // ==========================================================================
+  // THE SHELL RENDERS UNCONDITIONALLY
+  // ==========================================================================
+  // These were three early returns: a boot error, a "Loading fonts…" gate, and
+  // a null session each replaced the WHOLE application with a bare `<div>` —
+  // no navigation, no toolbar, no panels, no status bar. Two of them could
+  // persist indefinitely, and one of them (`session === null`) is the ordinary
+  // state during startup and after a failed backend construction.
+  //
+  // A blank screen is never an acceptable state, so nothing below returns
+  // early. The shell is always drawn; what cannot be drawn yet is reported
+  // INSIDE it, where the user can still navigate, read the reason, and reach
+  // Settings.
+  const store = session?.store ?? null;
+  const document_ = session?.document ?? null;
 
   const installed = new Set(workspace.installedPacks);
-  const designing = workspace.section === "design";
+  // A stale preference can name `developer` while the mode is off. Without this
+  // the rail correctly hides the entry and the router still renders the panel —
+  // Developer Mode replacing the normal interface, which is exactly what it
+  // must never do.
+  const section: Section =
+    workspace.section === "developer" && !workspace.developerMode
+      ? "home"
+      : workspace.section;
+  const designing = section === "design";
+
+  /** Why the canvas cannot be shown, or null when it can. */
+  const blocker: string | null =
+    bootError !== null
+      ? `Rendering is unavailable: ${bootError}`
+      : !fontsReady
+        ? "Starting…"
+        : session === null
+          ? "Preparing the editor…"
+          : null;
 
   /**
    * The non-editor sections.
@@ -897,7 +980,7 @@ export function App() {
    * engine drawing frames nobody can see.
    */
   const renderSection = () => {
-    switch (workspace.section) {
+    switch (section) {
       case "home":
         return (
           <Home
@@ -918,7 +1001,7 @@ export function App() {
               update({ section: "design" });
             }}
             onBrowse={() => goTo("marketplace")}
-            document={session.document}
+            document={document_}
           />
         );
       case "marketplace":
@@ -970,12 +1053,12 @@ export function App() {
   };
 
   return (
-    <div className="studio" data-section={workspace.section}>
+    <div className="studio" data-section={section}>
       <Nav
-        section={workspace.section}
+        section={section}
         onSection={goTo}
         developerMode={workspace.developerMode}
-        dirty={store.dirty}
+        dirty={store?.dirty ?? false}
         onAir={bus?.onAir ?? false}
       />
       <div className="workspace">
@@ -989,8 +1072,8 @@ export function App() {
         {designing ? (
           <>
             <span className="doc-name" data-testid="doc-name">
-              {document_.meta.name}
-              {store.dirty ? (
+              {document_?.meta.name ?? "Untitled"}
+              {store?.dirty === true ? (
                 <span className="dirty" title="Unsaved changes" data-testid="dirty">
                   {" "}
                   ●
@@ -998,15 +1081,18 @@ export function App() {
               ) : null}
             </span>
             <span className="spacer" />
-            <button type="button" className="chip" onClick={() => save(false)}>
+            <button
+              type="button"
+              className="chip"
+              disabled={session === null}
+              onClick={() => save(false)}
+            >
               Save
             </button>
           </>
         ) : (
           <>
-            <strong className="section-title">
-              {sectionSpec(workspace.section).label}
-            </strong>
+            <strong className="section-title">{sectionSpec(section).label}</strong>
             <span className="spacer" />
           </>
         )}
@@ -1018,6 +1104,28 @@ export function App() {
       {!designing ? (
         <div className="section-host" data-testid="section-host">
           {renderSection()}
+        </div>
+      ) : session === null || store === null || document_ === null || canvasRef.current === null ? (
+        // The editor needs a session; the SHELL does not. So this reports the
+        // reason inside the fully-drawn application rather than replacing it,
+        // and every other section stays reachable while it resolves.
+        <div className="section-host" data-testid="section-host">
+          <div className="section-page" data-testid="editor-unavailable">
+            <header className="section-head">
+              <div>
+                <h1>Design</h1>
+                <p className="lede">{blocker ?? "Preparing the editor…"}</p>
+              </div>
+            </header>
+            {bootError !== null ? (
+              <section className="home-block">
+                <p className="note pad">
+                  Streamatrix needs hardware-accelerated graphics. Check that it
+                  is enabled in your browser, then reload.
+                </p>
+              </section>
+            ) : null}
+          </div>
         </div>
       ) : (
       <>
@@ -1225,6 +1333,16 @@ export function App() {
           </aside>
         ) : null}
       </div>
+
+      {/* Text failing must be VISIBLE and non-fatal. Before Phase 4's fix a
+          text-engine failure took the whole application down silently; now it
+          is one line in the status bar and everything else keeps working. */}
+      {textError !== null ? (
+        <div className="banner" role="status" data-testid="text-unavailable">
+          Text is unavailable — graphics will render without words. Reloading
+          may fix it.
+        </div>
+      ) : null}
 
       <footer className="statusbar" data-testid="statusbar">
         <span>{selection.ids.length} selected</span>
