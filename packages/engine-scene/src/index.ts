@@ -108,6 +108,7 @@ export {
   invertOperation,
   invertTransaction,
   makeMoveNode,
+  makeSetDocProp,
   makeRemoveNode,
   makeSetProp,
   type BindingClearOperation,

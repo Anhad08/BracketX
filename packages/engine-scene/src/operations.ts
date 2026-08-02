@@ -406,8 +406,20 @@ export function applyOperation(
       return { ...document, variables };
     }
 
-    case "doc.setMeta":
+    case "doc.setMeta": {
+      // The tree belongs to the node operations. A path-set into `root` would
+      // bypass the invariants those maintain — order keys, parentage, id
+      // uniqueness — and produce a document the mirror cannot project. Found
+      // while wiring Studio's timeline, which needed document-level paths and
+      // could have reached the tree with them.
+      const head = operation.path.split(".")[0];
+      if (head === "root" || head === "format" || head === "version" || head === "id") {
+        throw new OperationError(
+          `doc.setMeta must not write "${head}"; use the node operations`,
+        );
+      }
       return setAtPath(document, operation.path, operation.value);
+    }
   }
 }
 
@@ -456,6 +468,29 @@ export function makeRemoveNode(
     nodeId,
     previousParentId: parent.id,
     previousNode: node,
+  };
+}
+
+/**
+ * A document-level property set, capturing the prior value so it inverts.
+ *
+ * `doc.setMeta` is named for its first consumer and has always addressed the
+ * whole document — `animations.0.tracks.1.keyframes.2.time` is as valid as
+ * `meta.name`. That is what makes a timeline editable through the operation
+ * system rather than through a second mechanism, and it is why Studio needed no
+ * new operation type for it. The name stays: renaming a serialised operation is
+ * a format break, and the doc comment is cheaper than a migration.
+ */
+export function makeSetDocProp(
+  document: SceneDocument,
+  path: string,
+  value: unknown,
+): DocSetMetaOperation {
+  return {
+    type: "doc.setMeta",
+    path,
+    value,
+    previousValue: getAtPath(document, path),
   };
 }
 

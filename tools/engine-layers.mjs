@@ -85,6 +85,7 @@ export const NON_ENGINE_PACKAGES = [
   // The engine's first consumer and permanent visual verification suite. Not
   // an engine package: it may depend on any of them and none may depend on it.
   "showcase",
+  "studio",
 ];
 
 /** Bare specifier that may appear in exactly one engine package. */

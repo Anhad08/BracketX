@@ -21,6 +21,8 @@
 import {
   applyTransaction,
   compileStateTransition,
+  findNode,
+  parentOf,
   resolveTransition,
   tokenMap,
   walk,
@@ -283,7 +285,168 @@ export class SceneHost {
     // must already have the transaction applied before it is projected.
     const next = applyTransaction(document, transaction);
     this.#document = next;
+    this.#syncVariableDefinitions(transaction);
+    this.#syncDocumentSubsystems(transaction, next);
+    this.#indexRepeats(next);
+
+    // Layout is resolved top-down: a container computes placements and its
+    // CHILDREN read them when they are re-applied. An incremental projection
+    // re-applies only the nodes an operation touched, so setting `layout` on a
+    // container — or adding a child to one — updates the container and leaves
+    // its children exactly where they were. The document is right and the
+    // picture is wrong, which is the worst combination.
+    //
+    // Found by Studio's inspector on its first layout change. Rebuilding is a
+    // public API and the correct answer for now: layout edits are rare next to
+    // property drags, and the alternative is teaching the projector to cascade
+    // placement invalidation, which is a change to a frozen hot path with no
+    // measurement behind it. Recorded as a limitation, not hidden.
+    if (this.#touchesLayout(transaction, next)) {
+      return this.reconciler.rebuild(next, this.#variables);
+    }
     return this.reconciler.project(transaction, next, this.#variables);
+  }
+
+  /**
+   * Reconciles runtime variable state with a transaction that changed
+   * variable DEFINITIONS. Studio Phase 1.
+   *
+   * ========================================================================
+   * WHY THIS IS NOT AS SIMPLE AS RE-SEEDING
+   * ========================================================================
+   * `load()` seeds runtime values from document defaults. `apply()` did not,
+   * so defining a variable in an editor added it to the document and the
+   * runtime never learned it existed — the binding resolved to nothing and the
+   * node rendered its fallback. Found by Studio's variable editor.
+   *
+   * The naive fix is to re-seed every default on every transaction, and it is
+   * wrong: it would wipe an operator's live value the moment a designer edited
+   * anything else in the document. RFC-002 §4.3 keeps those separate, and this
+   * is exactly the seam where they meet, so each case is decided explicitly:
+   *
+   *   define      seed only if the runtime has no value. A key it already has
+   *               is an override, and an override outranks a definition.
+   *   setDefault  update only if the runtime value is still the OLD default —
+   *               that is, nobody has overridden it. An operator who typed a
+   *               score must not lose it because a designer changed the
+   *               authored default.
+   *   remove      clear it. A variable that is gone from the document must not
+   *               keep resolving at runtime.
+   */
+  /**
+   * Reloads the subsystems that own document-level collections. Studio Phase 1.
+   *
+   * `animations`, `tokens` and `transitions` are read at `load()` into the
+   * animator and the variable source. A transaction that edits one of them
+   * changed the document and nothing else, so a timeline edit landed in the
+   * file and never reached the playhead — found by Studio's timeline, which is
+   * the first consumer to edit a document-level collection at all.
+   *
+   * Keyed on the path's first segment rather than on the operation type,
+   * because `doc.setMeta` addresses the whole document and the segment is what
+   * says which subsystem cares.
+   */
+  #syncDocumentSubsystems(transaction: Transaction, next: SceneDocument): void {
+    let animations = false;
+    let tokens = false;
+
+    for (const operation of transaction.operations) {
+      if (operation.type !== "doc.setMeta") continue;
+      const head = operation.path.split(".")[0];
+      if (head === "animations") animations = true;
+      else if (head === "tokens") tokens = true;
+    }
+
+    // `animator.load` resets playback, which is correct: a clip whose keyframes
+    // just changed is a different clip, and holding a playhead into the old one
+    // would sample a timeline that no longer exists.
+    if (animations) this.animator.load(next);
+    if (tokens) this.#variables.setTokens(tokenMap(next.tokens));
+  }
+
+  /** True when a transaction can change where a laid-out child sits. */
+  #touchesLayout(transaction: Transaction, next: SceneDocument): boolean {
+    const isLayoutParent = (nodeId: string): boolean => {
+      const parent = parentOf(next.root, nodeId);
+      return parent !== null && parent.layout !== undefined;
+    };
+
+    for (const operation of transaction.operations) {
+      switch (operation.type) {
+        case "node.setProp":
+          // `layout` on a container, and `size` on either side of one: a child
+          // that changed size shifts every sibling after it in a run.
+          if (operation.path.startsWith("layout")) return true;
+          if (operation.path.startsWith("size") && isLayoutParent(operation.nodeId)) return true;
+          break;
+        case "node.insert":
+          if (findNode(next.root, operation.parentId)?.layout !== undefined) return true;
+          break;
+        case "node.remove":
+          if (findNode(next.root, operation.previousParentId)?.layout !== undefined) return true;
+          break;
+        case "node.move":
+          if (
+            findNode(next.root, operation.parentId)?.layout !== undefined ||
+            findNode(next.root, operation.previousParentId)?.layout !== undefined
+          ) {
+            return true;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    return false;
+  }
+
+  #syncVariableDefinitions(transaction: Transaction): void {
+    let touched = false;
+
+    for (const operation of transaction.operations) {
+      if (operation.type === "variable.define") {
+        const key = operation.variable.key;
+        // `has`, not `resolveVariable`: that returns a FALLBACK (null) for an
+        // absent key, so an `!== undefined` guard is true for every key and
+        // silently skips every definition. Caught by Studio's first variable.
+        if (this.runtime.state.variables.has(key)) continue;
+        this.runtime.dispatch({
+          type: "variable.set",
+          key,
+          value: operation.variable.default as RuntimeValue,
+        });
+        touched = true;
+      } else if (operation.type === "variable.remove") {
+        this.runtime.dispatch({
+          type: "variable.clear",
+          key: operation.previousVariable.key,
+        });
+        touched = true;
+      } else if (operation.type === "variable.setDefault") {
+        const variable = this.#document?.variables.find(
+          (entry) => entry.id === operation.variableId,
+        );
+        if (variable === undefined) continue;
+        const current = this.runtime.state.variables.get(variable.key);
+        // Deep-compare would be wrong here: an operator who set a value equal
+        // to the old default has not overridden anything, and one who set a
+        // structurally equal but distinct object has. Reference identity is
+        // the honest test for "nobody has touched this".
+        if (current !== undefined && !Object.is(current, operation.previousValue)) {
+          continue;
+        }
+        this.runtime.dispatch({
+          type: "variable.set",
+          key: variable.key,
+          value: operation.value as RuntimeValue,
+        });
+        touched = true;
+      }
+    }
+
+    // Commands only take effect on a tick (ENGINE_RUNTIME §3), and the
+    // projection below must see the settled values.
+    if (touched) this.runtime.tick();
   }
 
   /**
