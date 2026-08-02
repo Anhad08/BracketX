@@ -19,9 +19,12 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function boot(page: Page): Promise<void> {
   await page.goto("/");
+  // Phase 4 opens on Home, not in the editor. A test that assumed the editor
+  // was the application is a test that encoded the old information
+  // architecture; entering Design explicitly is what a user does too.
+  await expect(page.getByTestId("rail")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("nav-design").click();
   await expect(page.getByTestId("scene-view")).toBeVisible();
-  // The status bar reports engine state, so its presence means the session
-  // constructed and the first frame rendered rather than that React mounted.
   await expect(page.getByTestId("statusbar")).toContainText("nodes");
 }
 
@@ -88,7 +91,7 @@ test("every toolbox entry creates a node the engine accepts", async ({ page }) =
 test("keying a property creates a track, and the drag is undoable", async ({ page }) => {
   await boot(page);
   await addNode(page, "rect");
-  await tab(page, "timeline");
+  await tab(page, "Timeline");
 
   await page.getByRole("button", { name: "New timeline" }).click();
   await expect(page.getByTestId("tracks")).toContainText("No tracks");
@@ -113,7 +116,7 @@ test("keying a property creates a track, and the drag is undoable", async ({ pag
 test("selecting a keyframe enables the clipboard and delete", async ({ page }) => {
   await boot(page);
   await addNode(page, "rect");
-  await tab(page, "timeline");
+  await tab(page, "Timeline");
   await page.getByRole("button", { name: "New timeline" }).click();
   await page.getByLabel("Add keyframe").selectOption("transform.position.0");
 
@@ -138,12 +141,12 @@ test("a preset compiles to a timeline that plays", async ({ page }) => {
   await boot(page);
   await addNode(page, "rect");
 
-  await tab(page, "presets");
+  await tab(page, "Motion");
   await page.getByTestId("preset-slide-in-left").click();
 
   // The preset compiled to an ordinary timeline, editable in the ordinary
   // timeline editor. Nothing marks it as preset-derived.
-  await tab(page, "timeline");
+  await tab(page, "Timeline");
   await expect(page.getByTestId("keyframe")).toHaveCount(2);
 
   // And the engine is actually running it — the frame counter is read from the
@@ -157,7 +160,7 @@ test("a preset compiles to a timeline that plays", async ({ page }) => {
 
 test("a preset offers nothing the engine cannot draw", async ({ page }) => {
   await boot(page);
-  await tab(page, "presets");
+  await tab(page, "Motion");
 
   // The BUTTONS, not the panel text — the panel deliberately explains that Blur,
   // Glow and Dissolve are absent, so asserting over the whole panel would be
@@ -229,10 +232,10 @@ test("Take puts a graphic on air, and editing Preview afterwards does not", asyn
 
 test("a runtime override is not a document edit", async ({ page }) => {
   await boot(page);
-  await tab(page, "variables");
+  await tab(page, "Data");
 
-  await page.getByLabel("New variable key").fill("title");
-  await page.getByLabel("New variable key").press("Enter");
+  await page.getByLabel("New field name").fill("title");
+  await page.getByLabel("New field name").press("Enter");
   await expect(page.getByTestId("variables")).toContainText("title");
 
   const afterDefine = await depth(page);
@@ -246,19 +249,19 @@ test("a runtime override is not a document edit", async ({ page }) => {
 
 test("a template declares a parameter per variable", async ({ page }) => {
   await boot(page);
-  await tab(page, "variables");
-  await page.getByLabel("New variable key").fill("title");
-  await page.getByLabel("New variable key").press("Enter");
+  await tab(page, "Data");
+  await page.getByLabel("New field name").fill("title");
+  await page.getByLabel("New field name").press("Enter");
 
-  await tab(page, "library");
+  await tab(page, "Templates");
   await page.getByRole("button", { name: "Save as template" }).click();
   await expect(page.getByTestId("library")).toContainText("1 parameters");
 
   // Adding a variable afterwards is drift, and it is reported rather than
   // silently ignored at instantiation.
-  await tab(page, "variables");
-  await page.getByLabel("New variable key").fill("score");
-  await page.getByLabel("New variable key").press("Enter");
-  await tab(page, "library");
+  await tab(page, "Data");
+  await page.getByLabel("New field name").fill("score");
+  await page.getByLabel("New field name").press("Enter");
+  await tab(page, "Templates");
   await expect(page.getByTestId("template-drift")).toContainText("score");
 });

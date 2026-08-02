@@ -64,6 +64,18 @@ import { TimelineEditor } from "./ui/timeline";
 import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
 import { ProgramRow } from "./ui/program";
 import { CommandPalette, KeyboardHelp } from "./ui/palette";
+import { Nav } from "./ui/nav";
+import { Home } from "./ui/home";
+import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections";
+import { DeveloperPanel } from "./ui/developer";
+import {
+  installTheme,
+  instantiateTemplate,
+  type Pack,
+  type PackTemplate,
+} from "./studio/packs";
+import { resetWorkspace } from "./studio/workspace";
+import { sectionSpec, type Section } from "./studio/shell";
 
 /**
  * The shell.
@@ -81,6 +93,20 @@ import { CommandPalette, KeyboardHelp } from "./ui/palette";
  */
 
 const ids = randomIdFactory();
+
+/**
+ * What the editor's bottom tabs are CALLED.
+ *
+ * `presets` and `library` are our words for them; a designer has Motion and
+ * Templates. The ids stay as they are — renaming a persisted key would discard
+ * everyone's saved layout for a caption change.
+ */
+const TAB_LABEL: Record<BottomTab, string> = {
+  timeline: "Timeline",
+  presets: "Motion",
+  variables: "Data",
+  library: "Templates",
+};
 
 export function App() {
   // The canvas is created ONCE, imperatively, before any component mounts. The
@@ -202,6 +228,16 @@ export function App() {
     setRevision((value) => value + 1);
   })), [session]);
 
+  // The rail carries the on-air tally, so the shell has to hear the program bus
+  // as well as the document store. Without this the tally was correct once and
+  // then frozen — the same class of staleness Phase 3A found in the frame
+  // counter, in a place where being wrong is worse: an operator reading OFF
+  // while a graphic is live.
+  useEffect(
+    () => (bus === null ? undefined : bus.subscribe(() => setRevision((value) => value + 1))),
+    [bus],
+  );
+
   // While the clock is RUNNING, the engine advances with no discrete event to
   // notify on, so the UI is ticked per animation frame — and only then. An
   // unconditional loop would re-render an idle editor sixty times a second for
@@ -301,7 +337,7 @@ export function App() {
         const parsed = parseDocument(json);
         session.open(parsed);
         setSelection(EMPTY_SELECTION);
-        setExpanded(new Set([parsed.root.id]));
+        setExpanded(expandedOnOpen(parsed));
         setLocked(new Set());
         setRevision((value) => value + 1);
         setFitToken((value) => value + 1);
@@ -310,6 +346,60 @@ export function App() {
         // Refused at the door, with the document that was open left intact.
         setNotice(String(error));
       }
+    },
+    [session],
+  );
+
+  // -- Sections and content --------------------------------------------------
+
+  const goTo = useCallback(
+    (section: Section) => update({ section }),
+    [update],
+  );
+
+  /**
+   * Opens a template as a NEW graphic.
+   *
+   * The open document's theme travels with it, so inserting a lower third into
+   * a project that already has a palette produces a graphic that matches rather
+   * than one that has to be restyled by hand.
+   */
+  const openTemplate = useCallback(
+    (template: PackTemplate) => {
+      const theme = session?.document.tokens ?? [];
+      const built = instantiateTemplate(template, ids, new Date().toISOString(), theme);
+      openJson(serializeDocument(built));
+      update({ section: "design" });
+      setNotice(`${template.name} ready to edit`);
+    },
+    [session, openJson, update],
+  );
+
+  const installPack = useCallback(
+    (pack: Pack) => {
+      update({
+        installedPacks: [...new Set([...workspace.installedPacks, pack.id])],
+      });
+      setNotice(`${pack.name} installed`);
+    },
+    [update, workspace.installedPacks],
+  );
+
+  const uninstallPack = useCallback(
+    (pack: Pack) => {
+      update({
+        installedPacks: workspace.installedPacks.filter((id) => id !== pack.id),
+      });
+    },
+    [update, workspace.installedPacks],
+  );
+
+  const applyTheme = useCallback(
+    (pack: Pack) => {
+      if (session === null) return;
+      const txn = installTheme(session.document, pack);
+      if (txn !== null) session.store.apply(txn);
+      setNotice(`${pack.name} applied`);
     },
     [session],
   );
@@ -794,48 +884,143 @@ export function App() {
   const store = session.store;
   const document_ = session.document;
 
+  const installed = new Set(workspace.installedPacks);
+  const designing = workspace.section === "design";
+
+  /**
+   * The non-editor sections.
+   *
+   * Rendered INSTEAD of the editor, never beside it. That is a performance
+   * decision as much as a layout one: `SceneView` removes the canvas and stops
+   * its animation frame loop when it unmounts, so browsing the Marketplace
+   * costs zero rendering. Keeping the editor mounted-but-hidden would have the
+   * engine drawing frames nobody can see.
+   */
+  const renderSection = () => {
+    switch (workspace.section) {
+      case "home":
+        return (
+          <Home
+            recents={recents}
+            library={library}
+            installedPacks={installed}
+            onCreate={openTemplate}
+            onBlank={() => {
+              openJson(serializeDocument(newDocument("Untitled", ids, new Date().toISOString())));
+              update({ section: "design" });
+            }}
+            onOpenRecent={(project) => {
+              openJson(project.json);
+              update({ section: "design" });
+            }}
+            onOpenLibrary={(entry) => {
+              openJson(entry.json);
+              update({ section: "design" });
+            }}
+            onBrowse={() => goTo("marketplace")}
+            document={session.document}
+          />
+        );
+      case "marketplace":
+        return (
+          <Marketplace
+            installed={installed}
+            onInstall={installPack}
+            onUninstall={uninstallPack}
+            onApplyTheme={applyTheme}
+            onUseTemplate={openTemplate}
+            canApply={session !== null}
+          />
+        );
+      case "templates":
+        return (
+          <Templates
+            library={library}
+            onOpen={(entry) => {
+              openJson(entry.json);
+              update({ section: "design" });
+            }}
+            onLibrary={setLibrary}
+            storage={storage()}
+          />
+        );
+      case "assets":
+        return <Assets session={session} installed={installed} />;
+      case "outputs":
+        return <Outputs session={session} />;
+      case "settings":
+        return (
+          <Settings
+            theme={workspace.theme}
+            onTheme={(theme) => update({ theme })}
+            developerMode={workspace.developerMode}
+            onDeveloperMode={(developerMode) => update({ developerMode })}
+            onResetWorkspace={() => {
+              resetWorkspace();
+              setWorkspace(DEFAULT_WORKSPACE);
+              setNotice("Layout reset");
+            }}
+          />
+        );
+      case "developer":
+        return <DeveloperPanel session={session} revision={revision} />;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="studio">
+    <div className="studio" data-section={workspace.section}>
+      <Nav
+        section={workspace.section}
+        onSection={goTo}
+        developerMode={workspace.developerMode}
+        dirty={store.dirty}
+        onAir={bus?.onAir ?? false}
+      />
+      <div className="workspace">
+      {/* The titlebar is CONTEXTUAL.
+          It carried the document name, a recents dropdown and a theme toggle on
+          every screen, including Home — editor chrome on a browsing surface,
+          which is the sort of thing that makes a product feel like an IDE. The
+          document name only means something while a document is open; the theme
+          belongs to Settings, which owns appearance. */}
       <header className="titlebar">
-        <strong>Streamatrix Studio</strong>
-        <span className="doc-name" data-testid="doc-name">
-          {document_.meta.name}
-          {store.dirty ? (
-            <span className="dirty" title="Unsaved changes" data-testid="dirty">
-              {" "}
-              ●
+        {designing ? (
+          <>
+            <span className="doc-name" data-testid="doc-name">
+              {document_.meta.name}
+              {store.dirty ? (
+                <span className="dirty" title="Unsaved changes" data-testid="dirty">
+                  {" "}
+                  ●
+                </span>
+              ) : null}
             </span>
-          ) : null}
-        </span>
-        <span className="spacer" />
+            <span className="spacer" />
+            <button type="button" className="chip" onClick={() => save(false)}>
+              Save
+            </button>
+          </>
+        ) : (
+          <>
+            <strong className="section-title">
+              {sectionSpec(workspace.section).label}
+            </strong>
+            <span className="spacer" />
+          </>
+        )}
         <button type="button" className="chip" onClick={() => setPaletteOpen(true)}>
           Commands <kbd>Ctrl/⌘ K</kbd>
         </button>
-        <select
-          className="field"
-          value=""
-          onChange={(event) => {
-            const entry = recents.find((item) => item.id === event.target.value);
-            if (entry !== undefined) openJson(entry.json);
-          }}
-          aria-label="Recent projects"
-        >
-          <option value="">Recent…</option>
-          {recents.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {entry.name}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="chip"
-          onClick={() => update({ theme: workspace.theme === "dark" ? "light" : "dark" })}
-        >
-          {workspace.theme === "dark" ? "Light" : "Dark"}
-        </button>
       </header>
 
+      {!designing ? (
+        <div className="section-host" data-testid="section-host">
+          {renderSection()}
+        </div>
+      ) : (
+      <>
       <div className="body">
         {workspace.leftOpen ? (
           <aside className="dock left" style={{ width: workspace.leftWidth }}>
@@ -985,7 +1170,7 @@ export function App() {
                       className={workspace.bottomTab === tab ? "active" : ""}
                       onClick={() => update({ bottomTab: tab })}
                     >
-                      {tab}
+                      {TAB_LABEL[tab]}
                     </button>
                   ))}
                   <span className="spacer" />
@@ -1052,6 +1237,9 @@ export function App() {
         {notice !== null ? <span className="notice">{notice}</span> : null}
         <span className="dim mono">{document_.id}</span>
       </footer>
+      </>
+      )}
+      </div>
 
       <input
         ref={openInput}
@@ -1097,6 +1285,26 @@ function Divider({ axis, onDelta }: { axis: "x" | "y"; onDelta: (delta: number) 
       }}
     />
   );
+}
+
+/**
+ * Which layers are open when a document is.
+ *
+ * Root-only was wrong. Opening a template showed ONE collapsed layer, and a
+ * first-time user had to know to expand it before they could find the text they
+ * came to edit — which is a documentation step inside a workflow that is
+ * supposed to need none.
+ *
+ * Everything is expanded, up to a cap. A template is a handful of layers and a
+ * designer wants to see them; an imported scene of ten thousand is not
+ * something anyone wants unrolled, and the cap is what tells the two apart.
+ */
+const EXPAND_ON_OPEN_LIMIT = 60;
+
+function expandedOnOpen(document_: SceneDocument): ReadonlySet<string> {
+  const ids_ = allIds(document_);
+  if (ids_.length > EXPAND_ON_OPEN_LIMIT) return new Set([document_.root.id]);
+  return new Set(ids_);
 }
 
 /**

@@ -94,11 +94,23 @@ Only correction: the frame guide derives from `world.output`, never a hardcoded
 | Studio Phase 3A | Authoring — timeline, keyframes, presets, arrange, templates, Preview/Program | ✅ 2026-08-02 |
 | Studio Phase 3B | **Text engine** — all 8 stages, T2/T3/T4 closed | ✅ 2026-08-03 |
 | Studio Phase 3C | The six official templates | ✅ unblocked |
+| **Studio Phase 4** | **The commercial product** — Home, Marketplace, Developer Mode, free tier | ✅ 2026-08-03 |
 | — | **3D viewport** | ⏳ **next.** The last outstanding engine capability |
+| — | Asset pipeline (images, SVG) | ⛔ [IF-005](./IMPLEMENTATION_FINDING_IF-005.md) — blocks logos |
 
 > **The timeline UI binds to the model Phase 6 froze** — no second abstraction.
 > `cursorSeconds` is the one playhead calculation, and Studio's editor derives
 > from it, which is what "one timeline" means operationally.
+>
+> **Phase 4 made Studio the product.** Eight sections named for what a person
+> does, every engine concept behind a Developer Mode that is off by default, and
+> a free tier of three theme packs, three motion packs and three real templates.
+> The no-jargon rule is enforced against the rendered DOM, which found that the
+> properties panel had been shipping the word "mirror" since Phase 1. Assets and
+> four Marketplace categories are blocked on the asset pipeline —
+> [IF-005](./IMPLEMENTATION_FINDING_IF-005.md) — which also means **a graphic
+> cannot yet contain a logo**. See
+> [IMPLEMENTATION_REPORT_STUDIO_PHASE_4.md](./IMPLEMENTATION_REPORT_STUDIO_PHASE_4.md).
 >
 > **Phase 3B closed the text engine** and found five pre-existing engine bugs
 > doing it — every dotted variable binding was dead, collection instances were

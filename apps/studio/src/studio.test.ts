@@ -55,7 +55,12 @@ import {
   zoomAt,
 } from "./studio/viewport";
 import { KEYMAP, matchBinding, searchCommands, shortcutFor } from "./studio/commands";
-import { DEFAULT_WORKSPACE, loadWorkspace, saveWorkspace } from "./studio/workspace";
+import {
+  DEFAULT_WORKSPACE,
+  WORKSPACE_KEY,
+  loadWorkspace,
+  saveWorkspace,
+} from "./studio/workspace";
 
 /**
  * Studio Phase 1 verification.
@@ -1011,13 +1016,13 @@ describe("workspace", () => {
 
   it("clamps a hostile size rather than rendering a panel nobody can grab", () => {
     const store = memory();
-    store.map.set("streamatrix.studio.workspace.v1", JSON.stringify({ leftWidth: 99999 }));
+    store.map.set(WORKSPACE_KEY, JSON.stringify({ leftWidth: 99999 }));
     expect(loadWorkspace(store).leftWidth).toBe(600);
   });
 
   it("falls back to defaults on corruption and with no storage at all", () => {
     const store = memory();
-    store.map.set("streamatrix.studio.workspace.v1", "not json");
+    store.map.set(WORKSPACE_KEY, "not json");
     expect(loadWorkspace(store)).toEqual(DEFAULT_WORKSPACE);
     expect(loadWorkspace(null)).toEqual(DEFAULT_WORKSPACE);
   });

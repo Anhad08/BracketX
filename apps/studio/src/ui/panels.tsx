@@ -64,14 +64,9 @@ export function Toolbox({ onCreate }: { onCreate: (kind: NodeKind) => void }) {
       {/* Both rules stated on screen, not just in a doc: nothing here is a
           broadcast noun, and nothing here is a promise the engine cannot keep. */}
       <p className="note">
-        General primitives only. A lower third, scoreboard or bracket is built
-        from these — the engine has no special case for any of them and neither
-        does Studio.
-      </p>
-      <p className="note">
-        Text, Image and SVG are absent because the engine cannot draw them yet
-        (IF-003). A tool that produced an invisible node would teach you to
-        distrust the rest of this palette.
+        Build anything from these. A lower third, a scoreboard and a bracket are
+        all shapes and words — start from a template in the Marketplace if you
+        would rather not begin with a rectangle.
       </p>
     </section>
   );
@@ -132,15 +127,15 @@ export function Hierarchy({
   };
 
   return (
-    <section className="panel hierarchy" aria-label="Hierarchy">
+    <section className="panel hierarchy" aria-label="Layers">
       <div className="panel-head">
-        <h2>Hierarchy</h2>
+        <h2>Layers</h2>
         <input
           className="field"
           placeholder="Filter"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          aria-label="Filter hierarchy"
+          aria-label="Filter layers"
         />
       </div>
 
@@ -307,12 +302,12 @@ export function Inspector({ session, selection, onEdit }: InspectorProps) {
 
   if (node === null) {
     return (
-      <section className="panel inspector" aria-label="Inspector">
-        <h2>Inspector</h2>
+      <section className="panel inspector" aria-label="Properties">
+        <h2>Properties</h2>
         <p className="note pad">
           {selection.ids.length > 1
-            ? `${selection.ids.length} nodes selected. Editing shows the last one clicked.`
-            : "Select a node."}
+            ? `${selection.ids.length} layers selected. Editing shows the last one clicked.`
+            : "Select a layer."}
         </p>
       </section>
     );
@@ -332,13 +327,13 @@ export function Inspector({ session, selection, onEdit }: InspectorProps) {
   const mirror = session.host.reconciler.mirror.get(node.id);
 
   return (
-    <section className="panel inspector" aria-label="Inspector" data-testid="inspector">
+    <section className="panel inspector" aria-label="Properties" data-testid="inspector">
       <div className="panel-head">
-        <h2>Inspector</h2>
+        <h2>Properties</h2>
         <span className="badge mono">{node.id}</span>
       </div>
 
-      <Group title="Node">
+      <Group title="Layer">
         <label className="prop">
           <span>name</span>
           <input
@@ -398,9 +393,14 @@ export function Inspector({ session, selection, onEdit }: InspectorProps) {
         ))}
         {mirror !== undefined ? (
           <p className="note" data-testid="world-readout">
-            world {mirror.worldMatrix[12]!.toFixed(3)}, {mirror.worldMatrix[13]!.toFixed(3)}
+            {/* "read from the mirror" shipped in the product UI until Phase 4.
+                The FACT is worth showing — this is where the layer actually is,
+                after layout and animation — but a broadcaster has no idea what a
+                mirror is, and should not have to. */}
+            on screen at {mirror.worldMatrix[12]!.toFixed(2)},{" "}
+            {mirror.worldMatrix[13]!.toFixed(2)}
             {node.size !== undefined && findNode(document_.root, node.id)?.transform !== undefined
-              ? " · read from the mirror, so layout and animation are included"
+              ? " · after layout and animation"
               : ""}
           </p>
         ) : null}
@@ -655,10 +655,16 @@ function ComponentEditor({
         // A bound property is `{ $var: "key" }` and must not be shown as an
         // editable literal — typing into it would silently drop the binding.
         if (value !== null && typeof value === "object") {
+          // A bound property must not be shown as an editable literal — typing
+          // into it would silently drop the binding. But "bound to {$var: name}"
+          // is an engine sentence: it tells a broadcaster nothing about what to
+          // do next. Naming the field and the panel does.
+          const key = (value as { $var?: unknown }).$var;
           return (
             <p className="note" key={spec.path}>
-              {spec.label} is bound to{" "}
-              <span className="mono">{JSON.stringify(value)}</span>
+              {spec.label} comes from the{" "}
+              <strong>{typeof key === "string" ? key : "data"}</strong> field.
+              Change it in <strong>Data</strong>.
             </p>
           );
         }
@@ -771,12 +777,12 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
   const nodeId = primaryOf(selection);
 
   return (
-    <section className="panel variables" aria-label="Variables" data-testid="variables">
+    <section className="panel variables" aria-label="Data" data-testid="variables">
       <div className="panel-head">
-        <h2>Variables</h2>
+        <h2>Data</h2>
         <input
           className="field"
-          placeholder="new variable key"
+          placeholder="new field name"
           value={name}
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => {
@@ -784,17 +790,17 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
             onEdit(defineVariable(name.trim(), "string", "", ids).transaction);
             setName("");
           }}
-          aria-label="New variable key"
+          aria-label="New field name"
         />
       </div>
 
       <table className="grid">
         <thead>
           <tr>
-            <th>key</th>
+            <th>field</th>
             <th>default (saved)</th>
             <th>live (not saved)</th>
-            <th>readers</th>
+            <th>used by</th>
             <th />
           </tr>
         </thead>
@@ -802,7 +808,8 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
           {document_.variables.length === 0 ? (
             <tr>
               <td colSpan={5} className="note">
-                No variables. Bind a property to one to make it data-driven.
+                No fields yet. Add one to let a producer change this graphic
+                without opening the editor.
               </td>
             </tr>
           ) : (
@@ -896,8 +903,9 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
         </tbody>
       </table>
       <p className="note">
-        Defaults are document state and undoable. The runtime column is live and is
-        neither — RFC-002 §4.3.
+        A default is saved with the graphic and can be undone. A live value is
+        what is on screen right now — it is not saved, which is exactly what an
+        operator changing a score on air wants.
       </p>
     </section>
   );

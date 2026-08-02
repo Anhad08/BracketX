@@ -19,10 +19,14 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function boot(page: Page): Promise<void> {
   await page.goto("/");
-  // The boot screen says "Loading fonts…" until every font has parsed —
-  // TEXT_ENGINE §3 makes that a real wait, not a spinner.
-  await expect(page.getByTestId("scene-view")).toBeVisible({ timeout: 30_000 });
+  // Phase 4 opens on Home, not in the editor. A test that assumed the editor
+  // was the application is a test that encoded the old information
+  // architecture; entering Design explicitly is what a user does too.
+  await expect(page.getByTestId("rail")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("nav-design").click();
+  await expect(page.getByTestId("scene-view")).toBeVisible();
   await expect(page.getByTestId("statusbar")).toContainText("nodes");
+  // Fonts have parsed by now — TEXT_ENGINE 3 makes that a real wait.
 }
 
 async function depth(page: Page): Promise<number> {
@@ -92,12 +96,12 @@ test("a preset animates text, using the same code that animates a rectangle", as
   await boot(page);
   await page.getByTestId("tool-text").click();
 
-  await page.getByRole("tab", { name: "presets", exact: true }).click();
+  await page.getByRole("tab", { name: "Motion", exact: true }).click();
   // `fade-in` is the interesting one: it resolves a COLOUR PATH per component
   // type, and text was one line in that table.
   await page.getByTestId("preset-fade-in").click();
 
-  await page.getByRole("tab", { name: "timeline", exact: true }).click();
+  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
   await expect(page.getByTestId("keyframe")).toHaveCount(2);
 });
 

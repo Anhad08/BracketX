@@ -11,7 +11,36 @@
  * checkbox is worse than one that forgets.
  */
 
-const KEY = "streamatrix.studio.workspace.v1";
+import { SECTIONS, type Section } from "./shell";
+
+/**
+ * Bumped to v2 in Phase 4: the shape gained a section, a mode and installed
+ * packs, and a v1 payload has none of them.
+ *
+ * Exported so a test references the key rather than a literal — the version
+ * bump broke two assertions that had it hardcoded, which is a test knowing
+ * something it should have been told.
+ */
+export const WORKSPACE_KEY = "streamatrix.studio.workspace.v2";
+
+const KEY = WORKSPACE_KEY;
+
+/**
+ * The packs every account starts with. The brief's free tier.
+ *
+ * Ids rather than an import of the pack data, so this module stays free of the
+ * content it is describing — the workspace remembers a choice, it does not own
+ * a catalogue.
+ */
+export const FREE_TIER: readonly string[] = [
+  "pack_theme_midnight",
+  "pack_theme_broadcast_red",
+  "pack_theme_studio_light",
+  "pack_motion_essentials",
+  "pack_motion_snap",
+  "pack_motion_emphasis",
+  "pack_broadcast_starter",
+];
 
 export type Theme = "dark" | "light";
 
@@ -29,6 +58,30 @@ export type BottomTab = (typeof BOTTOM_TABS)[number];
 
 export interface Workspace {
   readonly theme: Theme;
+
+  /**
+   * Which part of the product is open.
+   *
+   * The application is no longer one screen with panels — it is a product with
+   * sections, and the section is the first thing state has to remember.
+   */
+  readonly section: Section;
+
+  /**
+   * Reveals the engine.
+   *
+   * OFF by default, and that default is the whole point of Phase 4: a
+   * broadcaster must never need to know what a mirror is. Nothing is deleted
+   * when it is off — the diagnostics that the engineering workbench pioneered
+   * are all still there, one switch away.
+   */
+  readonly developerMode: boolean;
+
+  /** Which packs the user has installed. Free-tier packs are pre-installed. */
+  readonly installedPacks: readonly string[];
+
+  /** Dismissed once, remembered forever. Nobody wants a tour twice. */
+  readonly welcomed: boolean;
 
   /** Panel sizes, in pixels / viewport percent. */
   readonly leftWidth: number;
@@ -57,6 +110,13 @@ export interface Workspace {
 
 export const DEFAULT_WORKSPACE: Workspace = {
   theme: "dark",
+  section: "home",
+  developerMode: false,
+  // The free tier, pre-installed. A first-time user who has to install
+  // something before they can evaluate anything has already been asked to do
+  // work before seeing value.
+  installedPacks: FREE_TIER,
+  welcomed: false,
   leftWidth: 260,
   rightWidth: 300,
   bottomHeight: 220,
@@ -99,8 +159,22 @@ function sanitize(value: unknown): Workspace {
   const bool = (key: keyof Workspace): boolean =>
     typeof raw[key] === "boolean" ? (raw[key] as boolean) : (DEFAULT_WORKSPACE[key] as boolean);
 
+  const packs = Array.isArray(raw.installedPacks)
+    ? (raw.installedPacks as unknown[]).filter(
+        (id): id is string => typeof id === "string",
+      )
+    : DEFAULT_WORKSPACE.installedPacks;
+
   return {
     theme: raw.theme === "light" ? "light" : "dark",
+    section: SECTIONS.some((entry) => entry.id === raw.section)
+      ? (raw.section as Section)
+      : "home",
+    developerMode: bool("developerMode"),
+    // The free tier is always present, even if a stored list dropped it: a
+    // corrupt preference must not take a user's starter content away.
+    installedPacks: [...new Set([...FREE_TIER, ...packs])],
+    welcomed: bool("welcomed"),
     // Clamped, so a corrupt width cannot render a panel that cannot be grabbed
     // to fix it — the failure mode where the only escape is clearing storage.
     leftWidth: clamp(raw.leftWidth, 180, 600, DEFAULT_WORKSPACE.leftWidth),
