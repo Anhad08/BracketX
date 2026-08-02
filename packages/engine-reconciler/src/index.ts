@@ -81,6 +81,18 @@ export {
 } from "./dependencies";
 
 export {
+  boxDescriptor,
+  cylinderDescriptor,
+  planeDescriptor,
+  primitiveDescriptor,
+  primitiveKey,
+  readPrimitive,
+  sphereDescriptor,
+  type PrimitiveShape,
+  type PrimitiveSpec,
+} from "./mesh-primitives";
+
+export {
   EMPTY_VARIABLES,
   channelForPath,
   findComponent,

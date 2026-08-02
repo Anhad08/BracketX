@@ -47,6 +47,11 @@ import { DirtySet, type DirtyStats } from "./dirty";
 import { MirrorGraph, MirrorViolation } from "./mirror";
 import { channelForPath, localMatrixOf, resolveProps, type VariableSource } from "./resolve";
 import { quadDescriptor, rgbaFromHex } from "./primitives";
+import {
+  primitiveDescriptor,
+  primitiveKey,
+  readPrimitive,
+} from "./mesh-primitives";
 import { ScopedVariables, dependencyKeyOf, readScoped } from "./scope";
 import {
   ExpansionCache,
@@ -61,6 +66,7 @@ import type {
   MaterialDescriptor,
   MaterialHandle,
   MirrorBackend,
+  Rgba,
 } from "./mirror-backend";
 
 export class ProjectionError extends Error {
@@ -177,6 +183,23 @@ export class Projector {
    * it does not own state.
    */
   #animated: AnimatedValues = new Map();
+
+  /**
+   * GPU resources a `meshRenderer` owns. Phase 2.
+   *
+   * Keyed the same way rects are, and released the same way, because
+   * MirrorBackend C2 puts lifetime on the caller and a second discipline for a
+   * second component type is how a leak gets introduced.
+   */
+  #meshes = new Map<
+    string,
+    {
+      key: string;
+      material: MaterialDescriptor;
+      geometry: GeometryHandle;
+      materialHandle: MaterialHandle;
+    }
+  >();
 
   #rects = new Map<
     string,
@@ -441,6 +464,7 @@ export class Projector {
     this.#expansions.clear();
     this.#placements.clear();
     for (const id of [...this.#rects.keys()]) this.#releaseRect(id);
+    for (const id of [...this.#meshes.keys()]) this.#releaseMesh(id);
     this.#index.clear();
   }
 
@@ -484,6 +508,7 @@ export class Projector {
           this.#repeats.delete(id);
           this.#repeatItems.delete(id);
           this.#releaseRect(id);
+          this.#releaseMesh(id);
           this.#index.delete(id);
           dirty.forget(id);
         }
@@ -769,6 +794,7 @@ export class Projector {
       const props = resolveProps(component.props, variables, recorder);
       if (component.type === "camera") this.#applyCamera(resolved);
       else if (component.type === "rect") this.#applyRect(resolved, props);
+      else if (component.type === "meshRenderer") this.#applyMesh(resolved, props);
     }
 
     this.#dependencies.set(node.id, recorder.take());
@@ -851,6 +877,7 @@ export class Projector {
           this.#repeats.delete(id);
           this.#repeatItems.delete(id);
           this.#releaseRect(id);
+          this.#releaseMesh(id);
           this.#index.delete(id);
           dirty.forget(id);
         }
@@ -919,6 +946,85 @@ export class Projector {
     for (const child of childrenOf(node)) {
       this.#refreshInstance(child, scope, dirty);
     }
+  }
+
+  /**
+   * Attaches geometry and a material for a `meshRenderer`. SCENE_FORMAT §7.1.
+   *
+   * ========================================================================
+   * 3D IS NOT A SECOND PIPELINE
+   * ========================================================================
+   * This method is deliberately the same shape as `#applyRect`: resolve props,
+   * compare against what is already attached, update in place when only the
+   * material changed, recreate only when the geometry did. A mesh is a node
+   * with a component, exactly like a rectangle — it inherits the hierarchy, the
+   * transform, the dirty tracking, the variable bindings, the timeline, the
+   * collections and the states without any of them knowing it is 3D.
+   *
+   * `props.primitive` is an ADDITIVE optional property (SCENE_FORMAT §13
+   * rule 4), so it needs no version bump. Asset-backed meshes (`assetId`,
+   * `meshIndex`) are specified in §7.1 and are NOT wired here: geometry from a
+   * glTF needs an asset pipeline, which is a phase of its own. A meshRenderer
+   * naming an asset attaches nothing and the node survives unattached, which is
+   * the same behaviour a rect over budget already has.
+   *
+   * A material with `metallic` or `roughness` becomes `pbr`; otherwise `unlit`.
+   * That split is not cosmetic — see the Phase 2 finding: **the frozen backend
+   * has no lights**, so a `pbr` material renders black until ADR-013 is
+   * reopened, and `unlit` is the only kind that produces a picture today.
+   */
+  #applyMesh(node: SceneNode, props: Record<string, unknown>): void {
+    const spec = readPrimitive(props.primitive);
+    if (spec === null) {
+      // An asset-backed mesh, or a malformed spec. Release anything this node
+      // used to own rather than leaving a stale attachment on screen.
+      this.#releaseMesh(node.id);
+      return;
+    }
+
+    const key = primitiveKey(spec);
+    const material = materialDescriptorOf(props.material);
+
+    const previous = this.#meshes.get(node.id);
+    if (previous !== undefined && previous.key === key) {
+      if (sameMaterial(previous.material, material)) return;
+      // Material only. Update in place so the handle stays stable — recreating
+      // would free and reallocate a GPU resource to change a colour, which is
+      // exactly what a variable-bound team colour does sixty times a second.
+      this.backend.updateMaterial(previous.materialHandle, material);
+      this.#meshes.set(node.id, { ...previous, material });
+      return;
+    }
+    if (previous !== undefined) this.#releaseMesh(node.id);
+
+    const geometry = this.backend.createGeometry(primitiveDescriptor(spec));
+    if (!geometry.ok) return;
+    const materialHandle = this.backend.createMaterial(material);
+    if (!materialHandle.ok) {
+      this.backend.destroyGeometry(geometry.value);
+      return;
+    }
+
+    this.mirror.setAttachment(node.id, {
+      kind: "mesh",
+      geometry: geometry.value,
+      material: materialHandle.value,
+    });
+    this.#meshes.set(node.id, {
+      key,
+      material,
+      geometry: geometry.value,
+      materialHandle: materialHandle.value,
+    });
+  }
+
+  /** Frees what a meshRenderer owned. Every create* above is matched here once. */
+  #releaseMesh(nodeId: string): void {
+    const mesh = this.#meshes.get(nodeId);
+    if (mesh === undefined) return;
+    this.#meshes.delete(nodeId);
+    this.backend.destroyGeometry(mesh.geometry);
+    this.backend.destroyMaterial(mesh.materialHandle);
   }
 
   #applyRect(node: SceneNode, props: Record<string, unknown>): void {
@@ -1150,3 +1256,71 @@ export function documentNodeIds(document: SceneDocument): Set<string> {
 }
 
 export { MirrorViolation };
+
+/**
+ * A material descriptor from a component's resolved props.
+ *
+ * `pbr` only when the author asked for it by giving a metallic or roughness
+ * value. Defaulting to pbr would be the obvious choice and is currently wrong:
+ * the frozen MirrorBackend has no lights, so a pbr surface has nothing to
+ * reflect and renders black. `unlit` is what produces a picture today, and an
+ * author who writes `metallic` has explicitly asked for the other thing.
+ *
+ * Every field here is resolved from props, so every one of them is BINDABLE —
+ * `{ "$var": "team.accent" }` in `baseColor` drives the colour of every
+ * instance from one runtime variable, with no code path of its own.
+ */
+function materialDescriptorOf(value: unknown): MaterialDescriptor {
+  const raw =
+    value !== null && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+
+  const colour = typeof raw.baseColor === "string" ? raw.baseColor : "#FFFFFF";
+  const opacity = typeof raw.opacity === "number" ? raw.opacity : 1;
+  const doubleSided = raw.doubleSided === true;
+  // Transparent unless told otherwise: broadcast output composites over live
+  // video, and an opaque default is a black rectangle on air.
+  const transparent = raw.transparent !== false || opacity < 1;
+
+  const metallic = typeof raw.metallic === "number" ? raw.metallic : undefined;
+  const roughness = typeof raw.roughness === "number" ? raw.roughness : undefined;
+
+  const base = rgbaFromHex(colour);
+  // Premultiplied, per C9. Multiplying after the sRGB conversion is correct —
+  // alpha is linear and the colour is not.
+  const rgba: Rgba =
+    opacity >= 1
+      ? base
+      : [base[0] * opacity, base[1] * opacity, base[2] * opacity, base[3] * opacity];
+
+  if (metallic === undefined && roughness === undefined) {
+    return { kind: "unlit", color: rgba, transparent, doubleSided };
+  }
+  return {
+    kind: "pbr",
+    baseColor: rgba,
+    metallic: metallic ?? 0,
+    roughness: roughness ?? 1,
+    transparent,
+    doubleSided,
+  };
+}
+
+/** Structural equality, so an unchanged material never touches the GPU. */
+function sameMaterial(a: MaterialDescriptor, b: MaterialDescriptor): boolean {
+  if (a.kind !== b.kind) return false;
+  const colourA = a.kind === "pbr" ? a.baseColor : a.kind === "unlit" ? a.color : null;
+  const colourB = b.kind === "pbr" ? b.baseColor : b.kind === "unlit" ? b.color : null;
+  if (colourA === null || colourB === null) return false;
+  for (let index = 0; index < 4; index += 1) {
+    if (colourA[index] !== colourB[index]) return false;
+  }
+  if (a.kind === "pbr" && b.kind === "pbr") {
+    if (a.metallic !== b.metallic || a.roughness !== b.roughness) return false;
+  }
+  if (a.kind === "unlit" && b.kind === "unlit") {
+    if (a.transparent !== b.transparent || a.doubleSided !== b.doubleSided) return false;
+  }
+  return true;
+}
