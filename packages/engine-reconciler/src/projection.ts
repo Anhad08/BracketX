@@ -64,6 +64,8 @@ import type {
   CameraDescriptor,
   GeometryHandle,
   MaterialDescriptor,
+  LightDescriptor,
+  LightHandle,
   MaterialHandle,
   MirrorBackend,
   Rgba,
@@ -200,6 +202,8 @@ export class Projector {
       materialHandle: MaterialHandle;
     }
   >();
+
+  #lights = new Map<string, { handle: LightHandle; descriptor: LightDescriptor }>();
 
   #rects = new Map<
     string,
@@ -465,6 +469,7 @@ export class Projector {
     this.#placements.clear();
     for (const id of [...this.#rects.keys()]) this.#releaseRect(id);
     for (const id of [...this.#meshes.keys()]) this.#releaseMesh(id);
+    for (const id of [...this.#lights.keys()]) this.#releaseLight(id);
     this.#index.clear();
   }
 
@@ -509,6 +514,7 @@ export class Projector {
           this.#repeatItems.delete(id);
           this.#releaseRect(id);
           this.#releaseMesh(id);
+          this.#releaseLight(id);
           this.#index.delete(id);
           dirty.forget(id);
         }
@@ -795,6 +801,7 @@ export class Projector {
       if (component.type === "camera") this.#applyCamera(resolved);
       else if (component.type === "rect") this.#applyRect(resolved, props);
       else if (component.type === "meshRenderer") this.#applyMesh(resolved, props);
+      else if (component.type === "light") this.#applyLight(resolved, props);
     }
 
     this.#dependencies.set(node.id, recorder.take());
@@ -878,6 +885,7 @@ export class Projector {
           this.#repeatItems.delete(id);
           this.#releaseRect(id);
           this.#releaseMesh(id);
+          this.#releaseLight(id);
           this.#index.delete(id);
           dirty.forget(id);
         }
@@ -1025,6 +1033,44 @@ export class Projector {
     this.#meshes.delete(nodeId);
     this.backend.destroyGeometry(mesh.geometry);
     this.backend.destroyMaterial(mesh.materialHandle);
+  }
+
+  /**
+   * Attaches a light. SCENE_FORMAT §7, ADR-013 amendment 1.
+   *
+   * A light is a node attachment exactly as a camera is, so this method is the
+   * same shape as `#applyCamera` — create once, update in place, release on
+   * teardown. It carries no position and no direction: the node's world matrix
+   * places it and it points down local −Z, which is what makes the existing
+   * timeline able to animate a light with no new machinery.
+   *
+   * Every property comes from RESOLVED props, so a light's colour and intensity
+   * are bindable to runtime variables like anything else — `team.accent` can
+   * drive a material and a key light from one value.
+   */
+  #applyLight(node: SceneNode, props: Record<string, unknown>): void {
+    const descriptor = lightDescriptorOf(props);
+    const existing = this.#lights.get(node.id);
+
+    if (existing === undefined) {
+      const handle = this.backend.createLight(descriptor);
+      this.#lights.set(node.id, { handle, descriptor });
+      this.mirror.setAttachment(node.id, { kind: "light", light: handle });
+      return;
+    }
+    if (sameLight(existing.descriptor, descriptor)) return;
+    // In place. Recreating would free and reallocate to dim a light, which is
+    // exactly what an animated intensity does sixty times a second.
+    this.backend.updateLight(existing.handle, descriptor);
+    this.#lights.set(node.id, { ...existing, descriptor });
+  }
+
+  /** Frees a light. Every createLight above is matched here exactly once (C2). */
+  #releaseLight(nodeId: string): void {
+    const light = this.#lights.get(nodeId);
+    if (light === undefined) return;
+    this.#lights.delete(nodeId);
+    this.backend.destroyLight(light.handle);
   }
 
   #applyRect(node: SceneNode, props: Record<string, unknown>): void {
@@ -1321,6 +1367,59 @@ function sameMaterial(a: MaterialDescriptor, b: MaterialDescriptor): boolean {
   }
   if (a.kind === "unlit" && b.kind === "unlit") {
     if (a.transparent !== b.transparent || a.doubleSided !== b.doubleSided) return false;
+  }
+  return true;
+}
+
+/**
+ * A light descriptor from a component's resolved props.
+ *
+ * Defaults are a neutral white key light at unit intensity: a `light` component
+ * with no props must produce something visible, or an author adding one sees
+ * nothing and concludes lighting is broken.
+ */
+function lightDescriptorOf(props: Record<string, unknown>): LightDescriptor {
+  const kind =
+    props.kind === "ambient" || props.kind === "point" || props.kind === "spot"
+      ? props.kind
+      : "directional";
+  const color = rgbaFromHex(typeof props.color === "string" ? props.color : "#FFFFFF");
+  const intensity = typeof props.intensity === "number" ? props.intensity : 1;
+  const number = (key: string, fallback: number): number =>
+    typeof props[key] === "number" && Number.isFinite(props[key]) ? (props[key] as number) : fallback;
+
+  if (kind === "ambient") return { kind, color, intensity };
+  if (kind === "directional") return { kind, color, intensity };
+  if (kind === "point") {
+    return { kind, color, intensity, distance: number("distance", 0), decay: number("decay", 2) };
+  }
+  return {
+    kind: "spot",
+    color,
+    intensity,
+    distance: number("distance", 0),
+    angle: number("angle", Math.PI / 6),
+    penumbra: number("penumbra", 0),
+    decay: number("decay", 2),
+  };
+}
+
+/** Structural equality, so an unchanged light never touches the GPU. */
+function sameLight(a: LightDescriptor, b: LightDescriptor): boolean {
+  if (a.kind !== b.kind || a.intensity !== b.intensity) return false;
+  for (let index = 0; index < 4; index += 1) {
+    if (a.color[index] !== b.color[index]) return false;
+  }
+  if (a.kind === "point" && b.kind === "point") {
+    return a.distance === b.distance && a.decay === b.decay;
+  }
+  if (a.kind === "spot" && b.kind === "spot") {
+    return (
+      a.distance === b.distance &&
+      a.decay === b.decay &&
+      a.angle === b.angle &&
+      a.penumbra === b.penumbra
+    );
   }
   return true;
 }

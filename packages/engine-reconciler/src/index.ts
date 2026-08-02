@@ -26,6 +26,8 @@ export type {
   CameraHandle,
   GeometryDescriptor,
   GeometryHandle,
+  LightDescriptor,
+  LightHandle,
   InspectableMirrorBackend,
   Mat4,
   MaterialDescriptor,

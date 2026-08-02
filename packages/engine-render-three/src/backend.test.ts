@@ -601,6 +601,83 @@ describe("MirrorBackend conformance", () => {
     );
   });
 
+  // -- Lights. ADR-013 amendment 1 (IF-002) --------------------------------
+
+  it.each(backends)("%s: a light is an attachment like any other", (_name, create) => {
+    const target = create();
+    const node = target.createNode();
+    const light = target.createLight({
+      kind: "directional",
+      color: [1, 1, 1, 1],
+      intensity: 2,
+    });
+
+    target.attachLight(node, light);
+    expect(target.snapshot().nodes[0]!.attachment).toBe("light");
+
+    // Idempotent (C4), and update-in-place never changes the attachment.
+    target.updateLight(light, { kind: "directional", color: [1, 0, 0, 1], intensity: 3 });
+    target.updateLight(light, { kind: "directional", color: [1, 0, 0, 1], intensity: 3 });
+    expect(target.snapshot().nodes[0]!.attachment).toBe("light");
+
+    target.detach(node);
+    expect(target.snapshot().nodes[0]!.attachment).toBe("none");
+
+    target.destroyLight(light);
+    target.destroyNode(node);
+    target.dispose();
+  });
+
+  it.each(backends)("%s: refuses an unknown or double-freed light", (_name, create) => {
+    const target = create();
+    const light = target.createLight({ kind: "ambient", color: [1, 1, 1, 1], intensity: 1 });
+    target.destroyLight(light);
+    // C2 puts lifetime on the caller, so a double free is the caller's bug and
+    // must be loud rather than silently tolerated.
+    expect(() => target.destroyLight(light)).toThrow();
+    target.dispose();
+  });
+
+  it("both backends produce identical snapshots for a lit scene", () => {
+    // The amendment's whole point: adding lights must not make the two
+    // backends distinguishable from the reconciler's side.
+    const mock = new MockMirrorBackend();
+    const three = new ThreeMirrorBackend({ host: new HeadlessRendererHost() });
+
+    for (const target of [mock, three] as InspectableMirrorBackend[]) {
+      const root = target.createNode();
+      const lit = target.createNode();
+      target.setParent(lit, root);
+      // Placement and orientation come from the NODE, never the descriptor.
+      target.setWorldMatrix(lit, [
+        1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2, 4, -3, 1,
+      ]);
+      for (const descriptor of [
+        { kind: "ambient", color: [0.2, 0.2, 0.2, 1], intensity: 1 },
+        { kind: "directional", color: [1, 1, 1, 1], intensity: 2 },
+        { kind: "point", color: [1, 0.5, 0, 1], intensity: 3, distance: 10, decay: 2 },
+        {
+          kind: "spot",
+          color: [0, 0.5, 1, 1],
+          intensity: 4,
+          distance: 20,
+          angle: 0.5,
+          penumbra: 0.3,
+          decay: 2,
+        },
+      ] as const) {
+        const light = target.createLight(descriptor);
+        target.attachLight(lit, light);
+      }
+    }
+
+    expect(JSON.stringify(three.snapshot().nodes)).toBe(
+      JSON.stringify(mock.snapshot().nodes),
+    );
+    mock.dispose();
+    three.dispose();
+  });
+
   it("both backends free everything on teardown", () => {
     for (const [, create] of backends) {
       const target = create();

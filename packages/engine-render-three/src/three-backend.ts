@@ -17,13 +17,15 @@
  * Three's own matrix maintenance is disabled on every object. The engine
  * computes world matrices; Three is told them. See translate.disableAutoMatrix.
  */
-import { Mesh, Object3D, Scene, type Camera, type Material } from "three";
+import { Mesh, Object3D, Scene, type Camera, type Light, type Material } from "three";
 
 import type {
   BackendCapabilities,
   BackendResult,
   CameraDescriptor,
   CameraHandle,
+  LightDescriptor,
+  LightHandle,
   GeometryDescriptor,
   GeometryHandle,
   InspectableMirrorBackend,
@@ -43,7 +45,10 @@ import type {
 import { HeadlessRendererHost, type RendererHost } from "./renderer-host";
 import { GpuResourceManager, ResourceViolation } from "./resources";
 import {
+  LIGHT_TARGET_OFFSET,
+  applyLight,
   createCamera,
+  createLight,
   createGeometry,
   createMaterial,
   createTexture,
@@ -83,10 +88,11 @@ interface NodeRecord {
   mesh: Mesh | null;
   parent: number | null;
   childHandles: number[];
-  attachment: "none" | "mesh" | "camera";
+  attachment: "none" | "mesh" | "camera" | "light";
   geometry: number | null;
   material: number | null;
   camera: number | null;
+  light: number | null;
 }
 
 export interface ThreeBackendOptions {
@@ -123,6 +129,17 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
   /** Retained so cameras can be rebuilt on resize and after context loss. */
   #cameraDescriptors = new Map<number, CameraDescriptor>();
   #cameras = new Map<number, Camera>();
+  /**
+   * Light objects, and the target each directional/spot light aims at.
+   *
+   * The target is a bare Object3D one unit down local −Z. Three aims those
+   * lights at `light.target.matrixWorld`, so this is how "points down the
+   * node's −Z" is expressed without the backend deriving a single transform:
+   * the target's world matrix is composed from the node's, which the ENGINE
+   * set, and nothing here computes an orientation of its own.
+   */
+  #lights = new Map<number, { object: Light; target: Object3D | null }>();
+  #nextLightHandle = 1;
   #nextCameraHandle = 1;
 
   #width: number;
@@ -191,6 +208,7 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
       handle,
       object,
       mesh: null,
+      light: null,
       parent: null,
       childHandles: [],
       attachment: "none",
@@ -266,6 +284,8 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
     const record = this.#requireNode(node, "setWorldMatrix");
     record.object.matrixWorld.fromArray(matrix as number[]);
     record.object.matrixWorldNeedsUpdate = false;
+    // A light aims down the node's −Z, so its target moves with the node.
+    if (record.attachment === "light") this.#aimLight(record);
     // The attachment mesh sits under the node with no local transform, and
     // Three will not propagate to it because auto-update is off - so its world
     // matrix is written here too.
@@ -319,6 +339,82 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
     record.geometry = geometry;
     record.material = material;
     record.camera = null;
+  }
+
+  attachLight(node: NodeHandle, light: LightHandle): void {
+    const record = this.#requireNode(node, "attachLight");
+    const entry = this.#lights.get(light);
+    if (!entry) {
+      throw new BackendViolation(`attachLight: unknown light ${light}`);
+    }
+
+    this.#releaseAttachment(record);
+    record.attachment = "light";
+    record.light = light;
+    record.geometry = null;
+    record.material = null;
+    record.camera = null;
+
+    // Parented into the node, unlike a camera: a light has to be IN the scene
+    // to illuminate it, whereas a camera only has to know where it is. With no
+    // local transform, the light's world matrix is the node's.
+    record.object.add(entry.object);
+    entry.object.matrix.identity();
+    entry.object.matrixWorld.copy(record.object.matrixWorld);
+    entry.object.matrixWorldNeedsUpdate = false;
+    this.#aimLight(record);
+  }
+
+  /**
+   * Places a light's target from the node's world matrix.
+   *
+   * Called whenever that matrix changes. The offset is a constant −Z unit
+   * vector composed with a matrix the engine produced — no orientation is
+   * derived here, which is what C3 requires.
+   */
+  #aimLight(record: NodeRecord): void {
+    if (record.light === null) return;
+    const entry = this.#lights.get(record.light);
+    if (!entry || entry.target === null) return;
+    entry.object.matrixWorld.copy(record.object.matrixWorld);
+    entry.object.matrixWorldNeedsUpdate = false;
+    entry.target.matrixWorld
+      .copy(record.object.matrixWorld)
+      .multiply(LIGHT_TARGET_OFFSET);
+    entry.target.matrixWorldNeedsUpdate = false;
+  }
+
+  createLight(descriptor: LightDescriptor): LightHandle {
+    this.#assertUsable();
+    const handle = this.#nextLightHandle++;
+    const created = createLight(descriptor);
+    if (created.target !== null) {
+      // The target must be in the scene graph for Three to read its world
+      // matrix. Parenting it to the light keeps its lifetime tied to one.
+      created.object.add(created.target);
+      disableAutoMatrix(created.target);
+    }
+    disableAutoMatrix(created.object);
+    this.#lights.set(handle, created);
+    return handle as LightHandle;
+  }
+
+  updateLight(light: LightHandle, descriptor: LightDescriptor): void {
+    const entry = this.#lights.get(light);
+    if (!entry) throw new BackendViolation(`unknown light handle ${light}`);
+    applyLight(entry.object, descriptor);
+  }
+
+  destroyLight(light: LightHandle): void {
+    const entry = this.#lights.get(light);
+    if (!entry) {
+      throw new BackendViolation(
+        `destroyLight(${light}) on an unknown or already-destroyed handle`,
+      );
+    }
+    this.#lights.delete(light);
+    entry.object.removeFromParent();
+    entry.object.dispose?.();
   }
 
   attachCamera(node: NodeHandle, camera: CameraHandle): void {

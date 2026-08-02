@@ -492,6 +492,155 @@ describe("states apply to 3D", () => {
   });
 });
 
+// ===========================================================================
+// Lights - ADR-013 amendment 1 (IF-002)
+// ===========================================================================
+
+describe("lights are nodes", () => {
+  function lit(props: Record<string, unknown>): SceneNode {
+    return node("nod_key", {
+      transform: { position: [0, 5, 5], rotation: [0, 0, 0], scale: [1, 1, 1] },
+      components: [{ id: "cmp_key", type: "light", props }],
+    });
+  }
+
+  it("attaches, and carries no position or direction of its own", () => {
+    const scene = host(
+      document_({ root: node("nod_root", { children: [lit({ kind: "directional" })] }) }),
+    );
+    expect(attachmentOf(scene, "nod_key")?.kind).toBe("light");
+    // Placement is the node's world matrix - the engine computed it, and C3
+    // forbids the backend deriving one. A descriptor carrying its own position
+    // would be a second source of truth the timeline could not animate.
+    expect(scene.reconciler.mirror.get("nod_key")!.worldMatrix[13]).toBe(5);
+    scene.dispose();
+  });
+
+  it("is animated by the existing timeline, with no new machinery", () => {
+    const scene = host(
+      document_({
+        animations: [
+          {
+            id: "anm_dim",
+            name: "Dim",
+            duration: 1,
+            tracks: [
+              {
+                target: "nod_key",
+                path: "components.0.props.intensity",
+                keyframes: [
+                  { time: 0, value: 4, easing: "linear" },
+                  { time: 1, value: 0 },
+                ],
+              },
+              {
+                target: "nod_key",
+                path: "transform.rotation.1",
+                keyframes: [
+                  { time: 0, value: 0, easing: "linear" },
+                  { time: 1, value: 90 },
+                ],
+              },
+            ],
+          },
+        ],
+        root: node("nod_root", { children: [lit({ kind: "spot", intensity: 4 })] }),
+      }),
+    );
+    scene.playClip("anm_dim", { startFrame: 0 });
+    runTo(scene, 30);
+
+    const values = scene.animator.values.get("nod_key")!;
+    expect(values.get("components.0.props.intensity")).toBeCloseTo(2, 1);
+    // Rotating the NODE aims the light, because a light points down local -Z.
+    expect(values.get("transform.rotation.1")).toBeCloseTo(45, 0);
+    scene.dispose();
+  });
+
+  it("takes its colour from a runtime variable, like a material does", () => {
+    const scene = host(
+      document_({
+        variables: [
+          {
+            id: "var_accent",
+            key: "team.accent",
+            type: "color",
+            label: "Accent",
+            default: "#FF0000",
+          },
+        ],
+        root: node("nod_root", {
+          children: [lit({ kind: "point", color: { $var: "team.accent" }, intensity: 2 })],
+        }),
+      }),
+    );
+    scene.renderFrame(0);
+    const before = attachmentOf(scene, "nod_key");
+
+    scene.applyLive({ type: "variable.set", key: "team.accent", value: "#00FF00" }, "operator");
+    scene.renderFrame(16);
+
+    // Updated in place. One variable driving a material AND a key light is the
+    // brief's "Team Accent -> Material Color -> Lighting" chain, executing.
+    expect(attachmentOf(scene, "nod_key")).toEqual(before);
+    expect(scene.lastReport?.nodesCreated).toBe(0);
+    scene.dispose();
+  });
+
+  it("frees every light it allocated", () => {
+    const backend = new MockMirrorBackend();
+    const scene = new SceneHost(backend);
+    scene.load(
+      document_({
+        root: node("nod_root", {
+          children: [lit({ kind: "directional" }), mesh("nod_cube", { shape: "box" })],
+        }),
+      }),
+    );
+    scene.dispose();
+    const stats = backend.stats();
+    expect(stats.lightsCreated).toBeGreaterThan(0);
+    expect(stats.lightsDestroyed).toBe(stats.lightsCreated);
+  });
+
+  it("is instanced by a collection and hidden by a state, like anything else", () => {
+    const scene = host(
+      document_({
+        variables: [
+          {
+            id: "var_rigs",
+            key: "rigs",
+            type: "string",
+            label: "Rigs",
+            default: [{ id: "l1" }, { id: "l2" }],
+          },
+        ],
+        root: node("nod_root", {
+          children: [
+            node("nod_rig", {
+              repeat: { source: "rigs", as: "rig", key: "id", limit: 20 },
+              children: [
+                node("nod_lamp", {
+                  components: [{ id: "cmp_lamp", type: "light", props: { kind: "point" } }],
+                  states: { blackout: { visible: false } },
+                }),
+              ],
+            }),
+          ],
+        }),
+      }),
+    );
+    scene.renderFrame(0);
+    expect(attachmentOf(scene, "nod_lamp#l1")?.kind).toBe("light");
+    expect(attachmentOf(scene, "nod_lamp#l2")?.kind).toBe("light");
+
+    scene.setStates(["blackout"]);
+    scene.renderFrame(16);
+    expect(scene.reconciler.mirror.get("nod_lamp#l1")!.effectiveVisible).toBe(false);
+    scene.dispose();
+  });
+});
+
 describe("hybrid outputs", () => {
   it("renders one scene through a 3D camera and a 2D camera at once", () => {
     // The compositing claim from the brief: a 3D stadium under a 2D lower

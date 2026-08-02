@@ -22,6 +22,7 @@ import type { Mat4 } from "@bracketx/engine-scene";
 
 import type {
   CameraHandle,
+  LightHandle,
   GeometryHandle,
   MaterialHandle,
   MirrorBackend,
@@ -42,7 +43,8 @@ export type MirrorAttachment =
       readonly geometry: GeometryHandle;
       readonly material: MaterialHandle;
     }
-  | { readonly kind: "camera"; readonly camera: CameraHandle };
+  | { readonly kind: "camera"; readonly camera: CameraHandle }
+  | { readonly kind: "light"; readonly light: LightHandle };
 
 /**
  * One mirrored node.

@@ -78,6 +78,9 @@
 declare const brand: unique symbol;
 type Branded<T, B extends string> = T & { readonly [brand]: B };
 
+/** A light resource. Opaque — see C1. */
+export type LightHandle = number & { readonly __brand: "LightHandle" };
+
 /** A node in the backend's mirror. Opaque — see C1. */
 export type NodeHandle = Branded<number, "NodeHandle">;
 export type GeometryHandle = Branded<number, "GeometryHandle">;
@@ -264,6 +267,16 @@ export interface MirrorBackend {
 
   attachCamera(node: NodeHandle, camera: CameraHandle): void;
 
+  /**
+   * Attaches a light. Its orientation comes from the node's world matrix.
+   *
+   * Deliberately the same shape as `attachCamera`, because a light is the same
+   * KIND of thing: a resource whose placement is the engine's business and
+   * whose parameters are the backend's. That symmetry is the argument that this
+   * amendment completes the boundary rather than expanding it.
+   */
+  attachLight(node: NodeHandle, light: LightHandle): void;
+
   /** Removes any attachment. The node itself survives. */
   detach(node: NodeHandle): void;
 
@@ -286,6 +299,19 @@ export interface MirrorBackend {
   createMaterial(descriptor: MaterialDescriptor): BackendResult<MaterialHandle>;
   updateMaterial(material: MaterialHandle, descriptor: MaterialDescriptor): void;
   destroyMaterial(material: MaterialHandle): void;
+
+  /**
+   * Lights. ADR-013 amendment 1.
+   *
+   * `createLight` returns a handle unconditionally rather than a
+   * `BackendResult`, matching `createCamera` and differing from
+   * `createGeometry`: a light allocates no buffer worth a budget, so there is
+   * nothing to refuse. Adding a failure path nobody can trigger would be a
+   * branch every caller has to handle and no backend can exercise.
+   */
+  createLight(descriptor: LightDescriptor): LightHandle;
+  updateLight(light: LightHandle, descriptor: LightDescriptor): void;
+  destroyLight(light: LightHandle): void;
 
   createCamera(descriptor: CameraDescriptor): CameraHandle;
   updateCamera(camera: CameraHandle, descriptor: CameraDescriptor): void;
@@ -337,6 +363,60 @@ export interface MirrorSnapshot {
   };
 }
 
+/**
+ * A light source. ADR-013 amendment 1 (IF-002).
+ *
+ * ========================================================================
+ * WHAT IS NOT IN HERE, AND WHY
+ * ========================================================================
+ * No position. No direction. No target. A light is oriented by its NODE's
+ * world matrix, exactly as a camera is, and it points down local −Z, exactly
+ * as a camera looks down local −Z (glTF §3.10.3, and Three's own convention).
+ *
+ * That is not a style choice. C3 forbids the backend deriving transforms, and
+ * a descriptor carrying its own direction would be a second source of truth
+ * for where a light points — one the engine could not animate, parent, instance
+ * or hide, because none of those go through a descriptor. Keeping orientation
+ * in the node is what makes a light animatable by the existing timeline with no
+ * new machinery.
+ *
+ * Intensity units follow Three's convention rather than photometric ones: this
+ * is a broadcast compositor, not a physically-based lighting simulation, and an
+ * operator setting "1" expects a sensible key light.
+ */
+export type LightDescriptor =
+  | {
+      readonly kind: "ambient";
+      readonly color: Rgba;
+      readonly intensity: number;
+    }
+  | {
+      /** Parallel rays down the node's local −Z. Position is irrelevant. */
+      readonly kind: "directional";
+      readonly color: Rgba;
+      readonly intensity: number;
+    }
+  | {
+      readonly kind: "point";
+      readonly color: Rgba;
+      readonly intensity: number;
+      /** World units at which the light reaches zero. 0 means no cutoff. */
+      readonly distance: number;
+      readonly decay: number;
+    }
+  | {
+      /** A cone down the node's local −Z. */
+      readonly kind: "spot";
+      readonly color: Rgba;
+      readonly intensity: number;
+      readonly distance: number;
+      /** Half-angle of the cone, radians. */
+      readonly angle: number;
+      /** 0..1. Softness of the cone edge. */
+      readonly penumbra: number;
+      readonly decay: number;
+    };
+
 export interface MirrorNodeSnapshot {
   /** Stable within a snapshot; comparable across backends. Not a handle. */
   readonly path: string;
@@ -344,5 +424,5 @@ export interface MirrorNodeSnapshot {
   readonly visible: boolean;
   readonly layers: number;
   readonly renderOrder: number;
-  readonly attachment: "none" | "mesh" | "camera";
+  readonly attachment: "none" | "mesh" | "camera" | "light";
 }

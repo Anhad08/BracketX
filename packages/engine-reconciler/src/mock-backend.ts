@@ -17,6 +17,8 @@ import type {
   BackendCapabilities,
   BackendResult,
   CameraDescriptor,
+  LightDescriptor,
+  LightHandle,
   CameraHandle,
   GeometryDescriptor,
   GeometryHandle,
@@ -44,7 +46,8 @@ interface MockNode {
   visible: boolean;
   layers: number;
   renderOrder: number;
-  attachment: "none" | "mesh" | "camera";
+  attachment: "none" | "mesh" | "camera" | "light";
+  light: number | null;
   geometry: number | null;
   material: number | null;
   camera: number | null;
@@ -80,6 +83,8 @@ export interface MockBackendStats {
   readonly materialsCreated: number;
   readonly materialsDestroyed: number;
   readonly camerasCreated: number;
+  readonly lightsCreated: number;
+  readonly lightsDestroyed: number;
   readonly camerasDestroyed: number;
   readonly renderCalls: number;
   /** Every setWorldMatrix, setVisible, etc. Used to prove minimal updates. */
@@ -104,6 +109,7 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
   #geometries = new Set<number>();
   #textures = new Set<number>();
   #materials = new Map<number, MaterialDescriptor>();
+  #lights = new Map<number, LightDescriptor>();
   #cameras = new Map<number, CameraDescriptor>();
   #renderTargets = new Set<number>();
 
@@ -120,6 +126,8 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
     materialsCreated: 0,
     materialsDestroyed: 0,
     camerasCreated: 0,
+    lightsCreated: 0,
+    lightsDestroyed: 0,
     camerasDestroyed: 0,
     renderCalls: 0,
     writes: 0,
@@ -142,6 +150,7 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
       layers: 1,
       renderOrder: 0,
       attachment: "none",
+      light: null,
       geometry: null,
       material: null,
       camera: null,
@@ -244,6 +253,20 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
     record.geometry = geometry;
     record.material = material;
     record.camera = null;
+    record.light = null;
+    this.#counters.writes += 1;
+  }
+
+  attachLight(node: NodeHandle, light: LightHandle): void {
+    const record = this.#requireNode(node, "attachLight");
+    if (!this.#lights.has(light)) {
+      throw new MirrorBackendViolation(`unknown light handle ${light}`);
+    }
+    record.attachment = "light";
+    record.light = light;
+    record.geometry = null;
+    record.material = null;
+    record.camera = null;
     this.#counters.writes += 1;
   }
 
@@ -256,6 +279,7 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
     record.camera = camera;
     record.geometry = null;
     record.material = null;
+    record.light = null;
     this.#counters.writes += 1;
   }
 
@@ -265,6 +289,7 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
     record.geometry = null;
     record.material = null;
     record.camera = null;
+    record.light = null;
     this.#counters.writes += 1;
   }
 
@@ -361,6 +386,36 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
       );
     }
     this.#counters.materialsDestroyed += 1;
+  }
+
+  createLight(descriptor: LightDescriptor): LightHandle {
+    this.#assertUsable();
+    const handle = this.#nextHandle++;
+    this.#lights.set(handle, descriptor);
+    this.#counters.lightsCreated += 1;
+    return handle as LightHandle;
+  }
+
+  updateLight(light: LightHandle, descriptor: LightDescriptor): void {
+    if (!this.#lights.has(light)) {
+      throw new MirrorBackendViolation(`unknown light handle ${light}`);
+    }
+    this.#lights.set(light, descriptor);
+    this.#counters.writes += 1;
+  }
+
+  destroyLight(light: LightHandle): void {
+    if (!this.#lights.delete(light)) {
+      throw new MirrorBackendViolation(
+        `destroyLight(${light}) on an unknown or already-destroyed handle`,
+      );
+    }
+    this.#counters.lightsDestroyed += 1;
+  }
+
+  /** The descriptor a light currently holds. Verification only. */
+  lightDescriptor(light: LightHandle): LightDescriptor | undefined {
+    return this.#lights.get(light);
   }
 
   createCamera(descriptor: CameraDescriptor): CameraHandle {

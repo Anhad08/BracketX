@@ -15,6 +15,13 @@
  * cache would be wrong.
  */
 import {
+  AmbientLight,
+  DirectionalLight,
+  Light,
+  Matrix4,
+  Object3D,
+  PointLight,
+  SpotLight,
   BufferAttribute,
   BufferGeometry,
   Color,
@@ -34,6 +41,7 @@ import {
 } from "three";
 
 import type {
+  LightDescriptor,
   CameraDescriptor,
   GeometryDescriptor,
   MaterialDescriptor,
@@ -428,3 +436,77 @@ export function disableAutoMatrix(object: {
   object.matrixAutoUpdate = false;
   object.matrixWorldAutoUpdate = false;
 }
+
+// ---------------------------------------------------------------------------
+// Lights — ADR-013 amendment 1 (IF-002)
+// ---------------------------------------------------------------------------
+
+/**
+ * A Three light from a descriptor.
+ *
+ * The descriptor carries NO position and NO direction, and neither does
+ * anything here. Placement is the node's world matrix, which the engine
+ * computed; orientation is local -Z, expressed through a target object the
+ * backend places by composing that same matrix with a constant offset.
+ *
+ * Colours arrive linear and premultiplied (C9). Three wants an unpremultiplied
+ * linear colour and a separate intensity, so alpha is divided back out here —
+ * a light with alpha is not a concept, but the contract says premultiplied and
+ * a silent mismatch would darken every light by its own alpha.
+ */
+export function createLight(
+  descriptor: LightDescriptor,
+): { object: Light; target: Object3D | null } {
+  const object = ((): Light => {
+    switch (descriptor.kind) {
+      case "ambient":
+        return new AmbientLight();
+      case "directional":
+        return new DirectionalLight();
+      case "point":
+        return new PointLight();
+      case "spot":
+      default:
+        return new SpotLight();
+    }
+  })();
+
+  applyLight(object, descriptor);
+  const target =
+    descriptor.kind === "directional" || descriptor.kind === "spot"
+      ? (() => {
+          const node = new Object3D();
+          node.position.set(0, 0, -1);
+          (object as DirectionalLight | SpotLight).target = node;
+          return node;
+        })()
+      : null;
+
+  return { object, target };
+}
+
+/** Updates a light in place. Idempotent, per C4. */
+export function applyLight(light: Light, descriptor: LightDescriptor): void {
+  const alpha = descriptor.color[3];
+  const scale = alpha > 0 ? 1 / alpha : 1;
+  light.color.setRGB(
+    descriptor.color[0] * scale,
+    descriptor.color[1] * scale,
+    descriptor.color[2] * scale,
+  );
+  light.intensity = descriptor.intensity;
+
+  if (descriptor.kind === "point" || descriptor.kind === "spot") {
+    const positional = light as PointLight | SpotLight;
+    positional.distance = descriptor.distance;
+    positional.decay = descriptor.decay;
+  }
+  if (descriptor.kind === "spot") {
+    const spot = light as SpotLight;
+    spot.angle = descriptor.angle;
+    spot.penumbra = descriptor.penumbra;
+  }
+}
+
+/** One unit down local -Z. What "a light points forward" means, as a matrix. */
+export const LIGHT_TARGET_OFFSET = new Matrix4().makeTranslation(0, 0, -1);
