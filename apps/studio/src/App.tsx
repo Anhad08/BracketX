@@ -32,7 +32,9 @@ import {
   loadAssetRecords,
   referencedAssets,
   saveAssetRecords,
+  thumbnailUrl,
 } from "./studio/library-assets";
+import { hashBytes } from "@bracketx/engine-assets";
 import type { AssetRecord, AssetRegistry } from "@bracketx/engine-assets";
 import { DEFAULT_VIEWPORT, zoomAt, type Viewport } from "./studio/viewport";
 import {
@@ -223,6 +225,52 @@ export function App() {
     };
   }, []);
 
+  const [thumbnails, setThumbnails] = useState<ReadonlyMap<string, string>>(
+    new Map(),
+  );
+
+  /**
+   * Publishes the registry's state to the UI and to disk.
+   *
+   * One function because the three things always move together — records for
+   * rendering, thumbnails for the tiles, storage for the next session — and
+   * three call sites that each remembered two of them is how a library shows a
+   * renamed asset that comes back with its old name.
+   */
+  const commitAssets = useCallback(() => {
+    const registry = registryRef.current;
+    if (registry === null) return;
+    const records = registry.records();
+    setAssets(records);
+    saveAssetRecords(storage(), records);
+
+    const previews = new Map<string, string>();
+    for (const record of records) {
+      const decoded = registry.decoded(record.id);
+      if (decoded === undefined || decoded.kind !== "image") continue;
+      const url = thumbnailUrl(decoded.value as { width: number; height: number; pixels: Uint8Array });
+      if (url !== null) previews.set(record.id, url);
+    }
+    setThumbnails(previews);
+  }, []);
+
+  const mutateAsset = useCallback(
+    (
+      assetId: string,
+      patch: {
+        name?: string;
+        tags?: readonly string[];
+        favorite?: boolean;
+      },
+    ) => {
+      const registry = registryRef.current;
+      if (registry === null) return;
+      registry.update(assetId, patch, new Date().toISOString());
+      commitAssets();
+    },
+    [commitAssets],
+  );
+
   // Usage tracking. IF-006 — "which graphics use this logo" must be exact and
   // instant over a library of thousands, so it is RECORDED as documents open
   // and close rather than recomputed by walking every document on demand.
@@ -273,7 +321,7 @@ export function App() {
         // Whatever a user brought in a previous session, decoded before it is
         // needed — an asset resolving mid-broadcast pops on screen.
         await Promise.all(restored.map((record) => registry.resolve(record.id)));
-        if (!cancelled) setAssets(registry.records());
+        if (!cancelled) commitAssets();
       } catch (cause) {
         // Images are unavailable. Everything else still works and a graphic
         // containing one renders without it rather than not at all.
@@ -1112,7 +1160,44 @@ export function App() {
             session={session}
             installed={installed}
             assets={assets}
+            thumbnails={thumbnails}
             usersOf={(assetId) => registryRef.current?.usersOf(assetId) ?? []}
+            onRename={(assetId, name) => mutateAsset(assetId, { name })}
+            onFavourite={(assetId, favorite) => mutateAsset(assetId, { favorite })}
+            onTags={(assetId, tags) => mutateAsset(assetId, { tags })}
+            onDuplicate={(assetId) => {
+              const registry = registryRef.current;
+              if (registry === null) return;
+              registry.duplicate(assetId, ids("asset"), new Date().toISOString());
+              commitAssets();
+            }}
+            onDelete={(assetId) => {
+              const registry = registryRef.current;
+              if (registry === null) return;
+              void registry.remove(assetId).then(commitAssets);
+            }}
+            onReplace={async (assetId, file) => {
+              const registry = registryRef.current;
+              if (registry === null) return "The asset library is still starting.";
+              const bytes = new Uint8Array(await file.arrayBuffer());
+              // Decoded BEFORE the record is repointed, so a bad file leaves the
+              // existing logo on air rather than replacing it with nothing.
+              const codec = registry.codecFor(bytes, file.type);
+              if (codec === undefined) return "Streamatrix cannot read that file yet.";
+              const hash = hashBytes(bytes);
+              await registry.store.put(hash, bytes);
+              registry.replace(assetId, hash, bytes.length, new Date().toISOString());
+              const resolved = await registry.resolve(assetId);
+              if (!resolved.ok) return resolved.reason;
+              registry.register({
+                ...registry.record(assetId)!,
+                metadata: resolved.asset.metadata,
+              });
+              commitAssets();
+              // Every graphic using this id repaints, without being re-opened.
+              session?.render();
+              return null;
+            }}
             onImport={async (file) => {
               const registry = registryRef.current;
               if (registry === null) return "The asset library is still starting.";
@@ -1127,9 +1212,7 @@ export function App() {
                 () => ids("asset"),
               );
               if (!result.ok) return result.reason;
-              const records = registry.records();
-              setAssets(records);
-              saveAssetRecords(storage(), records);
+              commitAssets();
               // The open graphic may already reference it by id — a re-import
               // of a replaced logo, say — so re-project rather than waiting for
               // the next edit.

@@ -99,6 +99,21 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   await expect(page.getByTestId("import-problem")).toHaveCount(0);
   await shot(page, "imported-badge");
 
+  // The library is a library: a preview, an inspector, and the operations a
+  // broadcaster expects of one.
+  await page
+    .getByTestId("asset-grid")
+    .locator(".asset-tile")
+    .filter({ has: page.getByText("Club Badge", { exact: true }) })
+    .first()
+    .click();
+  await expect(page.getByTestId("asset-inspector")).toBeVisible();
+  await page.getByTestId("asset-favourite").click();
+  await page.getByTestId("asset-tags").fill("sport, home");
+  await page.getByTestId("asset-tags").blur();
+  await page.waitForTimeout(200);
+  await shot(page, "asset-inspector");
+
   // The id the import minted, read WHILE the library is on screen — the tiles
   // do not exist on any other section.
   const badgeId = await page

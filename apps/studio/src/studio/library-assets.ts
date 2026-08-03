@@ -15,6 +15,7 @@
  * halves sync by completely different and much simpler rules.
  */
 import type { SceneDocument, SceneNode } from "@bracketx/engine-scene";
+import { thumbnail } from "@bracketx/engine-image";
 import {
   hashBytes,
   type AssetKind,
@@ -115,6 +116,43 @@ export function referencedAssets(document: SceneDocument): readonly string[] {
   visit(document.root);
 
   return [...found];
+}
+
+/**
+ * A thumbnail as a data URL, drawn from the pixels that are on air.
+ *
+ * Goes through a canvas because that is the only way to get an encoded image
+ * out of raw texels in a browser, and a data URL because it is the only form
+ * an `<img>` can hold without a lifetime to manage — an object URL would need
+ * revoking, and a library re-rendering on every keystroke would leak one per
+ * tile per render.
+ *
+ * Returns null rather than throwing when there is no canvas: a headless test
+ * and a locked-down webview both hit that path, and a missing thumbnail must
+ * cost a tile its picture rather than the panel its render.
+ */
+export function thumbnailUrl(image: {
+  width: number;
+  height: number;
+  pixels: Uint8Array;
+}): string | null {
+  try {
+    const thumb = thumbnail(image, 96);
+    const canvas = document.createElement("canvas");
+    canvas.width = thumb.width;
+    canvas.height = thumb.height;
+    const context = canvas.getContext("2d");
+    if (context === null) return null;
+    // `createImageData` then `set`, rather than the `ImageData` constructor:
+    // the constructor's typed-array overload disagrees with the DOM lib across
+    // TypeScript versions, and this form is stable and one allocation cheaper.
+    const target = context.createImageData(thumb.width, thumb.height);
+    target.data.set(thumb.pixels);
+    context.putImageData(target, 0, 0);
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
 }
 
 export type ImportResult =

@@ -241,7 +241,7 @@ describe("references", () => {
     registry.retain("ast_logo", "scn_a");
     registry.retain("ast_logo", "scn_b");
     registry.retain("ast_bg", "scn_a");
-    expect(registry.usersOf("ast_logo").sort()).toEqual(["scn_a", "scn_b"]);
+    expect([...registry.usersOf("ast_logo")].sort()).toEqual(["scn_a", "scn_b"]);
 
     // Closing a document costs what it held, not a scan of everything.
     registry.releaseHolder("scn_a");
@@ -318,6 +318,76 @@ describe("replacing bytes keeps the id", () => {
     registry.register(record({ id: "ast_logo", hash: "h" }));
     expect(registry.replace("ast_logo", "h", 8, NOW)).toBe(false);
     expect(registry.record("ast_logo")!.history).toEqual([]);
+  });
+});
+
+describe("management", () => {
+  it("edits opinion and refuses to edit fact", () => {
+    const { registry } = setup();
+    registry.register(record({ id: "ast_x", hash: "h", name: "untitled" }));
+
+    registry.update(
+      "ast_x",
+      { name: "Club Badge", tags: ["sport", "logo"], favorite: true },
+      "2026-02-02T00:00:00.000Z",
+    );
+    const after = registry.record("ast_x")!;
+    expect(after.name).toBe("Club Badge");
+    expect(after.tags).toEqual(["sport", "logo"]);
+    expect(after.favorite).toBe(true);
+    expect(after.updatedAt).toBe("2026-02-02T00:00:00.000Z");
+
+    // Facts about the content are untouched, because a record that disagreed
+    // with the bytes it addresses is the one inconsistency content addressing
+    // exists to make impossible.
+    expect(after.hash).toBe("h");
+    expect(after.bytes).toBe(8);
+    expect(after.origin).toBe("imported");
+  });
+
+  it("duplicates a record without duplicating bytes", () => {
+    const { registry } = setup();
+    registry.register(record({ id: "ast_x", hash: "h", name: "Badge", origin: "shipped" }));
+
+    const copy = registry.duplicate("ast_x", "ast_copy", NOW)!;
+    expect(copy.hash).toBe("h");
+    expect(copy.name).toBe("Badge copy");
+    // A duplicate of a shipped asset is the USER'S — editable and deletable
+    // where the original is not.
+    expect(copy.origin).toBe("imported");
+    expect(registry.duplicates()).toHaveLength(1);
+  });
+
+  it("reclaims bytes on delete only when nothing can still reach them", async () => {
+    const { registry, store } = setup();
+    await store.put("shared", new Uint8Array([0xaa, 1]));
+    registry.register(record({ id: "ast_a", hash: "shared" }));
+    registry.register(record({ id: "ast_b", hash: "shared" }));
+
+    // Two records address one byte range. Removing one must not break the other
+    // — the dedup-shaped bug.
+    await registry.remove("ast_a");
+    expect(await store.has("shared")).toBe(true);
+
+    await registry.remove("ast_b");
+    expect(await store.has("shared")).toBe(false);
+  });
+
+  it("ranks a name match above a tag match", () => {
+    const { registry } = setup();
+    registry.register(record({ id: "ast_1", hash: "h1", name: "Sponsor Mark" }));
+    registry.register(record({ id: "ast_2", hash: "h2", name: "Badge", tags: ["sponsor"] }));
+    registry.register(record({ id: "ast_3", hash: "h3", name: "Sponsor" }));
+
+    // Exact, then prefix, then tag. A designer typing "sponsor" means the thing
+    // CALLED Sponsor.
+    expect(registry.search("sponsor").map((r) => r.id)).toEqual([
+      "ast_3",
+      "ast_1",
+      "ast_2",
+    ]);
+    expect(registry.search("  ").length).toBe(3);
+    expect(registry.search("nothing-here")).toEqual([]);
   });
 });
 

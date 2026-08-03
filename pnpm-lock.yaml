@@ -87,6 +87,9 @@ importers:
       '@bracketx/engine-host':
         specifier: workspace:*
         version: link:../../packages/engine-host
+      '@bracketx/engine-image':
+        specifier: workspace:*
+        version: link:../../packages/engine-image
       '@bracketx/engine-reconciler':
         specifier: workspace:*
         version: link:../../packages/engine-reconciler

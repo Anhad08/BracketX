@@ -258,6 +258,13 @@ export interface AssetsProps {
   /** Returns a message on failure, or null when the import succeeded. */
   readonly onImport: (file: File) => Promise<string | null>;
   readonly usersOf: (assetId: string) => readonly string[];
+  readonly thumbnails: ReadonlyMap<string, string>;
+  readonly onRename: (assetId: string, name: string) => void;
+  readonly onFavourite: (assetId: string, favorite: boolean) => void;
+  readonly onTags: (assetId: string, tags: readonly string[]) => void;
+  readonly onDuplicate: (assetId: string) => void;
+  readonly onDelete: (assetId: string) => void;
+  readonly onReplace: (assetId: string, file: File) => Promise<string | null>;
 }
 
 function fileSize(bytes: number): string {
@@ -272,12 +279,34 @@ export function Assets({
   assets,
   onImport,
   usersOf,
+  thumbnails,
+  onRename,
+  onFavourite,
+  onTags,
+  onDuplicate,
+  onDelete,
+  onReplace,
 }: AssetsProps) {
   const [importing, setImporting] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement | null>(null);
+  const replacer = useRef<HTMLInputElement | null>(null);
 
-  const images = assets.filter((asset) => asset.kind === "image");
+  const needle = query.trim().toLowerCase();
+  const images = assets
+    .filter((asset) => asset.kind === "image")
+    .filter(
+      (asset) =>
+        needle === "" ||
+        asset.name.toLowerCase().includes(needle) ||
+        asset.tags.some((tag) => tag.toLowerCase().includes(needle)),
+    );
+
+  // Selection survives a rename but not a delete, so the inspector is read from
+  // the live list rather than held as a copy.
+  const selected = assets.find((asset) => asset.id === picked) ?? null;
 
   const take = async (files: FileList | null): Promise<void> => {
     if (files === null || files.length === 0) return;
@@ -321,6 +350,14 @@ export function Assets({
           <span className="dim">
             Logos, marks and backgrounds. Drop a file anywhere here
           </span>
+          <input
+            className="field"
+            placeholder="Search assets"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label="Search assets"
+            data-testid="asset-search"
+          />
           <button
             type="button"
             className="ghost"
@@ -352,18 +389,31 @@ export function Assets({
 
         {images.length === 0 ? (
           <p className="note pad">
-            Nothing yet. Import a PNG and it becomes available to every graphic.
+            {needle === ""
+              ? "Nothing yet. Import a PNG and it becomes available to every graphic."
+              : `Nothing matches "${query}".`}
           </p>
         ) : (
           <div className="asset-grid" data-testid="asset-grid">
             {images.map((asset) => {
               const used = usersOf(asset.id);
+              const preview = thumbnails.get(asset.id);
               return (
-                <span
-                  className="asset-tile"
+                <button
+                  type="button"
+                  className={`asset-tile${picked === asset.id ? " on" : ""}`}
                   key={asset.id}
                   data-testid={`asset-${asset.id}`}
+                  onClick={() => setPicked(asset.id === picked ? null : asset.id)}
                 >
+                  <span className="asset-thumb">
+                    {preview === undefined ? (
+                      <span className="dim tiny">no preview</span>
+                    ) : (
+                      <img src={preview} alt="" />
+                    )}
+                    {asset.favorite ? <em className="pin">★</em> : null}
+                  </span>
                   <strong>{asset.name}</strong>
                   <span className="dim tiny">
                     {asset.metadata.width ?? "?"} x {asset.metadata.height ?? "?"}
@@ -374,11 +424,141 @@ export function Assets({
                     {asset.origin === "shipped" ? "Included" : "Yours"}
                     {used.length > 0 ? ` · used by ${used.length}` : " · unused"}
                   </span>
-                </span>
+                </button>
               );
             })}
           </div>
         )}
+        {selected === null ? null : (
+          <div className="asset-inspector" data-testid="asset-inspector">
+            <div className="row">
+              <input
+                className="field grow"
+                key={`${selected.id}:${selected.name}`}
+                defaultValue={selected.name}
+                aria-label="Asset name"
+                data-testid="asset-name"
+                onBlur={(event) => {
+                  const next = event.target.value.trim();
+                  if (next !== "" && next !== selected.name) {
+                    onRename(selected.id, next);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="ghost"
+                data-testid="asset-favourite"
+                aria-pressed={selected.favorite}
+                onClick={() => onFavourite(selected.id, !selected.favorite)}
+              >
+                {selected.favorite ? "★ Favourite" : "☆ Favourite"}
+              </button>
+            </div>
+
+            <dl className="asset-facts">
+              <div>
+                <dt>Size</dt>
+                <dd>
+                  {selected.metadata.width ?? "?"} x{" "}
+                  {selected.metadata.height ?? "?"} px
+                </dd>
+              </div>
+              <div>
+                <dt>Stored</dt>
+                <dd>{fileSize(selected.bytes)}</dd>
+              </div>
+              <div>
+                <dt>Used by</dt>
+                <dd data-testid="asset-usage">
+                  {usersOf(selected.id).length} graphic
+                  {usersOf(selected.id).length === 1 ? "" : "s"}
+                </dd>
+              </div>
+              <div>
+                <dt>Versions</dt>
+                {/* The current bytes plus everything it can roll back to. */}
+                <dd>{selected.history.length + 1}</dd>
+              </div>
+            </dl>
+
+            <input
+              className="field"
+              key={`${selected.id}:tags`}
+              defaultValue={selected.tags.join(", ")}
+              placeholder="Tags, comma separated"
+              aria-label="Tags"
+              data-testid="asset-tags"
+              onBlur={(event) =>
+                onTags(
+                  selected.id,
+                  event.target.value
+                    .split(",")
+                    .map((tag) => tag.trim())
+                    .filter((tag) => tag.length > 0),
+                )
+              }
+            />
+
+            <div className="row">
+              <button
+                type="button"
+                className="ghost"
+                data-testid="asset-replace"
+                onClick={() => replacer.current?.click()}
+              >
+                Replace…
+              </button>
+              <input
+                ref={replacer}
+                type="file"
+                accept="image/png"
+                hidden
+                data-testid="asset-replace-file"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file === undefined) return;
+                  const failure = await onReplace(selected.id, file);
+                  setProblem(failure === null ? null : `${file.name}: ${failure}`);
+                }}
+              />
+              <button
+                type="button"
+                className="ghost"
+                data-testid="asset-duplicate"
+                onClick={() => onDuplicate(selected.id)}
+              >
+                Duplicate
+              </button>
+              <button
+                type="button"
+                className="ghost danger"
+                data-testid="asset-delete"
+                // Included assets return on the next launch, so offering to
+                // delete one would be a button that does not do what it says.
+                disabled={selected.origin === "shipped"}
+                title={
+                  selected.origin === "shipped"
+                    ? "Included assets cannot be removed"
+                    : undefined
+                }
+                onClick={() => {
+                  onDelete(selected.id);
+                  setPicked(null);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+
+            <p className="note">
+              Replacing keeps this asset's identity, so every graphic using it
+              updates without being re-opened.
+            </p>
+          </div>
+        )}
+
         <p className="note pad">
           PNG today. Vector, video and audio are coming — they are named here
           rather than shown as empty shelves.

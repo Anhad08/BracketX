@@ -8,6 +8,7 @@
  */
 export { decodePng, ImageDecodeError, type DecodedImage } from "./png";
 export { toPremultipliedLinear } from "./color";
+export { thumbnail, type Thumbnail } from "./preview";
 export {
   ImageLibrary,
   type ImageData,

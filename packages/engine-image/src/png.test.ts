@@ -3,6 +3,7 @@ import { deflateSync } from "node:zlib";
 
 import { decodePng, ImageDecodeError } from "./png";
 import { toPremultipliedLinear } from "./color";
+import { thumbnail } from "./preview";
 import { ImageLibrary } from "./library";
 
 /**
@@ -289,5 +290,53 @@ describe("the library", () => {
     expect(library.release("a")).toBe(true);
     expect(library.bytes).toBe(0);
     expect(library.release("a")).toBe(false);
+  });
+});
+
+describe("thumbnails", () => {
+  it("round-trips a colour back to what was imported", () => {
+    // The preview must agree with what is on air: decode -> premultiplied
+    // linear -> thumbnail -> sRGB has to land back on the authored value, or
+    // the library is showing a different red from the graphic.
+    const source = toPremultipliedLinear(new Uint8Array([0xd7, 0x26, 0x3d, 255]));
+    const thumb = thumbnail({ width: 1, height: 1, pixels: source }, 128);
+    expect([...thumb.pixels]).toEqual([0xd7, 0x26, 0x3d, 255]);
+  });
+
+  it("averages in linear space, not in sRGB", () => {
+    // Two texels, black and white. The correct linear average is mid-GREY in
+    // linear, which encodes to about 188 in sRGB — not 128. Averaging encoded
+    // values instead is the classic too-dark thumbnail.
+    const source = toPremultipliedLinear(
+      new Uint8Array([0, 0, 0, 255, 255, 255, 255, 255]),
+    );
+    const thumb = thumbnail({ width: 2, height: 1, pixels: source }, 1);
+    expect(thumb.width).toBe(1);
+    expect(thumb.pixels[0]).toBeGreaterThan(180);
+    expect(thumb.pixels[0]).toBeLessThan(196);
+  });
+
+  it("keeps a transparent border transparent and does not darken its neighbour", () => {
+    // Premultiplied averaging is what makes this work: a transparent texel
+    // contributes no colour, so the surviving pixel keeps its own.
+    const source = toPremultipliedLinear(
+      new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0]),
+    );
+    const thumb = thumbnail({ width: 2, height: 1, pixels: source }, 1);
+    expect(thumb.pixels[3]).toBe(128);
+    // Un-premultiplied back to white, not to half-grey.
+    expect(thumb.pixels[0]).toBeGreaterThan(250);
+  });
+
+  it("does not resample an image already within bounds", () => {
+    const source = toPremultipliedLinear(new Uint8Array(4 * 4).fill(255));
+    const thumb = thumbnail({ width: 2, height: 2, pixels: source }, 128);
+    expect([thumb.width, thumb.height]).toEqual([2, 2]);
+  });
+
+  it("preserves aspect on a wide image", () => {
+    const source = new Uint8Array(400 * 100 * 4).fill(255);
+    const thumb = thumbnail({ width: 400, height: 100, pixels: source }, 128);
+    expect([thumb.width, thumb.height]).toEqual([128, 32]);
   });
 });

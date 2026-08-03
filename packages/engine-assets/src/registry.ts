@@ -175,6 +175,115 @@ export class AssetRegistry {
     return true;
   }
 
+  /**
+   * Edits the parts of a record a user owns.
+   *
+   * Narrow on purpose. `hash`, `kind`, `bytes` and `origin` are FACTS about the
+   * content and are not editable — changing them would make the record disagree
+   * with the bytes it addresses, which is the one inconsistency content
+   * addressing exists to make impossible. Renaming, tagging, filing and
+   * favouriting are the parts that are opinion, and those are the parts here.
+   */
+  update(
+    assetId: string,
+    patch: {
+      readonly name?: string;
+      readonly tags?: readonly string[];
+      readonly collections?: readonly string[];
+      readonly favorite?: boolean;
+    },
+    at: string,
+  ): boolean {
+    const existing = this.#records.get(assetId);
+    if (existing === undefined) return false;
+    this.#records.set(assetId, {
+      ...existing,
+      ...(patch.name === undefined ? {} : { name: patch.name }),
+      ...(patch.tags === undefined ? {} : { tags: [...patch.tags] }),
+      ...(patch.collections === undefined
+        ? {}
+        : { collections: [...patch.collections] }),
+      ...(patch.favorite === undefined ? {} : { favorite: patch.favorite }),
+      updatedAt: at,
+    });
+    return true;
+  }
+
+  /**
+   * A second record over the same content.
+   *
+   * Free, and that is the point: duplicating a 40 MB asset copies a record, not
+   * bytes, because identity is the hash. A designer duplicating a logo to try
+   * different tags on it should not pay 40 MB for the experiment.
+   */
+  duplicate(assetId: string, newId: string, at: string): AssetRecord | null {
+    const source = this.#records.get(assetId);
+    if (source === undefined) return null;
+    const copy: AssetRecord = {
+      ...source,
+      id: newId,
+      name: `${source.name} copy`,
+      // The COPY is the user's, whatever the original was. A duplicate of a
+      // shipped asset is editable and deletable; the shipped one is not.
+      origin: "imported",
+      createdAt: at,
+      updatedAt: at,
+      favorite: false,
+      history: [],
+    };
+    this.#records.set(newId, copy);
+    return copy;
+  }
+
+  /**
+   * Removes a record and reclaims its bytes if nothing else addresses them.
+   *
+   * The two halves are deliberately different operations. Forgetting a record
+   * is instant and safe; deleting bytes is only safe once no other record — and
+   * no other record's history — can still reach them, which is exactly what
+   * `orphanedHashes` computes.
+   */
+  async remove(assetId: string): Promise<boolean> {
+    const record = this.#records.get(assetId);
+    if (record === undefined) return false;
+    this.unregister(assetId);
+    for (const hash of await this.orphanedHashes()) {
+      await this.store.delete(hash);
+    }
+    return true;
+  }
+
+  /**
+   * Records matching a query, ranked by where the match landed.
+   *
+   * A name match outranks a tag match, which outranks a kind match, because a
+   * designer typing "badge" means the thing called Badge. Over a library of
+   * thousands this is a single pass and no index — an index would need
+   * invalidating on every rename, and the pass is faster than maintaining one
+   * at the sizes a broadcaster actually has.
+   */
+  search(query: string): readonly AssetRecord[] {
+    const needle = query.trim().toLowerCase();
+    if (needle === "") return this.records();
+
+    const scored: { record: AssetRecord; rank: number }[] = [];
+    for (const record of this.#records.values()) {
+      const name = record.name.toLowerCase();
+      let rank = -1;
+      if (name === needle) rank = 0;
+      else if (name.startsWith(needle)) rank = 1;
+      else if (name.includes(needle)) rank = 2;
+      else if (record.tags.some((tag) => tag.toLowerCase().includes(needle))) rank = 3;
+      else if (record.collections.some((c) => c.toLowerCase().includes(needle))) rank = 4;
+      else if (record.kind.includes(needle)) rank = 5;
+      if (rank >= 0) scored.push({ record, rank });
+    }
+    scored.sort(
+      (a, b) => a.rank - b.rank || a.record.name.localeCompare(b.record.name),
+    );
+    return scored.map((entry) => entry.record);
+  }
+
   // -------------------------------------------------------------------------
   // Resolution and residency
   // -------------------------------------------------------------------------
