@@ -40,6 +40,8 @@ export const FREE_TIER: readonly string[] = [
   "pack_motion_snap",
   "pack_motion_emphasis",
   "pack_broadcast_starter",
+  "pack_news_essentials",
+  "pack_sport_essentials",
 ];
 
 export type Theme = "dark" | "light";

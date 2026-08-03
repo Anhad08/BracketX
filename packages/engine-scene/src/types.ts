@@ -48,7 +48,21 @@ export type VariableType =
   | "color"
   | "asset"
   | "vector3"
-  | "transform";
+  | "transform"
+  /**
+   * An array. What a `repeat` container's `source` points at (§6.5).
+   *
+   * Collections shipped without this, so the one variable kind the repeat
+   * mechanism exists to consume could not be DECLARED — a standings list had to
+   * call itself a string, and the inspector had no way to know it was not one.
+   * The engine never minded, because `repeat` reads the value and a non-array
+   * resolves to zero instances; the product minded, because a designer cannot
+   * be shown what they are editing.
+   *
+   * Additive: nothing switches exhaustively on this union, and it is
+   * declarative metadata rather than a resolution input.
+   */
+  | "list";
 
 export interface SceneVariable {
   readonly id: string;

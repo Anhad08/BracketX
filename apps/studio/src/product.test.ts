@@ -164,15 +164,58 @@ describe("the free tier", () => {
     // A first-time user who must install something before they can evaluate
     // anything has been asked to do work before seeing value.
     expect(DEFAULT_WORKSPACE.installedPacks).toEqual(FREE_TIER);
-    expect(FREE_TIER.length).toBe(7);
+    expect(FREE_TIER.length).toBe(9);
     for (const id of FREE_TIER) expect(packById(id), id).toBeDefined();
   });
 
-  it("ships three themes, three motion packs and a graphics pack", () => {
+  it("ships three themes, three motion packs and three graphics packs", () => {
     const byKind = (kind: string) => PACKS.filter((pack) => pack.kind === kind);
     expect(byKind("theme")).toHaveLength(3);
     expect(byKind("motion")).toHaveLength(3);
-    expect(byKind("graphics")).toHaveLength(1);
+    expect(byKind("graphics")).toHaveLength(3);
+  });
+
+  it("covers the jobs a broadcaster actually has", () => {
+    // Three templates cannot demonstrate a broadcast platform, which was the
+    // largest gap in the August product audit. Breadth is the claim, so breadth
+    // is what is asserted: news, sport, events and sponsorship each reachable
+    // from the free tier without buying anything.
+    const ids = new Set(templatesOf().map((template) => template.id));
+    for (const id of [
+      "tpl_lower_third",
+      "tpl_title_card",
+      "tpl_sponsor",
+      "tpl_ticker",
+      "tpl_breaking",
+      "tpl_scoreboard",
+      "tpl_leaderboard",
+      "tpl_countdown",
+    ]) {
+      expect(ids, id).toContain(id);
+    }
+    expect(ids.size).toBe(8);
+  });
+
+  it("gives every starter graphic an entrance", () => {
+    // A template that lands with a cut is a picture. Every one ships with the
+    // motion it needs, so a designer never has to build an "In" before they can
+    // put something to air.
+    for (const template of templatesOf()) {
+      const built = instantiateTemplate(
+        template,
+        testIdFactory(),
+        "2026-08-03T00:00:00.000Z",
+      );
+      const timelines = built.animations ?? [];
+      expect(timelines.length, template.name).toBeGreaterThan(0);
+      expect(
+        timelines.some((timeline) => timeline.name === "In"),
+        template.name,
+      ).toBe(true);
+      for (const timeline of timelines) {
+        expect(timeline.tracks.length, `${template.name}/${timeline.name}`).toBeGreaterThan(0);
+      }
+    }
   });
 
   it("survives a preference store that dropped it", () => {

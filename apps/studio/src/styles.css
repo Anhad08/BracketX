@@ -127,7 +127,27 @@ kbd {
 
 /* --- Panels ------------------------------------------------------------- */
 
-.panel { padding: 10px; border-bottom: 1px solid var(--line); min-height: 0; }
+/* ==========================================================================
+   A PANEL MUST NOT SHRINK BELOW ITS CONTENT
+   ==========================================================================
+   `.dock` is a flex column, so a panel's default `flex-shrink: 1` let the
+   toolbox compress under pressure while its text kept its own height — the
+   paragraph overflowed the box and the Layers header drew straight through it.
+   Caught by photographing a template, not by any assertion.
+
+   `flex: none` on every panel, and exactly one panel per dock is allowed to
+   take the slack (below). That is the whole fix, and it is the arrangement a
+   dock should have had from the start. */
+.panel { padding: 10px; border-bottom: 1px solid var(--line); min-height: 0; flex: none; }
+
+/* The list panels are the ones that grow and scroll; everything above them is
+   its intrinsic height. `min-height: 0` because a flex child will not scroll
+   without it — it is what lets the OL inside own the overflow. */
+.panel.hierarchy {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+.panel.hierarchy .outline { flex: 1; min-height: 0; }
+.panel.inspector { flex: 1; min-height: 0; overflow-y: auto; }
 .panel h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--dim); margin: 0 0 6px; }
 .panel h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin: 10px 0 4px; }
 .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }

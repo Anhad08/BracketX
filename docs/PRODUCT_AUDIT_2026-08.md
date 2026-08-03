@@ -75,10 +75,13 @@ Nine browser tests exercise these as real gestures.
   *This is a beta blocker for a paid Marketplace, not for a free tier.*
 
 ### Starter content
-- Three templates: lower third, scoreboard, title card. The brief asks for
-  tickers, countdowns, full screens, social, corporate and news graphics.
-  **This is content work, not engineering** — the components to build them all
-  exist. It is the largest remaining gap to "feels commercial".
+- ~~Three templates.~~ **Closed.** Eight templates across four jobs: lower
+  third, title card, sponsor bar, ticker, breaking news, scoreboard,
+  leaderboard, countdown — in three graphics packs, all free tier. Every one
+  ships with an entrance; the ticker ships with an exit because it is the one
+  graphic an operator genuinely takes down.
+- Still thin: no social or corporate graphics, and no transition packs. Both are
+  content, and the components exist.
 
 ### Platform
 - **Studio is not connected to `packages/auth`, `packages/db` or
@@ -117,16 +120,21 @@ against every shipped user-facing string.
 | Marketplace (free tier) | **Ready** |
 | Marketplace (paid, versioned) | **Blocked** — no package format |
 | Accounts, cloud, teams | **Blocked** — platform junction not built |
-| Starter content breadth | **Not ready** — 3 templates |
+| Starter content breadth | **Ready enough for beta** — 8 templates, 4 categories |
 | Vector, video, audio, 3D | **Deferred** — IF-006 |
 
 **Assessment: a free, local, image-and-text broadcast graphics tool is close to
 beta. A commercial cloud product is not.**
 
-The two things standing between here and a credible public beta are, in order:
+### Update — starter content closed
 
-1. **Starter content.** Three templates cannot demonstrate a broadcast platform.
-2. **The Studio↔platform junction.** Without accounts, there is no product to
-   sell and no way to deliver a paid Marketplace.
+One of the two blockers is gone. What remains:
+
+1. **The Studio↔platform junction.** Without accounts there is no product to
+   sell and no way to deliver a paid Marketplace. This is a **New Platform
+   Capability** and needs explicit approval before it starts.
+2. **Marketplace package format.** Versioning, dependencies and integrity have
+   nothing to operate on until packages carry a version. This IS existing
+   product completion and is the recommended next milestone.
 
 Neither is an engine problem. That is the healthiest finding in this audit.

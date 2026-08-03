@@ -56,6 +56,13 @@ import { transaction } from "./editing";
 import { DEFAULT_FONT_ASSET } from "./editing";
 import { STUDIO_FONTS } from "./fonts";
 import { STUDIO_IMAGES } from "./images";
+import {
+  BREAKING,
+  COUNTDOWN,
+  LEADERBOARD,
+  SPONSOR,
+  TICKER,
+} from "./essentials";
 import type { IdFactory } from "./ids";
 
 /**
@@ -65,7 +72,7 @@ import type { IdFactory } from "./ids";
  * a design pixel an output pixel exactly. Type sizes below are therefore what
  * a designer would type into any other tool — 56, not 0.52.
  */
-const STAGE_PPU = 108;
+export const STAGE_PPU = 108;
 
 
 export type PackKind = "theme" | "motion" | "graphics";
@@ -115,7 +122,7 @@ export type TokenLookup = (name: string, fallback: string) => VariableBinding;
 // ---------------------------------------------------------------------------
 
 /** Sibling order keys. Fractional indexing, so nothing renumbers on insert. */
-function nextOrder(previous: string | null): string {
+export function nextOrder(previous: string | null): string {
   return generateKeyBetween(previous, null);
 }
 
@@ -126,7 +133,7 @@ interface NodeOptions {
   readonly anchor?: SceneNode["anchor"];
 }
 
-function group(id: string, order: string, options: NodeOptions = {}): SceneNode {
+export function group(id: string, order: string, options: NodeOptions = {}): SceneNode {
   return {
     id,
     name: "Group",
@@ -141,7 +148,7 @@ function group(id: string, order: string, options: NodeOptions = {}): SceneNode 
   };
 }
 
-function bar(
+export function bar(
   ids: IdFactory,
   name: string,
   order: string,
@@ -162,7 +169,7 @@ function bar(
   };
 }
 
-function label(
+export function label(
   ids: IdFactory,
   name: string,
   order: string,
@@ -225,7 +232,7 @@ function label(
  * `fit: "contain"` is not decoration. A brand mark stretched to fill a box is
  * the most visible mistake this component can make.
  */
-function logo(
+export function logo(
   ids: IdFactory,
   name: string,
   order: string,
@@ -249,7 +256,7 @@ function logo(
   };
 }
 
-function camera(ids: IdFactory, order: string): SceneNode {
+export function camera(ids: IdFactory, order: string): SceneNode {
   return {
     id: ids("node"),
     name: "Camera",
@@ -265,7 +272,7 @@ function camera(ids: IdFactory, order: string): SceneNode {
   };
 }
 
-function document_(
+export function document_(
   ids: IdFactory,
   name: string,
   now: string,
@@ -313,7 +320,7 @@ function document_(
   };
 }
 
-function variable(
+export function variable(
   id: string,
   key: string,
   label_: string,
@@ -722,10 +729,30 @@ export const PACKS: readonly Pack[] = [
     name: "Broadcast Starter",
     kind: "graphics",
     author: "Streamatrix",
-    description: "A lower third, a scoreboard and a title card. Fully editable.",
-    tags: ["starter", "lower third", "scoreboard", "title"],
+    description: "A lower third, a title card and a sponsor bar. Fully editable.",
+    tags: ["starter", "lower third", "title", "sponsor"],
     swatch: ["#2f6feb", "#101319"],
-    templates: [LOWER_THIRD, SCOREBOARD, TITLE_CARD],
+    templates: [LOWER_THIRD, TITLE_CARD, SPONSOR],
+  },
+  {
+    id: "pack_news_essentials",
+    name: "News Essentials",
+    kind: "graphics",
+    author: "Streamatrix",
+    description: "A ticker with its own exit, and a breaking banner that stages its reveal.",
+    tags: ["news", "ticker", "breaking", "bulletin"],
+    swatch: ["#c62828", "#0b0b0d"],
+    templates: [TICKER, BREAKING],
+  },
+  {
+    id: "pack_sport_essentials",
+    name: "Sport & Esports",
+    kind: "graphics",
+    author: "Streamatrix",
+    description: "A scoreboard, a list-driven leaderboard and a pre-show countdown.",
+    tags: ["sport", "esports", "scoreboard", "leaderboard", "countdown"],
+    swatch: ["#2f6feb", "#f2f5fb"],
+    templates: [SCOREBOARD, LEADERBOARD, COUNTDOWN],
   },
 ];
 
