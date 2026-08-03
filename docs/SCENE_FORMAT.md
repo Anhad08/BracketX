@@ -117,7 +117,8 @@ both.
     "background": "transparent"
   },
   "output": { "width": 1920, "height": 1080, "fps": 60 },
-  "safeAreas": { "title": 0.1, "action": 0.05 }
+  "safeAreas": { "title": 0.1, "action": 0.05 },
+  "pixelsPerUnit": 108
 }
 ```
 
@@ -127,6 +128,20 @@ knowledge, and to let a reader reject a document that assumed otherwise.
 
 `background: "transparent"` is the broadcast default. A scene that renders an
 opaque background is the exception.
+
+`pixelsPerUnit` is **design pixels per world unit**. Optional; defaults to 100.
+
+It exists because `units` is metres while [§7.2](#72-text) declares `font.size`,
+`maxWidth` and `fit.minSize` in design pixels — which is what a type size means
+to a designer, and what a font's own metrics are relative to. Nothing else
+connects the two spaces.
+
+It is scene-level because it is an authoring convention: a 17.78 x 10 stage
+delivered at 1920 x 1080 is exactly 108, so a design pixel is an output pixel.
+It is deliberately **not** derived from `output`, because re-delivering a scene
+at 4K must not double the physical size of every graphic in it.
+
+Omitting it is additive under [§13](#13-versioning) rule 4.
 
 ## 6. Nodes
 

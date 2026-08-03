@@ -382,6 +382,30 @@ export interface SceneWorld {
     readonly height: number;
     readonly fps: number;
   };
+  /**
+   * Design pixels per world unit. Optional; defaults to 100.
+   *
+   * ========================================================================
+   * THE MISSING CONVERSION, AND WHAT ITS ABSENCE COST
+   * ========================================================================
+   * `units` is metres. But SCENE_FORMAT §7.2 declares `font.size`, `maxWidth`
+   * and `fit.minSize` in DESIGN PIXELS — 48, 600, 24 — because that is what a
+   * type size means to a designer and what a font's own metrics are relative
+   * to. Nothing in the format connected the two spaces, so the projector
+   * invented `scale = 1 / size`, which made a text node's world height exactly
+   * one unit per em NO MATTER WHAT SIZE WAS SET, and fed a metre count to the
+   * atlas as if it were a pixel count. A 0.52-unit label rasterised into a
+   * 1x1 texel and drew as a smudge.
+   *
+   * One number fixes both: layout runs in pixels, `scale` is 1/pixelsPerUnit,
+   * and the atlas sees a real pixel size. It is scene-level because it is an
+   * authoring convention — Studio's 17.78 x 10 stage at 1920 x 1080 is exactly
+   * 108 — and NOT derived from `output`, because changing an output to 4K must
+   * not double the physical size of every graphic in the scene.
+   *
+   * Optional with a default, so this is additive under §13 rule 4.
+   */
+  readonly pixelsPerUnit?: number;
   readonly safeAreas?: { readonly title: number; readonly action: number };
   /**
    * Glyphs to rasterise before the scene may go on air. TEXT_ENGINE §5, T4.

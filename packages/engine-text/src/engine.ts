@@ -216,9 +216,26 @@ export class TextEngine {
         const size = page.size;
         const u0 = entry.x / size;
         const u1 = (entry.x + entry.width) / size;
-        // V is flipped: the atlas is stored top-down and sampled bottom-up.
-        const v0 = 1 - (entry.y + entry.height) / size;
-        const v1 = 1 - entry.y / size;
+        // ==================================================================
+        // V IS NOT FLIPPED, AND GETTING THIS WRONG DRAWS NOTHING AT ALL
+        // ==================================================================
+        // The atlas is uploaded as a `DataTexture`, and `DataTexture` defaults
+        // to `flipY = false` — unlike an image-backed `Texture`, which is
+        // `true`. So V = 0 is the FIRST row of the buffer, which is the top of
+        // the page, which is where the packer puts glyphs.
+        //
+        // This previously flipped V as though the texture were image-backed.
+        // Every glyph quad therefore sampled the bottom of the page, which is
+        // still zeroed — alpha 0, median 0, every fragment discarded. Text
+        // produced correct geometry, a correct atlas, a correct material and a
+        // correct world matrix, and drew NOTHING.
+        //
+        // Nothing caught it: the headless suite asserts UVs are within [0,1],
+        // which they were, and `MockMirrorBackend` has no sampler. It took
+        // rendering a glyph quad with the sampled texel as its colour and
+        // seeing solid black.
+        const vTop = entry.y / size;
+        const vBottom = (entry.y + entry.height) / size;
 
         let group = byPage.get(entry.page);
         if (group === undefined) {
@@ -227,7 +244,9 @@ export class TextEngine {
         }
         const base = group.quads * 4;
         group.positions.push(x0, y0, z, x1, y0, z, x1, y1, z, x0, y1, z);
-        group.uvs.push(u0, v0, u1, v0, u1, v1, u0, v1);
+        // Vertices are emitted bottom-left, bottom-right, top-right, top-left,
+        // so the bottom pair takes the LOWER edge of the glyph in the page.
+        group.uvs.push(u0, vBottom, u1, vBottom, u1, vTop, u0, vTop);
         group.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
         group.quads += 1;
       }

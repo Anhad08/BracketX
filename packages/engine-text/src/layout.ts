@@ -459,7 +459,19 @@ export function layoutText(
   const full = layoutAtSize(spec, stack, shaper, spec.size);
   if (fitsIn(full, spec.box)) return full;
 
-  const floor = Math.max(SHRINK_QUANTUM, spec.fit.minSize ?? spec.size / 2);
+  // Clamped to the requested size, which is the CEILING.
+  //
+  // A `minSize` above `size` is an authoring error — but without this clamp it
+  // silently inverts the binary search and text comes out LARGER than asked
+  // for. A lower third authored at 0.52 world units with `minSize: 10` rendered
+  // twenty times oversized, filling the frame, and the "never grows text to
+  // fill a box" test did not catch it because its fixture had a floor below its
+  // ceiling. Growing is always wrong; refusing to shrink below the request is
+  // the honest failure.
+  const floor = Math.min(
+    spec.size,
+    Math.max(SHRINK_QUANTUM, spec.fit.minSize ?? spec.size / 2),
+  );
   let low = floor;
   let high = spec.size;
   let best = layoutAtSize(spec, stack, shaper, quantise(floor));

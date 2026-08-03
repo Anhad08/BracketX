@@ -112,7 +112,7 @@ describe("no engine terminology reaches a broadcaster", () => {
     // Bar, Player Name. A template that shipped generated ids as layer names
     // would put the engine's vocabulary in the layers panel.
     for (const template of templatesOf()) {
-      const built = template.build(testIdFactory(), (_, fallback) => fallback, "2026-01-01T00:00:00.000Z");
+      const built = template.build(testIdFactory(), (name) => ({ $var: name }), "2026-01-01T00:00:00.000Z");
       const names: string[] = [];
       const walk = (node: { name?: string; children?: readonly unknown[] }) => {
         if (typeof node.name === "string") names.push(node.name);
@@ -295,9 +295,18 @@ describe("templates", () => {
       walk(document_.root as never);
       return found;
     };
-    expect(accentOf(withMidnight)).toBe("#2f6feb");
-    expect(accentOf(withRed)).toBe("#d7263d");
-    // And the theme travels with the document, so it stays restyleable.
+    // The fill is a REFERENCE, identical in both documents. This previously
+    // asserted a baked hex string — which the test's own name says is wrong,
+    // and which meant applying a theme to an open graphic repainted nothing.
+    expect(accentOf(withMidnight)).toEqual({ $var: "color.primary" });
+    expect(accentOf(withRed)).toEqual({ $var: "color.primary" });
+
+    // What differs is the palette the reference resolves against, and it
+    // travels with the document so the graphic stays restyleable once saved.
+    const primaryOf = (document_: typeof withMidnight): unknown =>
+      document_.tokens?.find((token) => token.name === "color.primary")?.value;
+    expect(primaryOf(withMidnight)).toBe("#2f6feb");
+    expect(primaryOf(withRed)).toBe("#d7263d");
     expect(withRed.tokens).toHaveLength(4);
   });
 
@@ -351,6 +360,42 @@ describe("themes", () => {
     const before = canonicalize({ ...studio.document, tokens: undefined });
     studio.store.apply(installTheme(studio.document, packById("pack_theme_midnight")!)!);
     expect(canonicalize({ ...studio.document, tokens: undefined })).toBe(before);
+    studio.dispose();
+  });
+
+  it("repaint the graphics already on the canvas", () => {
+    // ======================================================================
+    // THE TEST THIS BLOCK WAS MISSING
+    // ======================================================================
+    // Templates used to bake token VALUES at instantiation. Applying a palette
+    // rewrote `tokens` and the canvas did not move — the third of the seven
+    // things a designer does, silently dead. Every other test here passed
+    // throughout, including "do not touch a single node", which passed
+    // PRECISELY BECAUSE nothing repainted.
+    //
+    // So this asserts the only thing that matters: writes reach the backend.
+    const backend = new MockMirrorBackend();
+    const provider = new HostTextProvider({ pageSize: 512, pxRange: 4 });
+    for (const font of STUDIO_FONTS) {
+      provider.addFont(font.assetId, new Uint8Array(readFileSync(FONT)));
+    }
+    const document_ = instantiateTemplate(
+      templateById("tpl_lower_third")!,
+      ids,
+      "2026-01-01T00:00:00.000Z",
+    );
+    const studio = new StudioSession(backend, document_, { text: provider });
+
+    backend.resetWriteCount();
+    studio.store.apply(installTheme(studio.document, packById("pack_theme_broadcast_red")!)!);
+    expect(backend.writeCount).toBeGreaterThan(0);
+
+    // And a palette the graphic already uses costs nothing, because the
+    // Marketplace offers a one-click Apply on every pack.
+    backend.resetWriteCount();
+    const again = installTheme(studio.document, packById("pack_theme_broadcast_red")!);
+    expect(again).toBeNull();
+    expect(backend.writeCount).toBe(0);
     studio.dispose();
   });
 

@@ -182,6 +182,37 @@ export function fit(
   };
 }
 
+/**
+ * Adjusts a viewport so the same canvas point stays centred after a resize.
+ *
+ * ==========================================================================
+ * WHY THIS IS NOT A REFIT
+ * ==========================================================================
+ * Refitting on every resize would fight a designer who has zoomed in on a
+ * corner: drag a panel divider and their work jumps. So `fit` stays explicit.
+ *
+ * But doing NOTHING is worse, and shipped: opening the Program row shortens
+ * the stage, and because pan is measured from the top-left, everything in the
+ * lower part of the canvas — which is where a lower third lives — slid out of
+ * sight. A designer taking a graphic to air could not see the graphic.
+ *
+ * Holding the centre is what every editor does and what neither extreme gets
+ * right: zoom is untouched, and the point the designer was looking at is still
+ * the point they are looking at.
+ */
+export function recentre(
+  viewport: Viewport,
+  from: { width: number; height: number },
+  to: { width: number; height: number },
+): Viewport {
+  if (from.width <= 0 || from.height <= 0) return viewport;
+  return {
+    zoom: viewport.zoom,
+    panX: viewport.panX + (to.width - from.width) / 2,
+    panY: viewport.panY + (to.height - from.height) / 2,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Node bounds and picking
 // ---------------------------------------------------------------------------

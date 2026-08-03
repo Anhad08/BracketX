@@ -182,8 +182,23 @@ class RuntimeVariableSource implements VariableSource {
    * (Project Alpha A6).
    */
   read(key: string): unknown {
-    const value = resolveVariable(this.runtime.state, key, undefined);
-    if (value !== undefined) return value;
+    // ======================================================================
+    // ASKED DIRECTLY, BECAUSE THE SENTINEL LIED
+    // ======================================================================
+    // This read `resolveVariable(state, key, undefined)` and treated
+    // `undefined` as the miss. But `resolveVariable`'s fallback parameter
+    // DEFAULTS to `null`, and a JavaScript default parameter fires when the
+    // argument is `undefined` — so every miss came back as `null`, the
+    // `!== undefined` guard passed, and the token beneath was never reached.
+    //
+    // The consequence was total and silent: tokens resolved to `null`, every
+    // themed fill fell back to white, and installing a theme pack changed
+    // nothing on screen. Presence is asked for directly here so there is no
+    // sentinel to get wrong. A variable deliberately set to null still wins
+    // over a token, which is what "variables first" means.
+    const state = this.runtime.state;
+    if (state.overrides.has(key)) return state.overrides.get(key);
+    if (state.variables.has(key)) return state.variables.get(key);
     return this.#tokens.get(key);
   }
 }

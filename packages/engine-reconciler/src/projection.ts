@@ -43,6 +43,43 @@ import {
 } from "@bracketx/engine-scene";
 
 import { DependencyIndex, DependencyRecorder } from "./dependencies";
+
+/**
+ * Design pixels per world unit when a scene does not declare one.
+ *
+ * A round number, deliberately: it makes "size 48" mean 0.48 units, which is a
+ * ratio an author can hold in their head. Studio declares 108 instead, because
+ * that is what its 17.78-unit stage is at 1920 wide — there, a pixel is a pixel.
+ */
+const DEFAULT_PIXELS_PER_UNIT = 100;
+
+/**
+ * Token names whose value changed between two `tokens` arrays.
+ *
+ * Tolerant of the shapes a `doc.setMeta` can carry — a whole array, or nothing
+ * at all when the document had no palette — because an operation that cannot be
+ * read must repaint nothing rather than throw during projection.
+ */
+function changedTokenNames(before: unknown, after: unknown): Set<string> {
+  const index = (value: unknown): Map<string, unknown> => {
+    if (!Array.isArray(value)) return new Map();
+    const out = new Map<string, unknown>();
+    for (const entry of value) {
+      const token = entry as { name?: unknown; value?: unknown };
+      if (typeof token?.name === "string") out.set(token.name, token.value);
+    }
+    return out;
+  };
+
+  const from = index(before);
+  const to = index(after);
+  const moved = new Set<string>();
+  for (const [name, value] of to) {
+    if (!from.has(name) || from.get(name) !== value) moved.add(name);
+  }
+  for (const name of from.keys()) if (!to.has(name)) moved.add(name);
+  return moved;
+}
 import { DirtySet, type DirtyStats } from "./dirty";
 import { MirrorGraph, MirrorViolation } from "./mirror";
 import { channelForPath, localMatrixOf, resolveProps, type VariableSource } from "./resolve";
@@ -365,6 +402,7 @@ export class Projector {
     document: SceneDocument,
     variables: VariableSource,
   ): ProjectionReport {
+    this.#adoptDocument(document);
     const dirty = new DirtySet();
     const before = this.#writeCount();
     let created = 0;
@@ -700,9 +738,38 @@ export class Projector {
         return { created: 0, destroyed: 0, reparented: 0 };
       }
 
-      case "doc.setMeta":
-        // Metadata does not project. Canvas changes are an output concern.
+      case "doc.setMeta": {
+        // Most metadata does not project — canvas changes are an output
+        // concern. `tokens` is the exception: it is the palette, and rewriting
+        // it is what installing a theme pack does.
+        //
+        // Tokens resolve through the SAME `$var` chain as everything else —
+        // the host reads a variable first and falls through to the token of
+        // that name (Project Alpha A6: one resolver, not two). So a themed
+        // property is an ordinary binding, and repainting it is the ordinary
+        // dependency walk. All that was missing was this case noticing.
+        //
+        // Before and after both travel on the operation, so only names whose
+        // value actually moved repaint. Applying a palette a graphic already
+        // uses costs nothing, which matters because the Marketplace offers a
+        // one-click Apply on every pack.
+        if (operation.path === "tokens" || operation.path.startsWith("tokens.")) {
+          const moved = changedTokenNames(
+            operation.previousValue,
+            operation.value,
+          );
+          // `dependencyKeyOf` because a binding to `color.primary` records its
+          // dependency under `color` — the index and the resolver have to agree
+          // on what a dependency is, and the resolver splits at the first dot.
+          const dependents = this.#dependencies.dependentsOfAny(
+            [...moved].map(dependencyKeyOf),
+          );
+          for (const nodeId of dependents) {
+            if (this.mirror.has(nodeId)) dirty.mark("material", nodeId);
+          }
+        }
         return { created: 0, destroyed: 0, reparented: 0 };
+      }
     }
   }
 
@@ -710,12 +777,22 @@ export class Projector {
   // Flush — turn dirty state into backend writes
   // -------------------------------------------------------------------------
 
+  /**
+   * Design pixels per world unit, from `world.pixelsPerUnit`.
+   *
+   * Held on the projector because `#applyText` is reached from the component
+   * loop, which does not carry the document. Re-read on every entry point that
+   * does, so an operation editing the world takes effect on the next flush.
+   */
+  #pixelsPerUnit = DEFAULT_PIXELS_PER_UNIT;
+
   #flush(
     document: SceneDocument,
     variables: VariableSource,
     dirty: DirtySet,
     localRefresh: Set<string> = new Set(),
   ): void {
+    this.#adoptDocument(document);
     // Re-read authored values for nodes whose own properties changed, before
     // anything is recomputed from them. Without this, world matrices are
     // composed from a stale local and propagation is correct but its input is
@@ -1295,6 +1372,16 @@ export class Projector {
    * The children are mirror nodes with no document counterpart. That is already
    * an established shape: a repeat's instances are exactly that.
    */
+  /** Re-reads the document-level inputs component resolution needs. */
+  #adoptDocument(document: SceneDocument): void {
+    const declared = document.world.pixelsPerUnit;
+    this.#pixelsPerUnit =
+      typeof declared === "number" && declared > 0
+        ? declared
+        : DEFAULT_PIXELS_PER_UNIT;
+
+  }
+
   #applyText(node: SceneNode, props: Record<string, unknown>): void {
     const provider = this.text;
     if (provider === undefined) {
@@ -1311,15 +1398,28 @@ export class Projector {
       ...(Array.isArray(font.fallback) ? (font.fallback as string[]) : []),
     ].filter((id) => id.length > 0);
 
-    // The node declares its box in WORLD units; layout runs in the same units
-    // as `size`. So the box is converted up by the size and the geometry is
-    // emitted back down by it. This is the one place the two spaces meet, and
-    // it is the entire difference between screen-space and world-space text.
-    const scale = 1 / size;
+    // ======================================================================
+    // DESIGN PIXELS IN, WORLD UNITS OUT
+    // ======================================================================
+    // `font.size` is in design pixels (SCENE_FORMAT §7.2); the node's box is
+    // in world units (`world.units` is metres). `pixelsPerUnit` is the only
+    // thing connecting them, and it is a scene property rather than anything
+    // derived here.
+    //
+    // This previously read `scale = 1 / size`, which is self-cancelling: world
+    // em = size x scale = 1, always. Font size changed how many ems fit the
+    // box and nothing else, and `bucketFor` — which wants pixels — was handed
+    // a metre count. At a plausible world size of 0.52 that bucketed to 1, so
+    // every glyph was rasterised into a single texel. Correct geometry,
+    // correct UVs, correct material, and text you could not read.
+    const scale = 1 / this.#pixelsPerUnit;
     const box =
       node.size === undefined
         ? { width: Infinity, height: Infinity }
-        : { width: node.size.width / scale, height: node.size.height / scale };
+        : {
+            width: node.size.width * this.#pixelsPerUnit,
+            height: node.size.height * this.#pixelsPerUnit,
+          };
 
     const request: TextRequest = {
       content: typeof props.content === "string" ? props.content : "",

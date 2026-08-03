@@ -46,6 +46,7 @@ import {
   type SceneDocument,
   type SceneNode,
   type SceneToken,
+  type VariableBinding,
   type SceneVariable,
   type Timeline,
   type Transaction,
@@ -55,6 +56,16 @@ import { transaction } from "./editing";
 import { DEFAULT_FONT_ASSET } from "./editing";
 import { STUDIO_FONTS } from "./fonts";
 import type { IdFactory } from "./ids";
+
+/**
+ * Design pixels per world unit for every graphic in this file.
+ *
+ * The stage is 17.78 x 10 units and outputs 1920 x 1080, so 108 px/unit makes
+ * a design pixel an output pixel exactly. Type sizes below are therefore what
+ * a designer would type into any other tool — 56, not 0.52.
+ */
+const STAGE_PPU = 108;
+
 
 export type PackKind = "theme" | "motion" | "graphics";
 
@@ -80,8 +91,23 @@ export interface PackTemplate {
   readonly build: (ids: IdFactory, tokens: TokenLookup, now: string) => SceneDocument;
 }
 
-/** Resolves a token name to its value, falling back to the pack's own default. */
-export type TokenLookup = (name: string, fallback: string) => string;
+/**
+ * Emits a reference to a design token, and registers the default it stands for.
+ *
+ * It returns a BINDING rather than a hex string. That is the whole difference
+ * between a themed graphic and a picture: the reference survives into the saved
+ * document, so rewriting `tokens` — which is all installing a theme pack does —
+ * repaints every graphic that points at them.
+ *
+ * An ordinary `$var`, not a token-specific form: the host resolves a variable
+ * first and falls through to the token of that name, so one chain covers both
+ * and an operator overriding a colour on air still wins (Project Alpha A6).
+ *
+ * The fallback is not a resolution fallback. It is the palette this template
+ * ships with, seeded onto the document at instantiation so a graphic built into
+ * an untenanted project still has colours.
+ */
+export type TokenLookup = (name: string, fallback: string) => VariableBinding;
 
 // ---------------------------------------------------------------------------
 // Scene construction helpers
@@ -141,17 +167,26 @@ function label(
   order: string,
   content: unknown,
   colour: unknown,
+  /** Design pixels. SCENE_FORMAT §7.2 — not world units. */
   size: number,
-  box: { width: number; height: number },
+  box: { width: number; height?: number },
   position: readonly [number, number, number],
   extra: Record<string, unknown> = {},
 ): SceneNode {
+  // Height is DERIVED from the font size, not hand-picked.
+  //
+  // `size` is design pixels; the box is world units, so the conversion goes
+  // through STAGE_PPU. One line occupies about 1.35 ems for a typical face
+  // ((ascender − descender + lineGap) / upem × lineHeight), and a box shorter
+  // than that makes `shrink` shrink — correctly, and all the way to its floor.
+  // 1.6 leaves room for a descender without the box driving the layout.
+  const height = box.height ?? (size / STAGE_PPU) * 1.6;
   return {
     id: ids("node"),
     name,
     order,
     transform: { position: [...position] as [number, number, number], rotation: [0, 0, 0], scale: [1, 1, 1] },
-    size: box,
+    size: { width: box.width, height },
     components: [
       {
         id: ids("component"),
@@ -167,7 +202,10 @@ function label(
           // "Li" and "Konstantinos Papadopoulos" is the normal case, and a
           // template that overflows on an unusual name is a template that will
           // one day paint over the graphic beside it.
-          fit: { mode: "shrink", minSize: Math.max(10, Math.round(size * 0.45)) },
+          // PROPORTIONAL to the size, because `size` here is in WORLD units.
+          // A constant floor written for pixel-sized text is larger than the
+          // whole request at this scale.
+          fit: { mode: "shrink", minSize: size * 0.55 },
           ...extra,
         },
       },
@@ -209,6 +247,7 @@ function document_(
       up: "Y",
       handedness: "right",
       output: { width: 1920, height: 1080, fps: 60 },
+      pixelsPerUnit: STAGE_PPU,
       // Declared so the engine rasterises what live data will draw from before
       // the graphic can go on air. TEXT_ENGINE §5.
       textPrewarm: { ranges: ["latin", "punctuation"] },
@@ -273,8 +312,8 @@ const LOWER_THIRD: PackTemplate = {
       next(),
       { $var: "name" },
       ink,
-      0.52,
-      { width: 8.4, height: 0.7 },
+      56,
+      { width: 8.4 },
       [-4.35, 0.32, 0.02],
     );
     const role = label(
@@ -283,8 +322,8 @@ const LOWER_THIRD: PackTemplate = {
       next(),
       { $var: "role" },
       muted,
-      0.3,
-      { width: 8.4, height: 0.45 },
+      32,
+      { width: 8.4 },
       [-4.35, -0.36, 0.02],
     );
 
@@ -382,16 +421,16 @@ const SCOREBOARD: PackTemplate = {
     const holderId = ids("node");
     const backdrop = bar(ids, "Background", next(), 7.2, 1.05, surface, [0, 0, 0]);
     const scoreBlock = bar(ids, "Score Block", next(), 2.0, 1.05, accent, [0, 0, 0.01]);
-    const home = label(ids, "Home Team", next(), { $var: "home" }, ink, 0.42, { width: 2.4, height: 0.6 }, [-3.4, 0, 0.02]);
-    const away = label(ids, "Away Team", next(), { $var: "away" }, ink, 0.42, { width: 2.4, height: 0.6 }, [1.1, 0, 0.02]);
+    const home = label(ids, "Home Team", next(), { $var: "home" }, ink, 46, { width: 2.4 }, [-3.4, 0, 0.02]);
+    const away = label(ids, "Away Team", next(), { $var: "away" }, ink, 46, { width: 2.4 }, [1.1, 0, 0.02]);
     const score = label(
       ids,
       "Score",
       next(),
       { $var: "score" },
       ink,
-      0.56,
-      { width: 1.9, height: 0.7 },
+      60,
+      { width: 1.9 },
       [-0.95, 0, 0.02],
       { align: "center" },
     );
@@ -463,8 +502,8 @@ const TITLE_CARD: PackTemplate = {
       next(),
       { $var: "headline" },
       ink,
-      0.92,
-      { width: 12, height: 1.3 },
+      100,
+      { width: 12 },
       [-6, 0.2, 0.02],
       { align: "center" },
     );
@@ -474,8 +513,8 @@ const TITLE_CARD: PackTemplate = {
       next(),
       { $var: "standfirst" },
       muted,
-      0.36,
-      { width: 10, height: 0.5 },
+      39,
+      { width: 10 },
       [-5, -1.3, 0.02],
       { align: "center" },
     );
@@ -706,14 +745,18 @@ export function instantiateTemplate(
   now: string,
   theme: readonly SceneToken[] = [],
 ): SceneDocument {
-  const byName = new Map(theme.map((token) => [token.name, token]));
-  const lookup: TokenLookup = (name, fallback) => {
-    const value = byName.get(name)?.value;
-    return typeof value === "string" ? value : fallback;
+  // Defaults first, then the open project's palette on top. A template built
+  // into a themed project matches it; built into an empty one it still has a
+  // complete palette of its own, so no `$token` dangles.
+  const merged = new Map<string, SceneToken>();
+  const declare: TokenLookup = (name, fallback) => {
+    if (!merged.has(name)) merged.set(name, { name, value: fallback });
+    return { $var: name };
   };
 
-  const built = template.build(ids, lookup, now);
-  // The theme travels with the document, so the graphic stays restyleable after
-  // it is saved — a template that baked its colours in would be a picture.
-  return theme.length === 0 ? built : { ...built, tokens: [...theme] };
+  const built = template.build(ids, declare, now);
+  for (const token of theme) merged.set(token.name, token);
+
+  const tokens = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return { ...built, tokens };
 }

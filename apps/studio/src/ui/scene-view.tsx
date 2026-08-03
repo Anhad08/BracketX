@@ -30,6 +30,7 @@ import {
   zoomAt,
   type NodeBounds,
   type Point,
+  recentre,
   type Viewport,
 } from "../studio/viewport";
 import type { Workspace } from "../studio/workspace";
@@ -163,12 +164,34 @@ export function SceneView({
 
   // -- Sizing and fit -------------------------------------------------------
 
+  // The observer is installed once, so it must not close over a stale viewport
+  // or a stale callback. Refs, rather than re-observing on every pan.
+  const measured = useRef({ width: 0, height: 0 });
+  const viewportRef = useRef(viewport);
+  const onViewportRef = useRef(onViewport);
+  viewportRef.current = viewport;
+  onViewportRef.current = onViewport;
+
   useEffect(() => {
     const node = hostRef.current;
     if (node === null) return;
     const observer = new ResizeObserver(([entry]) => {
       const box = entry?.contentRect;
-      if (box !== undefined) setElement({ width: box.width, height: box.height });
+      if (box === undefined) return;
+      const next = { width: box.width, height: box.height };
+      // Hold the centre rather than refitting — see `recentre`. Skipped on the
+      // first measurement, which the fit effect below owns.
+      //
+      // The previous size is a ref, not the state: notifying the parent from
+      // inside a state updater is a render-phase side effect, and React says so
+      // on the console. A walkthrough that treats console errors as failures is
+      // what caught it.
+      const previous = measured.current;
+      if (previous.width > 0 && previous.height > 0) {
+        onViewportRef.current(recentre(viewportRef.current, previous, next));
+      }
+      measured.current = next;
+      setElement(next);
     });
     observer.observe(node);
     return () => observer.disconnect();
