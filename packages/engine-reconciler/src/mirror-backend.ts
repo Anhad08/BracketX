@@ -156,6 +156,29 @@ export interface TextureDescriptor {
   readonly format: "rgba8" | "r8";
   /** MSDF atlases must not be filtered across glyph boundaries. */
   readonly filter: "nearest" | "linear";
+
+  /**
+   * Build a mip chain and sample it. Default false. ADR-013 Amendment 2.
+   *
+   * Deliberately NOT inferred from `filter`. The MSDF glyph atlas is uploaded
+   * `linear` and must NOT be mipmapped: averaging four texels of a distance
+   * field does not produce the distance field of the average, so minified
+   * glyphs would lose the edges MSDF exists to give them.
+   *
+   * "Interpolate between texels" and "build a pre-filtered pyramid" are two
+   * decisions, and one atlas needs the first without the second.
+   */
+  readonly mipmaps?: boolean;
+
+  /**
+   * Anisotropic samples. Default 1. ADR-013 Amendment 2.
+   *
+   * Clamped by the backend to what it supports, which is legal because C8
+   * excludes pixels from determinism. A mip chain alone over-blurs a texture
+   * minified unevenly — a logo on a tilted virtual-set surface — which is why
+   * this arrives with mipmaps rather than in a second reopening.
+   */
+  readonly anisotropy?: number;
 }
 
 /**

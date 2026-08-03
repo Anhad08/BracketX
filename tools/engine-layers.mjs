@@ -45,6 +45,19 @@ export const ENGINE_PACKAGES = {
     allow: ["@bracketx/engine-scene"],
   },
 
+  "@bracketx/engine-assets": {
+    layer: "engine-core",
+    // The RTGFX Asset System (IF-006). Identity, records, storage, codecs,
+    // residency, references and health. Knows no renderer, no browser and no
+    // network: storage and decoding are PORTS, which is what lets cloud be
+    // another implementation and a format be a registration.
+    //
+    // Deliberately does NOT allow engine-image. A codec registers with the
+    // registry at the composition root; a registry that imported its codecs
+    // would become the place every format lands.
+    allow: ["@bracketx/engine-scene"],
+  },
+
   "@bracketx/engine-image": {
     layer: "engine-core",
     // Owns the whole path from an encoded file to premultiplied linear RGBA
@@ -71,6 +84,7 @@ export const ENGINE_PACKAGES = {
       "@bracketx/engine-reconciler",
       "@bracketx/engine-text",
       "@bracketx/engine-image",
+      "@bracketx/engine-assets",
     ],
   },
 

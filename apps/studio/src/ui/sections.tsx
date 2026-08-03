@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { SceneDocument, Transaction } from "@bracketx/engine-scene";
+import type { AssetRecord } from "@bracketx/engine-assets";
 
 import type { StudioSession } from "../studio/session";
 import type { IdFactory } from "../studio/ids";
@@ -253,9 +254,47 @@ export function Templates({ library, onOpen, onLibrary, storage }: TemplatesProp
 export interface AssetsProps {
   readonly session: StudioSession | null;
   readonly installed: ReadonlySet<string>;
+  readonly assets: readonly AssetRecord[];
+  /** Returns a message on failure, or null when the import succeeded. */
+  readonly onImport: (file: File) => Promise<string | null>;
+  readonly usersOf: (assetId: string) => readonly string[];
 }
 
-export function Assets({ session, installed }: AssetsProps) {
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function Assets({
+  session,
+  installed,
+  assets,
+  onImport,
+  usersOf,
+}: AssetsProps) {
+  const [importing, setImporting] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement | null>(null);
+
+  const images = assets.filter((asset) => asset.kind === "image");
+
+  const take = async (files: FileList | null): Promise<void> => {
+    if (files === null || files.length === 0) return;
+    setImporting(true);
+    setProblem(null);
+    // Sequential, not parallel: a failure must name the file that caused it,
+    // and a designer dropping twenty logos would otherwise get one message for
+    // an unknown one of them.
+    for (const file of Array.from(files)) {
+      const failure = await onImport(file);
+      if (failure !== null) {
+        setProblem(`${file.name}: ${failure}`);
+        break;
+      }
+    }
+    setImporting(false);
+  };
   const swatches = session === null ? [] : colourTokens(session.document);
   const motion = PACKS.filter((pack) => pack.kind === "motion" && installed.has(pack.id));
 
@@ -267,6 +306,84 @@ export function Assets({ session, installed }: AssetsProps) {
           <p className="lede">Everything you can reuse across graphics.</p>
         </div>
       </header>
+
+      <section
+        className="home-block"
+        data-testid="asset-images"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          void take(event.dataTransfer.files);
+        }}
+      >
+        <div className="block-head">
+          <h2>Images</h2>
+          <span className="dim">
+            Logos, marks and backgrounds. Drop a file anywhere here
+          </span>
+          <button
+            type="button"
+            className="ghost"
+            data-testid="import-asset"
+            onClick={() => picker.current?.click()}
+            disabled={importing}
+          >
+            {importing ? "Importing…" : "Import"}
+          </button>
+          <input
+            ref={picker}
+            type="file"
+            accept="image/png"
+            multiple
+            hidden
+            data-testid="asset-file"
+            onChange={(event) => {
+              void take(event.target.files);
+              event.target.value = "";
+            }}
+          />
+        </div>
+
+        {problem !== null ? (
+          <p className="note pad warn" data-testid="import-problem">
+            {problem}
+          </p>
+        ) : null}
+
+        {images.length === 0 ? (
+          <p className="note pad">
+            Nothing yet. Import a PNG and it becomes available to every graphic.
+          </p>
+        ) : (
+          <div className="asset-grid" data-testid="asset-grid">
+            {images.map((asset) => {
+              const used = usersOf(asset.id);
+              return (
+                <span
+                  className="asset-tile"
+                  key={asset.id}
+                  data-testid={`asset-${asset.id}`}
+                >
+                  <strong>{asset.name}</strong>
+                  <span className="dim tiny">
+                    {asset.metadata.width ?? "?"} x {asset.metadata.height ?? "?"}
+                    {" · "}
+                    {fileSize(asset.bytes)}
+                  </span>
+                  <span className="dim tiny">
+                    {asset.origin === "shipped" ? "Included" : "Yours"}
+                    {used.length > 0 ? ` · used by ${used.length}` : " · unused"}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        )}
+        <p className="note pad">
+          PNG today. Vector, video and audio are coming — they are named here
+          rather than shown as empty shelves.
+        </p>
+      </section>
 
       <section className="home-block">
         <div className="block-head">

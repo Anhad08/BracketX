@@ -12,7 +12,7 @@
  * Assets are content-addressed. Two packages shipping the same sponsor mark
  * decode it once and upload it once, however many asset ids point at it.
  */
-import type { HostImageProvider } from "@bracketx/engine-host/image";
+import { hashBytes, type AssetRegistry } from "@bracketx/engine-assets";
 
 export interface StudioImage {
   /** The asset id a document references. */
@@ -26,23 +26,6 @@ export const STUDIO_IMAGES: readonly StudioImage[] = [
 ];
 
 /**
- * Content hash for an asset's bytes.
- *
- * FNV-1a rather than SHA-256: this is a CACHE key, not a security boundary, and
- * `crypto.subtle.digest` is async and unavailable over plain HTTP on some
- * targets. A collision costs one wrongly-shared texture; the cost of pulling in
- * a hash implementation for it is not worth paying.
- */
-export function hashBytes(bytes: Uint8Array): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < bytes.length; i += 1) {
-    hash ^= bytes[i]!;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return `fnv1a:${hash.toString(16)}:${bytes.length}`;
-}
-
-/**
  * Fetches and registers every shipped image.
  *
  * An image that fails to fetch is SKIPPED rather than fatal, and the ids that
@@ -51,8 +34,9 @@ export function hashBytes(bytes: Uint8Array): string {
  * for the same reason.
  */
 export async function loadStudioImages(
-  provider: HostImageProvider,
+  registry: AssetRegistry,
   fetcher: typeof fetch = fetch,
+  now = "1970-01-01T00:00:00.000Z",
 ): Promise<readonly string[]> {
   const loaded: string[] = [];
   await Promise.all(
@@ -61,8 +45,35 @@ export async function loadStudioImages(
         const response = await fetcher(image.url);
         if (!response.ok) return;
         const bytes = new Uint8Array(await response.arrayBuffer());
-        const result = await provider.load(image.assetId, hashBytes(bytes), bytes);
-        if (result.ok) loaded.push(image.assetId);
+        const hash = hashBytes(bytes);
+        await registry.store.put(hash, bytes);
+        registry.register({
+          id: image.assetId,
+          kind: "image",
+          hash,
+          mime: "image/png",
+          name: image.label,
+          bytes: bytes.length,
+          // `shipped`, so it is never persisted as a user record and never
+          // offered for deletion — it would return on the next launch.
+          origin: "shipped",
+          createdAt: now,
+          updatedAt: now,
+          tags: ["logo"],
+          collections: [],
+          favorite: false,
+          metadata: {},
+          history: [],
+        });
+        const resolved = await registry.resolve(image.assetId);
+        if (!resolved.ok) return;
+        // Metadata comes from the DECODE, so it is written back once the codec
+        // has actually read the file rather than guessed from the URL.
+        registry.register({
+          ...registry.record(image.assetId)!,
+          metadata: resolved.asset.metadata,
+        });
+        loaded.push(image.assetId);
       } catch {
         // Offline, blocked, or missing. The editor still opens.
       }

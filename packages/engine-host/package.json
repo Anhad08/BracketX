@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./text": "./src/text.ts",
-    "./image": "./src/image.ts"
+    "./image": "./src/image.ts",
+    "./assets": "./src/assets.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
@@ -19,7 +20,8 @@
     "@bracketx/engine-runtime": "workspace:*",
     "@bracketx/engine-scene": "workspace:*",
     "@bracketx/engine-text": "workspace:*",
-    "@bracketx/engine-image": "workspace:*"
+    "@bracketx/engine-image": "workspace:*",
+    "@bracketx/engine-assets": "workspace:*"
   },
   "devDependencies": {
     "@bracketx/eslint-config": "workspace:*",

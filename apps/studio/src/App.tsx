@@ -27,6 +27,13 @@ import { outline, pathTo } from "./studio/outline";
 import { randomIdFactory } from "./studio/ids";
 import { PREWARM_ASCII, loadStudioFonts } from "./studio/fonts";
 import { loadStudioImages } from "./studio/images";
+import {
+  importAsset,
+  loadAssetRecords,
+  referencedAssets,
+  saveAssetRecords,
+} from "./studio/library-assets";
+import type { AssetRecord, AssetRegistry } from "@bracketx/engine-assets";
 import { DEFAULT_VIEWPORT, zoomAt, type Viewport } from "./studio/viewport";
 import {
   fileNameFor,
@@ -181,6 +188,8 @@ export function App() {
   // the engine's own layering forbids.
   const textRef = useRef<TextProvider | null>(null);
   const imagesRef = useRef<ImageProvider | null>(null);
+  const registryRef = useRef<AssetRegistry | null>(null);
+  const [assets, setAssets] = useState<readonly AssetRecord[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -214,6 +223,24 @@ export function App() {
     };
   }, []);
 
+  // Usage tracking. IF-006 — "which graphics use this logo" must be exact and
+  // instant over a library of thousands, so it is RECORDED as documents open
+  // and close rather than recomputed by walking every document on demand.
+  //
+  // Re-run whenever the document changes, because adding or removing a logo
+  // layer changes the answer, and `retain` is idempotent per holder so the
+  // common case of an unrelated edit costs a set comparison.
+  useEffect(() => {
+    const registry = registryRef.current;
+    if (registry === null || session === null) return;
+    const holder = session.document.id;
+    registry.releaseHolder(holder);
+    for (const assetId of referencedAssets(session.document)) {
+      registry.retain(assetId, holder);
+    }
+    return () => registry.releaseHolder(holder);
+  }, [session, revision]);
+
   // Images load separately from fonts, and separately from the session gate.
   //
   // Separately from FONTS because a HarfBuzz failure must not also cost every
@@ -227,11 +254,26 @@ export function App() {
 
     void (async () => {
       try {
-        const { HostImageProvider } = await import("@bracketx/engine-host/image");
+        const { createAssetRegistry, RegistryImageProvider } = await import(
+          "@bracketx/engine-host/assets"
+        );
+        const { IndexedDbAssetStore } = await import("./studio/asset-store");
         if (cancelled) return;
-        const provider = new HostImageProvider();
-        imagesRef.current = provider;
-        await loadStudioImages(provider);
+
+        // The registry is the single source of truth (IF-006). Studio does not
+        // hold a second image cache beside it, and the projector sees it only
+        // through the reconciler's port.
+        const registry = createAssetRegistry(new IndexedDbAssetStore());
+        registryRef.current = registry;
+        imagesRef.current = new RegistryImageProvider(registry);
+
+        const restored = loadAssetRecords(storage());
+        for (const record of restored) registry.register(record);
+        await loadStudioImages(registry);
+        // Whatever a user brought in a previous session, decoded before it is
+        // needed — an asset resolving mid-broadcast pops on screen.
+        await Promise.all(restored.map((record) => registry.resolve(record.id)));
+        if (!cancelled) setAssets(registry.records());
       } catch (cause) {
         // Images are unavailable. Everything else still works and a graphic
         // containing one renders without it rather than not at all.
@@ -1065,7 +1107,37 @@ export function App() {
           />
         );
       case "assets":
-        return <Assets session={session} installed={installed} />;
+        return (
+          <Assets
+            session={session}
+            installed={installed}
+            assets={assets}
+            usersOf={(assetId) => registryRef.current?.usersOf(assetId) ?? []}
+            onImport={async (file) => {
+              const registry = registryRef.current;
+              if (registry === null) return "The asset library is still starting.";
+              const result = await importAsset(
+                registry,
+                {
+                  name: file.name,
+                  type: file.type,
+                  bytes: new Uint8Array(await file.arrayBuffer()),
+                },
+                new Date().toISOString(),
+                () => ids("asset"),
+              );
+              if (!result.ok) return result.reason;
+              const records = registry.records();
+              setAssets(records);
+              saveAssetRecords(storage(), records);
+              // The open graphic may already reference it by id — a re-import
+              // of a replaced logo, say — so re-project rather than waiting for
+              // the next edit.
+              session?.render();
+              return null;
+            }}
+          />
+        );
       case "outputs":
         return <Outputs session={session} />;
       case "settings":

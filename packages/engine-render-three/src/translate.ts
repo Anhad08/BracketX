@@ -29,6 +29,7 @@ import {
   DoubleSide,
   FrontSide,
   LinearFilter,
+  LinearMipmapLinearFilter,
   Material,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -416,8 +417,31 @@ export function createTexture(descriptor: TextureDescriptor): Texture {
   // glyphs into each other (MirrorBackend TextureDescriptor).
   texture.magFilter =
     descriptor.filter === "nearest" ? NearestFilter : LinearFilter;
-  texture.minFilter = texture.magFilter;
-  texture.generateMipmaps = false;
+
+  // ADR-013 Amendment 2. Both default to today's behaviour, so the MSDF atlas —
+  // which passes neither — is bit-identical to before the amendment.
+  //
+  // Minification is the filter that matters here. A 512px sponsor mark drawn
+  // into a 1.4-unit box is minified about 3x, and without a mip chain every
+  // animated frame samples a different aliased subset, so the logo crawls. It
+  // is most visible on exactly what broadcast graphics are made of — thin
+  // strokes, small type, high-contrast edges — and invisible in a still.
+  if (descriptor.mipmaps === true) {
+    texture.generateMipmaps = true;
+    texture.minFilter = LinearMipmapLinearFilter;
+  } else {
+    texture.generateMipmaps = false;
+    texture.minFilter = texture.magFilter;
+  }
+
+  // three clamps this against `capabilities.getMaxAnisotropy()` when it
+  // uploads, so the descriptor states an intent and the driver states the
+  // ceiling. Honouring less than was asked for is legal because C8 excludes
+  // pixels from determinism.
+  if (descriptor.anisotropy !== undefined && descriptor.anisotropy > 1) {
+    texture.anisotropy = descriptor.anisotropy;
+  }
+
   texture.needsUpdate = true;
   return texture;
 }

@@ -1513,6 +1513,11 @@ export class Projector {
       // Unlike an MSDF atlas, an image has no boundary that filtering must not
       // cross, and a logo drawn at anything other than 1:1 needs interpolation.
       filter: "linear",
+      // ADR-013 Amendment 2. A 512px mark in a 1.4-unit box is minified ~3x,
+      // and without a mip chain it crawls on every animated frame. The atlas
+      // passes neither of these, deliberately — see the descriptor.
+      mipmaps: true,
+      anisotropy: 8,
     });
     if (!created.ok) return undefined;
 

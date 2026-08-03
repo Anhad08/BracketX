@@ -306,6 +306,15 @@ kbd {
   border: 1px solid var(--line); color: var(--dim);
 }
 .tally.on-air { background: var(--onair); border-color: var(--onair); color: #fff; }
+.asset-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding: 10px 12px;
+}
+.asset-tile {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2);
+}
+.note.warn { color: var(--onair); }
+
 .program-canvas {
   aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line-strong); border-radius: 4px; overflow: hidden;
 }

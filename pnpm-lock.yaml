@@ -81,6 +81,9 @@ importers:
 
   apps/studio:
     dependencies:
+      '@bracketx/engine-assets':
+        specifier: workspace:*
+        version: link:../../packages/engine-assets
       '@bracketx/engine-host':
         specifier: workspace:*
         version: link:../../packages/engine-host
@@ -288,8 +291,33 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
+  packages/engine-assets:
+    dependencies:
+      '@bracketx/engine-scene':
+        specifier: workspace:*
+        version: link:../engine-scene
+    devDependencies:
+      '@bracketx/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@bracketx/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.1(jiti@2.7.0)
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.15.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)
+
   packages/engine-host:
     dependencies:
+      '@bracketx/engine-assets':
+        specifier: workspace:*
+        version: link:../engine-assets
       '@bracketx/engine-image':
         specifier: workspace:*
         version: link:../engine-image

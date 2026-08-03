@@ -1,6 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
+ * A 4x4 broadcast-red PNG.
+ *
+ * Built into the test rather than checked in, for the reason the decoder's own
+ * fixtures are: a binary proves the importer agrees with whatever produced it,
+ * and when it disagrees you cannot see why.
+ */
+const BADGE_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGO4rmb7HxkzkC4AALUoI5EMqBxNAAAAAElFTkSuQmCC";
+
+/**
  * The workflow, performed and recorded.
  *
  * ============================================================================
@@ -69,6 +79,43 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   // IF-005 closing: replacing a sponsor is an operator action, not an edit.
   const logo = page.getByTestId("variables").getByLabel("Runtime value for logo");
   await expect(logo).toHaveValue("ast_sponsor_mark");
+
+  // ------------------------------- 2b. Bring your own logo, and use it
+  //
+  // IF-006's user-facing claim: a broadcaster imports their own mark and it is
+  // on air, without thinking about files. The PNG is built here so the test
+  // states its own bytes rather than depending on a checked-in binary.
+  await page.getByTestId("nav-assets").click();
+  await expect(page.getByTestId("asset-images")).toBeVisible();
+  await shot(page, "assets");
+
+  await page.getByTestId("asset-file").setInputFiles({
+    name: "Club Badge.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(BADGE_PNG, "base64"),
+  });
+  // Named from the file, minus the extension — a user thinks "Club Badge".
+  await expect(page.getByText("Club Badge")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("import-problem")).toHaveCount(0);
+  await shot(page, "imported-badge");
+
+  // The id the import minted, read WHILE the library is on screen — the tiles
+  // do not exist on any other section.
+  const badgeId = await page
+    .getByTestId("asset-grid")
+    .locator('[data-testid^="asset-"]')
+    .last()
+    .evaluate((tile) => tile.getAttribute("data-testid")!.replace("asset-", ""));
+  expect(badgeId).toMatch(/^ast_/);
+
+  // Point the graphic's logo at it. This is the live-swap path: a command, not
+  // an edit, which is exactly what an operator changing a sponsor on air does.
+  await page.getByTestId("nav-design").click();
+  await page.getByRole("tab", { name: "Data", exact: true }).click();
+  const logoField = page.getByTestId("variables").getByLabel("Runtime value for logo");
+  await logoField.fill(badgeId);
+  await page.waitForTimeout(600);
+  await shot(page, "own-logo-on-air");
 
   // ------------------------------------------------ 3. Change colours
   await page.getByTestId("nav-marketplace").click();
