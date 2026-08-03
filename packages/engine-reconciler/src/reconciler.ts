@@ -11,6 +11,7 @@ import type { SceneDocument, Transaction } from "@bracketx/engine-scene";
 
 import { DirtySet } from "./dirty";
 import type { TextProvider } from "./text-provider";
+import type { ImageProvider } from "./image-provider";
 import { MirrorGraph } from "./mirror";
 import type { MirrorBackend } from "./mirror-backend";
 import { Projector, type ProjectionReport } from "./projection";
@@ -26,6 +27,14 @@ export interface ReconcilerOptions {
    * HarfBuzz's WASM — see `text-provider.ts`. Absent is a supported state.
    */
   readonly text?: TextProvider;
+
+  /**
+   * Supplies decoded image pixels. IF-005.
+   *
+   * Injected for the reason in `image-provider.ts`: the projector must not know
+   * what an image FORMAT is, so JPEG, WebP and SVG arrive without touching it.
+   */
+  readonly images?: ImageProvider;
   /**
    * Verify structural consistency after every projection.
    *
@@ -61,7 +70,12 @@ export class Reconciler {
     options: ReconcilerOptions = {},
   ) {
     this.mirror = new MirrorGraph(backend);
-    this.projector = new Projector(this.mirror, backend, options.text);
+    this.projector = new Projector(
+      this.mirror,
+      backend,
+      options.text,
+      options.images,
+    );
     this.#verifyAlways = options.verifyAfterEachProjection ?? false;
   }
 

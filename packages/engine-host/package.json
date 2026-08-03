@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./text": "./src/text.ts"
+    "./text": "./src/text.ts",
+    "./image": "./src/image.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
@@ -17,7 +18,8 @@
     "@bracketx/engine-reconciler": "workspace:*",
     "@bracketx/engine-runtime": "workspace:*",
     "@bracketx/engine-scene": "workspace:*",
-    "@bracketx/engine-text": "workspace:*"
+    "@bracketx/engine-text": "workspace:*",
+    "@bracketx/engine-image": "workspace:*"
   },
   "devDependencies": {
     "@bracketx/eslint-config": "workspace:*",

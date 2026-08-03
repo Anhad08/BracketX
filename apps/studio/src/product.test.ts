@@ -319,13 +319,45 @@ describe("templates", () => {
     expect(built.world.textPrewarm?.ranges).toContain("latin");
   });
 
-  it("contain no image, because the engine cannot draw one", () => {
-    // IF-005. A pack that shipped a logo which does not appear would teach a
-    // user to distrust everything else in the Marketplace.
+  it("reference only assets they declare, and nothing the engine cannot draw", () => {
+    // ======================================================================
+    // THIS TEST USED TO SAY "contain no image, because the engine cannot draw
+    // one"
+    // ======================================================================
+    // IF-005 is now closed for rasters, so that premise is false and the rule
+    // it protected has to be restated rather than deleted. The rule was never
+    // "no images" — it was **a pack must not ship content that does not
+    // appear**, because one broken item teaches a user to distrust the whole
+    // Marketplace.
+    //
+    // So: every image a template references must resolve to an asset the
+    // document declares, and the formats still not implemented stay out.
     for (const template of templatesOf()) {
       const built = instantiateTemplate(template, testIdFactory(), now);
+      const declared = new Set(built.assets.map((asset) => asset.id));
+      const defaults = new Map(
+        built.variables.map((variable) => [variable.key, variable.default]),
+      );
+
+      const walk = (node: { components?: readonly { type?: string; props?: unknown }[]; children?: readonly unknown[] }) => {
+        for (const component of node.components ?? []) {
+          if (component.type !== "image") continue;
+          const raw = (component.props as { assetId?: unknown })?.assetId;
+          // Bound to a variable, which is the whole point — so the ASSET the
+          // variable defaults to is what has to exist.
+          const assetId =
+            typeof raw === "object" && raw !== null && "$var" in raw
+              ? defaults.get((raw as { $var: string }).$var)
+              : raw;
+          expect(typeof assetId, `${template.name}: image assetId`).toBe("string");
+          expect(declared, `${template.name}: ${String(assetId)}`).toContain(assetId);
+        }
+        for (const child of (node.children ?? []) as never[]) walk(child);
+      };
+      walk(built.root as never);
+
       const json = canonicalize(built);
-      for (const forbidden of ['"image"', '"video"', '"svg"']) {
+      for (const forbidden of ['"video"', '"svg"']) {
         expect(json, template.name).not.toContain(forbidden);
       }
     }

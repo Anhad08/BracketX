@@ -54,6 +54,55 @@ import { DependencyIndex, DependencyRecorder } from "./dependencies";
 const DEFAULT_PIXELS_PER_UNIT = 100;
 
 /**
+ * Resolves an image's fit inside its node's box.
+ *
+ * Pure, and separate from projection, because it is the rule a designer argues
+ * with — "why is my logo squashed" — and it should be readable and testable
+ * without a backend in the room.
+ *
+ * `contain` is the default everywhere it is referenced: a distorted brand mark
+ * is the most visible mistake this component can make, so `stretch` is opt-in.
+ */
+export function fitImage(
+  boxWidth: number,
+  boxHeight: number,
+  imageWidth: number,
+  imageHeight: number,
+  mode: string,
+): { width: number; height: number; uvs: Float32Array } {
+  const full = new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]);
+  if (mode === "stretch" || boxWidth <= 0 || boxHeight <= 0) {
+    return { width: boxWidth, height: boxHeight, uvs: full };
+  }
+
+  const boxAspect = boxWidth / boxHeight;
+  const imageAspect = imageWidth / imageHeight;
+
+  if (mode === "cover") {
+    // The quad fills the box; the UVs crop whichever axis overflows. Cropping
+    // is centred, because an off-centre crop of a logo cuts a corner off it.
+    let u = 0.5;
+    let v = 0.5;
+    if (imageAspect > boxAspect) u = boxAspect / imageAspect / 2;
+    else v = imageAspect / boxAspect / 2;
+    const u0 = 0.5 - u;
+    const u1 = 0.5 + u;
+    const v0 = 0.5 - v;
+    const v1 = 0.5 + v;
+    return {
+      width: boxWidth,
+      height: boxHeight,
+      uvs: new Float32Array([u0, v1, u1, v1, u1, v0, u0, v0]),
+    };
+  }
+
+  // contain: shrink the quad to the image's aspect, inside the box.
+  const width = imageAspect > boxAspect ? boxWidth : boxHeight * imageAspect;
+  const height = imageAspect > boxAspect ? boxWidth / imageAspect : boxHeight;
+  return { width, height, uvs: full };
+}
+
+/**
  * Token names whose value changed between two `tokens` arrays.
  *
  * Tolerant of the shapes a `doc.setMeta` can carry — a whole array, or nothing
@@ -83,7 +132,7 @@ function changedTokenNames(before: unknown, after: unknown): Set<string> {
 import { DirtySet, type DirtyStats } from "./dirty";
 import { MirrorGraph, MirrorViolation } from "./mirror";
 import { channelForPath, localMatrixOf, resolveProps, type VariableSource } from "./resolve";
-import { quadDescriptor, rgbaFromHex } from "./primitives";
+import { imageQuadDescriptor, quadDescriptor, rgbaFromHex } from "./primitives";
 import {
   primitiveDescriptor,
   primitiveKey,
@@ -109,6 +158,7 @@ import type {
   TextureHandle,
 } from "./mirror-backend";
 import type { TextProvider, TextRequest } from "./text-provider";
+import type { ImageProvider, ProvidedImage } from "./image-provider";
 
 export class ProjectionError extends Error {
   constructor(message: string) {
@@ -289,6 +339,28 @@ export class Projector {
    */
   #instanceOf = new Map<string, { containerId: string; identity: string }>();
 
+  /**
+   * One texture per IMAGE ASSET, not per node.
+   *
+   * Shared exactly like an atlas page: five nodes drawing the same sponsor logo
+   * upload it once. Released at teardown rather than with any one node, because
+   * freeing it with the first node to disappear would blank the rest.
+   */
+  #imageTextures = new Map<string, { handle: TextureHandle; width: number; height: number }>();
+
+  #images = new Map<
+    string,
+    {
+      assetId: string;
+      width: number;
+      height: number;
+      fit: string;
+      tint: string;
+      geometry: GeometryHandle;
+      material: MaterialHandle;
+    }
+  >();
+
   #rects = new Map<
     string,
     {
@@ -328,6 +400,13 @@ export class Projector {
      * asset-backed mesh already has.
      */
     private readonly text?: TextProvider,
+    /**
+     * Also supplied by the composition root, and also optional.
+     *
+     * A scene with no images must not carry a decoder, and an `image`
+     * component with no provider attaches nothing while the node survives.
+     */
+    private readonly images?: ImageProvider,
   ) {}
 
   get dependencies(): DependencyIndex {
@@ -590,6 +669,7 @@ export class Projector {
     for (const id of [...this.#meshes.keys()]) this.#releaseMesh(id);
     for (const id of [...this.#lights.keys()]) this.#releaseLight(id);
     for (const id of [...this.#texts.keys()]) this.#releaseText(id);
+    for (const id of [...this.#images.keys()]) this.#releaseImage(id);
     this.#instanceOf.clear();
     // The atlas textures are released here rather than in `#releaseText`,
     // because a page is shared by every text node drawing from it — freeing it
@@ -599,6 +679,11 @@ export class Projector {
       this.backend.destroyTexture(texture.handle);
     }
     this.#atlasTextures.clear();
+    // Image textures are asset-scoped for the same reason atlas pages are.
+    for (const texture of this.#imageTextures.values()) {
+      this.backend.destroyTexture(texture.handle);
+    }
+    this.#imageTextures.clear();
     this.#index.clear();
   }
 
@@ -645,6 +730,7 @@ export class Projector {
           this.#releaseMesh(id);
           this.#releaseLight(id);
           this.#releaseText(id);
+          this.#releaseImage(id);
           this.#index.delete(id);
           this.#instanceOf.delete(id);
           dirty.forget(id);
@@ -973,6 +1059,7 @@ export class Projector {
       else if (component.type === "meshRenderer") this.#applyMesh(resolved, props);
       else if (component.type === "light") this.#applyLight(resolved, props);
       else if (component.type === "text") this.#applyText(resolved, props);
+      else if (component.type === "image") this.#applyImage(resolved, props);
     }
 
     this.#dependencies.set(node.id, recorder.take());
@@ -1271,6 +1358,188 @@ export class Projector {
     if (light === undefined) return;
     this.#lights.delete(nodeId);
     this.backend.destroyLight(light.handle);
+  }
+
+  /**
+   * Attaches an image. SCENE_FORMAT §7.4, IF-005.
+   *
+   * ========================================================================
+   * AN IMAGE IS A TEXTURED RECT, AND THAT IS THE WHOLE INTEGRATION
+   * ========================================================================
+   * Deliberately the same shape as `#applyRect` and `#applyText`: resolve
+   * props, compare against what is attached, recreate only what changed. So an
+   * image node inherits the hierarchy, transform, dirty channels, variable
+   * bindings, timeline, collections and states without any of them knowing it
+   * is an image.
+   *
+   * That is what makes "replace a logo" a live operation rather than a feature:
+   * `assetId` is `Bindable<string>`, so it arrives here RESOLVED, and pointing
+   * a variable at a different asset swaps the sponsor mid-show through exactly
+   * the same path a score change takes.
+   *
+   * ========================================================================
+   * FIT IS GEOMETRY OR UVs, NEVER A STRETCHED LOGO BY DEFAULT
+   * ========================================================================
+   * A brand mark distorted to fill a box is the single most visible thing a
+   * broadcast graphics tool can get wrong, so `contain` is the default and
+   * `stretch` must be asked for by name.
+   *
+   *   - `contain` shrinks the QUAD to the image's aspect inside the box.
+   *   - `cover`   keeps the quad and crops the UVs.
+   *   - `stretch` fills the box and distorts.
+   */
+  #applyImage(node: SceneNode, props: Record<string, unknown>): void {
+    const provider = this.images;
+    const assetId = typeof props.assetId === "string" ? props.assetId : "";
+    if (provider === undefined || assetId === "") {
+      this.#releaseImage(node.id);
+      return;
+    }
+
+    const image = provider.image(assetId);
+    if (image === undefined || image.width <= 0 || image.height <= 0) {
+      // Not loaded, or failed to. The node draws nothing rather than showing a
+      // placeholder — a stand-in for a sponsor logo is the kind of thing that
+      // reaches air.
+      this.#releaseImage(node.id);
+      return;
+    }
+
+    const box = node.size ?? { width: 1, height: 1 };
+    const fit = typeof props.fit === "string" ? props.fit : "contain";
+    const tint = typeof props.tint === "string" ? props.tint : "#FFFFFF";
+
+    const { width, height, uvs } = fitImage(
+      box.width,
+      box.height,
+      image.width,
+      image.height,
+      fit,
+    );
+
+    const previous = this.#images.get(node.id);
+    if (
+      previous !== undefined &&
+      previous.assetId === assetId &&
+      previous.width === width &&
+      previous.height === height &&
+      previous.fit === fit
+    ) {
+      if (previous.tint === tint) return;
+      // Tint only. A brand colour bound to a variable changes without
+      // reallocating a vertex buffer to do it.
+      const texture = this.#imageTextures.get(assetId);
+      if (texture === undefined) return;
+      this.backend.updateMaterial(previous.material, {
+        kind: "unlit",
+        color: rgbaFromHex(tint),
+        map: texture.handle,
+        transparent: true,
+        doubleSided: true,
+      });
+      this.#images.set(node.id, { ...previous, tint });
+      return;
+    }
+
+    const texture = this.#textureForImage(assetId, image);
+    if (texture === undefined) return;
+
+    if (previous !== undefined) this.#releaseImage(node.id);
+
+    const descriptor = imageQuadDescriptor(width, height);
+    const geometry = this.backend.createGeometry({ ...descriptor, uvs });
+    if (!geometry.ok) {
+      // Refusing over budget is documented behaviour (ENGINE_RUNTIME §4.4).
+      return;
+    }
+    const material = this.backend.createMaterial({
+      kind: "unlit",
+      color: rgbaFromHex(tint),
+      map: texture.handle,
+      // Broadcast graphics composite over live video and a logo has an alpha
+      // channel by definition.
+      transparent: true,
+      doubleSided: true,
+    });
+    if (!material.ok) {
+      this.backend.destroyGeometry(geometry.value);
+      return;
+    }
+
+    this.mirror.setAttachment(node.id, {
+      kind: "mesh",
+      geometry: geometry.value,
+      material: material.value,
+    });
+    this.#images.set(node.id, {
+      assetId,
+      width,
+      height,
+      fit,
+      tint,
+      geometry: geometry.value,
+      material: material.value,
+    });
+  }
+
+  /**
+   * The texture for an asset, uploaded once and shared.
+   *
+   * The projector owns it because MirrorBackend C2 makes GPU lifetime the
+   * caller's. The provider hands over pixels and nothing else.
+   */
+  #textureForImage(
+    assetId: string,
+    image: ProvidedImage,
+  ): { handle: TextureHandle } | undefined {
+    const existing = this.#imageTextures.get(assetId);
+    if (existing !== undefined) {
+      if (existing.width === image.width && existing.height === image.height) {
+        return existing;
+      }
+      // Same asset id, different pixels — an asset replaced in place. The old
+      // texture is the wrong size for the new geometry, so it goes.
+      this.backend.destroyTexture(existing.handle);
+      this.#imageTextures.delete(assetId);
+    }
+
+    const created = this.backend.createTexture({
+      width: image.width,
+      height: image.height,
+      // Already premultiplied linear RGBA — MirrorBackend C9. The conversion
+      // happens once at decode, never per frame.
+      pixels: image.pixels,
+      format: "rgba8",
+      // Unlike an MSDF atlas, an image has no boundary that filtering must not
+      // cross, and a logo drawn at anything other than 1:1 needs interpolation.
+      filter: "linear",
+    });
+    if (!created.ok) return undefined;
+
+    const entry = {
+      handle: created.value,
+      width: image.width,
+      height: image.height,
+    };
+    this.#imageTextures.set(assetId, entry);
+    return entry;
+  }
+
+  /**
+   * Frees what an image node owned. Safe to call for a node without one.
+   *
+   * The TEXTURE is not freed here: it belongs to the asset and is shared. See
+   * `#imageTextures`.
+   */
+  #releaseImage(nodeId: string): void {
+    const held = this.#images.get(nodeId);
+    if (held === undefined) return;
+    this.backend.destroyGeometry(held.geometry);
+    this.backend.destroyMaterial(held.material);
+    this.#images.delete(nodeId);
+    if (this.mirror.has(nodeId)) {
+      this.mirror.setAttachment(nodeId, { kind: "none" });
+    }
   }
 
   #applyRect(node: SceneNode, props: Record<string, unknown>): void {

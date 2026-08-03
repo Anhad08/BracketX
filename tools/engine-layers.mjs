@@ -45,6 +45,15 @@ export const ENGINE_PACKAGES = {
     allow: ["@bracketx/engine-scene"],
   },
 
+  "@bracketx/engine-image": {
+    layer: "engine-core",
+    // Owns the whole path from an encoded file to premultiplied linear RGBA
+    // (IF-005). Depends on the scene graph for asset types; knows nothing about
+    // a renderer, because pixels are backend-neutral — the same argument that
+    // keeps engine-text off a backend.
+    allow: ["@bracketx/engine-scene"],
+  },
+
   "@bracketx/engine-host": {
     layer: "engine-host",
     // The COMPOSITION ROOT. The only package that may know both the reconciler
@@ -61,6 +70,7 @@ export const ENGINE_PACKAGES = {
       "@bracketx/engine-runtime",
       "@bracketx/engine-reconciler",
       "@bracketx/engine-text",
+      "@bracketx/engine-image",
     ],
   },
 

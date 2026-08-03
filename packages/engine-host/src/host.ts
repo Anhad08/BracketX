@@ -45,6 +45,7 @@ import {
   type ProjectionReport,
   type RenderOptions,
   type VariableSource,
+  type ImageProvider,
   type TextProvider,
 } from "@bracketx/engine-reconciler";
 
@@ -115,6 +116,15 @@ export interface SceneHostOptions {
    * behaviour an asset-backed mesh already has.
    */
   readonly text?: TextProvider;
+
+  /**
+   * Supplies decoded image pixels. IF-005.
+   *
+   * A document containing an `image` component with no provider wired renders
+   * everything else and draws nothing for it — the same supported state text
+   * has, and the reason neither is a hard dependency.
+   */
+  readonly images?: ImageProvider;
 }
 
 /** The id given to the output bound automatically on load. */
@@ -256,6 +266,7 @@ export class SceneHost {
     this.reconciler = new Reconciler(backend, {
       verifyAfterEachProjection: options.verify ?? false,
       ...(options.text === undefined ? {} : { text: options.text }),
+      ...(options.images === undefined ? {} : { images: options.images }),
     });
     this.#text = options.text ?? null;
     this.#variables = new RuntimeVariableSource(this.runtime);

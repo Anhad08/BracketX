@@ -11,7 +11,7 @@ import { expect, test, type Page } from "@playwright/test";
  * one:
  *
  *   1. Create a lower third from a template
- *   2. Edit player names
+ *   2. Edit player names, and the logo the graphic carries
  *   3. Change colours
  *   4. Drag keyframes
  *   5. Preview animations
@@ -64,6 +64,11 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   await role.blur();
   await page.waitForTimeout(500);
   await shot(page, "edited-names");
+
+  // The logo is a variable like every other field, which is the whole point of
+  // IF-005 closing: replacing a sponsor is an operator action, not an edit.
+  const logo = page.getByTestId("variables").getByLabel("Runtime value for logo");
+  await expect(logo).toHaveValue("ast_sponsor_mark");
 
   // ------------------------------------------------ 3. Change colours
   await page.getByTestId("nav-marketplace").click();

@@ -350,6 +350,48 @@ spot), consistent with metres and glTF's `KHR_lights_punctual`. Arbitrary
 0–1 intensity is the kind of choice that looks simpler now and cannot be
 reconciled with real assets later.
 
+### 7.4 `image`
+
+```json
+"props": {
+  "assetId": { "$var": "logo" },
+  "fit": "contain",
+  "tint": "#FFFFFF"
+}
+```
+
+A textured quad in the node's `size` box. Implemented in IF-005; the format
+declared the type from the start and nothing drew it until then.
+
+`assetId` is `Bindable`, and binding it is the intended use rather than a
+convenience: pointing a variable at a different asset **replaces a sponsor
+mid-show** through the same path a score change takes. An `image` whose asset is
+not loaded draws nothing — never a placeholder, because a stand-in for a logo is
+the kind of thing that reaches air.
+
+`fit` is `contain` (default), `cover`, or `stretch`:
+
+| | Effect |
+|---|---|
+| `contain` | The quad shrinks to the image's aspect inside the box. Letterboxes |
+| `cover` | The quad fills the box; the UVs crop, centred |
+| `stretch` | The quad fills the box and the image distorts |
+
+`contain` is the default and `stretch` must be asked for by name, because a
+brand mark squashed to fill a box is the most visible mistake this component can
+make.
+
+**Decoding is the engine's, not the platform's.** `HTMLImageElement` and
+`createImageBitmap` are unavailable on two of the four targets and colour-manage
+per platform, so the same PNG would decode to different pixels on the render
+node than in the editor. Pixels reach the backend as **premultiplied linear
+RGBA** per MirrorBackend C9 — converted once at load, never per frame.
+
+Supported today: **PNG**, 8 bits per channel, non-interlaced. JPEG, WebP and SVG
+arrive behind the same port; SVG is a separate design decision because it is
+vector, so it either rasterises at a size bucket like MSDF or tessellates to
+geometry. `video` remains **Reserved**.
+
 ## 8. Camera
 
 A component, so a camera is a node: parentable, animatable, and

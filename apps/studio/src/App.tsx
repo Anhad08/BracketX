@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createCanvasBackend } from "@bracketx/engine-render-three";
-import type { TextProvider } from "@bracketx/engine-reconciler";
+import type { ImageProvider, TextProvider } from "@bracketx/engine-reconciler";
 import { findNode, type SceneDocument, type Transaction } from "@bracketx/engine-scene";
 
 import { StudioSession } from "./studio/session";
@@ -26,6 +26,7 @@ import {
 import { outline, pathTo } from "./studio/outline";
 import { randomIdFactory } from "./studio/ids";
 import { PREWARM_ASCII, loadStudioFonts } from "./studio/fonts";
+import { loadStudioImages } from "./studio/images";
 import { DEFAULT_VIEWPORT, zoomAt, type Viewport } from "./studio/viewport";
 import {
   fileNameFor,
@@ -179,6 +180,7 @@ export function App() {
   // reason (see `text-provider.ts`). The shell should not have been doing what
   // the engine's own layering forbids.
   const textRef = useRef<TextProvider | null>(null);
+  const imagesRef = useRef<ImageProvider | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,6 +214,36 @@ export function App() {
     };
   }, []);
 
+  // Images load separately from fonts, and separately from the session gate.
+  //
+  // Separately from FONTS because a HarfBuzz failure must not also cost every
+  // graphic its logo — one subsystem being unavailable should subtract one
+  // capability. Separately from the GATE because an image arriving late
+  // re-projects the nodes that use it, whereas a font arriving late reflows
+  // every graphic using it (TEXT_ENGINE §3), which is why only one of them can
+  // hold up the first frame.
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const { HostImageProvider } = await import("@bracketx/engine-host/image");
+        if (cancelled) return;
+        const provider = new HostImageProvider();
+        imagesRef.current = provider;
+        await loadStudioImages(provider);
+      } catch (cause) {
+        // Images are unavailable. Everything else still works and a graphic
+        // containing one renders without it rather than not at all.
+        console.error("Images are unavailable", cause);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const programCanvas = programCanvasRef.current;
@@ -224,8 +256,10 @@ export function App() {
         surface.height = created.world.output.height;
       }
       const text = textRef.current ?? undefined;
+      const images = imagesRef.current ?? undefined;
       const preview = new StudioSession(createCanvasBackend(canvas), created, {
         ...(text === undefined ? {} : { text }),
+        ...(images === undefined ? {} : { images }),
       });
       // Program starts on a document of its own rather than a reference to
       // Preview's: sharing one would be the exact leak the whole split exists
@@ -233,7 +267,10 @@ export function App() {
       const program = new StudioSession(
         createCanvasBackend(programCanvas),
         newDocument("Program", ids, new Date().toISOString()),
-        { ...(text === undefined ? {} : { text }) },
+        {
+          ...(text === undefined ? {} : { text }),
+          ...(images === undefined ? {} : { images }),
+        },
       );
       setSession(preview);
       setBus(new ProgramBus(preview, program));

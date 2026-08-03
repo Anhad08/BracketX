@@ -43,6 +43,37 @@ export function quadDescriptor(
 }
 
 /**
+ * A quad carrying UVs for TOP-DOWN image data.
+ *
+ * ==========================================================================
+ * WHY THIS IS NOT `quadDescriptor`
+ * ==========================================================================
+ * `quadDescriptor` puts V=0 at the BOTTOM, matching the Y-up world convention.
+ * That is right for anything whose texture is authored in world orientation,
+ * and wrong for a decoded image, because a PNG's first row is its TOP row and
+ * a `DataTexture` uploads it with `flipY = false` — so V=0 samples the top.
+ *
+ * Using the world-oriented quad for an image renders every logo upside down.
+ *
+ * The text engine paid for this exact confusion once already: it flipped V as
+ * though the glyph atlas were image-backed, sampled an empty region, and drew
+ * nothing at all. Two conventions genuinely exist here; the fix is to name
+ * both rather than to pick one and hope callers remember which.
+ */
+export function imageQuadDescriptor(
+  width: number,
+  height: number,
+): GeometryDescriptor {
+  const quad = quadDescriptor(width, height);
+  return {
+    ...quad,
+    // Vertices are bottom-left, bottom-right, top-right, top-left — so the
+    // bottom pair takes V=1, the LAST row of the image.
+    uvs: new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]),
+  };
+}
+
+/**
  * sRGB channel to linear. IEC 61966-2-1.
  *
  * MirrorBackend C9 requires LINEAR values. Hex colours are sRGB — that is what

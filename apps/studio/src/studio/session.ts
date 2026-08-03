@@ -24,7 +24,11 @@ import {
   type FrameResult,
   type ProjectionReport,
 } from "@bracketx/engine-host";
-import type { MirrorBackend, TextProvider } from "@bracketx/engine-reconciler";
+import type {
+  ImageProvider,
+  MirrorBackend,
+  TextProvider,
+} from "@bracketx/engine-reconciler";
 import type { RuntimeValue } from "@bracketx/engine-runtime";
 import type { Mat4, SceneDocument } from "@bracketx/engine-scene";
 
@@ -41,6 +45,7 @@ export interface SessionOptions {
    * two text engines and the cross-target guarantee would be gone.
    */
   readonly text?: TextProvider;
+  readonly images?: ImageProvider;
 }
 
 export class StudioSession {
@@ -59,6 +64,7 @@ export class StudioSession {
     this.host = new SceneHost(backend, {
       defaultOutput: options.output ?? true,
       ...(options.text === undefined ? {} : { text: options.text }),
+      ...(options.images === undefined ? {} : { images: options.images }),
     });
     this.host.load(document);
     this.store = new DocumentStore(this.host);

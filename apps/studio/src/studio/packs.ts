@@ -55,6 +55,7 @@ import {
 import { transaction } from "./editing";
 import { DEFAULT_FONT_ASSET } from "./editing";
 import { STUDIO_FONTS } from "./fonts";
+import { STUDIO_IMAGES } from "./images";
 import type { IdFactory } from "./ids";
 
 /**
@@ -213,6 +214,41 @@ function label(
   };
 }
 
+/**
+ * A logo. IF-005 — the component that did not exist until the asset pipeline.
+ *
+ * `assetId` is bound to a VARIABLE rather than written in, which is what makes
+ * "replace a logo" an operator action instead of an edit: pointing `logo` at a
+ * different asset swaps the sponsor mid-show through the same path a score
+ * change takes.
+ *
+ * `fit: "contain"` is not decoration. A brand mark stretched to fill a box is
+ * the most visible mistake this component can make.
+ */
+function logo(
+  ids: IdFactory,
+  name: string,
+  order: string,
+  assetId: unknown,
+  box: { width: number; height: number },
+  position: readonly [number, number, number],
+): SceneNode {
+  return {
+    id: ids("node"),
+    name,
+    order,
+    transform: { position: [...position] as [number, number, number], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    size: box,
+    components: [
+      {
+        id: ids("component"),
+        type: "image",
+        props: { assetId, fit: "contain" },
+      },
+    ],
+  };
+}
+
 function camera(ids: IdFactory, order: string): SceneNode {
   return {
     id: ids("node"),
@@ -255,12 +291,22 @@ function document_(
     variables,
     // Every font Studio ships, so a saved template is self-describing and a
     // name in any of these scripts renders without re-authoring.
-    assets: STUDIO_FONTS.map((font) => ({
-      id: font.assetId,
-      kind: "font" as const,
-      name: font.label,
-      hash: `studio-${font.assetId}`,
-    })),
+    assets: [
+      // Every font Studio ships, so a saved template is self-describing and a
+      // name in any of these scripts renders without re-authoring.
+      ...STUDIO_FONTS.map((font) => ({
+        id: font.assetId,
+        kind: "font" as const,
+        name: font.label,
+        hash: `studio-${font.assetId}`,
+      })),
+      ...STUDIO_IMAGES.map((image) => ({
+        id: image.assetId,
+        kind: "texture" as const,
+        name: image.label,
+        hash: `studio-${image.assetId}`,
+      })),
+    ],
     states: [],
     root,
     animations,
@@ -306,6 +352,9 @@ const LOWER_THIRD: PackTemplate = {
 
     const backdrop = bar(ids, "Background", next(), 9.4, 1.9, surface, [0, 0, 0]);
     const accentBar = bar(ids, "Accent Bar", next(), 0.14, 1.9, accent, [-4.63, 0, 0.01]);
+    // The mark sits inside the bar's right edge, in a square box so `contain`
+    // has room to letterbox whatever aspect the user brings.
+    const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 1.4, height: 1.4 }, [3.9, 0, 0.02]);
     const name = label(
       ids,
       "Name",
@@ -330,7 +379,7 @@ const LOWER_THIRD: PackTemplate = {
     const holder = group(holderId, next(), {
       position: [0, -3.1, 0],
       size: { width: 9.4, height: 1.9 },
-      children: [backdrop, accentBar, name, role],
+      children: [backdrop, accentBar, mark, name, role],
     });
 
     const root: SceneNode = {
@@ -350,6 +399,9 @@ const LOWER_THIRD: PackTemplate = {
       [
         variable(ids("variable"), "name", "Name", "ALEX RIVERA"),
         variable(ids("variable"), "role", "Role", "Team Captain"),
+        // The logo is a variable like any other, so swapping the sponsor is an
+        // operator action on air rather than an edit to the graphic.
+        variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId),
       ],
       [
         {

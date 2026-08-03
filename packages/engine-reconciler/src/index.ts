@@ -143,3 +143,4 @@ export type {
   TextProvider,
   TextRequest,
 } from "./text-provider";
+export type { ImageProvider, ProvidedImage } from "./image-provider";

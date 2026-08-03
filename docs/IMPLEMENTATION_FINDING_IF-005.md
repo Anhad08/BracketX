@@ -1,7 +1,12 @@
 # IF-005 — Assets and Marketplace need an asset pipeline that does not exist
 
 **Date:** 2026-08-03 · **Raised by:** Phase 4, Studio as a commercial product
-**Status:** **PARTIALLY BLOCKING.** The shell, Home, Developer Mode, content
+**Status (2026-08-03, updated):** **RASTERS CLOSED.** PNG images decode, upload
+and render; `image` is a live component and "replace a logo" is an operator
+action. SVG and video remain open — see §5. The original finding follows
+unchanged.
+
+**Status when raised:** **PARTIALLY BLOCKING.** The shell, Home, Developer Mode, content
 packs and the 30-second criterion minus one step are all buildable now.
 **Decision required:** when to fund the asset pipeline.
 
