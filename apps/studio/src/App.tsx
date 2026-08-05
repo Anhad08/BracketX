@@ -79,7 +79,9 @@ import { Nav } from "./ui/nav";
 import { Home } from "./ui/home";
 import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections";
 import { DeveloperPanel } from "./ui/developer";
+import { placeScene } from "./studio/place";
 import {
+  PACKS,
   installTheme,
   instantiateTemplate,
   type Pack,
@@ -568,6 +570,43 @@ export function App() {
       setNotice(`${template.name} ready to edit`);
     },
     [session, openJson, update],
+  );
+
+  /**
+   * Places an installed scene onto the open stage.
+   *
+   * This is the join in the primary journey — Marketplace → Assets → Stage —
+   * and it is deliberately ONE function used by both the drag and the click.
+   * A scene dropped at a point lands there; a scene added by click lands where
+   * its designer put it. Both go through `placeScene`, so both produce real
+   * nodes in the open document, one undo step, with the placed scene selected
+   * because the next thing anyone does is edit what they just added.
+   */
+  const placeTemplate = useCallback(
+    (templateId: string, at?: { x: number; y: number }) => {
+      const template = PACKS.flatMap((pack) => pack.templates ?? []).find(
+        (candidate) => candidate.id === templateId,
+      );
+      if (template === undefined) return;
+
+      // An empty studio has nothing to place INTO. Opening the scene is the
+      // honest answer, not a silent no-op.
+      if (session === null) {
+        openTemplate(template);
+        return;
+      }
+
+      const host = session.document;
+      const built = instantiateTemplate(template, ids, new Date().toISOString(), host.tokens ?? []);
+      const placement = placeScene(host, built, ids, at);
+      if (placement === null) return;
+
+      session.store.apply(placement.transaction);
+      setSelection(selectMany(placement.nodeIds));
+      update({ section: "design" });
+      setNotice(`${template.name} added`);
+    },
+    [session, openTemplate, update],
   );
 
   const installPack = useCallback(
@@ -1160,6 +1199,7 @@ export function App() {
           <Assets
             session={session}
             installed={installed}
+            onPlaceScene={(templateId) => placeTemplate(templateId)}
             assets={assets}
             thumbnails={thumbnails}
             usersOf={(assetId) => registryRef.current?.usersOf(assetId) ?? []}
@@ -1326,7 +1366,11 @@ export function App() {
       <div className="body">
         {workspace.leftOpen && docksAt(workspace.depth).left ? (
           <aside className="dock left" style={{ width: workspace.leftWidth }}>
-            <Toolbox onCreate={create} />
+            <Toolbox
+              onCreate={create}
+              installed={installed}
+              onPlaceScene={(templateId) => placeTemplate(templateId)}
+            />
             <Hierarchy
               session={session}
               selection={selection}
@@ -1447,6 +1491,7 @@ export function App() {
           ) : null}
 
           <SceneView
+            onDropScene={(templateId, at) => placeTemplate(templateId, at)}
             session={session}
             canvas={canvasRef.current}
             revision={revision}
@@ -1534,6 +1579,18 @@ export function App() {
             <Content
               session={session}
               assets={assets}
+              onAir={bus?.onAir ?? false}
+              onGoLive={() => {
+                if (bus === null) return;
+                // One button, both directions. Opening the Program row is part
+                // of going live: an operator must SEE what is on air, and a
+                // beginner who is broadcasting has earned that row.
+                if (bus.onAir) bus.clear();
+                else {
+                  bus.take();
+                  update({ programOpen: true });
+                }
+              }}
               ids={ids}
               depth={workspace.depth}
               onDepth={(depth) => update({ depth })}

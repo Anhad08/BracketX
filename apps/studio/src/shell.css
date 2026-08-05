@@ -182,6 +182,21 @@
 }
 .font-tile strong { font-size: 13px; color: var(--text-strong); }
 
+/* SCENES — the things you drag onto the stage. A card, not a list row: what
+   you are picking up is a graphic, and it should look like one. `cursor: grab`
+   is the affordance; without it nobody discovers the drag. */
+.scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: var(--s3); }
+.scene-tile {
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--panel); color: inherit; font: inherit; cursor: grab;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.scene-tile:hover { border-color: var(--accent); transform: translateY(-1px); }
+.scene-tile:active { cursor: grabbing; transform: none; }
+.scene-tile .scene-art { height: 58px; border-radius: var(--radius-sm); margin-bottom: 4px; }
+.scene-tile strong { font-size: 13px; color: var(--text-strong); }
+
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: var(--s3); margin: 0; }
 .facts > div { display: flex; flex-direction: column; gap: 2px; }
 .facts dt { font-size: 11px; color: var(--dim); }
@@ -225,3 +240,34 @@
   background: var(--accent-bg); border-top: 1px solid var(--accent);
   color: var(--text); font-size: 12px;
 }
+
+/* GO LIVE. The only red in the interface, because on air is the only state
+   that cannot be undone by pressing something else. */
+.air-foot { display: flex; flex-direction: column; gap: 4px; padding: var(--s3); border-top: 1px solid var(--line); }
+.air-foot .air {
+  display: block; width: 100%; padding: 9px 12px; font: inherit; font-weight: 600;
+  border-radius: var(--radius-sm); border: 1px solid var(--line);
+  background: var(--panel); color: var(--text-strong); cursor: pointer;
+}
+.air-foot .air:hover { border-color: #d4342c; color: #d4342c; }
+.air-foot .air.on { background: #d4342c; border-color: #d4342c; color: #fff; }
+
+/* Scenes in the left dock — the only place a scene and the stage share a
+   screen, so the only place the drag is real. */
+/* Bounded, and it scrolls itself. An unbounded list here grows the toolbox,
+   and because the dock takes the slack from the layer list, the layers scroll
+   under the status bar and stop being clickable. Found by a test that could
+   no longer click a layer, which is exactly what a user would have hit. */
+.scene-strip {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 168px; overflow-y: auto;
+}
+.scene-chip {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 6px 8px; font: inherit; font-size: 12px; cursor: grab;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--panel); color: var(--text-strong);
+}
+.scene-chip:hover { border-color: var(--accent); }
+.scene-chip:active { cursor: grabbing; }
+.scene-chip .chip-art { width: 22px; height: 14px; border-radius: 3px; flex: none; }

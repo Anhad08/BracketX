@@ -11,12 +11,22 @@ import { ensureDepth } from "./depth";
 async function openLowerThird(page: import("@playwright/test").Page) {
   await page.goto("/");
   await expect(page.getByTestId("rail")).toBeVisible({ timeout: 30_000 });
-  await page.getByTestId("start-tpl_lower_third").click();
+  const start = page.getByTestId("start-tpl_lower_third");
+  await expect(start).toBeEnabled();
+  await start.click();
   await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
-  await page.waitForTimeout(900);
-  // The layer tree is Designer depth. A beginner has no layers, by design —
+
+  // The layer tree is Designer depth. A beginner has no layers, by design.
   await ensureDepth(page, "designer");
-  await page.waitForTimeout(300);
+
+  // Wait for the GRAPHIC, not for a duration. A fixed 900ms passed on a quiet
+  // machine and failed under a full suite run, where the click landed before
+  // the shell had finished booting and the studio opened on an empty document
+  // — Root and Camera only. Waiting for the content that must exist is both
+  // more honest and a stronger assertion than any timeout.
+  await expect(page.getByTestId("outline").getByText("Accent Bar", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 test("selecting a node shows nine handles", async ({ page }) => {
@@ -29,18 +39,18 @@ test("selecting a node shows nine handles", async ({ page }) => {
 });
 
 /**
- * KNOWN FAILING — a real coordinate bug, recorded rather than hidden.
+ * The bug this defends against, and why the assertion is shaped this way.
  *
- * This passed when the stage was 63 % wide (zoom ~38 %). After the beginner
- * depth widened the stage to ~76 % (zoom ~52 %), the drag produces NO change
- * at all — `after.x === before.x` exactly — which means the pointer is not
- * finding the handle rather than resizing it slightly wrong.
+ * It once failed at 1280x720 with the bottom dock open: the view was 351px
+ * tall while the frame at 52 % zoom was ~562px, so the graphic fell below the
+ * visible area and its handles were DRAWN about ten pixels past the bottom of
+ * `.scene-chrome`, the element that receives pointer events. They looked
+ * correct and could not be grabbed. `recentre` now refits when the frame no
+ * longer fits rather than holding a centre that has stopped being reachable.
  *
- * That points at a disagreement between where handles are DRAWN (`toScreen`)
- * and where they are HIT TESTED (`screenToWorld` + `handleAt`), with an error
- * that scales with zoom. Marked `fail` so the suite stays honest: it will go
- * green the moment the bug is fixed, and `test.fail()` reports loudly if it
- * starts passing by accident.
+ * `data-drag` is asserted as well as the pixel delta because a delta alone
+ * cannot tell "the handle was missed" from "the resize was small" — and that
+ * ambiguity is precisely what hid the bug.
  */
 test("dragging a handle resizes the real document, as one undo step", async ({ page }) => {
   const errors: string[] = [];

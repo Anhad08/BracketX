@@ -19,6 +19,8 @@ import { dropTarget, outline, type OutlineRow } from "../studio/outline";
 import type { IdFactory } from "../studio/ids";
 import { contentSurface, preflight, type IssueKind } from "../studio/preflight";
 import type { SurfaceField } from "../studio/surface";
+import { SCENE_DRAG } from "../studio/place";
+import { PACKS } from "../studio/packs";
 import type { AssetRecord } from "@bracketx/engine-assets";
 import { colourTokens, setToken } from "../studio/library";
 import { PRESETS, applyPreset, type AnimationPreset } from "../studio/presets";
@@ -46,9 +48,57 @@ const TOOLBOX_SECTIONS: readonly { section: ToolboxSection; title: string }[] = 
   { section: "scene", title: "Scene" },
 ];
 
-export function Toolbox({ onCreate }: { onCreate: (kind: NodeKind) => void }) {
+export function Toolbox({
+  onCreate,
+  installed,
+  onPlaceScene,
+}: {
+  readonly onCreate: (kind: NodeKind) => void;
+  readonly installed: ReadonlySet<string>;
+  readonly onPlaceScene: (templateId: string) => void;
+}) {
+  const scenes = PACKS.filter((pack) => installed.has(pack.id)).flatMap((pack) =>
+    (pack.templates ?? []).map((template) => ({ pack, template })),
+  );
   return (
     <section className="panel toolbox" aria-label="Toolbox">
+      {/* SCENES FIRST. The Canva test: the first question is "what are you
+          making?", not "what shape would you like?". A designer with packs
+          installed starts from a finished graphic and edits it; the shapes
+          below are for when nothing in the library is close enough.
+
+          This is also the only place a scene can genuinely be DRAGGED onto
+          the stage, because it is the only place both are on screen. */}
+      {scenes.length > 0 ? (
+        <div className="tool-section">
+          <h3>Scenes</h3>
+          <div className="scene-strip">
+            {scenes.map(({ pack, template }) => (
+              <button
+                key={template.id}
+                type="button"
+                className="scene-chip"
+                draggable
+                data-testid={`dock-scene-${template.id}`}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(SCENE_DRAG, template.id);
+                  event.dataTransfer.effectAllowed = "copy";
+                }}
+                onClick={() => onPlaceScene(template.id)}
+                title={`Drag onto the stage, or click to add ${template.name}`}
+              >
+                <span
+                  className="chip-art"
+                  aria-hidden
+                  style={{ background: `linear-gradient(135deg, ${pack.swatch[0]}, ${pack.swatch[1]})` }}
+                />
+                {template.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <h2>Create</h2>
       {TOOLBOX_SECTIONS.map(({ section, title }) => (
         <div className="tool-section" key={section}>
@@ -945,6 +995,10 @@ export interface ContentProps {
   readonly ids: PresetIds;
   readonly depth: Depth;
   readonly onDepth: (depth: Depth) => void;
+  /** True when this graphic is currently on air. */
+  readonly onAir: boolean;
+  /** Take to air, or take off — the beginner's one click for both. */
+  readonly onGoLive: () => void;
   readonly onEdit: (transaction: Transaction) => void;
 }
 
@@ -1047,7 +1101,16 @@ function ContentField({
   );
 }
 
-export function Content({ session, assets, ids, depth, onDepth, onEdit }: ContentProps) {
+export function Content({
+  session,
+  assets,
+  ids,
+  depth,
+  onDepth,
+  onAir,
+  onGoLive,
+  onEdit,
+}: ContentProps) {
   const document_ = session.document;
   const fields = contentSurface(session.host);
   const report = preflight(session.host);
@@ -1167,6 +1230,28 @@ export function Content({ session, assets, ids, depth, onDepth, onEdit }: Conten
           </>
         )}
       </div>
+
+      {/* GOING TO AIR — the one-click version of the professional feature.
+          The Program row is where an operator cues and takes deliberately;
+          this is the beginner's version of the same act, on the same bus, and
+          it is HERE because the beginner never opens the bottom dock. A
+          product whose whole point is broadcast cannot hide the way to
+          broadcast behind a depth setting. */}
+      <div className="air-foot">
+        <button
+          type="button"
+          className={`air ${onAir ? "on" : ""}`}
+          data-testid="go-live"
+          onClick={onGoLive}
+          title={onAir ? "Stop sending this graphic to air" : "Send this graphic to air"}
+        >
+          {onAir ? "On air — stop" : "Go live"}
+        </button>
+        {report.clear ? null : (
+          <span className="dim tiny">Checks above are worth reading first.</span>
+        )}
+      </div>
+
       <div className="depth-foot" data-testid="depth">
         <span className="depth-label">
           {depth === "beginner" ? "Content only" : depth === "designer" ? "Layers and properties" : "Everything"}

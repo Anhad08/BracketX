@@ -31,6 +31,7 @@ import {
   pixelsPerUnit,
   rectFromCorners,
   safeAreas,
+  screenToCanvas,
   screenToWorld,
   snap,
   snapCandidates,
@@ -42,6 +43,7 @@ import {
   recentre,
   type Viewport,
 } from "../studio/viewport";
+import { SCENE_DRAG } from "../studio/place";
 import type { Workspace } from "../studio/workspace";
 
 /**
@@ -88,6 +90,14 @@ export interface SceneViewProps {
   readonly onViewport: (viewport: Viewport) => void;
   /** Bumped by the shell to request a fit. */
   readonly fitToken: number;
+  /**
+   * A scene was dropped on the stage, at this point in canvas coordinates.
+   *
+   * The Stage does not know what a template is — it reports WHERE, and the
+   * shell decides what to place. Keeping instantiation out of the viewport is
+   * what stops this becoming a second, half-informed copy of the shell.
+   */
+  readonly onDropScene: (templateId: string, at: Point) => void;
 }
 
 interface DragState {
@@ -117,6 +127,7 @@ export function SceneView({
   viewport,
   onViewport,
   fitToken,
+  onDropScene,
 }: SceneViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -126,6 +137,8 @@ export function SceneView({
   const [error] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<{ a: Point; b: Point } | null>(null);
+  /** A scene is hovering over the stage. Volume Two: a target must say so. */
+  const [dropping, setDropping] = useState(false);
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({
     x: null,
     y: null,
@@ -659,7 +672,24 @@ export function SceneView({
         onPointerUp={finishDrag}
         onPointerCancel={finishDrag}
         onWheel={onWheel}
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes(SCENE_DRAG)) return;
+          // Both are required: preventDefault on dragover is what makes an
+          // element a drop target at all, and without it `drop` never fires.
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          setDropping(true);
+        }}
+        onDragLeave={() => setDropping(false)}
+        onDrop={(event) => {
+          const templateId = event.dataTransfer.getData(SCENE_DRAG);
+          setDropping(false);
+          if (templateId === "") return;
+          event.preventDefault();
+          onDropScene(templateId, screenToCanvas(viewport, pointOf(event)));
+        }}
         data-testid="scene-chrome"
+        data-dropping={dropping ? "yes" : "no"}
         /* The gesture in progress. Exposed so a test can assert that a drag
            STARTED as a resize rather than inferring it from pixels — a pixel
            delta cannot tell "the handle was missed" from "the resize was

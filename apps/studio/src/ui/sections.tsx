@@ -4,6 +4,7 @@ import type { AssetRecord } from "@bracketx/engine-assets";
 
 import type { StudioSession } from "../studio/session";
 import type { IdFactory } from "../studio/ids";
+import { SCENE_DRAG } from "../studio/place";
 import { PACKS, installTheme, type Pack, type PackTemplate } from "../studio/packs";
 import { STUDIO_FONTS } from "../studio/fonts";
 import { PRESETS, presetById } from "../studio/presets";
@@ -265,6 +266,8 @@ export interface AssetsProps {
   readonly onDuplicate: (assetId: string) => void;
   readonly onDelete: (assetId: string) => void;
   readonly onReplace: (assetId: string, file: File) => Promise<string | null>;
+  /** Adds an installed scene to the open stage, at its designed position. */
+  readonly onPlaceScene: (templateId: string) => void;
 }
 
 function fileSize(bytes: number): string {
@@ -286,6 +289,7 @@ export function Assets({
   onDuplicate,
   onDelete,
   onReplace,
+  onPlaceScene,
 }: AssetsProps) {
   const [importing, setImporting] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -326,6 +330,9 @@ export function Assets({
   };
   const swatches = session === null ? [] : colourTokens(session.document);
   const motion = PACKS.filter((pack) => pack.kind === "motion" && installed.has(pack.id));
+  const scenes = PACKS.filter((pack) => installed.has(pack.id)).flatMap((pack) =>
+    (pack.templates ?? []).map((template) => ({ pack, template })),
+  );
 
   return (
     <div className="section-page" data-testid="assets">
@@ -601,6 +608,53 @@ export function Assets({
             </span>
           ))}
         </div>
+      </section>
+
+      {/* SCENES — the journey's missing link. A scene installed from the
+          Marketplace lives here, and is DRAGGED onto the Stage. Nothing about
+          it is recreated by hand; `placeScene` inserts its real nodes. */}
+      <section className="home-block">
+        <div className="block-head">
+          <h2>Scenes</h2>
+          <span className="dim">Drag one onto your stage</span>
+        </div>
+        {scenes.length === 0 ? (
+          <p className="empty">
+            Install a graphics pack from the Marketplace and its scenes appear
+            here, ready to drop onto the stage.
+          </p>
+        ) : (
+          <div className="scene-grid">
+            {scenes.map(({ pack, template }) => (
+              <button
+                type="button"
+                className="scene-tile"
+                key={template.id}
+                draggable
+                data-testid={`scene-${template.id}`}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(SCENE_DRAG, template.id);
+                  event.dataTransfer.effectAllowed = "copy";
+                }}
+                onClick={() => onPlaceScene(template.id)}
+                title={`Add ${template.name} to your stage`}
+              >
+                <span
+                  className="scene-art"
+                  aria-hidden
+                  style={{
+                    background: `linear-gradient(135deg, ${pack.swatch[0]}, ${pack.swatch[1]})`,
+                  }}
+                />
+                <strong>{template.name}</strong>
+                <span className="dim tiny">{template.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="note">
+          Dragging a scene adds it to what you already have. Nothing is replaced.
+        </p>
       </section>
 
       <section className="home-block">
