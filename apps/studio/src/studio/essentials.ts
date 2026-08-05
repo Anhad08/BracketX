@@ -326,7 +326,10 @@ export const SPONSOR: PackTemplate = {
       ids, "Sponsor Bar", now, stage(ids, "Sponsor Bar", { ...holder, name: "Sponsor" }),
       [
         variable(ids("variable"), "courtesy", "Courtesy line", "IN PARTNERSHIP WITH"),
-        variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId),
+        // Typed `asset`, so the Content surface offers a PICKER of images by
+        // name. Left as a string it rendered the raw id in a text box, which
+        // is the clearest example there is of the engine leaking to a user.
+        variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId, "asset"),
       ],
       [
         {

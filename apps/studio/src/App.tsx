@@ -1596,7 +1596,13 @@ export function App() {
               onDepth={(depth) => update({ depth })}
               onEdit={edit}
             />
-            <Inspector session={session} selection={selection} onEdit={edit} ids={ids} />
+            {/* Properties is a Designer panel. Showing it at beginner depth
+                put `nod_iyt0000v`, position z and scale x in front of someone
+                whose panel footer said "Content only" — the interface
+                contradicting itself, and every engine term in it a bug. */}
+            {workspace.depth === "beginner" ? null : (
+              <Inspector session={session} selection={selection} onEdit={edit} ids={ids} />
+            )}
           </aside>
         ) : null}
       </div>
@@ -1613,14 +1619,18 @@ export function App() {
 
       <footer className="statusbar" data-testid="statusbar">
         <span>{selection.ids.length} selected</span>
-        <span className="dim">{countNodes(document_)} nodes</span>
+        {/* "Layers" is what the panel calls them and what a designer calls
+            them. "Nodes" is what the engine calls them. */}
+        <span className="dim">{countNodes(document_)} layers</span>
         <span className="dim" data-testid="history">
           history {store.depth}
           {store.dirty ? " · unsaved" : " · saved"}
         </span>
         <span className="spacer" />
         {notice !== null ? <span className="notice">{notice}</span> : null}
-        <span className="dim mono">{document_.id}</span>
+        {/* The scene's id is a debugging aid, not a fact anyone making a
+            graphic needs. It stays, behind Developer Mode. */}
+        {workspace.developerMode ? <span className="dim mono">{document_.id}</span> : null}
       </footer>
       </>
       )}

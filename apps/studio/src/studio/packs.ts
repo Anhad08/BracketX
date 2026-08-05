@@ -408,7 +408,10 @@ const LOWER_THIRD: PackTemplate = {
         variable(ids("variable"), "role", "Role", "Team Captain"),
         // The logo is a variable like any other, so swapping the sponsor is an
         // operator action on air rather than an edit to the graphic.
-        variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId),
+        // Typed `asset`, so the Content surface offers a PICKER of images by
+        // name. Left as a string it rendered the raw id in a text box, which
+        // is the clearest example there is of the engine leaking to a user.
+        variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId, "asset"),
       ],
       [
         {

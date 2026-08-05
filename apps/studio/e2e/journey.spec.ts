@@ -128,3 +128,53 @@ test("a scene is dragged from the dock onto the stage", async ({ page }) => {
 async function countNodes(page: Page): Promise<number> {
   return page.getByTestId("outline").locator("li").count();
 }
+
+/**
+ * The beginner surface leaks nothing.
+ *
+ * Every one of these was on screen at once, in a single screenshot, while the
+ * panel footer said "Content only":
+ *
+ *   - `ast_sponsor_mark` in the Logo box, because the template typed the logo
+ *     as a string and every field rendered as a text input
+ *   - `nod_iyt0000v`, position z, rotation z and scale x, because Properties
+ *     rendered at beginner depth — the interface contradicting its own footer
+ *   - `scn_iyt00001` in the status bar
+ *   - "9 nodes", which is what the engine calls them, not what a designer does
+ *
+ * A screenshot found all four in a second. This test is so the next one cannot
+ * happen quietly.
+ */
+test("no engine vocabulary reaches the beginner surface", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("start-tpl_lower_third").click();
+  await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
+  await expect(page.getByTestId("content")).toBeVisible();
+  await expect(page.locator(".studio")).toHaveAttribute("data-depth", "beginner");
+
+  const screen = await page.locator(".studio").innerText();
+
+  // Ids, in any of the engine's prefixes.
+  expect(screen, "an engine id is visible on the beginner surface").not.toMatch(
+    /\b(?:nod|scn|ast|cmp|var|tpl)_[a-z0-9]{4,}/i,
+  );
+
+  for (const term of ["node", "nodes", "mirror", "projection", "reconciler", "backend"]) {
+    expect(
+      screen.toLowerCase().split(/\b/),
+      `"${term}" is engine vocabulary and must not reach a beginner`,
+    ).not.toContain(term);
+  }
+
+  // Properties belongs to Designer depth. Its absence is the point.
+  await expect(page.getByTestId("inspector")).toHaveCount(0);
+
+  // And the field that started all this shows a NAME. The select's VALUE is
+  // still the asset id — that is the machine's half of the bargain, and the
+  // right place for it. What a user reads is the label.
+  const logo = page.getByTestId("content").getByLabel("Logo");
+  await expect(logo).toBeVisible();
+  const shown = await logo.locator("option:checked").innerText();
+  expect(shown.trim()).not.toMatch(/^ast_/);
+  expect(shown.trim().length).toBeGreaterThan(0);
+});
