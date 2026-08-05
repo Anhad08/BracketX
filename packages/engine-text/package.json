@@ -15,6 +15,7 @@
   "dependencies": {
     "@bracketx/engine-scene": "workspace:*",
     "bidi-js": "^1.0.3",
+    "graphemer": "^1.4.0",
     "harfbuzzjs": "^1.5.0",
     "linebreak": "^1.1.0",
     "unicode-properties": "^1.4.1"

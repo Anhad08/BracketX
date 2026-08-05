@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { PACKS } from "../src/studio/packs";
+import { ensureDepth } from "./depth";
 
 /**
  * Phase 4 in a browser — Studio as a product.
@@ -55,6 +57,8 @@ test("a first-time user gets a lower third on air", async ({ page }) => {
   await page.getByTestId("nav-marketplace").click();
   await page.getByTestId("pack-pack_theme_broadcast_red").getByRole("button", { name: "Apply" }).click();
   await page.getByTestId("nav-design").click();
+  // Studio opens at BEGINNER depth (Volume One L9). These are Designer
+  await ensureDepth(page, "designer");
 
   // 3. EDIT TEXT.
   //
@@ -121,6 +125,9 @@ test("no engine terminology is visible with Developer Mode off", async ({ page }
   // properties panel was shipping "read from the mirror" the whole time.
   await page.getByTestId("nav-home").click();
   await page.getByTestId("start-tpl_lower_third").click();
+  // The layer tree and the bottom tabs are Designer depth (Volume One L9).
+  // Checked at that depth deliberately: the terminology audit matters MOST
+  await ensureDepth(page, "designer");
   await page.getByTestId("outline").getByRole("button", { name: /Name/ }).first().click();
   for (const tab of ["Timeline", "Motion", "Data", "Templates"]) {
     await page.getByRole("tab", { name: tab, exact: true }).click();
@@ -163,8 +170,11 @@ test("the free tier is installed and every pack is usable", async ({ page }) => 
   await boot(page);
   await page.getByTestId("nav-marketplace").click();
 
-  // Seven packs, all owned. A first-time user installs nothing to evaluate.
-  await expect(page.locator(".pack-card")).toHaveCount(7);
+  // Every pack, all owned — a first-time user installs nothing to
+  // evaluate. Counted from PACKS rather than written here: this
+  // assertion was hard-coded to 7 and silently drifted when the
+  // Essentials library shipped two more.
+  await expect(page.locator(".pack-card")).toHaveCount(PACKS.length);
   await expect(page.getByRole("button", { name: "Install" })).toHaveCount(0);
 
   // Removing and re-installing round-trips.
@@ -196,6 +206,8 @@ test("browsing costs no rendering", async ({ page }) => {
 
   // And it comes back intact, with the graphic still open.
   await page.getByTestId("nav-design").click();
+  // Studio opens at BEGINNER depth (Volume One L9). These are Designer
+  await ensureDepth(page, "designer");
   await expect(page.locator("canvas")).toHaveCount(1);
   await expect(page.getByTestId("doc-name")).toContainText("Lower Third");
 });

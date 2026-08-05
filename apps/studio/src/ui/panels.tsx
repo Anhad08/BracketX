@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { findNode, type SceneDocument } from "@bracketx/engine-scene";
+import { findNode, type SceneDocument, type Transaction } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "../studio/session";
 import type { Selection } from "../studio/selection";
@@ -17,6 +17,14 @@ import {
 } from "../studio/editing";
 import { dropTarget, outline, type OutlineRow } from "../studio/outline";
 import type { IdFactory } from "../studio/ids";
+import { contentSurface, preflight, type IssueKind } from "../studio/preflight";
+import type { SurfaceField } from "../studio/surface";
+import type { AssetRecord } from "@bracketx/engine-assets";
+import { colourTokens, setToken } from "../studio/library";
+import { PRESETS, applyPreset, type AnimationPreset } from "../studio/presets";
+import type { IdFactory as PresetIds } from "../studio/ids";
+import type { Depth } from "../studio/workspace";
+import { resetSurfaceValue, setSurfaceValue } from "../studio/surface";
 
 /**
  * The docked panels.
@@ -919,4 +927,275 @@ export function makeClearBinding(
   value: unknown,
 ) {
   return clearBinding(document_, nodeId, path, value);
+}
+
+// ===========================================================================
+// Content — the beginner surface, and the pre-air verdict
+// ===========================================================================
+//
+// Both read the ENGINE. `contentSurface` derives the editable fields from the
+// document's template parameters (or its variables); `preflight` reads what the
+// shaper actually produced via `Projector.textFacts()`. Neither measures
+// anything here — a second fit calculation in the UI would be exactly the
+// duplicate this phase exists to delete.
+
+export interface ContentProps {
+  readonly session: StudioSession;
+  readonly assets: readonly AssetRecord[];
+  readonly ids: PresetIds;
+  readonly depth: Depth;
+  readonly onDepth: (depth: Depth) => void;
+  readonly onEdit: (transaction: Transaction) => void;
+}
+
+const ISSUE_TONE: Record<IssueKind, string> = {
+  overflow: "warn",
+  truncated: "warn",
+  unbreakable: "warn",
+  missing: "warn",
+};
+
+/**
+ * One field, rendered as what it IS.
+ *
+ * A beginner must never see `ast_sponsor_mark`. An asset field is a list of
+ * things they recognise by name; a yes/no is a switch; a colour is a colour.
+ * The engine keeps its ids — this is the only place they are translated.
+ */
+function ContentField({
+  field,
+  assets,
+  onValue,
+}: {
+  readonly field: SurfaceField;
+  readonly assets: readonly AssetRecord[];
+  readonly onValue: (value: unknown) => void;
+}) {
+  const text = field.value === null || field.value === undefined ? "" : String(field.value);
+
+  if (field.type === "asset") {
+    const images = assets.filter((asset) => asset.kind === "image");
+    return (
+      <select
+        className="field"
+        value={text}
+        onChange={(event) => onValue(event.target.value)}
+        aria-label={field.label}
+        data-testid={`asset-${field.key}`}
+      >
+        <option value="">None</option>
+        {images.map((asset) => (
+          <option key={asset.id} value={asset.id}>
+            {asset.name}
+          </option>
+        ))}
+        {/* What the scene already points at, when it is not in the library
+            yet — a downloaded scene brings its own. Named, never as an id. */}
+        {text !== "" && !images.some((asset) => asset.id === text) ? (
+          <option value={text}>From this scene</option>
+        ) : null}
+      </select>
+    );
+  }
+
+  if (field.type === "boolean") {
+    return (
+      <input
+        className="field switch"
+        type="checkbox"
+        checked={field.value === true}
+        onChange={(event) => onValue(event.target.checked)}
+        aria-label={field.label}
+      />
+    );
+  }
+
+  if (field.type === "color") {
+    return (
+      <input
+        className="field swatch-input"
+        type="color"
+        value={/^#[0-9a-fA-F]{6}$/.test(text) ? text : "#ffffff"}
+        onChange={(event) => onValue(event.target.value)}
+        aria-label={field.label}
+      />
+    );
+  }
+
+  if (field.type === "number") {
+    return (
+      <input
+        className="field"
+        type="number"
+        value={text}
+        onChange={(event) => {
+          const next = Number(event.target.value);
+          if (Number.isFinite(next)) onValue(next);
+        }}
+        aria-label={field.label}
+      />
+    );
+  }
+
+  return (
+    <input
+      className="field"
+      value={text}
+      onChange={(event) => onValue(event.target.value)}
+      aria-label={field.label}
+    />
+  );
+}
+
+export function Content({ session, assets, ids, depth, onDepth, onEdit }: ContentProps) {
+  const document_ = session.document;
+  const fields = contentSurface(session.host);
+  const report = preflight(session.host);
+  const colours = colourTokens(document_);
+
+  return (
+    <section className="panel content" aria-label="Content" data-testid="content">
+      <div className="panel-head">
+        <h2>Content</h2>
+        <span className="dim">{fields.length} fields</span>
+      </div>
+
+      {fields.length === 0 ? (
+        // Law 7: never a blank panel. This state is reachable and says why.
+        <p className="empty" data-testid="content-empty">
+          This graphic has no data fields yet. Add one in Data, and it becomes
+          editable here.
+        </p>
+      ) : (
+        <div className="content-fields">
+          {fields.map((field) => (
+            <label className="content-row" key={field.key}>
+              <span className="content-label">
+                {field.label}
+                {field.required ? <span className="req" aria-label="required"> *</span> : null}
+                {field.overridden ? (
+                  <button
+                    type="button"
+                    className="reset"
+                    title="Reset to the template default"
+                    onClick={() => {
+                      const txn = resetSurfaceValue(document_, field.key);
+                      if (txn) onEdit(txn);
+                    }}
+                  >
+                    reset
+                  </button>
+                ) : null}
+              </span>
+              <ContentField
+                field={field}
+                assets={assets}
+                onValue={(value) => {
+                  const txn = setSurfaceValue(document_, field.key, value);
+                  if (txn) onEdit(txn);
+                }}
+              />
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* COLOUR — brand tokens, by name. Volume One L8: the operator picks an
+          identity role, not a hex value, and the engine resolves it. Free
+          colours remain available to a Designer through the Inspector. */}
+      {colours.length > 0 ? (
+        <div className="fgrp" data-testid="content-colour">
+          <div className="lbl">Colour<span className="ln" /></div>
+          <div className="swatches">
+            {colours.map((token) => (
+              <button
+                key={token.name}
+                type="button"
+                className="swatch"
+                title={token.name}
+                aria-label={token.name}
+                style={{ background: String(token.value) }}
+                onClick={() => {
+                  const txn = setToken(document_, { ...token, value: String(token.value) });
+                  if (txn) onEdit(txn);
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ANIMATION — Volume One L8 and Blueprint M-0. One choice generates the
+          keyframes, the easing and the timing. The generated timeline is an
+          ordinary one; nothing here is a special case downstream. */}
+      <div className="fgrp" data-testid="content-motion">
+        <div className="lbl">Animation<span className="ln" /></div>
+        <div className="motion-picks">
+          {ENTRANCES.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className="motion-pick"
+              onClick={() => {
+                const targets = topLevelIds(document_);
+                if (targets.length === 0) return;
+                const txn = applyPreset(document_, targets, preset, ids);
+                if (txn) onEdit(txn);
+              }}
+            >
+              {preset.label.replace(/^Slide in from /, "From ").replace(/ in$/, "")}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="preflight" data-testid="preflight">
+        {report.clear ? (
+          <p className="verdict ok">Ready. Nothing to report.</p>
+        ) : (
+          <>
+            {report.issues.map((issue, index) => (
+              <p className={`verdict ${ISSUE_TONE[issue.kind]}`} key={`${issue.kind}-${issue.nodeId ?? issue.label}-${index}`}>
+                <b>{issue.label}</b> — {issue.detail}
+              </p>
+            ))}
+            {report.unchecked.map((note) => (
+              <p className="verdict unchecked" key={note}>
+                {note}
+              </p>
+            ))}
+          </>
+        )}
+      </div>
+      <div className="depth-foot" data-testid="depth">
+        <span className="depth-label">
+          {depth === "beginner" ? "Content only" : depth === "designer" ? "Layers and properties" : "Everything"}
+        </span>
+        <button
+          type="button"
+          className="depth-toggle"
+          data-testid="depth-toggle"
+          onClick={() => onDepth(depth === "beginner" ? "designer" : depth === "designer" ? "advanced" : "beginner")}
+        >
+          {depth === "beginner" ? "Show the design" : depth === "designer" ? "Show everything" : "Back to content"}
+          <span className="kbd-inline">⌥E</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** The entrances a beginner chooses from. Exits and emphasis are Designer-depth. */
+const ENTRANCES: readonly AnimationPreset[] = PRESETS.filter(
+  (p) => p.kind === "entrance",
+).slice(0, 5);
+
+/**
+ * The graphic's own top-level layers.
+ *
+ * A beginner picking "Fade" means the graphic, not whichever layer happens to
+ * be selected — they have no selection, because they have no layer tree.
+ */
+function topLevelIds(document_: SceneDocument): readonly string[] {
+  return (document_.root.children ?? []).map((child) => child.id);
 }

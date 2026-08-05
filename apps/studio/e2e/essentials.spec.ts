@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { ensureDepth } from "./depth";
 
 /**
  * Every starter graphic, opened and photographed.
@@ -36,6 +37,9 @@ async function open(page: Page, id: string): Promise<void> {
   await expect(page.getByTestId("scene-view")).toBeVisible();
   // Fonts, images and the first projected frame.
   await page.waitForTimeout(900);
+  // Studio opens at beginner depth (Volume One L9): no layer tree. These
+  await ensureDepth(page, "designer");
+  await page.waitForTimeout(250);
 }
 
 TEMPLATES.forEach((template, index) => {

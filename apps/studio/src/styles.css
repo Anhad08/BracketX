@@ -414,3 +414,87 @@ kbd {
 .keymap .pair { display: contents; }
 .keymap dt { text-align: right; }
 .keymap dd { margin: 0; color: var(--dim); }
+
+/* ---------------------------------------------------------------------------
+   Content — the beginner surface, and the pre-air verdict
+   ---------------------------------------------------------------------------
+   Label above field, one per row. The first version inherited the panel's
+   default flow and the labels collided with their inputs — caught by the
+   screenshot in e2e/content.spec.ts, which is what those screenshots are for.
+--------------------------------------------------------------------------- */
+/* Content is the primary panel at beginner depth, so it is not capped — the
+   dock scrolls as a whole. Capping it hid the depth control below the fold,
+   which is how a beginner got stranded with no way to reveal anything. */
+.panel.content { flex: none; }
+.content-fields { display: flex; flex-direction: column; gap: 8px; }
+.content-row { display: flex; flex-direction: column; gap: 3px; }
+.content-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--dim);
+}
+.content-label .req { color: var(--warn, #ffb020); }
+/* Reset appears only on an overridden field, so it must not reserve space. */
+.content-label .reset {
+  margin-left: auto;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--accent, #6ea8fe);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.content-row .field { width: 100%; }
+
+.preflight { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.verdict { font-size: 11px; line-height: 1.45; margin: 0 0 5px; color: var(--dim); }
+.verdict:last-child { margin-bottom: 0; }
+.verdict b { color: var(--fg); font-weight: 600; }
+.verdict.ok { color: var(--ok, #3ddc97); }
+.verdict.warn { color: var(--warn, #ffb020); }
+/* Not a finding — a statement that something was never looked at. Volume Four
+   C34: silently green about an unchecked thing is worse than no report. */
+.verdict.unchecked { color: var(--dim); font-style: italic; }
+.panel.content .empty { font-size: 11px; color: var(--dim); line-height: 1.45; margin: 0; }
+
+/* Transform gizmo — resize handles and the rotation grip. */
+.gizmo .handle { fill: var(--accent, #6ea8fe); stroke: #0b0d11; stroke-width: 1; }
+.gizmo .handle.rotate { fill: #0b0d11; stroke: var(--accent, #6ea8fe); stroke-width: 1.5; }
+.gizmo .gizmo-stem { stroke: var(--accent, #6ea8fe); stroke-width: 1; opacity: 0.6; }
+
+/* Colour and Animation on the content surface — Volume One L8.
+   The operator picks an outcome; the engine resolves the value. */
+.swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.swatches .swatch {
+  width: 26px; height: 26px; border-radius: 6px; border: 0; padding: 0; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 1px var(--line);
+  transition: transform 90ms cubic-bezier(.3,.7,.4,1), box-shadow 160ms;
+}
+.swatches .swatch:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 1px var(--accent, #6ea8fe); }
+.motion-picks { display: flex; gap: 5px; flex-wrap: wrap; }
+.motion-pick {
+  height: 26px; padding: 0 10px; border-radius: 6px; border: 0; cursor: pointer;
+  font: inherit; font-size: 11px; color: var(--dim);
+  background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px var(--line);
+  transition: color 160ms, background 160ms;
+}
+.motion-pick:hover { color: var(--fg); background: rgba(255,255,255,.07); }
+
+/* The depth control. One button, three depths, cycling. */
+.depth-foot {
+  display: flex; align-items: center; gap: 8px; margin-top: 12px;
+  padding-top: 8px; border-top: 1px solid var(--line);
+}
+.depth-label { font-size: 10px; color: var(--dim); }
+.depth-toggle {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 11px; color: var(--accent, #6ea8fe);
+  background: none; border: 0; padding: 0; cursor: pointer;
+}
+.kbd-inline {
+  font-family: ui-monospace, monospace; font-size: 9px; color: var(--dim);
+  padding: 1px 4px; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--line);
+}

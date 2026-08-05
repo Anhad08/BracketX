@@ -74,6 +74,22 @@ export interface TextDraw {
   readonly resolvedSize: number;
 }
 
+/**
+ * What a text node's layout turned out to be, attributed to that node.
+ *
+ * `TextDraw` reports the same facts, but a draw is keyed by content rather than
+ * by node — deliberately, because the request doubles as a cache signature. The
+ * projection records this per node so a pre-flight can name the layer that
+ * overflowed instead of only knowing that one did.
+ */
+export interface TextFacts {
+  readonly overflowed: boolean;
+  readonly truncated: boolean;
+  readonly brokeWithoutOpportunity: boolean;
+  /** The size actually used. Differs from the requested size under `shrink`. */
+  readonly resolvedSize: number;
+}
+
 export interface TextAtlasPage {
   readonly width: number;
   readonly height: number;

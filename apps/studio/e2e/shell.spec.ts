@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { PACKS } from "../src/studio/packs";
 
 /**
  * The shell always renders.
@@ -107,7 +108,7 @@ test("the shell survives the text engine failing", async ({ page }) => {
   // The whole product still works.
   await page.getByTestId("nav-marketplace").click();
   await expect(page.getByTestId("marketplace")).toBeVisible();
-  await expect(page.locator(".pack-card")).toHaveCount(7);
+  await expect(page.locator(".pack-card")).toHaveCount(PACKS.length);
 
   await page.getByTestId("nav-home").click();
   await expect(page.getByTestId("home")).toBeVisible();

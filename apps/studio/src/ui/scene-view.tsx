@@ -13,6 +13,14 @@ import {
 } from "../studio/selection";
 import { setPropOnMany } from "../studio/editing";
 import {
+  handleAt,
+  handlesFor,
+  normaliseDegrees,
+  resize as resizeBox,
+  rotate as rotateBox,
+  type Handle,
+} from "../studio/transform";
+import {
   canvasSize,
   canvasToScreen,
   fit,
@@ -30,6 +38,7 @@ import {
   zoomAt,
   type NodeBounds,
   type Point,
+  type Rect,
   recentre,
   type Viewport,
 } from "../studio/viewport";
@@ -82,12 +91,19 @@ export interface SceneViewProps {
 }
 
 interface DragState {
-  readonly kind: "pan" | "move" | "marquee";
+  readonly kind: "pan" | "move" | "marquee" | "resize" | "rotate";
   readonly startScreen: Point;
   readonly startWorld: Point;
   /** World positions of the nodes being moved, at drag start. */
   readonly origins: ReadonlyMap<string, readonly [number, number, number]>;
   readonly startViewport: Viewport;
+  /** Resize and rotate only: the grabbed handle and the box it belongs to. */
+  readonly handle?: Handle;
+  readonly startRect?: { x: number; y: number; width: number; height: number };
+  /** Authored scale of each node at drag start, so resize is a multiplier. */
+  readonly startScales?: ReadonlyMap<string, readonly [number, number, number]>;
+  /** Authored Z rotation at drag start, so rotation composes. */
+  readonly startRotations?: ReadonlyMap<string, number>;
 }
 
 export function SceneView({
@@ -167,6 +183,10 @@ export function SceneView({
   // The observer is installed once, so it must not close over a stale viewport
   // or a stale callback. Refs, rather than re-observing on every pan.
   const measured = useRef({ width: 0, height: 0 });
+  // The document frame, so the observer can keep it reachable without closing
+  // over a stale document.
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
   const viewportRef = useRef(viewport);
   const onViewportRef = useRef(onViewport);
   viewportRef.current = viewport;
@@ -188,7 +208,7 @@ export function SceneView({
       // what caught it.
       const previous = measured.current;
       if (previous.width > 0 && previous.height > 0) {
-        onViewportRef.current(recentre(viewportRef.current, previous, next));
+        onViewportRef.current(recentre(viewportRef.current, previous, next, sizeRef.current));
       }
       measured.current = next;
       setElement(next);
@@ -217,6 +237,163 @@ export function SceneView({
 
   // -- Interaction ----------------------------------------------------------
 
+  /**
+   * Turns a finished resize/rotate into exactly ONE undo entry.
+   *
+   * Same shape as the move path: rewind to the gesture's start silently, then
+   * apply the final state through the recording path, so the stack holds one
+   * entry whose inverse is the pre-gesture transform.
+   */
+  const commitGesture = (state: DragState) => {
+    const ids = [...state.origins.keys()];
+    const label =
+      state.kind === "rotate"
+        ? ids.length === 1 ? "Rotate node" : `Rotate ${ids.length} nodes`
+        : ids.length === 1 ? "Resize node" : `Resize ${ids.length} nodes`;
+
+    // Capture where the gesture ended, BEFORE rewinding.
+    const finalPositions = new Map<string, readonly [number, number, number]>();
+    const finalTransforms = new Map<
+      string,
+      { scale: readonly [number, number, number]; rotation: number }
+    >();
+    for (const id of ids) {
+      const position = findAuthored(session, id);
+      const transform = findTransform(session, id);
+      if (position !== null) finalPositions.set(id, position);
+      if (transform !== null) finalTransforms.set(id, transform);
+    }
+
+    const rewindScale = setPropOnMany(session.document, ids, "transform.scale", (id) => [
+      ...(state.startScales?.get(id) ?? [1, 1, 1]),
+    ], "rewind");
+    if (rewindScale !== null) session.store.applySilently(rewindScale);
+    const rewindRotation = setPropOnMany(session.document, ids, "transform.rotation", (id) => [
+      0,
+      0,
+      state.startRotations?.get(id) ?? 0,
+    ], "rewind");
+    if (rewindRotation !== null) session.store.applySilently(rewindRotation);
+    const rewindPosition = setPropOnMany(session.document, ids, "transform.position", (id) => [
+      ...state.origins.get(id)!,
+    ], "rewind");
+    if (rewindPosition !== null) session.store.applySilently(rewindPosition);
+
+    // One transaction carrying every axis the gesture touched.
+    const operations = [
+      setPropOnMany(session.document, ids, "transform.scale", (id) => [
+        ...(finalTransforms.get(id)?.scale ?? [1, 1, 1]),
+      ], label),
+      setPropOnMany(session.document, ids, "transform.rotation", (id) => [
+        0,
+        0,
+        finalTransforms.get(id)?.rotation ?? 0,
+      ], label),
+      setPropOnMany(session.document, ids, "transform.position", (id) => [
+        ...(finalPositions.get(id) ?? state.origins.get(id)!),
+      ], label),
+    ].flatMap((txn) => (txn === null ? [] : txn.operations));
+
+    if (operations.length > 0) {
+      session.store.apply({
+        id: `txn_gesture_${Date.now()}`,
+        label,
+        actorId: "studio",
+        operations,
+      });
+    }
+  };
+
+  // -- Resize / rotate application ------------------------------------------
+  //
+  // Both drive the store SILENTLY during the gesture and write ONE undoable
+  // entry on release, exactly as the move path does. A transaction per pointer
+  // move would put a hundred entries on the stack for one drag.
+
+  const applyResize = (
+    state: DragState,
+    result: { x: number; y: number; scaleX: number; scaleY: number },
+  ) => {
+    const ids = [...state.origins.keys()];
+    const rect = state.startRect!;
+    const scaled = setPropOnMany(
+      session.document,
+      ids,
+      "transform.scale",
+      (id) => {
+        const base = state.startScales?.get(id) ?? [1, 1, 1];
+        return [base[0]! * result.scaleX, base[1]! * result.scaleY, base[2]!];
+      },
+      "resize",
+    );
+    if (scaled !== null) session.store.applySilently(scaled);
+
+    // The box centre moved, so every node moves with it, keeping its offset
+    // from the centre scaled by the same factor. A single node's offset is
+    // zero, so it simply lands on the new centre.
+    const moved = setPropOnMany(
+      session.document,
+      ids,
+      "transform.position",
+      (id) => {
+        const origin = state.origins.get(id)!;
+        return [
+          result.x + (origin[0] - rect.x) * result.scaleX,
+          result.y + (origin[1] - rect.y) * result.scaleY,
+          origin[2],
+        ];
+      },
+      "resize",
+    );
+    if (moved !== null) session.store.applySilently(moved);
+  };
+
+  const applyRotate = (
+    state: DragState,
+    pivot: Point,
+    world: Point,
+    snapAngle: boolean,
+  ) => {
+    const ids = [...state.origins.keys()];
+    const rotated = setPropOnMany(
+      session.document,
+      ids,
+      "transform.rotation",
+      (id) => {
+        const start = state.startRotations?.get(id) ?? 0;
+        const next = rotateBox(pivot, state.startWorld, world, start, {
+          snap: snapAngle,
+        });
+        return [0, 0, normaliseDegrees(next)];
+      },
+      "rotate",
+    );
+    if (rotated !== null) session.store.applySilently(rotated);
+
+    // Multi-selection orbits the pivot. A single node rotates in place because
+    // its offset from the pivot is zero.
+    if (ids.length > 1) {
+      const delta =
+        rotateBox(pivot, state.startWorld, world, 0, { snap: snapAngle }) *
+        (Math.PI / 180);
+      const cos = Math.cos(-delta);
+      const sin = Math.sin(-delta);
+      const orbited = setPropOnMany(
+        session.document,
+        ids,
+        "transform.position",
+        (id) => {
+          const origin = state.origins.get(id)!;
+          const ox = origin[0] - pivot.x;
+          const oy = origin[1] - pivot.y;
+          return [pivot.x + ox * cos - oy * sin, pivot.y + ox * sin + oy * cos, origin[2]];
+        },
+        "rotate",
+      );
+      if (orbited !== null) session.store.applySilently(orbited);
+    }
+  };
+
   const onPointerDown = (event: React.PointerEvent) => {
     if (error !== null) return;
     const screen = pointOf(event);
@@ -233,6 +410,42 @@ export function SceneView({
         startViewport: viewport,
       });
       return;
+    }
+
+    // A handle is checked BEFORE picking, because handles sit on the box edge
+    // and would otherwise be swallowed by the node underneath them.
+    const selectionRect = selectionBounds(bounds, selection.ids);
+    if (selectionRect !== null) {
+      // 10 screen px, converted — a handle must be equally grabbable at 10 %
+      // and at 800 %, which a fixed world tolerance is not.
+      const tolerance = 10 / (viewport.zoom * ppu);
+      const grabbed = handleAt(selectionRect, world, tolerance);
+      if (grabbed !== null) {
+        const origins = new Map<string, readonly [number, number, number]>();
+        const startScales = new Map<string, readonly [number, number, number]>();
+        const startRotations = new Map<string, number>();
+        for (const id of selection.ids) {
+          const position = findAuthored(session, id);
+          const transform = findTransform(session, id);
+          if (position !== null) origins.set(id, position);
+          if (transform !== null) {
+            startScales.set(id, transform.scale);
+            startRotations.set(id, transform.rotation);
+          }
+        }
+        setDrag({
+          kind: grabbed.id === "rotate" ? "rotate" : "resize",
+          startScreen: screen,
+          startWorld: world,
+          origins,
+          startViewport: viewport,
+          handle: grabbed,
+          startRect: selectionRect,
+          startScales,
+          startRotations,
+        });
+        return;
+      }
     }
 
     const hit = pick(bounds, world);
@@ -292,6 +505,21 @@ export function SceneView({
     }
     if (drag.kind === "marquee") {
       setMarqueeRect({ a: drag.startWorld, b: world });
+      return;
+    }
+
+    if (drag.kind === "resize" && drag.handle && drag.startRect) {
+      const result = resizeBox(drag.startRect, drag.handle, world, {
+        lockAspect: event.shiftKey,
+        fromCentre: event.metaKey || event.ctrlKey,
+      });
+      applyResize(drag, result);
+      return;
+    }
+
+    if (drag.kind === "rotate" && drag.startRect) {
+      const pivot = { x: drag.startRect.x, y: drag.startRect.y };
+      applyRotate(drag, pivot, world, event.shiftKey);
       return;
     }
 
@@ -380,6 +608,10 @@ export function SceneView({
       }
     }
 
+    if ((drag.kind === "resize" || drag.kind === "rotate") && drag.origins.size > 0) {
+      commitGesture(drag);
+    }
+
     setDrag(null);
     setMarqueeRect(null);
     setGuides({ x: null, y: null });
@@ -428,6 +660,11 @@ export function SceneView({
         onPointerCancel={finishDrag}
         onWheel={onWheel}
         data-testid="scene-chrome"
+        /* The gesture in progress. Exposed so a test can assert that a drag
+           STARTED as a resize rather than inferring it from pixels — a pixel
+           delta cannot tell "the handle was missed" from "the resize was
+           small", and that ambiguity hid a real bug. */
+        data-drag={drag?.kind ?? "none"}
       >
         {/* Frame edge. The document's own output rectangle, always drawn: a
             designer needs to know where the picture ends. */}
@@ -471,20 +708,61 @@ export function SceneView({
           const height = entry.rect.height * ppu * viewport.zoom;
           return (
             <g key={entry.nodeId} className="selection-box" data-testid="selection-box">
+              {/* Outline per node so a multi-selection shows what is in it.
+                  The HANDLES are drawn once, on the union, below — they must
+                  match what `handleAt` hit-tests or the grab misses. */}
               <rect x={topLeft.x} y={topLeft.y} width={width} height={height} />
-              {/* Corner handles. Move-only in Phase 1 — a resize gizmo that
-                  wrote `size` would fight layout, and layout wins. */}
-              {[
-                [topLeft.x, topLeft.y],
-                [topLeft.x + width, topLeft.y],
-                [topLeft.x, topLeft.y + height],
-                [topLeft.x + width, topLeft.y + height],
-              ].map(([hx, hy], index) => (
-                <rect key={index} className="handle" x={hx! - 3} y={hy! - 3} width={6} height={6} />
-              ))}
             </g>
           );
         })}
+
+        {/* The transform gizmo: eight resize handles and a rotation grip, on
+            the union of the selection. Positions come from the same
+            `handlesFor` the hit test uses, so what is drawn is what is
+            grabbable. */}
+        {(() => {
+          const union = selectionBounds(bounds, selection.ids);
+          if (union === null) return null;
+          return (
+            <g className="gizmo" data-testid="gizmo">
+              {handlesFor(union).map((h) => {
+                const p = toScreen(h.x, h.y);
+                if (h.id === "rotate") {
+                  const centre = toScreen(union.x, union.y + union.height / 2);
+                  return (
+                    <g key={h.id}>
+                      <line
+                        className="gizmo-stem"
+                        x1={centre.x}
+                        y1={centre.y}
+                        x2={p.x}
+                        y2={p.y}
+                      />
+                      <circle
+                        className="handle rotate"
+                        data-testid="handle-rotate"
+                        cx={p.x}
+                        cy={p.y}
+                        r={4}
+                      />
+                    </g>
+                  );
+                }
+                return (
+                  <rect
+                    key={h.id}
+                    className="handle"
+                    data-testid={`handle-${h.id}`}
+                    x={p.x - 3}
+                    y={p.y - 3}
+                    width={6}
+                    height={6}
+                  />
+                );
+              })}
+            </g>
+          );
+        })()}
 
         {workspace.showGuides && guides.x !== null ? (
           <line
@@ -530,6 +808,44 @@ function round(value: number): number {
 }
 
 /** The authored position of a node, for a drag origin. */
+/** Authored transform of a node, or null. Mirrors `findAuthored`. */
+/** Union of the bounds of every selected node, or null when nothing is boxed. */
+function selectionBounds(
+  bounds: readonly { nodeId: string; rect: Rect }[],
+  ids: readonly string[],
+): Rect | null {
+  const chosen = bounds.filter((b) => ids.includes(b.nodeId));
+  if (chosen.length === 0) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const { rect } of chosen) {
+    minX = Math.min(minX, rect.x - rect.width / 2);
+    maxX = Math.max(maxX, rect.x + rect.width / 2);
+    minY = Math.min(minY, rect.y - rect.height / 2);
+    maxY = Math.max(maxY, rect.y + rect.height / 2);
+  }
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, width: maxX - minX, height: maxY - minY };
+}
+
+function findTransform(
+  session: StudioSession,
+  nodeId: string,
+): { scale: readonly [number, number, number]; rotation: number } | null {
+  const stack = [session.document.root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.id === nodeId) {
+      const scale = node.transform?.scale ?? [1, 1, 1];
+      const rotation = node.transform?.rotation ?? [0, 0, 0];
+      return {
+        scale: [scale[0] ?? 1, scale[1] ?? 1, scale[2] ?? 1],
+        rotation: rotation[2] ?? 0,
+      };
+    }
+    for (const child of node.children ?? []) stack.push(child);
+  }
+  return null;
+}
+
 function findAuthored(
   session: StudioSession,
   nodeId: string,

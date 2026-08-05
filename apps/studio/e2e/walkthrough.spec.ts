@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { ensureDepth } from "./depth";
 
 /**
  * A 4x4 broadcast-red PNG.
@@ -64,6 +65,11 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   await page.waitForTimeout(600); // First frame.
   await shot(page, "created-lower-third");
 
+  // This walkthrough is a DESIGNER's journey — it uses the Data tab, the layer
+  // tree and the timeline. Studio opens at beginner depth (Volume One L9), so
+  // the designer reveals their tools first, exactly as they would in the
+  await ensureDepth(page, "designer");
+
   // ------------------------------------------------- 2. Edit the name
   await page.getByRole("tab", { name: "Data", exact: true }).click();
   const name = page.getByTestId("variables").getByLabel("Default for name");
@@ -126,6 +132,8 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   // Point the graphic's logo at it. This is the live-swap path: a command, not
   // an edit, which is exactly what an operator changing a sponsor on air does.
   await page.getByTestId("nav-design").click();
+  // Studio opens at BEGINNER depth (Volume One L9). These are Designer
+  await ensureDepth(page, "designer");
   await page.getByRole("tab", { name: "Data", exact: true }).click();
   const logoField = page.getByTestId("variables").getByLabel("Runtime value for logo");
   await logoField.fill(badgeId);
@@ -140,6 +148,8 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
     .getByRole("button", { name: "Apply" })
     .click();
   await page.getByTestId("nav-design").click();
+  // Studio opens at BEGINNER depth (Volume One L9). These are Designer
+  await ensureDepth(page, "designer");
   await page.waitForTimeout(500);
   await shot(page, "recoloured");
 

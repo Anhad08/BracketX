@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { ensureDepth } from "./depth";
 
 /**
  * Text in a browser. Phase 3B.
@@ -24,6 +25,8 @@ async function boot(page: Page): Promise<void> {
   // architecture; entering Design explicitly is what a user does too.
   await expect(page.getByTestId("rail")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("nav-design").click();
+  // Studio opens at BEGINNER depth (Volume One L9). These are Designer
+  await ensureDepth(page, "designer");
   await expect(page.getByTestId("scene-view")).toBeVisible();
   await expect(page.getByTestId("statusbar")).toContainText("nodes");
   // Fonts have parsed by now — TEXT_ENGINE 3 makes that a real wait.

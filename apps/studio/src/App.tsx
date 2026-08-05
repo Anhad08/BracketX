@@ -54,6 +54,7 @@ import {
   saveWorkspace,
   type BottomTab,
   type Workspace,
+  docksAt,
 } from "./studio/workspace";
 import { matchBinding, shortcutFor, type StudioCommand } from "./studio/commands";
 import { ProgramBus } from "./studio/program";
@@ -69,7 +70,7 @@ import {
   type LibraryEntry,
 } from "./studio/library";
 import { SceneView } from "./ui/scene-view";
-import { Hierarchy, Inspector, Toolbox, Variables } from "./ui/panels";
+import { Content, Hierarchy, Inspector, Toolbox, Variables } from "./ui/panels";
 import { TimelineEditor } from "./ui/timeline";
 import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
 import { ProgramRow } from "./ui/program";
@@ -1245,7 +1246,8 @@ export function App() {
   };
 
   return (
-    <div className="studio" data-section={section}>
+    <div className="studio" data-section={section}
+        data-depth={workspace.depth}>
       <Nav
         section={section}
         onSection={goTo}
@@ -1322,7 +1324,7 @@ export function App() {
       ) : (
       <>
       <div className="body">
-        {workspace.leftOpen ? (
+        {workspace.leftOpen && docksAt(workspace.depth).left ? (
           <aside className="dock left" style={{ width: workspace.leftWidth }}>
             <Toolbox onCreate={create} />
             <Hierarchy
@@ -1405,15 +1407,19 @@ export function App() {
             <span className="zoom mono" data-testid="zoom">
               {(viewport.zoom * 100).toFixed(0)}%
             </span>
-            {(
-              [
-                ["showSafeAreas", "Safe"],
-                ["showGrid", "Grid"],
-                ["showGuides", "Guides"],
-                ["showRulers", "Rulers"],
-                ["snapEnabled", "Snap"],
-                ["showDebug", "Debug"],
-              ] as const
+            {(workspace.depth === "beginner"
+              ? []
+              : ([
+                  ["showSafeAreas", "Safe"],
+                  ["showGrid", "Grid"],
+                  ["showGuides", "Guides"],
+                  ["showRulers", "Rulers"],
+                  ["snapEnabled", "Snap"],
+                  // Debug names the engine. Advanced only.
+                  ...(workspace.depth === "advanced"
+                    ? ([["showDebug", "Debug"]] as const)
+                    : []),
+                ] as const)
             ).map(([key, label]) => (
               <label key={key} className="toggle">
                 <input
@@ -1428,13 +1434,17 @@ export function App() {
             ))}
           </div>
 
-          <ArrangeBar
-            session={session}
-            selection={selection}
-            ids={ids}
-            onEdit={edit}
-            onSelect={(nodeIds) => setSelection(selectMany(nodeIds))}
-          />
+          {/* Align, distribute, group. All operate on a selection, and a
+              beginner has no selection because they have no layer tree. */}
+          {docksAt(workspace.depth).left ? (
+            <ArrangeBar
+              session={session}
+              selection={selection}
+              ids={ids}
+              onEdit={edit}
+              onSelect={(nodeIds) => setSelection(selectMany(nodeIds))}
+            />
+          ) : null}
 
           <SceneView
             session={session}
@@ -1453,7 +1463,7 @@ export function App() {
             <ProgramRow bus={bus} canvas={programCanvasRef.current} revision={revision} />
           ) : null}
 
-          {workspace.bottomOpen ? (
+          {workspace.bottomOpen && docksAt(workspace.depth).bottom ? (
             <>
               <Divider
                 axis="y"
@@ -1520,6 +1530,14 @@ export function App() {
             <Divider
               axis="x"
               onDelta={(delta) => update({ rightWidth: workspace.rightWidth - delta })}
+            />
+            <Content
+              session={session}
+              assets={assets}
+              ids={ids}
+              depth={workspace.depth}
+              onDepth={(depth) => update({ depth })}
+              onEdit={edit}
             />
             <Inspector session={session} selection={selection} onEdit={edit} ids={ids} />
           </aside>

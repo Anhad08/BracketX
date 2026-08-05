@@ -140,6 +140,7 @@ export type {
   TextAtlasPage,
   TextBatch,
   TextDraw,
+  TextFacts,
   TextProvider,
   TextRequest,
 } from "./text-provider";

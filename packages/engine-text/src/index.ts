@@ -71,3 +71,24 @@ export type {
 } from "./engine";
 
 export { TEXT_RANGES, expandPrewarm } from "./ranges";
+
+// -- Editing primitives — UAX #29 -------------------------------------------
+//
+// The unit every caret, selection and clipboard operation is defined on. Text
+// EDITING lives here rather than in Studio so the same behaviour serves any
+// consumer that renders text — the alternative is a second text model.
+
+export {
+  clampToGrapheme,
+  graphemeBoundaries,
+  graphemeClusters,
+  graphemeLength,
+  isGraphemeBoundary,
+  lineAt,
+  nextGrapheme,
+  nextWordBoundary,
+  previousGrapheme,
+  previousWordBoundary,
+  wordAt,
+} from "./grapheme";
+export type { GraphemeBoundaries, WordClass, WordRange } from "./grapheme";

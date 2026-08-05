@@ -204,12 +204,73 @@ export function recentre(
   viewport: Viewport,
   from: { width: number; height: number },
   to: { width: number; height: number },
+  canvas?: { width: number; height: number },
 ): Viewport {
   if (from.width <= 0 || from.height <= 0) return viewport;
-  return {
+  const held: Viewport = {
     zoom: viewport.zoom,
     panX: viewport.panX + (to.width - from.width) / 2,
     panY: viewport.panY + (to.height - from.height) / 2,
+  };
+  if (canvas === undefined) return held;
+
+  // Hold the centre while the frame still FITS. When it no longer does — a
+  // panel opened and the view is now shorter than the picture — refit, because
+  // a designer who cannot see their graphic has lost more than their zoom.
+  //
+  // This was found the hard way: at 1280x720 with the bottom dock open, the
+  // lower third sat below the visible area and its resize handles were drawn
+  // ten pixels beyond the surface that receives pointer events. The handles
+  // looked fine and could not be grabbed.
+  const fits =
+    canvas.width * held.zoom <= to.width && canvas.height * held.zoom <= to.height;
+  if (fits) return clampToView(held, to, canvas);
+
+  const zoom = clampZoom(
+    Math.min((to.width - 64) / canvas.width, (to.height - 64) / canvas.height),
+  );
+  return {
+    zoom,
+    panX: (to.width - canvas.width * zoom) / 2,
+    panY: (to.height - canvas.height * zoom) / 2,
+  };
+}
+
+/** How much of the frame must remain reachable, in pixels. */
+const MIN_VISIBLE = 48;
+
+/**
+ * Keeps the document frame reachable after the view changes size.
+ *
+ * Holding the centre is right for a small resize and wrong for a large one: a
+ * panel opening can shrink the view enough that the frame ends up entirely
+ * outside it, and then the graphic — and every handle on it — is somewhere the
+ * pointer cannot go. Found by a resize handle that was drawn ten pixels below
+ * the surface that receives pointer events, at 1280x720 with the bottom dock
+ * open.
+ *
+ * This clamps rather than refits, deliberately. A refit would throw away the
+ * zoom the designer chose, which is the behaviour `recentre` exists to avoid.
+ */
+export function clampToView(
+  viewport: Viewport,
+  view: { width: number; height: number },
+  canvas: { width: number; height: number },
+): Viewport {
+  if (view.width <= 0 || view.height <= 0) return viewport;
+  const drawnWidth = canvas.width * viewport.zoom;
+  const drawnHeight = canvas.height * viewport.zoom;
+  const margin = Math.min(MIN_VISIBLE, drawnWidth, drawnHeight);
+  return {
+    zoom: viewport.zoom,
+    panX: Math.min(
+      view.width - margin,
+      Math.max(margin - drawnWidth, viewport.panX),
+    ),
+    panY: Math.min(
+      view.height - margin,
+      Math.max(margin - drawnHeight, viewport.panY),
+    ),
   };
 }
 

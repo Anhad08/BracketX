@@ -157,7 +157,7 @@ import type {
   Rgba,
   TextureHandle,
 } from "./mirror-backend";
-import type { TextProvider, TextRequest } from "./text-provider";
+import type { TextFacts, TextProvider, TextRequest } from "./text-provider";
 import type { ImageProvider, ProvidedImage } from "./image-provider";
 
 export class ProjectionError extends Error {
@@ -310,9 +310,35 @@ export class Projector {
    * means knowing the atlas and the pxRange again at a point where neither is
    * to hand.
    */
+  /**
+   * Per-node text state, including the layout facts the draw reported.
+   *
+   * ========================================================================
+   * WHY THE FACTS LIVE HERE AND NOT ON THE REQUEST
+   * ========================================================================
+   * `TextProvider.draw` reports `overflowed` and `truncated`, and its own doc
+   * comment says they exist so "a pre-flight" can see them — but `TextRequest`
+   * carries no node id, so a caller learns THAT something overflowed and never
+   * which layer.
+   *
+   * The association is recorded here rather than by adding an id to the
+   * request, because the request is a VALUE describing what to lay out and the
+   * projector already knows the node. Threading identity through a value type
+   * only to read it back out is indirection with no payer.
+   *
+   * (The `signature` beside it is a per-node change detector — "has this
+   * node's request altered since last frame" — and not a content cache.
+   * Content-addressed sharing is real but belongs to engine-text, keyed by
+   * `layoutKey`. Two identical nodes each call `draw` and share one layout.)
+   */
   #texts = new Map<
     string,
-    { signature: string; colour: string; instances: TextInstance[] }
+    {
+      signature: string;
+      colour: string;
+      instances: TextInstance[];
+      facts: TextFacts;
+    }
   >();
 
   /** Atlas page index -> the texture holding it, and the revision uploaded. */
@@ -1795,7 +1821,30 @@ export class Projector {
       });
     });
 
-    this.#texts.set(node.id, { signature, colour, instances });
+    this.#texts.set(node.id, {
+      signature,
+      colour,
+      instances,
+      facts: {
+        overflowed: draw.overflowed,
+        truncated: draw.truncated,
+        brokeWithoutOpportunity: draw.brokeWithoutOpportunity,
+        resolvedSize: draw.resolvedSize,
+      },
+    });
+  }
+
+  /**
+   * Layout facts for every text node currently projected.
+   *
+   * The reader the pre-flight needs: it answers "which layer overflowed?"
+   * rather than "did something overflow?". Empty for a document with no text,
+   * and a node absent from it produced no drawable batches at all.
+   */
+  textFacts(): ReadonlyMap<string, TextFacts> {
+    const out = new Map<string, TextFacts>();
+    for (const [nodeId, entry] of this.#texts) out.set(nodeId, entry.facts);
+    return out;
   }
 
   /**

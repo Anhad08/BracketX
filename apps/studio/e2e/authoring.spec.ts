@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { ensureDepth } from "./depth";
 
 /**
  * Studio authoring, in a browser.
@@ -26,6 +27,11 @@ async function boot(page: Page): Promise<void> {
   await page.getByTestId("nav-design").click();
   await expect(page.getByTestId("scene-view")).toBeVisible();
   await expect(page.getByTestId("statusbar")).toContainText("nodes");
+  // Studio now opens at BEGINNER depth (Volume One L9): no toolbox, no layer
+  // tree, no timeline. Every test in this file is a Designer or Advanced
+  // workflow, so it asks for that depth the way a designer does — one click.
+  await ensureDepth(page, "designer");
+  await expect(page.locator(".panel.toolbox")).toBeVisible();
 }
 
 /** Creates a node from the toolbox and returns the history depth afterwards. */

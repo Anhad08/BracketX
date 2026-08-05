@@ -58,6 +58,41 @@ export const BOTTOM_TABS = ["timeline", "presets", "variables", "library"] as co
 
 export type BottomTab = (typeof BOTTOM_TABS)[number];
 
+/**
+ * The three depths. A panel belongs to exactly one.
+ *
+ * Advanced is deliberately NOT "developer mode" — that reveals the engine's
+ * diagnostics, which is a different axis. A colourist working on materials is
+ * an advanced user, not a developer.
+ */
+export type Depth = "beginner" | "designer" | "advanced";
+
+export const DEPTHS: readonly Depth[] = ["beginner", "designer", "advanced"];
+
+/** Which docks a depth may show. Volume Two W9. */
+export function docksAt(depth: Depth): {
+  readonly left: boolean;
+  readonly bottom: boolean;
+  readonly right: boolean;
+} {
+  return {
+    // The toolbox and the layer tree are construction. A beginner edits
+    // content, and the component surface is the whole of their interface.
+    left: depth !== "beginner",
+    // The timeline is a view of what a motion preset generated — nobody needs
+    // it to CHOOSE one, which is why a beginner never sees it. A Designer does:
+    // Volume Two W9 gives them "the navigator, the inspector and the summoned
+    // timeline", and the bottom dock is also where Data and Templates live.
+    bottom: depth !== "beginner",
+    right: true,
+  };
+}
+
+/** True when a control that names an engine concept may be shown. */
+export function revealsEngine(depth: Depth): boolean {
+  return depth === "advanced";
+}
+
 export interface Workspace {
   readonly theme: Theme;
 
@@ -78,6 +113,19 @@ export interface Workspace {
    * are all still there, one switch away.
    */
   readonly developerMode: boolean;
+
+  /**
+   * How much of the product is revealed. Volume One L9, Volume Two W9.
+   *
+   * A DEPTH, not a mode: it never changes by itself, it is remembered like any
+   * other layout state, and moving between depths is a deliberate act with the
+   * same standing as applying a preset.
+   *
+   * `beginner` is the default because the first five minutes decide whether
+   * anyone reaches the fifth. A first-time user meeting a layer tree, a
+   * timeline and a Camera button has been told the product is not for them.
+   */
+  readonly depth: Depth;
 
   /** Which packs the user has installed. Free-tier packs are pre-installed. */
   readonly installedPacks: readonly string[];
@@ -114,6 +162,7 @@ export const DEFAULT_WORKSPACE: Workspace = {
   theme: "dark",
   section: "home",
   developerMode: false,
+  depth: "beginner",
   // The free tier, pre-installed. A first-time user who has to install
   // something before they can evaluate anything has already been asked to do
   // work before seeing value.
@@ -179,6 +228,9 @@ function sanitize(value: unknown): Workspace {
         ? (raw.section as Section)
         : "home",
     developerMode: bool("developerMode"),
+    // An unknown depth falls back to beginner rather than to the deepest one:
+    // a corrupt preference must never reveal more than the user chose.
+    depth: DEPTHS.includes(raw.depth as Depth) ? (raw.depth as Depth) : "beginner",
     // The free tier is always present, even if a stored list dropped it: a
     // corrupt preference must not take a user's starter content away.
     installedPacks: [...new Set([...FREE_TIER, ...packs])],
