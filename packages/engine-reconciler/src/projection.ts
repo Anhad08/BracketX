@@ -1848,6 +1848,20 @@ export class Projector {
   }
 
   /**
+   * The camera descriptors currently projected, keyed by node.
+   *
+   * The reader an EDITOR needs. Studio has to hit-test and draw handles in the
+   * same space the renderer draws in, and the only way to guarantee they agree
+   * is to project through the same numbers. Deriving a second descriptor from
+   * the document would compile, look right, and drift the moment a default
+   * changed on one side — the failure that leaves gizmos silently wrong while
+   * the picture still looks correct.
+   */
+  cameraFacts(): ReadonlyMap<string, CameraDescriptor> {
+    return new Map(this.#cameras);
+  }
+
+  /**
    * Creates or updates the textures holding the atlas pages.
    *
    * One texture per page, created once and then updated BY REGION - which is
