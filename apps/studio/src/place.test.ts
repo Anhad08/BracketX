@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { applyTransaction, childrenOf } from "@bracketx/engine-scene";
+import { applyTransaction, childrenOf, type SceneDocument } from "@bracketx/engine-scene";
 import { placeScene } from "./studio/place";
 import { instantiateTemplate } from "./studio/packs";
 import { ESSENTIALS } from "./studio/essentials";
@@ -30,7 +30,12 @@ describe("placeScene", () => {
     expect(placement).not.toBeNull();
 
     const after = applyTransaction(host, placement!.transaction);
-    expect(childrenOf(after.root).length).toBe(before + childrenOf(guest.root).length);
+    // Every guest root EXCEPT its camera — the host keeps its own.
+    const contributed = childrenOf(guest.root).filter(
+      (node) => !(node.components ?? []).some((component) => component.type === "camera"),
+    ).length;
+    expect(contributed).toBeGreaterThan(0);
+    expect(childrenOf(after.root).length).toBe(before + contributed);
     // The host's own content is untouched — this is composition, not replacement.
     for (const node of childrenOf(host.root)) {
       expect(childrenOf(after.root).some((child) => child.id === node.id)).toBe(true);
@@ -111,6 +116,34 @@ describe("placeScene", () => {
       return last.transform?.position[1] ?? 0;
     };
     expect(y(low) - y(centred)).toBeCloseTo(400, 5);
+  });
+
+  it("leaves the host with exactly one camera", () => {
+    const host = scene(0);
+    const guest = scene(1);
+    const cameras = (document_: SceneDocument): number =>
+      childrenOf(document_.root).filter((node) =>
+        (node.components ?? []).some((component) => component.type === "camera"),
+      ).length;
+
+    expect(cameras(host)).toBe(1);
+    expect(cameras(guest)).toBe(1);
+
+    const after = applyTransaction(host, placeScene(host, guest, makeIdFactory(903))!.transaction);
+    // Two cameras is a second opinion about the framing, and it showed up in
+    // the layer tree as two identical "Camera" rows.
+    expect(cameras(after)).toBe(1);
+  });
+
+  it("brings a camera when the host has none, so the scene can still be shot", () => {
+    const guest = scene(1);
+    const bare = { ...scene(0), root: { ...scene(0).root, children: [] } };
+    const after = applyTransaction(bare, placeScene(bare, guest, makeIdFactory(903))!.transaction);
+    expect(
+      childrenOf(after.root).some((node) =>
+        (node.components ?? []).some((component) => component.type === "camera"),
+      ),
+    ).toBe(true);
   });
 
   it("declines an empty scene rather than emitting a no-op transaction", () => {

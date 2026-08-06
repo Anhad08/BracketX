@@ -65,7 +65,13 @@ export function placeScene(
   ids: IdFactory,
   centre?: { readonly x: number; readonly y: number },
 ): Placement | null {
-  const roots = childrenOf(scene.root);
+  // The host keeps its own camera. A scene contributes CONTENT; what the
+  // production is shot through is the host's decision, exactly as outputs and
+  // timelines are. Copying the guest's camera too put two "Camera" layers in
+  // the tree — inert clutter at best, and a second opinion about the framing
+  // at worst.
+  const hasCamera = childrenOf(host.root).some(isCamera);
+  const roots = childrenOf(scene.root).filter((node) => !(hasCamera && isCamera(node)));
   if (roots.length === 0) return null;
 
   const operations: SceneOperation[] = [];
@@ -119,6 +125,10 @@ export function placeScene(
 
   const name = scene.template?.name ?? scene.meta.name;
   return { nodeIds: created, transaction: transaction(`Place ${name}`, operations) };
+}
+
+function isCamera(node: SceneNode): boolean {
+  return (node.components ?? []).some((component) => component.type === "camera");
 }
 
 /** Moves the placed content so its centre lands on the drop point. */
