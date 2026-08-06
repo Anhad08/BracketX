@@ -112,7 +112,95 @@
   --press: cubic-bezier(0.3, 0.7, 0.4, 1);
   --glide: cubic-bezier(0.16, 1, 0.3, 1);
   --weight: cubic-bezier(0.45, 0.05, 0.15, 1);
+
+  /* Depth. `cast` is what a control throws onto the panel beneath it;
+     `ambient` is what a panel throws into the room. */
+  --cast: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 8px rgba(0, 0, 0, 0.32);
+  --cast-lg: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 26px rgba(0, 0, 0, 0.4);
+  --ambient: 0 8px 30px rgba(0, 0, 0, 0.28);
+
+  --r-xl: 18px; --r-lg: 12px; --r-md: 9px; --r-sm: 7px; --r-xs: 5px;
 }
+
+/* ==========================================================================
+   THE MATERIAL
+   ==========================================================================
+   The palette was aligned first, and it was not enough: the tokens were right
+   and every surface was still a flat rectangle. The Design OS describes a
+   machined instrument, and an instrument is made of THINGS — a panel has a lit
+   top edge and a dark seam at its base, a well is recessed into the chassis, a
+   key stands proud of the panel it sits on and drops when pressed.
+
+   Three treatments do almost all of it:
+
+     .mat-panel   a face, lit from above, brushed vertically
+     .mat-well    a recess cut into the chassis. The stage lives in one
+     .mat-sub     a raised sub-area inside a panel
+
+   None of this is decoration. Depth is what tells you, without reading a
+   single label, which parts of the interface are surfaces and which are
+   holes you look through — and in a product whose whole job is to show you a
+   picture, knowing where the picture is matters. */
+
+body {
+  background:
+    radial-gradient(130% 66% at 50% -14%, rgba(255, 255, 255, 0.03), transparent 60%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, var(--brush)) 0 1px,
+      transparent 1px 4px
+    ),
+    var(--chassis);
+}
+
+/* Film grain over everything, at 4% and in overlay. Below about 3% it is
+   invisible; above about 6% it reads as a dirty screen. It is what stops
+   large flat areas looking like untextured fills. */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  pointer-events: none;
+  opacity: var(--grain);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23a)'/%3E%3C/svg%3E");
+}
+
+.mat-panel {
+  background:
+    radial-gradient(120% 90% at 10% -14%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, calc(var(--brush) * 0.6)) 0 1px,
+      transparent 1px 4px
+    ),
+    linear-gradient(180deg, var(--panel-hi), var(--panel) 44%, color-mix(in oklab, var(--panel) 90%, #000));
+  box-shadow: var(--edge), var(--ambient);
+}
+
+.mat-well {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--well) 92%, #000), var(--well));
+  box-shadow: var(--recess);
+}
+
+.mat-sub {
+  background: rgba(255, 255, 255, 0.022);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* A LAMP, not a coloured dot. An indicator on real equipment is a lit thing
+   behind a lens: brightest off-centre where the filament is, and it spills
+   onto the panel around it. */
+.lamp {
+  width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 30%, #4a4d55, #1a1c21);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+  transition: background 0.3s var(--press), box-shadow 0.3s var(--press);
+}
+.lamp.live { background: radial-gradient(circle at 35% 30%, #ff8a82, var(--live)); box-shadow: 0 0 8px rgba(255, 59, 48, 0.9); }
+.lamp.pvw { background: radial-gradient(circle at 35% 30%, #9df5e6, var(--preview)); box-shadow: 0 0 8px rgba(46, 230, 200, 0.75); }
+.lamp.ok { background: radial-gradient(circle at 35% 30%, #9df0c6, var(--ok)); box-shadow: 0 0 7px rgba(61, 220, 151, 0.6); }
+.lamp.warn { background: radial-gradient(circle at 35% 30%, #ffd88a, var(--warn)); box-shadow: 0 0 7px rgba(255, 176, 32, 0.65); }
 
 :root[data-theme="light"] {
   /* Warm, not cool. The Design OS light theme is a lit studio — a warm grey
@@ -201,7 +289,17 @@ button, input, select { font: inherit; color: inherit; }
    to be imported in. Reordering them would have collapsed the layout, which is
    the sort of fragility that produces a black page nobody can explain. */
 .body { display: flex; flex: 1; min-height: 0; }
-.dock { background: var(--panel); display: flex; flex-direction: column; position: relative; min-height: 0; }
+/* A dock is a FACE: lit along its top edge, brushed vertically, seated with a
+   dark seam at its base. Same treatment as `.mat-panel`, applied directly so
+   no component has to remember to add a class. */
+.dock {
+  display: flex; flex-direction: column; position: relative; min-height: 0;
+  background:
+    radial-gradient(120% 90% at 10% -14%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, calc(var(--brush) * 0.6)) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, var(--panel-hi), var(--panel) 44%, color-mix(in oklab, var(--panel) 90%, #000));
+  box-shadow: var(--edge);
+}
 /* The dock CONSTRAINS; its panels scroll. When the dock itself scrolled, a
    tall toolbox pushed the layer list below the status bar, where the rows were
    visible but un-clickable — the bar sat on top of them. The layer list already
@@ -223,7 +321,9 @@ button, input, select { font: inherit; color: inherit; }
 
 .titlebar, .statusbar {
   display: flex; align-items: center; gap: 10px;
-  padding: 6px 12px; background: var(--panel); flex: none;
+  padding: 6px 12px; flex: none;
+  background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+  box-shadow: var(--edge);
 }
 .titlebar { border-bottom: 1px solid var(--line); }
 .statusbar { border-top: 1px solid var(--line); font-size: 11px; }
@@ -232,15 +332,27 @@ button, input, select { font: inherit; color: inherit; }
 .dirty { color: var(--warn); }
 .notice { color: var(--accent); }
 
+/* A CONTROL STANDS PROUD of the panel and DROPS when pressed. The 1px
+   translate on :active is the whole illusion — without it a button is a
+   coloured rectangle that changes colour, and with it the interface has
+   mass. */
 .chip {
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px;
-  padding: 3px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  border: 0; border-radius: var(--r-xs);
+  padding: 4px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink-2);
+  background: linear-gradient(180deg, var(--control-hi), var(--control));
+  box-shadow: var(--edge-key), var(--cast);
+  transition: transform 0.09s var(--press), box-shadow 0.16s var(--press),
+    color 0.16s var(--press);
 }
-.chip:hover { border-color: var(--line-strong); }
+.chip:hover { color: var(--ink); }
+.chip:active { transform: translateY(1px); box-shadow: var(--edge-key); }
 kbd {
-  font-family: ui-monospace, monospace; font-size: 10px; color: var(--dim);
-  border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px;
-  padding: 0 4px; background: var(--panel);
+  display: inline-grid; place-items: center; min-width: 17px; height: 17px;
+  padding: 0 4px; border: 0; border-radius: 4px;
+  font-family: var(--meta); font-size: 9px; line-height: 1; color: var(--ink-3);
+  background: linear-gradient(180deg, var(--control-hi), var(--control));
+  box-shadow: var(--edge-key), var(--cast);
 }
 
 /* --- Panels ------------------------------------------------------------- */
@@ -339,7 +451,15 @@ kbd {
   padding: 2px 7px; font-variant-numeric: tabular-nums; color: var(--text-strong);
 }
 
-.scene-view { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--canvas-void); }
+/* THE STAGE IS A WELL, cut into the chassis rather than painted onto it.
+   This is the single most important piece of depth in the product: it is what
+   tells the eye, before reading anything, that the picture is a thing being
+   looked THROUGH rather than another panel. */
+.scene-view {
+  position: relative; flex: 1; min-height: 0; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--canvas-void) 92%, #000), var(--canvas-void));
+  box-shadow: var(--recess);
+}
 .scene-surface { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
 .scene-surface canvas { display: block; width: 100%; height: 100%; position: relative; }
 .scene-checker {

@@ -1870,6 +1870,10 @@ export function App() {
         </div>
       ) : null}
 
+      {/* Grain over everything. Fixed, non-interactive, blend-overlay — it is
+          what stops large flat areas reading as untextured fills. */}
+      <div className="grain" aria-hidden />
+
       <footer className="statusbar" data-testid="statusbar">
         <span>{selection.ids.length} selected</span>
         {/* "Layers" is what the panel calls them and what a designer calls
