@@ -183,10 +183,17 @@ function primitiveNode(
         type: "meshRenderer",
         props: {
           primitive,
-          // `unlit` unless a designer adds metallic/roughness. A `pbr` material
-          // in a scene with no light renders black, and a new object that
-          // appears black looks broken rather than unlit.
-          material: { baseColor: DEFAULT_FILL },
+          // LIT. `roughness` is what makes the projector emit `pbr` rather
+          // than `unlit`, and lighting is the whole difference between a cube
+          // and a blue square: an unlit box has the same colour on every face,
+          // so it reads as flat however the camera is turned. That was the
+          // literal complaint — "3D objects are not visible in 3D".
+          //
+          // A `pbr` material with no light in the scene renders BLACK, which
+          // is why this was unlit to begin with. `createNode` now guarantees a
+          // light accompanies the first 3D object, so the trade is closed
+          // rather than merely swapped.
+          material: { baseColor: DEFAULT_FILL, metallic: 0, roughness: 0.55 },
         },
       },
     ],
@@ -343,18 +350,75 @@ export function toolboxEntry(kind: NodeKind): ToolboxEntry | undefined {
   return TOOLBOX.find((entry) => entry.kind === kind);
 }
 
+/** The primitives that need light to look like anything. */
+const LIT_KINDS: readonly NodeKind[] = ["box", "sphere", "cylinder", "plane"];
+
+export function hasLight(document: SceneDocument): boolean {
+  const stack = [document.root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if ((node.components ?? []).some((component) => component.type === "light")) return true;
+    for (const child of childrenOf(node)) stack.push(child);
+  }
+  return false;
+}
+
 export function createNode(
   document: SceneDocument,
   kind: NodeKind,
   parentId: string,
   ids: IdFactory,
 ): { transaction: Transaction; nodeId: string } {
-  const node = makeNode(kind, orderAfterLast(document, parentId), ids);
+  const operations: SceneOperation[] = [];
+
+  // A lit object in an unlit scene renders BLACK. Adding the light with it is
+  // the difference between "I made a cube" and "I made something broken" —
+  // and asking a beginner to know that a box needs a light first is exactly
+  // the engine concept the product exists to hide.
+  //
+  // In the same transaction, so one undo removes both and the scene cannot be
+  // left holding a light nobody asked for.
+  if (LIT_KINDS.includes(kind) && !hasLight(document)) {
+    // A KEY LIGHT AND A FILL, not one directional light.
+    //
+    // With a single light, every face turned away from it receives nothing
+    // and renders pure black — so a cube reads as two bright faces and a
+    // hole. That is not what "lit" means to anyone looking at it, and it is
+    // why every lighting rig ever built has a fill in it.
+    //
+    // The ambient is deliberately weak: enough that a shadowed face is dark
+    // rather than absent, not so much that the form flattens out again.
+    const key = makeNode("light", orderAfterLast(document, parentId), ids);
+    operations.push({ type: "node.insert", parentId, node: key });
+
+    const fill: SceneNode = {
+      ...makeNode("light", generateKeyBetween(key.order, null), ids),
+      name: "Fill",
+      components: [
+        {
+          id: ids("component"),
+          type: "light",
+          props: { kind: "ambient", color: "#FFFFFF", intensity: 0.55 },
+        },
+      ],
+    };
+    operations.push({ type: "node.insert", parentId, node: fill });
+  }
+
+  // After whatever lighting was added, so the order keys cannot collide.
+  const last = operations.at(-1);
+  const node = makeNode(
+    kind,
+    last === undefined || last.type !== "node.insert"
+      ? orderAfterLast(document, parentId)
+      : generateKeyBetween(last.node.order, null),
+    ids,
+  );
+  operations.push({ type: "node.insert", parentId, node });
+
   return {
     nodeId: node.id,
-    transaction: transaction(`Add ${kind}`, [
-      { type: "node.insert", parentId, node },
-    ]),
+    transaction: transaction(`Add ${kind}`, operations),
   };
 }
 

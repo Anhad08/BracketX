@@ -45,13 +45,11 @@ test("orbiting turns the scene camera, and it undoes in one step", async ({ page
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
 
-  await page.keyboard.down("Shift");
   await page.mouse.move(cx, cy);
   await page.mouse.down({ button: "middle" });
   await expect(chrome).toHaveAttribute("data-drag", "orbit");
   await page.mouse.move(cx + 160, cy, { steps: 8 });
   await page.mouse.up({ button: "middle" });
-  await page.keyboard.up("Shift");
 
   const after = await cameraPosition(page);
   // Turned about Y: X must have swung out, and the distance is preserved.
@@ -78,12 +76,10 @@ test("selection still lands on the graphic after the camera has moved", async ({
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
 
-  await page.keyboard.down("Shift");
   await page.mouse.move(cx, cy);
   await page.mouse.down({ button: "middle" });
   await page.mouse.move(cx + 120, cy + 40, { steps: 8 });
   await page.mouse.up({ button: "middle" });
-  await page.keyboard.up("Shift");
 
   // Select through the layer tree, then read where the editor believes the
   // graphic is, and click THERE. Under the old flat map this point would have
@@ -126,12 +122,10 @@ test("named views move the camera, and the control says where you are", async ({
   // back to roughly the top" are different states, and only one of them is
   // pixel-accurate.
   const box = (await page.getByTestId("scene-chrome").boundingBox())!;
-  await page.keyboard.down("Shift");
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down({ button: "middle" });
   await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2, { steps: 6 });
   await page.mouse.up({ button: "middle" });
-  await page.keyboard.up("Shift");
   await expect(page.getByTestId("view-top")).not.toHaveClass(/on/);
 
   // And it undoes as one step, back into the named view.

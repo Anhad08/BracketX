@@ -12,6 +12,7 @@
  */
 
 import { SECTIONS, type Section } from "./shell";
+import type { QualityChoice } from "./quality";
 
 /**
  * Bumped to v2 in Phase 4: the shape gained a section, a mode and installed
@@ -95,6 +96,14 @@ export function revealsEngine(depth: Depth): boolean {
 
 export interface Workspace {
   readonly theme: Theme;
+  /**
+   * Rendering quality.
+   *
+   * "auto" is the default and resolves from the device; anything else is a
+   * pin the user chose, and a pin is remembered — a preset that quietly reset
+   * itself on the next launch is not a setting, it is a suggestion.
+   */
+  readonly quality: QualityChoice;
 
   /**
    * Which part of the product is open.
@@ -160,6 +169,7 @@ export interface Workspace {
 
 export const DEFAULT_WORKSPACE: Workspace = {
   theme: "dark",
+  quality: "auto",
   section: "home",
   developerMode: false,
   depth: "beginner",
@@ -218,6 +228,10 @@ function sanitize(value: unknown): Workspace {
 
   return {
     theme: raw.theme === "light" ? "light" : "dark",
+    quality:
+      raw.quality === "low" || raw.quality === "mid" || raw.quality === "high"
+        ? raw.quality
+        : "auto",
     // A section that no longer exists, or the Developer section with the mode
     // off, both fall back to Home. Without the second check a stale preference
     // renders the Developer panel while the rail hides its entry — Developer

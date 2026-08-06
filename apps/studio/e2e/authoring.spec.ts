@@ -87,9 +87,19 @@ test("every toolbox entry creates a node the engine accepts", async ({ page }) =
     await page.getByTestId(`tool-${kind}`).click();
   }
 
+  // One undo step each, still — the lighting rig below travels INSIDE the
+  // box's transaction rather than as a step of its own.
   expect(await depth(page)).toBe(before + kinds.length);
   await expect(page.locator(".scene-error")).toHaveCount(0);
-  await expect(page.getByTestId("outline").locator("li")).toHaveCount(kinds.length + 2);
+
+  // Nine created nodes, the root and its camera, and TWO more: the first 3D
+  // primitive brings a key light and a fill with it. A lit object in an
+  // unlit scene renders black, and asking a beginner to know that a box needs
+  // a light first is exactly the engine concept the product exists to hide.
+  const LIGHTING_RIG = 2;
+  await expect(page.getByTestId("outline").locator("li")).toHaveCount(
+    kinds.length + 2 + LIGHTING_RIG,
+  );
 });
 
 // ---------------------------------------------------------------------------

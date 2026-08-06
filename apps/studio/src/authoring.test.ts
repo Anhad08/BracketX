@@ -4,9 +4,11 @@ import { fileURLToPath } from "node:url";
 import { MockMirrorBackend } from "@bracketx/engine-reconciler";
 import { HostTextProvider } from "@bracketx/engine-host/text";
 import {
+  applyTransaction,
   canonicalize,
   childrenOf,
   findNode,
+  invertTransaction,
   parentOf,
   validateDocument,
   validateTimeline,
@@ -15,11 +17,12 @@ import {
 } from "@bracketx/engine-scene";
 
 import { StudioSession } from "./studio/session";
-import { testIdFactory, type IdFactory } from "./studio/ids";
+import { makeIdFactory, testIdFactory, type IdFactory } from "./studio/ids";
 import {
   TOOLBOX,
   createNode,
   defineVariable,
+  hasLight,
   resetTransactionIds,
   setProp,
   type NodeKind,
@@ -1361,5 +1364,72 @@ describe("templates and the library", () => {
     expect(entry.json).toBe(canonicalize(studio.document));
     expect(canonicalize(instantiate(entry, ids, "t1"))).not.toBe(entry.json);
     studio.dispose();
+  });
+});
+
+// ===========================================================================
+// A 3D object arrives lit
+// ===========================================================================
+
+describe("creating a 3D primitive", () => {
+  const blank = () => newDocument("t", makeIdFactory(4), "2026-01-01T00:00:00.000Z");
+
+  it("brings a key light and a fill, because a lit object in the dark is black", () => {
+    // The complaint that produced this: "3D objects are not visible in 3D".
+    // An unlit box has the same colour on every face and reads as a square;
+    // a pbr box with no light renders black. Neither is a cube.
+    const document_ = blank();
+    expect(hasLight(document_)).toBe(false);
+
+    const created = createNode(document_, "box", document_.root.id, makeIdFactory(5));
+    const after = applyTransaction(document_, created.transaction);
+    expect(hasLight(after)).toBe(true);
+
+    // A key AND a fill. With one directional light every face turned away
+    // renders pure black, so a cube reads as two bright faces and a hole.
+    const lights = childrenOf(after.root).filter((node) =>
+      (node.components ?? []).some((component) => component.type === "light"),
+    );
+    expect(lights.length).toBe(2);
+    const kinds = lights.map(
+      (node) =>
+        (node.components ?? []).find((component) => component.type === "light")?.props as {
+          kind?: string;
+        },
+    );
+    expect(kinds.some((props) => props?.kind === "ambient")).toBe(true);
+    expect(kinds.some((props) => props?.kind === "directional")).toBe(true);
+  });
+
+  it("is one undo step, so the scene cannot keep a light nobody asked for", () => {
+    const document_ = blank();
+    const created = createNode(document_, "sphere", document_.root.id, makeIdFactory(6));
+    const after = applyTransaction(document_, created.transaction);
+    const back = applyTransaction(after, invertTransaction(created.transaction));
+    expect(childrenOf(back.root).length).toBe(childrenOf(document_.root).length);
+    expect(hasLight(back)).toBe(false);
+  });
+
+  it("does not add a second rig to a scene that already has light", () => {
+    const document_ = blank();
+    const lit = applyTransaction(
+      document_,
+      createNode(document_, "box", document_.root.id, makeIdFactory(7)).transaction,
+    );
+    const before = childrenOf(lit.root).length;
+    const again = applyTransaction(
+      lit,
+      createNode(lit, "sphere", lit.root.id, makeIdFactory(8)).transaction,
+    );
+    expect(childrenOf(again.root).length).toBe(before + 1);
+  });
+
+  it("gives a flat shape no lighting rig at all", () => {
+    const document_ = blank();
+    const after = applyTransaction(
+      document_,
+      createNode(document_, "rect", document_.root.id, makeIdFactory(9)).transaction,
+    );
+    expect(hasLight(after)).toBe(false);
   });
 });

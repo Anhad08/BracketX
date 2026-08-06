@@ -649,15 +649,19 @@ export function SceneView({
     const world = screenToWorld(document_, viewport, screen, view ?? undefined);
     (event.target as Element).setPointerCapture?.(event.pointerId);
 
-    // ORBIT. Shift with the middle button, or Shift+Alt with the left — a
-    // navigation gesture, never a mode you must first select, because a 3D
-    // product where looking around is a tool is a modelling application.
+    // ORBIT — the middle button, on its own, exactly as Blender binds it.
+    // Shift with the middle button pans, and Alt-drag still pans for anyone
+    // without a middle button at all.
+    //
+    // It was Shift+middle to begin with, which put the product's defining
+    // gesture behind a modifier nobody would guess. A 3D product where
+    // looking around needs a chord is a 3D product nobody looks around in.
     //
     // Unlike pan and zoom, this MOVES THE SCENE CAMERA. That is a document
     // edit: it changes what the output frames, so it is undoable and it goes
     // to air. Navigating the stage and aiming the camera are different acts
     // and the product must not blur them.
-    if (view !== null && (event.shiftKey && (event.button === 1 || event.altKey))) {
+    if (view !== null && event.button === 1 && !event.shiftKey) {
       const camera = cameraNode(document_);
       if (camera !== null) {
         const position = camera.transform?.position ?? [0, 0, 10];
@@ -686,7 +690,8 @@ export function SceneView({
       }
     }
 
-    // Middle button or space-drag pans. Never the scene camera — see viewport.ts.
+    // Shift+middle, or Alt-drag, pans. Panning moves the VIEW and never the
+    // scene camera — see the header comment in viewport.ts.
     if (event.button === 1 || event.altKey) {
       setDrag({
         kind: "pan",
