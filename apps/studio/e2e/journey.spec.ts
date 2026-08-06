@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureDepth } from "./depth";
+import { ensureDepth, openPanel } from "./depth";
 
 /**
  * THE PRIMARY JOURNEY.
@@ -196,6 +196,6 @@ test("no engine vocabulary reaches the designer surface either", async ({ page }
   expect(screen, "a raw property path is visible").not.toMatch(/transform\.(position|scale|rotation)\./);
 
   // The timeline names properties the way a designer would.
-  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+  await openPanel(page, "Timeline");
   await expect(page.getByLabel("Add keyframe")).toContainText("Left and right");
 });

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ensureDepth } from "./depth";
 
 /**
  * What each kind of machine offers.
@@ -80,4 +81,46 @@ test("a desktop is unaffected by any of it", async ({ page }) => {
   await expect(page.locator(".studio")).toHaveAttribute("data-authoring", "yes");
   await expect(page.locator(".studio")).toHaveAttribute("data-touch", "no");
   await expect(page.getByTestId("statusbar")).toBeVisible();
+});
+
+/**
+ * Volume Two refuses tabbing by name:
+ *
+ *   "Streamatrix never tabs a panel. A tab hides a panel's state behind
+ *    another panel's, and a hidden panel on a live desk is a panel you forgot
+ *    about."
+ *
+ * and allows exactly three conditions — in a dock, on a second monitor, or
+ * collapsed. Collapsed is legitimate BECAUSE a collapsed panel still shows
+ * that it exists and what state it is in.
+ */
+test("the bottom dock has no tabs, and panels do not hide each other", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByTestId("start-tpl_lower_third").click();
+  await expect(page.getByTestId("content")).toBeVisible();
+  await ensureDepth(page, "designer");
+
+  // No tab role anywhere in the product.
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+
+  // Every panel is PRESENT, and says whether it is open.
+  for (const panel of ["timeline", "presets", "variables", "library"]) {
+    await expect(page.getByTestId(`panel-${panel}`)).toBeVisible();
+  }
+  await expect(page.getByTestId("panel-timeline")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByTestId("panel-presets")).toHaveAttribute("aria-expanded", "false");
+
+  // TWO AT ONCE. This is the part a tab bar cannot do, and the reason the
+  // rule exists: opening one panel must not conceal another.
+  await page.getByTestId("panel-presets").click();
+  await expect(page.getByTestId("panel-timeline")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByTestId("panel-presets")).toHaveAttribute("aria-expanded", "true");
+
+  // Collapsing everything is allowed, and says so rather than showing a void.
+  for (const panel of ["timeline", "presets"]) {
+    await page.getByTestId(`panel-${panel}`).click();
+  }
+  await expect(page.getByTestId("dock-empty")).toBeVisible();
 });

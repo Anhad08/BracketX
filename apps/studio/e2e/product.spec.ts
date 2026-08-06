@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PACKS } from "../src/studio/packs";
-import { ensureDepth } from "./depth";
+import { ensureDepth, openPanel } from "./depth";
 
 /**
  * Phase 4 in a browser — Studio as a product.
@@ -69,7 +69,7 @@ test("a first-time user gets a lower third on air", async ({ page }) => {
   await expect(page.getByTestId("inspector")).toContainText("comes from the");
   await expect(page.getByTestId("inspector")).toContainText("Change it in");
 
-  await page.getByRole("tab", { name: "Data", exact: true }).click();
+  await openPanel(page, "Data");
   const field = page.getByTestId("variables").getByLabel("Default for name");
   await field.fill("MO SALAH");
   await field.blur();
@@ -125,15 +125,19 @@ test("no engine terminology is visible with Developer Mode off", async ({ page }
   // properties panel was shipping "read from the mirror" the whole time.
   await page.getByTestId("nav-home").click();
   await page.getByTestId("start-tpl_lower_third").click();
-  // The layer tree and the bottom tabs are Designer depth (Volume One L9).
+  // The layer tree and the bottom panels are Designer depth (Volume One L9).
   // Checked at that depth deliberately: the terminology audit matters MOST
   await ensureDepth(page, "designer");
   await page.getByTestId("outline").getByRole("button", { name: /Name/ }).first().click();
-  for (const tab of ["Timeline", "Motion", "Data", "Templates"]) {
-    await page.getByRole("tab", { name: tab, exact: true }).click();
+  // Every bottom panel, opened one at a time. They are headers rather than
+  // tabs — Volume Two refuses tabbing — so each is expanded and then
+  // collapsed again, which also proves opening one does not conceal another.
+  for (const name of ["Timeline", "Motion", "Data", "Templates"]) {
+    const head = page.locator(".dock-heads").getByRole("button", { name, exact: true });
+    if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
     const editor = (await page.locator(".body").innerText()).toLowerCase();
     for (const term of forbidden) {
-      expect(editor, `the editor (${tab}) leaked "${term}"`).not.toContain(term);
+      expect(editor, `the editor (${name}) leaked "${term}"`).not.toContain(term);
     }
   }
 

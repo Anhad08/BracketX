@@ -49,11 +49,11 @@ import {
   type RecentProject,
 } from "./studio/project";
 import {
-  BOTTOM_TABS,
+  BOTTOM_PANELS,
   DEFAULT_WORKSPACE,
   loadWorkspace,
   saveWorkspace,
-  type BottomTab,
+  type BottomPanel,
   type Workspace,
   docksAt,
 } from "./studio/workspace";
@@ -127,7 +127,7 @@ const ids = randomIdFactory();
  * Templates. The ids stay as they are — renaming a persisted key would discard
  * everyone's saved layout for a caption change.
  */
-const TAB_LABEL: Record<BottomTab, string> = {
+const PANEL_LABEL: Record<BottomPanel, string> = {
   timeline: "Timeline",
   presets: "Motion",
   variables: "Data",
@@ -905,7 +905,7 @@ export function App() {
         keywords: ["animation", "clip", "keyframe"],
         run: () => {
           edit(createTimeline(document_, "Timeline", ids).transaction);
-          update({ bottomOpen: true, bottomTab: "timeline" });
+          update({ bottomOpen: true, bottomExpanded: [...new Set([...workspace.bottomExpanded, "timeline" as const])] });
         },
       },
       ...TOOLBOX.map((entry) => ({
@@ -1016,7 +1016,7 @@ export function App() {
         enabled: selected.length > 0,
         run: () => {
           edit(applyPreset(document_, selected, preset, ids));
-          update({ bottomOpen: true, bottomTab: "timeline" });
+          update({ bottomOpen: true, bottomExpanded: [...new Set([...workspace.bottomExpanded, "timeline" as const])] });
         },
       })),
 
@@ -1089,7 +1089,7 @@ export function App() {
         enabled: document_.variables.length > 0,
         run: () => {
           edit(promoteToTemplate(document_, document_.meta.name, ids));
-          update({ bottomOpen: true, bottomTab: "library" });
+          update({ bottomOpen: true, bottomExpanded: [...new Set([...workspace.bottomExpanded, "library" as const])] });
         },
       },
       {
@@ -1106,7 +1106,7 @@ export function App() {
             ),
           );
           setNotice(`${document_.meta.name} saved to the library`);
-          update({ bottomOpen: true, bottomTab: "library" });
+          update({ bottomOpen: true, bottomExpanded: [...new Set([...workspace.bottomExpanded, "library" as const])] });
         },
       },
       {
@@ -1285,7 +1285,10 @@ export function App() {
         ]),
         `${view.label} view`,
       );
-      if (turn !== null) session.store.apply(turn);
+      // Silently: a named view is a change of VIEW, not of work. Undo must
+      // give back the last thing the designer did, not the last place they
+      // looked from.
+      if (turn !== null) session.store.applySilently(turn);
     },
     [session, cameraOrbit],
   );
@@ -1810,56 +1813,86 @@ export function App() {
                 onDelta={(delta) => update({ bottomHeight: workspace.bottomHeight - delta })}
               />
               <section className="dock bottom" style={{ height: workspace.bottomHeight }}>
-                <nav className="tabs" role="tablist">
-                  {BOTTOM_TABS.map((tab: BottomTab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      role="tab"
-                      aria-selected={workspace.bottomTab === tab}
-                      className={workspace.bottomTab === tab ? "active" : ""}
-                      onClick={() => update({ bottomTab: tab })}
-                    >
-                      {TAB_LABEL[tab]}
-                    </button>
-                  ))}
+                {/* NOT A TAB BAR. Volume Two: "Streamatrix never tabs a
+                    panel. A tab hides a panel's state behind another panel's,
+                    and a hidden panel on a live desk is a panel you forgot
+                    about." Every panel below is present and shows whether it
+                    is open or collapsed. Any number can be open at once. */}
+                <nav className="dock-heads">
+                  {BOTTOM_PANELS.map((panel: BottomPanel) => {
+                    const open = workspace.bottomExpanded.includes(panel);
+                    return (
+                      <button
+                        key={panel}
+                        type="button"
+                        className={`dock-head ${open ? "open" : ""}`}
+                        aria-expanded={open}
+                        data-testid={`panel-${panel}`}
+                        onClick={() => {
+                          update({
+                            bottomExpanded: open
+                              ? workspace.bottomExpanded.filter((entry) => entry !== panel)
+                              : [...workspace.bottomExpanded, panel],
+                          });
+                          say(open ? "tick" : "detent");
+                        }}
+                      >
+                        <span className="caret" aria-hidden>
+                          {open ? "▾" : "▸"}
+                        </span>
+                        {PANEL_LABEL[panel]}
+                      </button>
+                    );
+                  })}
                   <span className="spacer" />
                   <button
                     type="button"
                     className={`chip ${workspace.programOpen ? "on" : ""}`}
                     onClick={() => update({ programOpen: !workspace.programOpen })}
-                    title="Preview / Program is a row, not a tab — on-air state is never behind something else"
+                    title="Preview / Program is a row, not a panel — on-air state is never behind something else"
                   >
                     Program
                   </button>
                 </nav>
 
-                {workspace.bottomTab === "timeline" ? (
-                  <TimelineEditor
-                    session={session}
-                    revision={revision}
-                    selection={selection}
-                    ids={ids}
-                    zoom={workspace.timelineZoom}
-                    onZoom={(timelineZoom) => update({ timelineZoom })}
-                    onEdit={edit}
-                  />
-                ) : workspace.bottomTab === "presets" ? (
-                  <PresetPanel session={session} selection={selection} ids={ids} onEdit={edit} />
-                ) : workspace.bottomTab === "variables" ? (
-                  <Variables session={session} selection={selection} ids={ids} onEdit={edit} />
-                ) : (
-                  <LibraryPanel
-                    session={session}
-                    ids={ids}
-                    library={library}
-                    onLibrary={setLibrary}
-                    storage={storage()}
-                    onEdit={edit}
-                    onOpen={(next) => openJson(serializeDocument(next))}
-                    now={() => new Date().toISOString()}
-                  />
-                )}
+                {/* Stacked, and every open panel shares the height. */}
+                <div className="dock-stack">
+                  {workspace.bottomExpanded.includes("timeline") ? (
+                    <TimelineEditor
+                      session={session}
+                      revision={revision}
+                      selection={selection}
+                      ids={ids}
+                      zoom={workspace.timelineZoom}
+                      onZoom={(timelineZoom) => update({ timelineZoom })}
+                      onEdit={edit}
+                    />
+                  ) : null}
+                  {workspace.bottomExpanded.includes("presets") ? (
+                    <PresetPanel session={session} selection={selection} ids={ids} onEdit={edit} />
+                  ) : null}
+                  {workspace.bottomExpanded.includes("variables") ? (
+                    <Variables session={session} selection={selection} ids={ids} onEdit={edit} />
+                  ) : null}
+                  {workspace.bottomExpanded.includes("library") ? (
+                    <LibraryPanel
+                      session={session}
+                      ids={ids}
+                      library={library}
+                      onLibrary={setLibrary}
+                      storage={storage()}
+                      onEdit={edit}
+                      onOpen={(next) => openJson(serializeDocument(next))}
+                      now={() => new Date().toISOString()}
+                    />
+                  ) : null}
+                  {workspace.bottomExpanded.length === 0 ? (
+                    <p className="note pad" data-testid="dock-empty">
+                      Every panel here is collapsed. Open one above — nothing is
+                      hidden behind anything else.
+                    </p>
+                  ) : null}
+                </div>
               </section>
             </>
           ) : null}

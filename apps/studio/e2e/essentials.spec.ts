@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureDepth } from "./depth";
+import { ensureDepth, openPanel } from "./depth";
 
 /**
  * Every starter graphic, opened and photographed.
@@ -62,7 +62,7 @@ TEMPLATES.forEach((template, index) => {
 
     // Every field a broadcaster would change is exposed as data, so nothing
     // needs the layer tree to be edited.
-    await page.getByRole("tab", { name: "Data", exact: true }).click();
+    await openPanel(page, "Data");
     const fields = await page.getByTestId("variables").locator("tbody tr").count();
     expect(fields, `${template.name} exposes no editable fields`).toBeGreaterThan(0);
 
@@ -87,7 +87,7 @@ test("the leaderboard renders one row per entry, from a list", async ({ page }) 
   expect(authored).toBe(1);
 
   // And the data is where a broadcaster edits it.
-  await page.getByRole("tab", { name: "Data", exact: true }).click();
+  await openPanel(page, "Data");
   await expect(page.getByTestId("variables")).toContainText("standings");
 });
 

@@ -24,3 +24,16 @@ export async function ensureDepth(
   }
   await expect(page.locator(".studio")).toHaveAttribute("data-depth", wanted);
 }
+
+/**
+ * Opens a bottom-dock panel by its visible name.
+ *
+ * They are headers, not tabs — Volume Two refuses tabbing — so this expands a
+ * collapsed panel and leaves an open one alone, which is what a caller wanting
+ * to USE the panel means. Scoped to the dock because "Templates" is also a
+ * rail destination and an unscoped lookup matches both.
+ */
+export async function openPanel(page: Page, name: string): Promise<void> {
+  const head = page.locator(".dock-heads").getByRole("button", { name, exact: true });
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+}

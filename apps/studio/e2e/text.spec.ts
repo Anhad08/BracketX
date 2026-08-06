@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureDepth } from "./depth";
+import { ensureDepth, openPanel } from "./depth";
 
 /**
  * Text in a browser. Phase 3B.
@@ -101,12 +101,12 @@ test("a preset animates text, using the same code that animates a rectangle", as
   await boot(page);
   await page.getByTestId("tool-text").click();
 
-  await page.getByRole("tab", { name: "Motion", exact: true }).click();
+  await openPanel(page, "Motion");
   // `fade-in` is the interesting one: it resolves a COLOUR PATH per component
   // type, and text was one line in that table.
   await page.getByTestId("preset-fade-in").click();
 
-  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+  await openPanel(page, "Timeline");
   await expect(page.getByTestId("keyframe")).toHaveCount(2);
 });
 

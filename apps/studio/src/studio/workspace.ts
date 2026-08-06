@@ -55,9 +55,27 @@ export type Theme = "dark" | "light";
  * write. `program` is deliberately NOT here: Preview/Program is a permanent row,
  * not a tab, because an operator must never have to find the on-air state.
  */
-export const BOTTOM_TABS = ["timeline", "presets", "variables", "library"] as const;
+/**
+ * The panels that live in the bottom dock.
+ *
+ * NOT TABS. Volume Two refuses tabbing by name:
+ *
+ *   "Streamatrix never tabs a panel. A tab hides a panel's state behind
+ *    another panel's, and a hidden panel on a live desk is a panel you forgot
+ *    about."
+ *
+ * and allows exactly three conditions — "in a dock, on a second monitor, or
+ * collapsed; there is no fourth condition". Collapsed is legitimate; hidden
+ * behind a sibling is not, because a collapsed panel still SHOWS that it
+ * exists and what state it is in.
+ *
+ * So these are stacked sections with headers, any number open at once. The
+ * name is kept as `BottomPanel` rather than `BottomTab` so nothing in the
+ * codebase can go on calling them tabs.
+ */
+export const BOTTOM_PANELS = ["timeline", "presets", "variables", "library"] as const;
 
-export type BottomTab = (typeof BOTTOM_TABS)[number];
+export type BottomPanel = (typeof BOTTOM_PANELS)[number];
 
 /**
  * The three depths. A panel belongs to exactly one.
@@ -158,7 +176,8 @@ export interface Workspace {
   readonly leftOpen: boolean;
   readonly rightOpen: boolean;
   readonly bottomOpen: boolean;
-  readonly bottomTab: BottomTab;
+  /** Which bottom panels are expanded. Any number, including none. */
+  readonly bottomExpanded: readonly BottomPanel[];
   /** The Preview/Program row. Off for a designer who is not airing anything. */
   readonly programOpen: boolean;
   /** Seconds visible in the timeline editor. Zoom, not a clock. */
@@ -193,7 +212,7 @@ export const DEFAULT_WORKSPACE: Workspace = {
   leftOpen: true,
   rightOpen: true,
   bottomOpen: true,
-  bottomTab: "timeline",
+  bottomExpanded: ["timeline"],
   programOpen: false,
   timelineZoom: 1,
   showSafeAreas: true,
@@ -269,9 +288,11 @@ function sanitize(value: unknown): Workspace {
     leftOpen: bool("leftOpen"),
     rightOpen: bool("rightOpen"),
     bottomOpen: bool("bottomOpen"),
-    bottomTab: BOTTOM_TABS.includes(raw.bottomTab as BottomTab)
-      ? (raw.bottomTab as BottomTab)
-      : "timeline",
+    bottomExpanded: Array.isArray(raw.bottomExpanded)
+      ? (raw.bottomExpanded as unknown[]).filter((value): value is BottomPanel =>
+          BOTTOM_PANELS.includes(value as BottomPanel),
+        )
+      : DEFAULT_WORKSPACE.bottomExpanded,
     programOpen: bool("programOpen"),
     // Clamped like every other size: a zoom of zero divides by nothing and
     // renders a timeline with no width, which cannot be dragged back.

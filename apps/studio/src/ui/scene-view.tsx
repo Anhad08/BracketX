@@ -1050,37 +1050,17 @@ export function SceneView({
       const endTransform = session.document;
       void endTransform;
 
-      const endRotation = findRotation(session, drag.cameraId);
-      if (endPosition !== null && endRotation !== null) {
-        // Rewind to where the camera started, then apply ONE transaction
-        // carrying both position and rotation. Two transactions undo as two,
-        // and the user gets half their camera back: standing in the old place
-        // still pointing the new way.
-        const rewind = setProps(
-          session.document,
-          drag.cameraId,
-          new Map<string, unknown>([
-            ["transform.position", [round(start.x), round(start.y), round(start.z)]],
-            [
-              "transform.rotation",
-              [round(startRotation[0]), round(startRotation[1]), round(startRotation[2])],
-            ],
-          ]),
-          "rewind",
-        );
-        if (rewind !== null) session.store.applySilently(rewind);
-
-        const turn = setProps(
-          session.document,
-          drag.cameraId,
-          new Map<string, unknown>([
-            ["transform.position", [...endPosition]],
-            ["transform.rotation", [...endRotation]],
-          ]),
-          "Orbit camera",
-        );
-        if (turn !== null) session.store.apply(turn);
-      }
+      // NOTHING TO COMMIT. An orbit is a change of view, not a change of
+      // work, and it does not take a step in the history — see
+      // `applySilently`. The silent applies during the drag have already left
+      // the camera where the designer put it, and it saves with the graphic.
+      //
+      // This was wrong the first time: orbit recorded an undo step because it
+      // mutates a scene node, which is true and beside the point. Undo belongs
+      // to the work.
+      void start;
+      void startRotation;
+      void endPosition;
     }
 
     if ((drag.kind === "resize" || drag.kind === "rotate") && drag.origins.size > 0) {

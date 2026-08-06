@@ -101,7 +101,21 @@ export class DocumentStore {
     return true;
   }
 
-  /** Applies without recording. For loading — a load is not an edit. */
+  /**
+   * Applies without recording.
+   *
+   * Two uses, and they are the same idea. Loading a document is not an edit.
+   * NEITHER IS MOVING THE CAMERA.
+   *
+   * Undo belongs to the WORK, not to the view. Pressing Ctrl+Z after nudging
+   * a box must give back the box — if it gave back the camera angle instead,
+   * a designer who orbited three times to check a logo would have to press
+   * undo four times to reverse one mistake, and would watch the scene swing
+   * about while doing it. That is not undo, it is time travel.
+   *
+   * The camera still changes the document, so it saves with the graphic and
+   * goes to air with it. It simply does not occupy a step in the history.
+   */
   applySilently(transaction: Transaction): void {
     this.#lastReport = this.host.apply(transaction);
     this.#changed();

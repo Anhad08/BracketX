@@ -47,8 +47,18 @@ async function depth(page: Page): Promise<number> {
   return Number(/history (\d+)/.exec(text)?.[1] ?? -1);
 }
 
+/**
+ * Opens a bottom panel by name.
+ *
+ * They are headers, not tabs — Volume Two refuses tabbing — so this expands a
+ * collapsed panel and leaves an already-open one alone, which is what a
+ * caller wanting to USE the panel means.
+ */
 async function tab(page: Page, name: string): Promise<void> {
-  await page.getByRole("tab", { name, exact: true }).click();
+  // Scoped to the dock: "Templates" is also a rail destination, and an
+  // unscoped lookup matches both.
+  const head = page.locator(".dock-heads").getByRole("button", { name, exact: true });
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
 }
 
 // ---------------------------------------------------------------------------

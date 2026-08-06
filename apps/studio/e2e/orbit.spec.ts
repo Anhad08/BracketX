@@ -32,7 +32,7 @@ async function cameraPosition(page: Page): Promise<[number, number, number]> {
   return [await read("position x"), await read("position y"), await read("position z")];
 }
 
-test("orbiting turns the scene camera, and it undoes in one step", async ({ page }) => {
+test("orbiting turns the scene camera, and does not touch the history", async ({ page }) => {
   await open3D(page);
 
   // Studio opens on the Z axis, square-on, and the flat view is FIXED — see
@@ -69,11 +69,40 @@ test("orbiting turns the scene camera, and it undoes in one step", async ({ page
     1,
   );
 
-  // ONE undo step for the whole turn, not one per pointer move.
+  // UNDO BELONGS TO THE WORK, NOT THE VIEW. Pressing Ctrl+Z after orbiting
+  // must not give the camera back — a designer who orbited three times to
+  // check a logo would otherwise press undo four times to reverse one
+  // mistake, watching the scene swing about while doing it.
   await page.keyboard.press("Control+z");
-  const undone = await cameraPosition(page);
-  expect(undone[0]).toBeCloseTo(before[0], 3);
-  expect(undone[2]).toBeCloseTo(before[2], 3);
+  const after2 = await cameraPosition(page);
+  expect(after2[0], "undo must not rewind the camera").toBeCloseTo(after[0], 5);
+  expect(after2[2]).toBeCloseTo(after[2], 5);
+});
+
+test("undo gives back the work, in the order it was done", async ({ page }) => {
+  await open3D(page);
+  await ensureDepth(page, "designer");
+
+  const outline = page.getByTestId("outline");
+  const count = async (): Promise<number> => outline.locator("li").count();
+  const start = await count();
+
+  // Three pieces of work, with a view change in the middle of them. The view
+  // change must be invisible to the history.
+  await page.getByTestId("tool-rect").click();
+  await page.getByTestId("view-three-quarter").click();
+  await page.getByTestId("tool-ellipse").click();
+  await page.getByTestId("view-top").click();
+  await page.getByTestId("tool-text").click();
+  expect(await count()).toBe(start + 3);
+
+  // Three undos, three pieces of work removed — not five.
+  await page.keyboard.press("Control+z");
+  expect(await count()).toBe(start + 2);
+  await page.keyboard.press("Control+z");
+  expect(await count()).toBe(start + 1);
+  await page.keyboard.press("Control+z");
+  expect(await count(), "a view change must never occupy a step").toBe(start);
 });
 
 test("selection still lands on the graphic after the camera has moved", async ({ page }) => {
@@ -136,8 +165,12 @@ test("named views move the camera, and the control says where you are", async ({
   await page.mouse.up({ button: "middle" });
   await expect(page.getByTestId("view-top")).not.toHaveClass(/on/);
 
-  // And it undoes as one step, back into the named view.
+  // And undo does NOT put it back, because a view change is not work. The way
+  // back to a named view is to press the named view — which is exact, where
+  // undo would only be approximately-where-you-were.
   await page.keyboard.press("Control+z");
+  await expect(page.getByTestId("view-top")).not.toHaveClass(/on/);
+  await page.getByTestId("view-top").click();
   await expect(page.getByTestId("view-top")).toHaveClass(/on/);
 });
 

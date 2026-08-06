@@ -398,3 +398,18 @@
 .voice:active:not(:disabled) { transform: translateY(1px); box-shadow: var(--edge-key); }
 .voice:disabled { opacity: 0.38; cursor: default; box-shadow: inset 0 0 0 1px var(--line); background: none; }
 .voice strong { font-size: 12px; color: var(--text-strong); }
+
+/* THE BOTTOM DOCK — headers, not tabs. Every panel is visibly present and
+   shows whether it is open or collapsed; nothing hides behind a sibling. */
+.dock-heads { display: flex; align-items: center; gap: 2px; padding: 4px 6px; border-bottom: 1px solid var(--line); flex: none; }
+.dock-head {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; font: inherit; font-size: 11px; cursor: pointer;
+  border: 0; border-radius: var(--r-xs); background: none; color: var(--ink-3);
+}
+.dock-head:hover { color: var(--ink); }
+.dock-head.open { color: var(--ink); background: rgba(255, 255, 255, 0.045); }
+.dock-head .caret { font-size: 9px; opacity: 0.7; }
+.dock-stack { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.dock-stack > * { flex: 1; min-width: 0; min-height: 0; overflow: auto; border-left: 1px solid var(--line); }
+.dock-stack > *:first-child { border-left: 0; }

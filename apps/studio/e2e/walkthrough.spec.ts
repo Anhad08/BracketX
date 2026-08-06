@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureDepth } from "./depth";
+import { ensureDepth, openPanel } from "./depth";
 
 /**
  * A 4x4 broadcast-red PNG.
@@ -71,7 +71,7 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   await ensureDepth(page, "designer");
 
   // ------------------------------------------------- 2. Edit the name
-  await page.getByRole("tab", { name: "Data", exact: true }).click();
+  await openPanel(page, "Data");
   const name = page.getByTestId("variables").getByLabel("Default for name");
   await name.fill("MOHAMED SALAH");
   await name.blur();
@@ -134,7 +134,7 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   await page.getByTestId("nav-design").click();
   // Studio opens at BEGINNER depth (Volume One L9). These are Designer
   await ensureDepth(page, "designer");
-  await page.getByRole("tab", { name: "Data", exact: true }).click();
+  await openPanel(page, "Data");
   const logoField = page.getByTestId("variables").getByLabel("Runtime value for logo");
   await logoField.fill(badgeId);
   await page.waitForTimeout(600);
@@ -154,7 +154,7 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   await shot(page, "recoloured");
 
   // ------------------------------------------------- 4. Drag a keyframe
-  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+  await openPanel(page, "Timeline");
   await expect(page.getByTestId("keyframe").first()).toBeVisible();
   await shot(page, "timeline");
 
