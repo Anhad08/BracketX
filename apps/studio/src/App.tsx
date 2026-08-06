@@ -370,19 +370,8 @@ export function App() {
       setBus(new ProgramBus(preview, program));
       setExpanded(new Set([created.root.id]));
 
-      // Apply whatever the user asked for while we were starting.
-      const queued = pendingOpen.current;
-      if (queued !== null) {
-        pendingOpen.current = null;
-        try {
-          const parsed = parseDocument(queued);
-          preview.open(parsed);
-          setExpanded(expandedOnOpen(parsed));
-        } catch {
-          // A malformed queued document is no worse than a malformed opened
-          // one: the blank scene stays, and nothing crashes.
-        }
-      }
+      // Whatever the user asked for while we were starting is drained by the
+      // effect below, NOT here — see the comment there.
     } catch (cause) {
       // WebGL can be unavailable entirely. An editor that shows a blank page in
       // that case reads as broken software rather than as a missing GPU.
@@ -400,6 +389,7 @@ export function App() {
       setSelection((current) => prune(current, (id) => session.exists(id)));
     });
   }, [session]);
+
 
   // Runtime changes — a seek, a cue, a live variable — are NOT document edits,
   // so they do not reach the store. Without this the shell renders the engine
@@ -562,6 +552,28 @@ export function App() {
    * a project that already has a palette produces a graphic that matches rather
    * than one that has to be restyled by hand.
    */
+  /**
+   * Opens whatever was asked for before the engine had finished starting.
+   *
+   * This MUST run after the subscription above, and it used to run before it:
+   * the boot effect drained the queue synchronously, so `open()` published its
+   * change to nobody, `revision` never advanced, and the shell went on
+   * rendering the blank scene. Clicking a template on a cold load left you on
+   * an empty stage called "Untitled" — the click looked ignored, and a second
+   * click worked, which is the signature of a race and the reason it survived.
+   *
+   * It routes through `openJson` rather than repeating its body, so a queued
+   * open and a normal one cannot diverge: same selection reset, same fit, same
+   * notice.
+   */
+  useEffect(() => {
+    if (session === null) return;
+    const queued = pendingOpen.current;
+    if (queued === null) return;
+    pendingOpen.current = null;
+    openJson(queued);
+  }, [session, openJson]);
+
   const openTemplate = useCallback(
     (template: PackTemplate) => {
       const theme = session?.document.tokens ?? [];

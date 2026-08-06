@@ -60,7 +60,14 @@ test("a resize handle shows a resize cursor", async ({ page }) => {
 
   const handle = (await page.getByTestId("handle-e").boundingBox())!;
   await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-  await expect(page.getByTestId("scene-chrome")).toHaveCSS("cursor", "ew-resize");
+
+  // Both, in this order. `data-hover` says the pointer FOUND the east handle;
+  // the cursor says it was then dressed correctly. Asserting only the cursor
+  // cannot tell a missed handle from a wrong cursor, and that ambiguity has
+  // already hidden one real bug in this component.
+  const chrome = page.getByTestId("scene-chrome");
+  await expect(chrome).toHaveAttribute("data-hover", "e");
+  await expect(chrome).toHaveCSS("cursor", "ew-resize");
 });
 
 test("right-clicking a layer selects it and offers the same commands as the palette", async ({
@@ -105,4 +112,30 @@ test("frame selection zooms to what is selected", async ({ page }) => {
   await expect
     .poll(zoom, { message: "framing a selection must zoom to it" })
     .toBeGreaterThan(before);
+});
+
+/**
+ * Clicking a template the instant the page is usable.
+ *
+ * The engine starts asynchronously, so an early click was queued — and the
+ * queue was drained inside the boot effect, BEFORE the store subscription
+ * existed. `open()` published its change to nobody, the revision never
+ * advanced, and the shell went on rendering the blank scene. You landed on an
+ * empty stage called "Untitled", the click looked ignored, and clicking again
+ * worked. That is the signature of a race, and the reason it survived: it
+ * always reproduced on a cold, loaded machine and never on a warm one.
+ *
+ * No waiting for the engine here beyond the button existing. That is the
+ * point.
+ */
+test("a template opens when clicked the moment the page is usable", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("start-tpl_lower_third").click({ timeout: 30_000 });
+
+  await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
+  await ensureDepth(page, "designer");
+  await expect(
+    page.getByTestId("outline").getByText("Accent Bar", { exact: true }),
+    "the graphic must open on the first click, not the second",
+  ).toBeVisible({ timeout: 30_000 });
 });

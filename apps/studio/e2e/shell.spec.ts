@@ -84,13 +84,20 @@ test("the canvas never covers the viewport", async ({ page }) => {
   await expect(page.getByTestId("scene-view")).toBeVisible({ timeout: 30_000 });
 
   const viewport = page.viewportSize()!;
-  const canvas = await page.locator("canvas").first().boundingBox();
-  expect(canvas).not.toBeNull();
   // The canvas lives inside the stage, between the docks. If it ever spanned
   // the viewport it would hide the rail and every panel — a black page with a
   // perfectly healthy React tree behind it.
-  expect(canvas!.width).toBeLessThan(viewport.width);
-  expect(canvas!.x).toBeGreaterThan(0);
+  //
+  // Polled rather than measured once. A single synchronous read can land in
+  // the frame before the stage has been laid out, where the canvas briefly
+  // measures full width — the assertion is unchanged, it is just no longer
+  // racing the first paint.
+  await expect
+    .poll(async () => (await page.locator("canvas").first().boundingBox())?.width ?? Infinity)
+    .toBeLessThan(viewport.width);
+  await expect
+    .poll(async () => (await page.locator("canvas").first().boundingBox())?.x ?? 0)
+    .toBeGreaterThan(0);
   await expect(page.getByTestId("rail")).toBeVisible();
 });
 

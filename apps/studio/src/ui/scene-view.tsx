@@ -800,6 +800,11 @@ export function SceneView({
            delta cannot tell "the handle was missed" from "the resize was
            small", and that ambiguity hid a real bug. */
         data-drag={drag?.kind ?? "none"}
+        /* What the pointer is over. Exposed for the same reason `data-drag`
+           is: a cursor assertion alone cannot tell "the handle was missed"
+           from "the cursor is wrong", and that ambiguity has already hidden
+           one real bug in this component. */
+        data-hover={hover.handle?.id ?? (hover.node === null ? "none" : "node")}
       >
         {/* Frame edge. The document's own output rectangle, always drawn: a
             designer needs to know where the picture ends. */}
