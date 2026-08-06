@@ -18,6 +18,10 @@ import {
   ROTATE_OFFSET,
   type Handle,
 } from "./studio/transform";
+import { frame, pixelsPerUnit, worldToCanvas } from "./studio/viewport";
+import { instantiateTemplate } from "./studio/packs";
+import { ESSENTIALS } from "./studio/essentials";
+import { makeIdFactory } from "./studio/ids";
 import type { Rect } from "./studio/viewport";
 
 /** A 2x1 box centred on the origin. */
@@ -152,5 +156,33 @@ describe("rotate", () => {
     expect(normaliseDegrees(370)).toBeCloseTo(10);
     expect(normaliseDegrees(-90)).toBeCloseTo(270);
     expect(normaliseDegrees(720)).toBeCloseTo(0);
+  });
+});
+
+// ===========================================================================
+// Frame selected
+// ===========================================================================
+
+describe("frame", () => {
+  const document_ = instantiateTemplate(ESSENTIALS[0]!, makeIdFactory(7), "2026-01-01T00:00:00.000Z");
+  const view = { width: 800, height: 600 };
+
+  it("centres the rectangle it frames", () => {
+    const rect = { x: 2, y: -1, width: 3, height: 2 };
+    const viewport = frame(document_, rect, view);
+    const centre = worldToCanvas(document_, { x: rect.x, y: rect.y });
+    expect(centre.x * viewport.zoom + viewport.panX).toBeCloseTo(view.width / 2, 6);
+    expect(centre.y * viewport.zoom + viewport.panY).toBeCloseTo(view.height / 2, 6);
+  });
+
+  it("leaves the margin it promises, on the constraining axis", () => {
+    const rect = { x: 0, y: 0, width: 10, height: 1 };
+    const viewport = frame(document_, rect, view, 64);
+    const width = rect.width * pixelsPerUnit(document_) * viewport.zoom;
+    expect(width).toBeLessThanOrEqual(view.width - 128 + 0.001);
+  });
+
+  it("refuses a degenerate rectangle rather than dividing by zero", () => {
+    expect(frame(document_, { x: 0, y: 0, width: 0, height: 0 }, view).zoom).toBeGreaterThan(0);
   });
 });

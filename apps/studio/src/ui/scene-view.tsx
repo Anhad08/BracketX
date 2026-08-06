@@ -14,6 +14,7 @@ import {
 import { setPropOnMany } from "../studio/editing";
 import {
   handleAt,
+  handleDirection,
   handlesFor,
   normaliseDegrees,
   resize as resizeBox,
@@ -24,6 +25,7 @@ import {
   canvasSize,
   canvasToScreen,
   fit,
+  frame,
   marquee,
   nodeBounds,
   pan,
@@ -44,6 +46,7 @@ import {
   type Viewport,
 } from "../studio/viewport";
 import { SCENE_DRAG } from "../studio/place";
+import type { StudioCommand } from "../studio/commands";
 import type { Workspace } from "../studio/workspace";
 
 /**
@@ -90,6 +93,8 @@ export interface SceneViewProps {
   readonly onViewport: (viewport: Viewport) => void;
   /** Bumped by the shell to request a fit. */
   readonly fitToken: number;
+  /** Bumped by the shell to request a frame of the current selection. */
+  readonly frameToken: number;
   /**
    * A scene was dropped on the stage, at this point in canvas coordinates.
    *
@@ -98,6 +103,45 @@ export interface SceneViewProps {
    * what stops this becoming a second, half-informed copy of the shell.
    */
   readonly onDropScene: (templateId: string, at: Point) => void;
+  /**
+   * The actions a right-click offers, already built by the shell.
+   *
+   * Passed in rather than assembled here: the command palette, the keyboard
+   * and this menu must run the SAME code, or a "Duplicate" that behaves one
+   * way from the palette and another from the menu becomes a bug nobody can
+   * reproduce. The menu is a view onto the commands, not a second set.
+   */
+  readonly menuCommands: readonly StudioCommand[];
+}
+
+/** Screen pixels within which a handle counts as grabbed. */
+const HANDLE_TOLERANCE = 10;
+
+/** The eight compass cursors, indexed by 45-degree sector. */
+const COMPASS = [
+  "ns-resize",
+  "nesw-resize",
+  "ew-resize",
+  "nwse-resize",
+  "ns-resize",
+  "nesw-resize",
+  "ew-resize",
+  "nwse-resize",
+] as const;
+
+function cursorFor(
+  drag: DragState | null,
+  hover: { node: string | null; handle: Handle | null },
+): string {
+  if (drag?.kind === "pan") return "grabbing";
+  if (drag?.kind === "move") return "move";
+  if (drag !== null) return "default";
+  if (hover.handle !== null) {
+    if (hover.handle.id === "rotate") return "grab";
+    const sector = Math.round(handleDirection(hover.handle) / 45) % 8;
+    return COMPASS[(sector + 8) % 8] ?? "default";
+  }
+  return hover.node === null ? "default" : "move";
 }
 
 interface DragState {
@@ -127,7 +171,9 @@ export function SceneView({
   viewport,
   onViewport,
   fitToken,
+  frameToken,
   onDropScene,
+  menuCommands,
 }: SceneViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -139,6 +185,19 @@ export function SceneView({
   const [marqueeRect, setMarqueeRect] = useState<{ a: Point; b: Point } | null>(null);
   /** A scene is hovering over the stage. Volume Two: a target must say so. */
   const [dropping, setDropping] = useState(false);
+  /**
+   * What the pointer is over, when nothing is being dragged.
+   *
+   * The stage had NO hover feedback: moving the pointer across a graphic said
+   * nothing, so the only way to learn what was clickable was to click. Every
+   * editor this product is measured against answers before you commit.
+   */
+  const [hover, setHover] = useState<{ node: string | null; handle: Handle | null }>({
+    node: null,
+    handle: null,
+  });
+  /** Where the context menu is open, in screen coordinates. */
+  const [menu, setMenu] = useState<Point | null>(null);
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({
     x: null,
     y: null,
@@ -234,6 +293,18 @@ export function SceneView({
     if (element.width > 0 && element.height > 0) onViewport(fit(document_, element));
     // Only on an explicit fit request or the first measurement.
   }, [fitToken, element.width === 0]);
+
+  // FRAME SELECTED. Falls back to framing the whole scene when nothing is
+  // selected, which is what every editor does and what makes one key enough:
+  // pressing it with an empty selection should still take you somewhere
+  // useful rather than doing nothing at all.
+  useEffect(() => {
+    if (frameToken === 0 || element.width === 0) return;
+    const union = selectionBounds(bounds, selection.ids);
+    onViewport(union === null ? fit(document_, element) : frame(document_, union, element));
+    // Deliberately keyed on the token alone: a selection change must not
+    // move the view, or the stage would lurch every time a layer is clicked.
+  }, [frameToken]);
 
   // -- Bounds and picking ---------------------------------------------------
 
@@ -430,8 +501,9 @@ export function SceneView({
     const selectionRect = selectionBounds(bounds, selection.ids);
     if (selectionRect !== null) {
       // 10 screen px, converted — a handle must be equally grabbable at 10 %
-      // and at 800 %, which a fixed world tolerance is not.
-      const tolerance = 10 / (viewport.zoom * ppu);
+      // and at 800 %, which a fixed world tolerance is not. Shared with the
+      // hover test so what lights up is exactly what a press would grab.
+      const tolerance = HANDLE_TOLERANCE / (viewport.zoom * ppu);
       const grabbed = handleAt(selectionRect, world, tolerance);
       if (grabbed !== null) {
         const origins = new Map<string, readonly [number, number, number]>();
@@ -502,7 +574,23 @@ export function SceneView({
   };
 
   const onPointerMove = (event: React.PointerEvent) => {
-    if (drag === null) return;
+    if (drag === null) {
+      // Not dragging: report what is under the pointer. Handles win over
+      // nodes, exactly as they do on press, so what lights up is what a click
+      // would actually grab — a hover that disagreed with the hit test would
+      // be worse than none.
+      const screen = pointOf(event);
+      const world = screenToWorld(document_, viewport, screen);
+      const rect = selectionBounds(bounds, selection.ids);
+      const tolerance = HANDLE_TOLERANCE / (viewport.zoom * pixelsPerUnit(document_));
+      const handle = rect === null ? null : handleAt(rect, world, tolerance);
+      const hit = handle === null ? pick(bounds, world) : null;
+      const node = hit !== null && !lockedIds.has(hit) ? hit : null;
+      if (node !== hover.node || (handle?.id ?? null) !== (hover.handle?.id ?? null)) {
+        setHover({ node, handle });
+      }
+      return;
+    }
     const screen = pointOf(event);
     const world = screenToWorld(document_, viewport, screen);
 
@@ -671,6 +759,18 @@ export function SceneView({
         onPointerMove={onPointerMove}
         onPointerUp={finishDrag}
         onPointerCancel={finishDrag}
+        onContextMenu={(event) => {
+          // Right-clicking something that is not selected selects it first.
+          // Anything else means the menu acts on a thing the user cannot see
+          // they are acting on, which is how people delete the wrong layer.
+          const world = screenToWorld(document_, viewport, pointOf(event));
+          const hit = pick(bounds, world);
+          if (hit !== null && !lockedIds.has(hit) && !selection.ids.includes(hit)) {
+            onSelection(selectOnly(hit));
+          }
+          event.preventDefault();
+          setMenu(pointOf(event));
+        }}
         onWheel={onWheel}
         onDragOver={(event) => {
           if (!event.dataTransfer.types.includes(SCENE_DRAG)) return;
@@ -690,6 +790,11 @@ export function SceneView({
         }}
         data-testid="scene-chrome"
         data-dropping={dropping ? "yes" : "no"}
+        /* The cursor is the affordance. `handleDirection` rotates it with the
+           node, so a box turned 90 degrees shows an east-west cursor on its
+           north handle — a hard-coded `ns-resize` would lie the moment
+           anything was rotated. */
+        style={{ cursor: cursorFor(drag, hover) }}
         /* The gesture in progress. Exposed so a test can assert that a drag
            STARTED as a resize rather than inferring it from pixels — a pixel
            delta cannot tell "the handle was missed" from "the resize was
@@ -745,6 +850,28 @@ export function SceneView({
             </g>
           );
         })}
+
+        {/* HOVER. Drawn under the gizmo so selection always reads stronger,
+            and suppressed for anything already selected — an outline that
+            doubled up on a selected node just made the selection look wrong. */}
+        {(() => {
+          if (drag !== null || hover.node === null) return null;
+          if (selection.ids.includes(hover.node)) return null;
+          const box = bounds.find((entry) => entry.nodeId === hover.node);
+          if (box === undefined) return null;
+          const topLeft = toScreen(box.rect.x - box.rect.width / 2, box.rect.y + box.rect.height / 2);
+          const scale = viewport.zoom * ppu;
+          return (
+            <rect
+              className="hover-outline"
+              data-testid="hover-outline"
+              x={topLeft.x}
+              y={topLeft.y}
+              width={box.rect.width * scale}
+              height={box.rect.height * scale}
+            />
+          );
+        })()}
 
         {/* The transform gizmo: eight resize handles and a rotation grip, on
             the union of the selection. Positions come from the same
@@ -822,6 +949,45 @@ export function SceneView({
       {workspace.showRulers ? (
         <Rulers document={document_} viewport={viewport} element={element} />
       ) : null}
+
+      {menu === null ? null : (
+        <>
+          {/* A full-surface backdrop, so ANY click closes the menu — including
+              a click on the menu's own edge. A menu that could be left open
+              behind a dialog is a menu that eventually acts on the wrong
+              selection. */}
+          <div className="menu-scrim" onPointerDown={() => setMenu(null)} aria-hidden />
+          <ul
+            className="context-menu"
+            role="menu"
+            data-testid="context-menu"
+            style={{
+              left: Math.min(menu.x, Math.max(0, element.width - 208)),
+              top: Math.min(menu.y, Math.max(0, element.height - 8 - menuCommands.length * 26)),
+            }}
+          >
+            {menuCommands.map((command) => (
+              <li key={command.id}>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid={`menu-${command.id}`}
+                  disabled={command.enabled === false}
+                  onClick={() => {
+                    setMenu(null);
+                    command.run();
+                  }}
+                >
+                  <span>{command.title}</span>
+                  {command.shortcut === undefined ? null : (
+                    <kbd>{command.shortcut}</kbd>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       {error !== null ? (
         <p role="alert" className="scene-error">

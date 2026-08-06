@@ -152,6 +152,7 @@ export function App() {
   const [locked, setLocked] = useState<ReadonlySet<string>>(new Set());
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [fitToken, setFitToken] = useState(0);
+  const [frameToken, setFrameToken] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [recents, setRecents] = useState<readonly RecentProject[]>([]);
@@ -989,6 +990,17 @@ export function App() {
         run: () => setFitToken((value) => value + 1),
       },
       {
+        id: "view.frameSelected",
+        title: "Frame selection",
+        section: "View",
+        hint:
+          selection.ids.length === 0
+            ? "Nothing selected — frames the whole scene"
+            : "Zoom to what is selected",
+        shortcut: shortcutFor("view.frameSelected"),
+        run: () => setFrameToken((value) => value + 1),
+      },
+      {
         id: "view.zoomIn",
         title: "Zoom in",
         section: "View",
@@ -1067,6 +1079,30 @@ export function App() {
       },
     ];
   }, [session, selection, expanded, workspace, revision, edit, create, save, openJson, update]);
+
+  /**
+   * What the stage offers on a right-click.
+   *
+   * Picked BY ID from the commands above, so the menu can never drift from
+   * the palette or the keyboard: one implementation, one enabled rule, one
+   * shortcut label. A menu that assembled its own actions would be a second
+   * system, and the first place the two disagreed would be a bug report
+   * nobody could reproduce.
+   */
+  const menuCommands = useMemo<readonly StudioCommand[]>(() => {
+    const wanted = [
+      "edit.duplicate",
+      "edit.delete",
+      "arrange.group",
+      "arrange.ungroup",
+      "view.frameSelected",
+    ];
+    const byId = new Map(commands.map((command) => [command.id, command]));
+    return wanted.flatMap((id) => {
+      const command = byId.get(id);
+      return command === undefined ? [] : [command];
+    });
+  }, [commands]);
 
   // -- Keyboard -------------------------------------------------------------
 
@@ -1502,6 +1538,9 @@ export function App() {
             viewport={viewport}
             onViewport={setViewport}
             fitToken={fitToken}
+            frameToken={frameToken}
+            /* The SAME command objects the palette and keyboard run. */
+            menuCommands={menuCommands}
           />
 
           {workspace.programOpen && bus !== null && programCanvasRef.current !== null ? (

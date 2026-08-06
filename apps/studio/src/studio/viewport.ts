@@ -183,6 +183,37 @@ export function fit(
 }
 
 /**
+ * Frames a world-space rectangle — "frame selected".
+ *
+ * Built on the same clamp and the same centring as `fit`, because the two
+ * differ only in WHAT they frame: `fit` frames the output canvas, this frames
+ * whatever is selected. Two independently-written framings would drift, and
+ * the one used less would be the wrong one.
+ */
+export function frame(
+  document: SceneDocument,
+  rect: Rect,
+  element: { width: number; height: number },
+  margin = 64,
+): Viewport {
+  if (rect.width <= 0 || rect.height <= 0) return DEFAULT_VIEWPORT;
+  const scale = pixelsPerUnit(document);
+  // World extent to canvas pixels — the space `zoom` is measured in.
+  const width = rect.width * scale;
+  const height = rect.height * scale;
+  const zoom = clampZoom(
+    Math.min((element.width - margin * 2) / width, (element.height - margin * 2) / height),
+  );
+  // The rect's centre, in canvas pixels, placed at the element's centre.
+  const centre = worldToCanvas(document, { x: rect.x, y: rect.y });
+  return {
+    zoom,
+    panX: element.width / 2 - centre.x * zoom,
+    panY: element.height / 2 - centre.y * zoom,
+  };
+}
+
+/**
  * Adjusts a viewport so the same canvas point stays centred after a resize.
  *
  * ==========================================================================

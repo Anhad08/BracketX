@@ -511,3 +511,33 @@ kbd {
   outline: 2px dashed var(--accent);
   outline-offset: -6px;
 }
+
+/* HOVER. Thinner and cooler than selection, because it is an answer to
+   "what is this?", not a statement of "this is chosen". */
+.hover-outline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-opacity: 0.55;
+  pointer-events: none;
+}
+
+/* CONTEXT MENU. A view onto the same commands the palette runs. */
+.menu-scrim { position: absolute; inset: 0; z-index: 40; }
+.context-menu {
+  position: absolute; z-index: 41; min-width: 200px; margin: 0; padding: 4px;
+  list-style: none; background: var(--panel); color: var(--text-strong);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+.context-menu li { display: block; }
+.context-menu button {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  width: 100%; padding: 5px 8px; font: inherit; font-size: 12px; text-align: left;
+  background: none; border: 0; border-radius: 4px; color: inherit; cursor: pointer;
+}
+.context-menu button:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.context-menu button:disabled { opacity: 0.38; cursor: default; }
+.context-menu kbd {
+  font: inherit; font-size: 10px; opacity: 0.6; letter-spacing: 0.04em;
+}

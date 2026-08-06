@@ -82,6 +82,10 @@ export const KEYMAP: readonly KeyBinding[] = [
   { id: "select.up", key: "arrowup", label: "↑", description: "Select previous node" },
   { id: "select.down", key: "arrowdown", label: "↓", description: "Select next node" },
   { id: "view.fit", key: "f", label: "F", description: "Fit scene in view" },
+  // Shift+F rather than F. F is an approved binding for "fit scene in view"
+  // and reassigning it would change a decision this sprint has no authority
+  // to change, however much other editors use F for framing a selection.
+  { id: "view.frameSelected", key: "f", shift: true, label: "Shift F", description: "Frame selection" },
   { id: "view.zoomIn", key: "=", label: "=", description: "Zoom in" },
   { id: "view.zoomOut", key: "-", label: "-", description: "Zoom out" },
   { id: "view.actualSize", key: "0", label: "0", description: "Zoom to 100%" },
