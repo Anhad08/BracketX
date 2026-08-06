@@ -323,7 +323,14 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
   }
 
   setLayers(node: NodeHandle, mask: number): void {
-    this.#requireNode(node, "setLayers").object.layers.mask = mask >>> 0;
+    const record = this.#requireNode(node, "setLayers");
+    record.object.layers.mask = mask >>> 0;
+    // AND THE ATTACHMENT MESH. Three tests layers PER OBJECT, and the mesh is
+    // a separate child that inherits nothing — the same reason
+    // `setWorldMatrix` has to write it explicitly. Without this the mesh keeps
+    // Three's default mask of 1 whatever the engine asked for, so a scene
+    // rendered through any other mask draws its node and not its geometry.
+    if (record.mesh !== null) record.mesh.layers.mask = record.object.layers.mask;
   }
 
   setRenderOrder(node: NodeHandle, order: number): void {
@@ -353,6 +360,11 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
     disableAutoMatrix(mesh);
     mesh.matrixWorld.copy(record.object.matrixWorld);
     mesh.matrixWorldNeedsUpdate = false;
+    // Inherit the node's layer mask. A new Mesh starts on Three's default
+    // mask, so a mesh REPLACED after the node's layers were set would silently
+    // drop back to the default and stop being drawn by a camera masked to
+    // anything else — a node that renders until something re-attaches it.
+    mesh.layers.mask = record.object.layers.mask;
     record.object.add(mesh);
     record.mesh = mesh;
 
