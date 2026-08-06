@@ -68,16 +68,28 @@ const EASINGS = [
   "easeInOutBack",
 ] as const;
 
-/** Paths a designer can key from the panel without touching the inspector. */
+/**
+ * Paths a designer can key, and what to CALL them.
+ *
+ * `transform.position.0` is the engine's name for it. A designer animating a
+ * lower third is moving it left and right, and reading a dot-path off a track
+ * row is work the product exists to remove. The path stays as the key — it is
+ * what the operation addresses — and never as the label.
+ */
 const KEYABLE = [
-  "transform.position.0",
-  "transform.position.1",
-  "transform.position.2",
-  "transform.rotation.2",
-  "transform.scale.0",
-  "transform.scale.1",
-  "visible",
+  { path: "transform.position.0", label: "Left and right" },
+  { path: "transform.position.1", label: "Up and down" },
+  { path: "transform.position.2", label: "Towards and away" },
+  { path: "transform.rotation.2", label: "Rotation" },
+  { path: "transform.scale.0", label: "Width" },
+  { path: "transform.scale.1", label: "Height" },
+  { path: "visible", label: "Visible" },
 ] as const;
+
+/** The designer's name for a path, or the path when nothing is known. */
+export function propertyLabel(path: string): string {
+  return KEYABLE.find((entry) => entry.path === path)?.label ?? path;
+}
 
 export interface TimelineEditorProps {
   readonly session: StudioSession;
@@ -159,9 +171,8 @@ export function TimelineEditor({
           </button>
         </div>
         <p className="note pad">
-          This scene declares no timelines. A timeline is document data —{" "}
-          <span className="mono">animations</span> in SCENE_FORMAT — so adding one
-          is an edit like any other, and undoing it removes it.
+          This graphic has no animation yet. Adding one is an edit like any
+          other, so it saves with the graphic and undo removes it.
         </p>
       </section>
     );
@@ -390,12 +401,12 @@ export function TimelineEditor({
             event.target.value = "";
           }}
           aria-label="Add keyframe"
-          title={nodeId === null ? "Select a node first" : "Key this property at the playhead"}
+          title={nodeId === null ? "Select a layer first" : "Animate this at the playhead"}
         >
-          <option value="">key property…</option>
-          {KEYABLE.map((path) => (
-            <option key={path} value={path}>
-              {path}
+          <option value="">Animate…</option>
+          {KEYABLE.map((entry) => (
+            <option key={entry.path} value={entry.path}>
+              {entry.label}
             </option>
           ))}
         </select>
@@ -412,9 +423,7 @@ export function TimelineEditor({
         {active.tracks.map((track, trackIndex) => (
           <div className="track-row" key={`${track.target}:${track.path}`}>
             <div className="track-label">
-              <span className="mono" title={track.target}>
-                {track.path}
-              </span>
+              <span title={track.path}>{propertyLabel(track.path)}</span>
               <span className="dim mono">
                 {findNode(document_.root, track.target)?.name ?? track.target}
               </span>

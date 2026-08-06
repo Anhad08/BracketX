@@ -178,3 +178,24 @@ test("no engine vocabulary reaches the beginner surface", async ({ page }) => {
   expect(shown.trim()).not.toMatch(/^ast_/);
   expect(shown.trim().length).toBeGreaterThan(0);
 });
+
+test("no engine vocabulary reaches the designer surface either", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("start-tpl_lower_third").click();
+  await ensureDepth(page, "designer");
+  await expect(page.getByTestId("outline").getByText("Accent Bar", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+
+  const screen = await page.locator(".studio").innerText();
+
+  // Designer depth shows layers and properties. It still must not show the
+  // engine: a node id, a specification filename, or a dot-path.
+  expect(screen, "an engine id is visible").not.toMatch(/\b(?:nod|scn|cmp|var)_[a-z0-9]{4,}/i);
+  expect(screen, "a specification name is visible").not.toMatch(/SCENE_FORMAT/);
+  expect(screen, "a raw property path is visible").not.toMatch(/transform\.(position|scale|rotation)\./);
+
+  // The timeline names properties the way a designer would.
+  await page.getByRole("tab", { name: "Timeline", exact: true }).click();
+  await expect(page.getByLabel("Add keyframe")).toContainText("Left and right");
+});

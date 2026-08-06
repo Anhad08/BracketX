@@ -351,9 +351,10 @@ export interface InspectorProps {
   readonly selection: Selection;
   readonly onEdit: (transaction: ReturnType<typeof setProp>) => void;
   readonly ids: IdFactory;
+  readonly developerMode: boolean;
 }
 
-export function Inspector({ session, selection, onEdit }: InspectorProps) {
+export function Inspector({ session, selection, onEdit, developerMode }: InspectorProps) {
   const document_ = session.document;
   const nodeId = primaryOf(selection);
   const node = nodeId === null ? null : findNode(document_.root, nodeId);
@@ -388,7 +389,10 @@ export function Inspector({ session, selection, onEdit }: InspectorProps) {
     <section className="panel inspector" aria-label="Properties" data-testid="inspector">
       <div className="panel-head">
         <h2>Properties</h2>
-        <span className="badge mono">{node.id}</span>
+        {/* The node's id is a debugging aid, not a fact anyone designing a
+            graphic needs — and it was the last engine id left on a surface a
+            designer sees. It stays, behind Developer Mode. */}
+        {developerMode ? <span className="badge mono">{node.id}</span> : null}
       </div>
 
       <Group title="Layer">

@@ -1848,7 +1848,13 @@ export function App() {
                 whose panel footer said "Content only" — the interface
                 contradicting itself, and every engine term in it a bug. */}
             {workspace.depth === "beginner" ? null : (
-              <Inspector session={session} selection={selection} onEdit={edit} ids={ids} />
+              <Inspector
+                session={session}
+                selection={selection}
+                onEdit={edit}
+                ids={ids}
+                developerMode={workspace.developerMode}
+              />
             )}
           </aside>
         ) : null}

@@ -139,6 +139,16 @@ export function Marketplace({
                           Apply
                         </button>
                       ) : null}
+                      {/* A motion pack has nothing to press here — its moves
+                          are applied while designing. Saying so turns a card
+                          that looked broken into one that has told you where
+                          its contents went. */}
+                      {pack.kind === "motion" ? (
+                        <span className="dim tiny">
+                          {(pack.presets ?? []).length} moves, in the Animation
+                          list while you design.
+                        </span>
+                      ) : null}
                       {(pack.templates ?? []).map((template) => (
                         <button
                           key={template.id}
