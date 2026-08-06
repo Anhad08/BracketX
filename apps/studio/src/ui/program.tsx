@@ -23,9 +23,11 @@ export interface ProgramRowProps {
   readonly bus: ProgramBus;
   readonly canvas: HTMLCanvasElement;
   readonly revision: number;
+  /** Fired after going off air, so the shell can sound the off-air voice. */
+  readonly onOffAir?: () => void;
 }
 
-export function ProgramRow({ bus, canvas, revision }: ProgramRowProps) {
+export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps) {
   const mount = useRef<HTMLDivElement | null>(null);
   const [, bump] = useState(0);
 
@@ -104,14 +106,22 @@ export function ProgramRow({ bus, canvas, revision }: ProgramRowProps) {
         >
           Continue
         </button>
+        {/* OFF AIR. It was called "Clear", which is what it does to the
+            surface and not what it means to a gallery — so an operator
+            looking for the way off air could not find one. The tally says ON
+            AIR; the control that ends it says OFF AIR. */}
         <button
           type="button"
-          className="chip danger"
+          className="offair"
           disabled={!bus.onAir}
-          onClick={() => bus.clear()}
-          title="Clear the surface"
+          onClick={() => {
+            bus.clear();
+            onOffAir?.();
+          }}
+          data-testid="off-air"
+          title="Stop sending to air. The surface is cleared."
         >
-          Clear
+          OFF AIR
         </button>
 
         <span className="program-note dim">

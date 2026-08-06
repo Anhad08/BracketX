@@ -795,3 +795,19 @@ kbd {
    not a divider. */
 .ground { color: #7b8794; pointer-events: none; }
 
+
+/* OFF AIR sits beside TAKE as its opposite, and reads as one. It is not a
+   chip: ending a transmission is not the same class of act as toggling a
+   guide, and the control should not look like it is. */
+.program-controls .offair {
+  padding: 7px 14px; font: inherit; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.06em; cursor: pointer; color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: var(--r-xs);
+  background: linear-gradient(180deg, var(--control-hi), var(--control));
+  box-shadow: var(--edge-key), var(--cast);
+}
+.program-controls .offair:hover:not(:disabled) {
+  border-color: var(--live); color: var(--live);
+}
+.program-controls .offair:active:not(:disabled) { transform: translateY(1px); }
+.program-controls .offair:disabled { opacity: 0.35; cursor: default; box-shadow: none; }

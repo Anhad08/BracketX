@@ -69,3 +69,33 @@ test("the interface ducks while on air, and says so", async ({ page }) => {
     "an operator mid-transmission must not hear the editor",
   ).toBeVisible();
 });
+
+/**
+ * There was no way off air that said so.
+ *
+ * The control existed and was called "Clear" — which is what it does to the
+ * surface, not what it means to a gallery. An operator looking for the way
+ * off air could not find one.
+ */
+test("there is an off-air control, and it says off air", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("start-tpl_lower_third").click();
+  await expect(page.getByTestId("content")).toBeVisible();
+
+  await page.getByTestId("go-live").click();
+  await expect(page.getByTestId("rail-tally")).toHaveText("ON AIR");
+  await expect(page.getByTestId("program-row")).toBeVisible();
+
+  const offAir = page.getByTestId("off-air");
+  await expect(offAir).toBeVisible();
+  await expect(offAir).toContainText("OFF AIR");
+  await expect(offAir).toBeEnabled();
+
+  await offAir.click();
+  await expect(page.getByTestId("tally")).toHaveText("OFF");
+  await expect(page.getByTestId("rail-tally")).not.toHaveText("ON AIR");
+
+  // And it is disabled when there is nothing to end — a control that offers
+  // to stop a transmission that is not happening is a control you distrust.
+  await expect(offAir).toBeDisabled();
+});

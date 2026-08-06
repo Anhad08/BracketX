@@ -92,7 +92,15 @@ import {
   type QualityChoice,
 } from "./studio/quality";
 import { orbitOf, type Vec3 } from "./studio/camera";
-import { poseFor, viewOf, VIEWS, type NamedView } from "./studio/views";
+import {
+  DEFAULT_SPATIAL,
+  FLAT,
+  poseFor,
+  SPATIAL_MODES,
+  viewOf,
+  VIEWS,
+  type NamedView,
+} from "./studio/views";
 import {
   PACKS,
   installTheme,
@@ -1264,6 +1272,17 @@ export function App() {
   }, [session, revision]);
 
   const currentView = cameraOrbit === null ? null : viewOf(cameraOrbit.orbit);
+  /**
+   * Is the scene being worked in space?
+   *
+   * Derived from where the camera IS, never remembered — so orbiting away
+   * from Front puts the product in 3D without anybody pressing anything, and
+   * returning to Front puts it back. The switch reports the truth rather than
+   * asserting it.
+   */
+  const spatial =
+    cameraOrbit !== null &&
+    (Math.abs(cameraOrbit.orbit.azimuth) > 0.01 || Math.abs(cameraOrbit.orbit.elevation) > 0.01);
 
   /**
    * Moves the scene camera to a named view.
@@ -1709,19 +1728,55 @@ export function App() {
                 you have to know about and a camera you can turn freely is a
                 camera you can lose. Pressing "Top" is also what teaches
                 somebody the camera can move at all. */}
+            {/* 2D or 3D FIRST, modes second.
+                Five equal buttons asked a designer to understand camera
+                angles before they could make a flat lower third, and buried
+                the one distinction that actually matters: flat, or in space.
+                The modes appear only once you are in 3D. */}
             <span className="views" data-testid="views">
-              {VIEWS.map((view) => (
+              <span className="seg" role="group" aria-label="Dimension">
                 <button
-                  key={view.id}
                   type="button"
-                  className={`chip ${currentView?.id === view.id ? "on" : ""}`}
-                  data-testid={`view-${view.id}`}
-                  title={view.hint}
-                  onClick={() => setView(view)}
+                  className={`chip ${spatial ? "" : "on"}`}
+                  data-testid="dim-2d"
+                  aria-pressed={!spatial}
+                  title={FLAT.hint}
+                  onClick={() => setView(FLAT)}
                 >
-                  {view.label}
+                  2D
                 </button>
-              ))}
+                <button
+                  type="button"
+                  className={`chip ${spatial ? "on" : ""}`}
+                  data-testid="dim-3d"
+                  aria-pressed={spatial}
+                  title="Work in space. The camera can be turned."
+                  /* From flat, `currentView` IS Front — so reusing it here
+                     re-selected 2D and the button did nothing. Entering 3D
+                     goes to a spatial mode; pressing it while already in one
+                     leaves you where you are. */
+                  onClick={() => setView(spatial ? (currentView ?? DEFAULT_SPATIAL) : DEFAULT_SPATIAL)}
+                >
+                  3D
+                </button>
+              </span>
+
+              {spatial ? (
+                <span className="modes" data-testid="modes">
+                  {SPATIAL_MODES.map((view) => (
+                    <button
+                      key={view.id}
+                      type="button"
+                      className={`chip ${currentView?.id === view.id ? "on" : ""}`}
+                      data-testid={`view-${view.id}`}
+                      title={view.hint}
+                      onClick={() => setView(view)}
+                    >
+                      {view.label}
+                    </button>
+                  ))}
+                </span>
+              ) : null}
             </span>
 
             <button type="button" className="chip" onClick={() => setFitToken((v) => v + 1)}>
@@ -1791,6 +1846,7 @@ export function App() {
             onFrame={onFrame}
             canAuthor={profile.canAuthor}
             onCompass={(axis, sign) => {
+              // +Z is straight on, which is 2D. Everything else is a mode.
               const wanted =
                 axis === "y"
                   ? sign > 0 ? "top" : "low"
@@ -1803,7 +1859,12 @@ export function App() {
           />
 
           {workspace.programOpen && bus !== null && programCanvasRef.current !== null ? (
-            <ProgramRow bus={bus} canvas={programCanvasRef.current} revision={revision} />
+            <ProgramRow
+              bus={bus}
+              canvas={programCanvasRef.current}
+              revision={revision}
+              onOffAir={() => say("offair")}
+            />
           ) : null}
 
           {workspace.bottomOpen && shows.bottom ? (

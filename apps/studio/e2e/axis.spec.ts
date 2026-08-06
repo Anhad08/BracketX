@@ -60,12 +60,25 @@ async function dragArm(page: Page, axis: string, dx: number, dy: number): Promis
   await page.mouse.up();
 }
 
+/**
+ * Switches to 3D and selects a mode.
+ *
+ * The modes only exist inside 3D — that is the point of the control — so a
+ * test that reaches for "3/4" while flat has to press 3D first, exactly as a
+ * designer does.
+ */
+async function enterSpatial(page: Page, mode: string): Promise<void> {
+  const button = page.getByTestId(`view-${mode}`);
+  if ((await button.count()) === 0) await page.getByTestId("dim-3d").click();
+  await page.getByTestId(`view-${mode}`).click();
+}
+
 test("the axis arms are drawn, and only the ones you can aim at", async ({ page }) => {
   await openWithBox(page);
 
   // Front on, Z points at the lens: it projects to a stub that cannot be
   // aimed at, and is not offered. X and Y are.
-  await page.getByTestId("view-front").click();
+  await page.getByTestId("dim-2d").click();
   await expect(page.getByTestId("axis-x")).toBeVisible();
   await expect(page.getByTestId("axis-y")).toBeVisible();
   await expect(
@@ -74,13 +87,13 @@ test("the axis arms are drawn, and only the ones you can aim at", async ({ page 
   ).toHaveCount(0);
 
   // Turn the camera and Z arrives. One gizmo, no 2D mode and no 3D mode.
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   await expect(page.getByTestId("axis-z")).toBeVisible();
 });
 
 test("dragging the X arm moves the node in X and nothing else", async ({ page }) => {
   await openWithBox(page);
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
 
   const before = await position(page);
   await dragArm(page, "x", 120, 40);
@@ -95,7 +108,7 @@ test("dragging the X arm moves the node in X and nothing else", async ({ page })
 
 test("dragging the Z arm moves the node in depth", async ({ page }) => {
   await openWithBox(page);
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
 
   const before = await position(page);
   await dragArm(page, "z", 90, 30);
@@ -111,7 +124,7 @@ test("dragging the Z arm moves the node in depth", async ({ page }) => {
 
 test("an axis drag is one undo step", async ({ page }) => {
   await openWithBox(page);
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
 
   const before = await position(page);
   await dragArm(page, "x", 130, 0);

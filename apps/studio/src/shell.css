@@ -413,3 +413,12 @@
 .dock-stack { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .dock-stack > * { flex: 1; min-width: 0; min-height: 0; overflow: auto; border-left: 1px solid var(--line); }
 .dock-stack > *:first-child { border-left: 0; }
+
+/* 2D | 3D reads as ONE control with two positions, so it is seamed rather
+   than spaced — a gap between them would make them two buttons that happen to
+   be adjacent. The modes are spaced, because they are separate choices. */
+.views .seg { display: inline-flex; }
+.views .seg .chip { border-radius: 0; }
+.views .seg .chip:first-child { border-radius: var(--r-xs) 0 0 var(--r-xs); }
+.views .seg .chip:last-child { border-radius: 0 var(--r-xs) var(--r-xs) 0; }
+.views .modes { display: inline-flex; gap: 2px; margin-left: var(--s3); }

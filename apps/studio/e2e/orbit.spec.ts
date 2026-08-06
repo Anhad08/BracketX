@@ -32,6 +32,19 @@ async function cameraPosition(page: Page): Promise<[number, number, number]> {
   return [await read("position x"), await read("position y"), await read("position z")];
 }
 
+/**
+ * Switches to 3D and selects a mode.
+ *
+ * The modes only exist inside 3D — that is the point of the control — so a
+ * test that reaches for "3/4" while flat has to press 3D first, exactly as a
+ * designer does.
+ */
+async function enterSpatial(page: Page, mode: string): Promise<void> {
+  const button = page.getByTestId(`view-${mode}`);
+  if ((await button.count()) === 0) await page.getByTestId("dim-3d").click();
+  await page.getByTestId(`view-${mode}`).click();
+}
+
 test("orbiting turns the scene camera, and does not touch the history", async ({ page }) => {
   await open3D(page);
 
@@ -42,7 +55,7 @@ test("orbiting turns the scene camera, and does not touch the history", async ({
   expect(front[0]).toBeCloseTo(0, 5);
   expect(front[2]).toBeGreaterThan(0);
 
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   const before = await cameraPosition(page);
 
   const chrome = page.getByTestId("scene-chrome");
@@ -90,9 +103,9 @@ test("undo gives back the work, in the order it was done", async ({ page }) => {
   // Three pieces of work, with a view change in the middle of them. The view
   // change must be invisible to the history.
   await page.getByTestId("tool-rect").click();
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   await page.getByTestId("tool-ellipse").click();
-  await page.getByTestId("view-top").click();
+  await enterSpatial(page, "top");
   await page.getByTestId("tool-text").click();
   expect(await count()).toBe(start + 3);
 
@@ -137,18 +150,18 @@ test("named views move the camera, and the control says where you are", async ({
   await open3D(page);
 
   // Studio opens Front — that is where flat graphics are designed.
-  await expect(page.getByTestId("view-front")).toHaveClass(/on/);
+  await expect(page.getByTestId("dim-2d")).toHaveClass(/on/);
 
-  await page.getByTestId("view-side").click();
+  await enterSpatial(page, "side");
   await expect(page.getByTestId("view-side")).toHaveClass(/on/);
-  await expect(page.getByTestId("view-front")).not.toHaveClass(/on/);
+  await expect(page.getByTestId("dim-2d")).not.toHaveClass(/on/);
 
   const side = await cameraPosition(page);
   // From the right: X carries the distance, Z is through zero.
   expect(Math.abs(side[0])).toBeGreaterThan(1);
   expect(Math.abs(side[2])).toBeLessThan(0.01);
 
-  await page.getByTestId("view-top").click();
+  await enterSpatial(page, "top");
   const top = await cameraPosition(page);
   expect(top[1], "Top must be above the scene").toBeGreaterThan(1);
 
@@ -170,7 +183,7 @@ test("named views move the camera, and the control says where you are", async ({
   // undo would only be approximately-where-you-were.
   await page.keyboard.press("Control+z");
   await expect(page.getByTestId("view-top")).not.toHaveClass(/on/);
-  await page.getByTestId("view-top").click();
+  await enterSpatial(page, "top");
   await expect(page.getByTestId("view-top")).toHaveClass(/on/);
 });
 
@@ -186,11 +199,11 @@ test("a 3D object is really 3D: turning the camera changes what it looks like", 
   const shot = async (): Promise<Buffer> =>
     page.getByTestId("scene-view").screenshot();
 
-  await page.getByTestId("view-front").click();
+  await page.getByTestId("dim-2d").click();
   await page.waitForTimeout(400);
   const front = await shot();
 
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   await page.waitForTimeout(400);
   const threeQuarter = await shot();
 
@@ -210,12 +223,12 @@ test("the viewport becomes a 3D viewport when the camera turns, and not before",
   // Front on: a flat graphic gains nothing from a floor. The grid would
   // project to a single horizontal line across the middle of a lower third,
   // which is worse than drawing nothing.
-  await page.getByTestId("view-front").click();
+  await page.getByTestId("dim-2d").click();
   await expect(page.getByTestId("ground")).toHaveCount(0);
   await expect(page.getByTestId("compass")).toHaveCount(0);
 
   // Turned: the ground and the axis widget arrive together.
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   await expect(page.getByTestId("ground")).toBeVisible();
   await expect(page.getByTestId("compass")).toBeVisible();
 
@@ -225,13 +238,13 @@ test("the viewport becomes a 3D viewport when the camera turns, and not before",
   await expect(page.getByTestId("view-top")).toHaveClass(/on/);
 
   // And back to Front removes it again.
-  await page.getByTestId("view-front").click();
+  await page.getByTestId("dim-2d").click();
   await expect(page.getByTestId("ground")).toHaveCount(0);
 });
 
 test("the flat view is fixed: the camera cannot be nudged off axis", async ({ page }) => {
   await open3D(page);
-  await page.getByTestId("view-front").click();
+  await page.getByTestId("dim-2d").click();
 
   const before = await cameraPosition(page);
   const box = (await page.getByTestId("scene-chrome").boundingBox())!;
@@ -250,10 +263,10 @@ test("the flat view is fixed: the camera cannot be nudged off axis", async ({ pa
   expect(after[0]).toBeCloseTo(before[0], 5);
   expect(after[1]).toBeCloseTo(before[1], 5);
   expect(after[2]).toBeCloseTo(before[2], 5);
-  await expect(page.getByTestId("view-front")).toHaveClass(/on/);
+  await expect(page.getByTestId("dim-2d")).toHaveClass(/on/);
 
   // The way into 3D is the view control, which is deliberate and named.
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   await page.mouse.move(cx, cy);
   await page.mouse.down({ button: "middle" });
   await page.mouse.move(cx + 120, cy, { steps: 8 });
@@ -266,13 +279,13 @@ test("the flat design chrome does not appear in the 3D viewport", async ({ page 
 
   // Flat: the checkerboard, the safe areas and the rulers are the tools of a
   // square-on design view.
-  await page.getByTestId("view-front").click();
+  await page.getByTestId("dim-2d").click();
   await expect(page.locator(".scene-checker")).not.toHaveClass(/off/);
   await expect(page.getByTestId("safe-title")).toBeVisible();
 
   // Turned: they are measured in canvas space, so under a moved camera they
   // are not merely unwanted, they are drawn somewhere the scene is not.
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   // Hidden by a class, never unmounted — see the round-trip test below for
   // what unmounting it cost.
   await expect(page.locator(".scene-checker")).toHaveClass(/off/);
@@ -309,9 +322,9 @@ test("a trip to 3D and back leaves the picture unchanged", async ({ page }) => {
   const stage = page.getByTestId("scene-view");
   const before = await stage.screenshot();
 
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   await page.waitForTimeout(500);
-  await page.getByTestId("view-front").click();
+  await page.getByTestId("dim-2d").click();
   await page.waitForTimeout(700);
 
   const after = await stage.screenshot();
@@ -323,7 +336,51 @@ test("a trip to 3D and back leaves the picture unchanged", async ({ page }) => {
   // And the checkerboard is never re-ordered above the canvas: it is hidden
   // by a class rather than unmounted, so DOM order cannot change.
   await expect(page.locator(".scene-checker")).toHaveCount(1);
-  await page.getByTestId("view-three-quarter").click();
+  await enterSpatial(page, "three-quarter");
   await expect(page.locator(".scene-checker")).toHaveCount(1);
   await expect(page.locator(".scene-checker")).toHaveClass(/off/);
+});
+
+/**
+ * 2D or 3D first, modes second.
+ *
+ * Five equal buttons — Front, 3/4, Side, Top, Low — asked a designer to
+ * understand camera angles before they could make a flat lower third, and
+ * buried the one distinction that actually matters: flat, or in space.
+ */
+test("the dimension switch comes first, and the modes live inside 3D", async ({ page }) => {
+  await open3D(page);
+
+  // Studio opens flat, and says so in one word.
+  await expect(page.getByTestId("dim-2d")).toHaveClass(/on/);
+  await expect(page.getByTestId("dim-3d")).not.toHaveClass(/on/);
+
+  // No angles on screen at all while flat. Nothing to understand.
+  await expect(page.getByTestId("modes")).toHaveCount(0);
+  await expect(page.getByTestId("view-side")).toHaveCount(0);
+
+  await page.getByTestId("dim-3d").click();
+  await expect(page.getByTestId("dim-3d")).toHaveClass(/on/);
+  await expect(page.getByTestId("modes")).toBeVisible();
+  for (const mode of ["three-quarter", "side", "top", "low"]) {
+    await expect(page.getByTestId(`view-${mode}`)).toBeVisible();
+  }
+
+  // The switch REPORTS the camera rather than asserting it: orbiting away
+  // from flat is entering 3D, whether or not anybody pressed 3D.
+  await page.getByTestId("dim-2d").click();
+  await expect(page.getByTestId("modes")).toHaveCount(0);
+
+  const box = (await page.getByTestId("scene-chrome").boundingBox())!;
+  await page.getByTestId("dim-3d").click();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down({ button: "middle" });
+  await page.mouse.move(box.x + box.width / 2 + 140, box.y + box.height / 2, { steps: 8 });
+  await page.mouse.up({ button: "middle" });
+  await expect(page.getByTestId("dim-3d")).toHaveClass(/on/);
+
+  // And 2D returns exactly, not approximately.
+  await page.getByTestId("dim-2d").click();
+  await expect(page.getByTestId("dim-2d")).toHaveClass(/on/);
+  await expect(page.getByTestId("modes")).toHaveCount(0);
 });

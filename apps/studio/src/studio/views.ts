@@ -38,6 +38,61 @@ const DEGREES = Math.PI / 180;
  * Deliberately not six: there is no "Back". A broadcast graphic has a front,
  * and a view from behind it is a debugging aid, not a workflow.
  */
+/**
+ * FRONT IS NOT A MODE, IT IS 2D.
+ *
+ * The control used to offer five equal buttons — Front, 3/4, Side, Top, Low —
+ * which asked a designer to understand camera angles before they could make a
+ * flat lower third. It also buried the one distinction that actually matters:
+ * whether you are working flat or in space.
+ *
+ * So the top level is 2D or 3D. Front IS the 2D view; the other four are
+ * modes WITHIN 3D and only appear once you are there. Fewer things on screen,
+ * and the one choice that changes how the product behaves is the visible one.
+ */
+export const FLAT: NamedView = {
+  id: "front",
+  label: "2D",
+  hint: "Straight on. Where flat graphics are designed.",
+  azimuth: 0,
+  elevation: 0,
+};
+
+/** The angles offered once the scene is being worked in 3D. */
+export const SPATIAL_MODES: readonly NamedView[] = [
+  {
+    id: "three-quarter",
+    label: "3/4",
+    hint: "Turned and slightly above. Where a set reads best.",
+    azimuth: 35 * DEGREES,
+    elevation: 18 * DEGREES,
+  },
+  {
+    id: "side",
+    label: "Side",
+    hint: "From the right. Shows depth and stacking order.",
+    azimuth: 90 * DEGREES,
+    elevation: 0,
+  },
+  {
+    id: "top",
+    label: "Top",
+    hint: "Looking down. Shows how far apart things really are.",
+    azimuth: 0,
+    elevation: 89 * DEGREES,
+  },
+  {
+    id: "low",
+    label: "Low",
+    hint: "From below. The hero angle for a title or a trophy.",
+    azimuth: 0,
+    elevation: -22 * DEGREES,
+  },
+];
+
+/** The view 3D opens on when you switch into it. */
+export const DEFAULT_SPATIAL: NamedView = SPATIAL_MODES[0]!;
+
 export const VIEWS: readonly NamedView[] = [
   {
     id: "front",
