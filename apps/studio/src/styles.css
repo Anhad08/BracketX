@@ -541,3 +541,9 @@ kbd {
 .context-menu kbd {
   font: inherit; font-size: 10px; opacity: 0.6; letter-spacing: 0.04em;
 }
+
+/* THE MOVE GIZMO. Colour carries the meaning — X red, Y green, Z blue is the
+   one convention every 3D tool shares, so it needs no legend. */
+.axes { pointer-events: none; }
+.axis line, .axis polygon { transition: opacity 90ms ease; }
+.axis.hot line, .axis.dragging line { filter: brightness(1.25); }

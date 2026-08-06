@@ -48,6 +48,15 @@ import {
 } from "../studio/viewport";
 import { SCENE_DRAG } from "../studio/place";
 import {
+  armLength,
+  axisParameterAt,
+  MIN_FORESHORTENING,
+  pickAxis,
+  projectAxes,
+  type Axis,
+  type AxisId,
+} from "../studio/axis";
+import {
   lookAtRotation,
   orbitBy,
   orbitOf,
@@ -140,11 +149,13 @@ const COMPASS = [
 
 function cursorFor(
   drag: DragState | null,
-  hover: { node: string | null; handle: Handle | null },
+  hover: { node: string | null; handle: Handle | null; axis: AxisId | null },
 ): string {
   if (drag?.kind === "pan") return "grabbing";
   if (drag?.kind === "move") return "move";
+  if (drag?.kind === "axis") return "grabbing";
   if (drag !== null) return "default";
+  if (hover.axis !== null) return "grab";
   if (hover.handle !== null) {
     if (hover.handle.id === "rotate") return "grab";
     const sector = Math.round(handleDirection(hover.handle) / 45) % 8;
@@ -154,7 +165,7 @@ function cursorFor(
 }
 
 interface DragState {
-  readonly kind: "pan" | "move" | "marquee" | "resize" | "rotate" | "orbit";
+  readonly kind: "pan" | "move" | "marquee" | "resize" | "rotate" | "orbit" | "axis";
   readonly startScreen: Point;
   readonly startWorld: Point;
   /** World positions of the nodes being moved, at drag start. */
@@ -171,6 +182,10 @@ interface DragState {
   readonly cameraId?: string;
   readonly startOrbit?: Orbit;
   readonly pivot?: Vec3;
+  /** Axis drag only: which arm, where it was grabbed, and about what. */
+  readonly axis?: Axis;
+  readonly startParam?: number;
+  readonly axisOrigin?: Vec3;
 }
 
 export function SceneView({
@@ -205,10 +220,11 @@ export function SceneView({
    * nothing, so the only way to learn what was clickable was to click. Every
    * editor this product is measured against answers before you commit.
    */
-  const [hover, setHover] = useState<{ node: string | null; handle: Handle | null }>({
-    node: null,
-    handle: null,
-  });
+  const [hover, setHover] = useState<{
+    node: string | null;
+    handle: Handle | null;
+    axis: AxisId | null;
+  }>({ node: null, handle: null, axis: null });
   /** Where the context menu is open, in screen coordinates. */
   const [menu, setMenu] = useState<Point | null>(null);
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({
@@ -336,6 +352,35 @@ export function SceneView({
     [document_, revision, session],
   );
 
+  /**
+   * The move gizmo's three arms.
+   *
+   * Length is solved so they draw at a constant SCREEN size — an arm measured
+   * in world units grows and shrinks with the zoom until it is either
+   * invisible or swallows the scene.
+   *
+   * Arms too edge-on to aim at are dropped by `projectAxes`, which is what
+   * makes one gizmo correct for both kinds of scene: viewed front on, Z points
+   * at the lens and disappears, leaving exactly the two axes a flat graphic
+   * can move in. Turn the camera and Z arrives. The gizmo does not have a 2D
+   * mode and a 3D mode, for the same reason the product does not.
+   */
+  const axisOrigin = useMemo<Vec3 | null>(() => {
+    const union = selectionBounds(bounds, selection.ids);
+    return union === null ? null : { x: union.x, y: union.y, z: 0 };
+  }, [bounds, selection.ids]);
+
+  const ARM_PIXELS = 74;
+  const arms = useMemo(() => {
+    if (view === null || axisOrigin === null) return [];
+    // Divided by zoom because the arms are projected into CANVAS space and
+    // then scaled by the viewport, so a constant canvas length would still
+    // change size on screen as the designer zooms.
+    const length = armLength(view, axisOrigin, ARM_PIXELS / viewport.zoom);
+    return projectAxes(view, axisOrigin, length);
+  }, [view, axisOrigin, viewport.zoom]);
+
+
   const pointOf = useCallback((event: { clientX: number; clientY: number }): Point => {
     const box = hostRef.current?.getBoundingClientRect();
     return { x: event.clientX - (box?.left ?? 0), y: event.clientY - (box?.top ?? 0) };
@@ -379,6 +424,41 @@ export function SceneView({
       "Orbit",
     );
     if (turn !== null) session.store.applySilently(turn);
+  };
+
+  /**
+   * Slides the selection along one axis.
+   *
+   * The distance comes from intersecting the pointer ray with the axis LINE,
+   * not from a screen delta. A screen delta has to be divided by some scale to
+   * become a world distance, and under perspective there is no single correct
+   * scale — which is why editors that do it that way feel like the object is
+   * sliding on ice, faster at the far end of the arm than the near.
+   */
+  const applyAxisDrag = (state: DragState, screen: Point) => {
+    if (state.axis === undefined || state.startParam === undefined) return;
+    if (state.axisOrigin === undefined || view === null) return;
+
+    const now = axisParameterAt(view, screenToCanvas(viewport, screen), state.axisOrigin, state.axis);
+    if (now === null) return;
+    const delta = now - state.startParam;
+    const direction = state.axis.direction;
+
+    const moved = setPropOnMany(
+      session.document,
+      [...state.origins.keys()],
+      "transform.position",
+      (id) => {
+        const origin = state.origins.get(id) ?? [0, 0, 0];
+        return [
+          round(origin[0] + direction.x * delta),
+          round(origin[1] + direction.y * delta),
+          round(origin[2] + direction.z * delta),
+        ];
+      },
+      "Move",
+    );
+    if (moved !== null) session.store.applySilently(moved);
   };
 
   const commitGesture = (state: DragState) => {
@@ -623,6 +703,39 @@ export function SceneView({
       }
     }
 
+    // AXIS ARMS. Checked after the resize handles, which sit on the box edge,
+    // and before picking a node, because the arms start at the selection's
+    // centre — where a free drag would otherwise begin.
+    if (view !== null && axisOrigin !== null && arms.length > 0) {
+      const grabbedAxis = pickAxis(arms, screenToCanvas(viewport, screen), HANDLE_TOLERANCE);
+      if (grabbedAxis !== null) {
+        const startParam = axisParameterAt(
+          view,
+          screenToCanvas(viewport, screen),
+          axisOrigin,
+          grabbedAxis,
+        );
+        if (startParam !== null) {
+          const origins = new Map<string, readonly [number, number, number]>();
+          for (const id of selection.ids) {
+            const position = findAuthored(session, id);
+            if (position !== null) origins.set(id, position);
+          }
+          setDrag({
+            kind: "axis",
+            startScreen: screen,
+            startWorld: world,
+            origins,
+            startViewport: viewport,
+            axis: grabbedAxis,
+            startParam,
+            axisOrigin,
+          });
+          return;
+        }
+      }
+    }
+
     const hit = pick(bounds, world);
     const pickable = hit !== null && !lockedIds.has(hit) ? hit : null;
 
@@ -674,10 +787,20 @@ export function SceneView({
       const rect = selectionBounds(bounds, selection.ids);
       const tolerance = HANDLE_TOLERANCE / (viewport.zoom * pixelsPerUnit(document_));
       const handle = rect === null ? null : handleAt(rect, world, tolerance);
-      const hit = handle === null ? pick(bounds, world) : null;
+      // Arms are tested in the same order a press tests them, so the thing
+      // that lights up is the thing that would be grabbed.
+      const axis =
+        handle !== null || arms.length === 0
+          ? null
+          : pickAxis(arms, screenToCanvas(viewport, screen), HANDLE_TOLERANCE);
+      const hit = handle === null && axis === null ? pick(bounds, world) : null;
       const node = hit !== null && !lockedIds.has(hit) ? hit : null;
-      if (node !== hover.node || (handle?.id ?? null) !== (hover.handle?.id ?? null)) {
-        setHover({ node, handle });
+      if (
+        node !== hover.node ||
+        (handle?.id ?? null) !== (hover.handle?.id ?? null) ||
+        (axis?.id ?? null) !== hover.axis
+      ) {
+        setHover({ node, handle, axis: axis?.id ?? null });
       }
       return;
     }
@@ -696,6 +819,10 @@ export function SceneView({
     }
     if (drag.kind === "orbit") {
       applyOrbit(drag, screen);
+      return;
+    }
+    if (drag.kind === "axis") {
+      applyAxisDrag(drag, screen);
       return;
     }
     if (drag.kind === "marquee") {
@@ -776,6 +903,46 @@ export function SceneView({
       const area = rectFromCorners(marqueeRect.a, marqueeRect.b);
       const hits = marquee(bounds, area).filter((id) => !lockedIds.has(id));
       onSelection(hits.length === 0 ? EMPTY_SELECTION : selectMany(hits));
+    }
+
+    if (drag.kind === "axis" && drag.origins.size > 0 && drag.axis !== undefined) {
+      // Recorded exactly like a free move — rewind, then one transaction — so
+      // an axis drag and a free drag are the same single undo step and neither
+      // can leave the stack in a state the other would not.
+      const ids = [...drag.origins.keys()];
+      // Capture where the drag ENDED before rewinding, then build the
+      // recorded transaction from the document as it is AFTER the rewind.
+      //
+      // Not from the render-time document: `applySilently` advances the
+      // revision, so by now `document_` may already hold the dragged
+      // positions, and a transaction built from it would record the dragged
+      // position as its own previous value — undo would then restore the
+      // drag rather than reverse it. That is exactly what this test caught.
+      const ended = new Map<string, readonly [number, number, number]>();
+      for (const id of ids) {
+        const position = findAuthored(session, id);
+        if (position !== null) ended.set(id, position);
+      }
+
+      const rewind = setPropOnMany(
+        session.document,
+        ids,
+        "transform.position",
+        (id) => drag.origins.get(id)!,
+        "rewind",
+      );
+      if (rewind !== null) session.store.applySilently(rewind);
+
+      const undoable = setPropOnMany(
+        session.document,
+        ids,
+        "transform.position",
+        (id) => ended.get(id) ?? drag.origins.get(id)!,
+        ids.length === 1
+          ? `Move along ${drag.axis.id.toUpperCase()}`
+          : `Move ${ids.length} nodes along ${drag.axis.id.toUpperCase()}`,
+      );
+      if (undoable !== null) session.store.apply(undoable);
     }
 
     if (drag.kind === "move" && drag.origins.size > 0) {
@@ -942,7 +1109,11 @@ export function SceneView({
            is: a cursor assertion alone cannot tell "the handle was missed"
            from "the cursor is wrong", and that ambiguity has already hidden
            one real bug in this component. */
-        data-hover={hover.handle?.id ?? (hover.node === null ? "none" : "node")}
+        data-hover={
+          hover.axis !== null
+            ? `axis-${hover.axis}`
+            : (hover.handle?.id ?? (hover.node === null ? "none" : "node"))
+        }
       >
         {/* Frame edge. The document's own output rectangle, always drawn: a
             designer needs to know where the picture ends. */}
@@ -1015,6 +1186,53 @@ export function SceneView({
             />
           );
         })()}
+
+        {/* THE MOVE GIZMO. Three arms from the selection's centre, each
+            constraining a drag to one direction. Free dragging in 3D is a
+            guess: the pointer has two dimensions and the scene has three, so
+            something has to decide the third, and it will be wrong often
+            enough to be maddening. Saying WHICH first makes the drag exact. */}
+        {arms.length === 0 ? null : (
+          <g className="axes" data-testid="axes">
+            {arms.map((arm) => {
+              const from = canvasToScreen(viewport, arm.from);
+              const to = canvasToScreen(viewport, arm.to);
+              const dragging = drag?.kind === "axis" && drag.axis?.id === arm.axis.id;
+              const hovered = hover.axis === arm.axis.id;
+              // Faded as it turns towards the lens, and gone before it becomes
+              // a stub that cannot be aimed at.
+              const usable = arm.foreshortening >= MIN_FORESHORTENING;
+              if (!usable && !dragging) return null;
+              const angle = (Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI;
+              return (
+                <g
+                  key={arm.axis.id}
+                  className={`axis ${dragging ? "dragging" : ""} ${hovered ? "hot" : ""}`}
+                  data-testid={`axis-${arm.axis.id}`}
+                  opacity={dragging || hovered ? 1 : 0.35 + arm.foreshortening * 0.45}
+                >
+                  <line
+                    x1={from.x}
+                    y1={from.y}
+                    x2={to.x}
+                    y2={to.y}
+                    stroke={arm.axis.colour}
+                    strokeWidth={dragging || hovered ? 3 : 2}
+                    strokeLinecap="round"
+                  />
+                  {/* A head, so the arm reads as a direction rather than a
+                      line, and so its far end is obvious — the hit test stops
+                      there. */}
+                  <polygon
+                    points="0,0 -9,3.5 -9,-3.5"
+                    fill={arm.axis.colour}
+                    transform={`translate(${to.x} ${to.y}) rotate(${angle})`}
+                  />
+                </g>
+              );
+            })}
+          </g>
+        )}
 
         {/* The transform gizmo: eight resize handles and a rotation grip, on
             the union of the selection. Positions come from the same
