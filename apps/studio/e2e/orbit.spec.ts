@@ -267,16 +267,63 @@ test("the flat design chrome does not appear in the 3D viewport", async ({ page 
   // Flat: the checkerboard, the safe areas and the rulers are the tools of a
   // square-on design view.
   await page.getByTestId("view-front").click();
-  await expect(page.locator(".scene-checker")).toHaveCount(1);
+  await expect(page.locator(".scene-checker")).not.toHaveClass(/off/);
   await expect(page.getByTestId("safe-title")).toBeVisible();
 
   // Turned: they are measured in canvas space, so under a moved camera they
   // are not merely unwanted, they are drawn somewhere the scene is not.
   await page.getByTestId("view-three-quarter").click();
-  await expect(page.locator(".scene-checker")).toHaveCount(0);
+  // Hidden by a class, never unmounted — see the round-trip test below for
+  // what unmounting it cost.
+  await expect(page.locator(".scene-checker")).toHaveClass(/off/);
   await expect(page.getByTestId("safe-title")).toHaveCount(0);
   await expect(page.locator(".ruler")).toHaveCount(0);
 
   // And the ground replaces them.
   await expect(page.getByTestId("ground")).toBeVisible();
+});
+
+/**
+ * A round trip through 3D leaves the picture exactly as it was.
+ *
+ * This is the bug that took the longest to find and was the least interesting
+ * once found. Going Front → 3/4 → Front lost the lower third's background and
+ * accent bar. Everything measurable said the product was fine: the document
+ * was byte-identical, the mirror's world matrices were identical, the backend
+ * snapshot was identical, and the renderer was issuing the same eight draw
+ * calls and fifty-four triangles.
+ *
+ * It was the transparency checkerboard. The canvas is appended to its parent
+ * imperatively, so React does not know it is there — and a sibling that
+ * unmounts in 3D and remounts in 2D is re-inserted AFTER the canvas, where it
+ * paints straight over the scene.
+ *
+ * The lesson is in the assertion: comparing camera NUMBERS and asserting the
+ * picture merely CHANGED was never going to catch this. Only comparing the
+ * picture to itself does.
+ */
+test("a trip to 3D and back leaves the picture unchanged", async ({ page }) => {
+  await open3D(page);
+  await page.waitForTimeout(600);
+
+  const stage = page.getByTestId("scene-view");
+  const before = await stage.screenshot();
+
+  await page.getByTestId("view-three-quarter").click();
+  await page.waitForTimeout(500);
+  await page.getByTestId("view-front").click();
+  await page.waitForTimeout(700);
+
+  const after = await stage.screenshot();
+  expect(
+    Buffer.compare(before, after),
+    "returning to Front must restore the picture exactly, not approximately",
+  ).toBe(0);
+
+  // And the checkerboard is never re-ordered above the canvas: it is hidden
+  // by a class rather than unmounted, so DOM order cannot change.
+  await expect(page.locator(".scene-checker")).toHaveCount(1);
+  await page.getByTestId("view-three-quarter").click();
+  await expect(page.locator(".scene-checker")).toHaveCount(1);
+  await expect(page.locator(".scene-checker")).toHaveClass(/off/);
 });

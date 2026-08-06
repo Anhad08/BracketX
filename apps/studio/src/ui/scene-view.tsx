@@ -1104,8 +1104,16 @@ export function SceneView({
       >
         {/* The transparency checkerboard belongs to the flat view. In 3D it
             is a flat sheet floating in a perspective scene, and it reads as a
-            panel someone forgot to hide — because that is what it is. */}
-        {dimensional ? null : <div className="scene-checker" aria-hidden />}
+            panel someone forgot to hide — because that is what it is.
+            
+            HIDDEN WITH A CLASS, NEVER UNMOUNTED. The canvas is appended to
+            this element imperatively, so React does not know it is there; a
+            sibling that unmounts and remounts is re-inserted AFTER the canvas
+            and paints straight over the scene. That is what made a lower
+            third lose its background after a trip to the 3/4 view — the
+            renderer was drawing all eight calls and fifty-four triangles
+            perfectly, and a div was sitting on top of them. */}
+        <div className={`scene-checker ${dimensional ? "off" : ""}`} aria-hidden />
       </div>
 
       <svg
