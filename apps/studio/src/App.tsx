@@ -81,6 +81,15 @@ import { Home } from "./ui/home";
 import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections";
 import { DeveloperPanel } from "./ui/developer";
 import { placeScene } from "./studio/place";
+import { readDevice, profileFor, type DeviceInput } from "./studio/device";
+import {
+  FrameMeter,
+  previewOptions,
+  programOptions,
+  settingsFor,
+  type FrameReport,
+  type QualityChoice,
+} from "./studio/quality";
 import { orbitOf, type Vec3 } from "./studio/camera";
 import { poseFor, viewOf, VIEWS, type NamedView } from "./studio/views";
 import {
@@ -176,6 +185,55 @@ export function App() {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [locked, setLocked] = useState<ReadonlySet<string>>(new Set());
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
+  /**
+   * The machine, re-read when the window changes.
+   *
+   * Rotating a tablet changes what the interface can offer, so this cannot be
+   * read once at boot — a designer who turns their device to landscape has
+   * earned the docks that now fit.
+   */
+  const [device, setDevice] = useState<DeviceInput>(() => readDevice());
+  useEffect(() => {
+    const onResize = () => setDevice(readDevice());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const [frames, setFrames] = useState<FrameReport | null>(null);
+  const meterRef = useRef(new FrameMeter());
+  /**
+   * The quality inputs, in a ref.
+   *
+   * The engine is created once, inside an effect that must not re-run when a
+   * preset changes — tearing down the mirror to switch antialiasing would
+   * lose the scene. The ref lets boot read the CURRENT choice without taking
+   * a dependency on it; changing the preset afterwards is handled below.
+   */
+  const qualityRef = useRef<{ choice: QualityChoice; device: DeviceInput }>({
+    choice: "auto",
+    device,
+  });
+
+  qualityRef.current = { choice: workspace.quality, device };
+
+  /**
+   * Records a drawn frame, and publishes a report about once a second.
+   *
+   * Not on every frame: re-rendering the shell sixty times a second to update
+   * a number would itself be the thing making the number bad.
+   */
+  const publishedAt = useRef(0);
+  const onFrame = useCallback(
+    (milliseconds: number) => {
+      meterRef.current.record(milliseconds);
+      const now = performance.now();
+      if (now - publishedAt.current < 1000) return;
+      publishedAt.current = now;
+      setFrames(meterRef.current.report(settingsFor(workspace.quality, device)));
+    },
+    [workspace.quality, device],
+  );
+
   const [fitToken, setFitToken] = useState(0);
   const [frameToken, setFrameToken] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -376,15 +434,23 @@ export function App() {
       }
       const text = textRef.current ?? undefined;
       const images = imagesRef.current ?? undefined;
-      const preview = new StudioSession(createCanvasBackend(canvas), created, {
-        ...(text === undefined ? {} : { text }),
-        ...(images === undefined ? {} : { images }),
-      });
+      // The preview may be softened by a preset. Programme may not — see
+      // `programOptions`, which exists so that rule is a function rather than
+      // something everyone has to remember.
+      const settings = settingsFor(qualityRef.current.choice, qualityRef.current.device);
+      const preview = new StudioSession(
+        createCanvasBackend(canvas, previewOptions(settings, window.devicePixelRatio || 1)),
+        created,
+        {
+          ...(text === undefined ? {} : { text }),
+          ...(images === undefined ? {} : { images }),
+        },
+      );
       // Program starts on a document of its own rather than a reference to
       // Preview's: sharing one would be the exact leak the whole split exists
       // to prevent, and it would be invisible until the first edit.
       const program = new StudioSession(
-        createCanvasBackend(programCanvas),
+        createCanvasBackend(programCanvas, programOptions(settings)),
         newDocument("Program", ids, new Date().toISOString()),
         {
           ...(text === undefined ? {} : { text }),
@@ -1387,6 +1453,10 @@ export function App() {
             onTheme={(theme) => update({ theme })}
             developerMode={workspace.developerMode}
             onDeveloperMode={(developerMode) => update({ developerMode })}
+            quality={workspace.quality}
+            onQuality={(quality) => update({ quality })}
+            device={device}
+            frames={frames}
             onResetWorkspace={() => {
               resetWorkspace();
               setWorkspace(DEFAULT_WORKSPACE);
@@ -1645,6 +1715,7 @@ export function App() {
                machinery rather than aiming the camera itself, so the widget,
                the view buttons and the keyboard can never disagree about
                where "Side" is. */
+            onFrame={onFrame}
             onCompass={(axis, sign) => {
               const wanted =
                 axis === "y"

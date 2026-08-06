@@ -5,6 +5,14 @@ import type { AssetRecord } from "@bracketx/engine-assets";
 import type { StudioSession } from "../studio/session";
 import type { IdFactory } from "../studio/ids";
 import { SCENE_DRAG } from "../studio/place";
+import {
+  PRESETS as QUALITY_PRESETS,
+  resolveTier,
+  TIERS,
+  type FrameReport,
+  type QualityChoice,
+} from "../studio/quality";
+import type { DeviceInput } from "../studio/device";
 import { PACKS, installTheme, type Pack, type PackTemplate } from "../studio/packs";
 import { STUDIO_FONTS } from "../studio/fonts";
 import { PRESETS, presetById } from "../studio/presets";
@@ -767,6 +775,11 @@ export interface SettingsProps {
   readonly developerMode: boolean;
   readonly onDeveloperMode: (on: boolean) => void;
   readonly onResetWorkspace: () => void;
+  readonly quality: QualityChoice;
+  readonly onQuality: (choice: QualityChoice) => void;
+  readonly device: DeviceInput;
+  /** What the last few seconds actually measured. Null before any frame. */
+  readonly frames: FrameReport | null;
 }
 
 export function Settings({
@@ -775,7 +788,13 @@ export function Settings({
   developerMode,
   onDeveloperMode,
   onResetWorkspace,
+  quality,
+  onQuality,
+  device,
+  frames,
 }: SettingsProps) {
+  const resolved = resolveTier(quality, device);
+  const active = QUALITY_PRESETS[resolved];
   return (
     <div className="section-page" data-testid="settings">
       <header className="section-head">
@@ -784,6 +803,88 @@ export function Settings({
           <p className="lede">Appearance and behaviour.</p>
         </div>
       </header>
+
+      {/* QUALITY. Named for what it costs, not for what it switches off — a
+          user picking a preset is answering "how much machine do I have?",
+          not "would you like antialiasing?". */}
+      <section className="home-block">
+        <div className="block-head">
+          <h2>Quality</h2>
+          <span className="dim">
+            {quality === "auto" ? `Automatic — ${active.label} on this device` : "Chosen by you"}
+          </span>
+        </div>
+
+        <div className="quality-grid">
+          <button
+            type="button"
+            className={`quality-card ${quality === "auto" ? "on" : ""}`}
+            data-testid="quality-auto"
+            onClick={() => onQuality("auto")}
+          >
+            <strong>Automatic</strong>
+            <span className="dim tiny">
+              Picks a level from this device. Currently {active.label}.
+            </span>
+          </button>
+          {TIERS.map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              className={`quality-card ${quality === tier ? "on" : ""}`}
+              data-testid={`quality-${tier}`}
+              onClick={() => onQuality(tier)}
+            >
+              <strong>{QUALITY_PRESETS[tier].label}</strong>
+              <span className="dim tiny">{QUALITY_PRESETS[tier].hint}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Measured, never claimed. The 95th percentile is beside the average
+            because a viewport that runs at 60 and hitches once a second reads
+            as broken while averaging perfectly well. */}
+        <dl className="facts mono">
+          <div>
+            <dt>Frame rate</dt>
+            {/* "Idle" rather than a number, because the editor DRAWS ONLY
+                WHEN SOMETHING CHANGES. Reporting the display's refresh rate
+                for a stationary scene would be a number that says nothing
+                about whether this machine can cope. */}
+            <dd data-testid="fps">
+              {frames === null || frames.sampled === 0
+                ? "Idle"
+                : `${Math.round(frames.fps)} fps`}
+            </dd>
+          </div>
+          <div>
+            <dt>Worst frame</dt>
+            <dd>
+              {frames === null || frames.sampled === 0
+                ? "Idle"
+                : `${frames.worstMs.toFixed(1)} ms`}
+            </dd>
+          </div>
+          <div>
+            <dt>Target</dt>
+            <dd>{active.targetFps} fps</dd>
+          </div>
+        </dl>
+        {frames?.strained === true ? (
+          <p className="note" data-testid="strained">
+            This device is not keeping up at {active.label}. A lower level will
+            be smoother.
+          </p>
+        ) : null}
+        <p className="note">
+          Measured while the stage is drawing — playing an animation or moving
+          something. A still scene draws nothing, and has nothing to measure.
+        </p>
+        <p className="note">
+          Quality changes the editor preview only. What you send to air is
+          never scaled or softened.
+        </p>
+      </section>
 
       <section className="home-block">
         <div className="block-head">

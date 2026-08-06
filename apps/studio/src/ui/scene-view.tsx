@@ -133,6 +133,8 @@ export interface SceneViewProps {
   readonly menuCommands: readonly StudioCommand[];
   /** A ball on the axis widget was clicked: look down that axis. */
   readonly onCompass: (axis: "x" | "y" | "z", sign: 1 | -1) => void;
+  /** Milliseconds between drawn frames. Only frames that actually drew. */
+  readonly onFrame: (milliseconds: number) => void;
 }
 
 /** Screen pixels within which a handle counts as grabbed. */
@@ -206,6 +208,7 @@ export function SceneView({
   onDropScene,
   menuCommands,
   onCompass,
+  onFrame,
 }: SceneViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -268,20 +271,29 @@ export function SceneView({
 
   useEffect(() => {
     let handle = 0;
-    const tick = () => {
+    let previous = 0;
+    const tick = (now: number) => {
       if (!session.disposed && (session.playing || pending.current)) {
         pending.current = false;
         try {
           session.render();
+          // Timed only on frames that DREW. The loop idles when nothing has
+          // changed, and counting those would report a stationary editor as
+          // running at whatever the display refreshes at — a number that
+          // says nothing about whether this machine can cope.
+          if (previous !== 0) onFrame(now - previous);
+          previous = now;
         } catch {
           // A bad frame must not kill the loop; the next edit will redraw.
         }
+      } else {
+        previous = 0;
       }
       handle = requestAnimationFrame(tick);
     };
     handle = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(handle);
-  }, [session]);
+  }, [session, onFrame]);
 
   // -- Sizing and fit -------------------------------------------------------
 

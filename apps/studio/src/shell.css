@@ -277,3 +277,15 @@
 .views { display: inline-flex; gap: 2px; margin-right: var(--s2); }
 .views .chip { padding: 3px 8px; font-size: 11px; }
 .views .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* QUALITY. Cards, not a dropdown: this is a choice with consequences a user
+   should be able to read before making, and a select hides its options. */
+.quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s3); margin-bottom: var(--s3); }
+.quality-card {
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: var(--s3); font: inherit; cursor: pointer; color: inherit;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel);
+}
+.quality-card:hover { border-color: var(--accent); }
+.quality-card.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.quality-card strong { font-size: 13px; color: var(--text-strong); }
