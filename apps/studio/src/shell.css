@@ -289,3 +289,89 @@
 .quality-card:hover { border-color: var(--accent); }
 .quality-card.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .quality-card strong { font-size: 13px; color: var(--text-strong); }
+
+/* ==========================================================================
+   SMALL SCREENS
+   ==========================================================================
+   These live in shell.css, not styles.css, because shell.css is imported
+   LAST — and a media query adds no specificity, so a rule here is the only
+   one that can override the desktop layout above it. Put in the earlier
+   file, `.rail-mark { display: none }` silently lost to `.rail-mark` in this
+   one and the bottom bar rendered a logo and no navigation.
+   The rail becomes a bottom bar, because a vertical strip of icons costs
+   width a phone has none of, and a thumb reaches the bottom of a screen far
+   more easily than its left edge.
+
+   The right dock becomes the page. On a phone the content surface IS the
+   product: fields, colours, the pre-air check and Go live. Nothing is hidden
+   that a phone could have used. */
+@media (max-width: 720px) {
+  /* The workspace fills; the rail is a bar under it. */
+  .studio { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .workspace { grid-row: 1; }
+
+  .rail {
+    grid-row: 2; grid-column: 1;
+    flex-direction: row; width: auto; height: 56px;
+    justify-content: space-around; align-items: center;
+    border-right: 0; border-top: 1px solid var(--line);
+    padding: 0 var(--s2);
+  }
+  /* The mark is a logo, not a destination. On a phone every millimetre of
+     that bar is navigation. */
+  .rail-mark { display: none; }
+  .rail-item {
+    flex: 1 1 0; min-width: 0; gap: 2px; padding: 4px 2px;
+    font-size: 10px;
+  }
+  /* Labels are clipped rather than allowed to collide. A run of touching
+     words ("TemplatesMarketplace") reads as a rendering fault; a truncated
+     one reads as a small screen, which is what it is. */
+  .rail-item span:last-child {
+    font-size: 9px; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Rulers measure for authoring, and this screen does not author. */
+  .rulers { display: none; }
+  /* The tally is the one thing that must never be crowded out: an operator
+     has to see at a glance whether they are on air. */
+  .rail-tally { position: static; margin: 0; flex: none; font-size: 9px; padding: 4px 6px; }
+
+  /* Stage above, content below — the flex row that holds them on a desk
+     becomes a column, and the dock stops being a fixed width. */
+  .body { flex-direction: column !important; }
+  .stage { flex: none; height: 34vh; min-height: 200px; }
+  .dock.right {
+    width: auto !important; flex: 1;
+    border-left: 0; border-top: 1px solid var(--line);
+  }
+  .divider { display: none; }
+
+  /* The status bar is a designer's instrument. A phone operator has the
+     Content panel and the tally, and needs neither history depth nor a
+     layer count. */
+  .statusbar { display: none; }
+
+  .section-page { padding: var(--s3); }
+  .section-head h1 { font-size: 22px; }
+  .pack-grid, .scene-grid, .start-grid, .quality-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Anything driven by a finger gets a finger-sized target. 44px is the
+   smallest thing most people can hit reliably, and it is not negotiable
+   downwards however tidy a 28px row looks on a desk. */
+.studio[data-touch="yes"] button,
+.studio[data-touch="yes"] .chip,
+.studio[data-touch="yes"] select.field,
+.studio[data-touch="yes"] input.field {
+  min-height: 44px;
+}
+.studio[data-touch="yes"] .rail-item { min-height: 52px; }
+.studio[data-touch="yes"] .outline li button { min-height: 40px; }
+
+/* On a screen that cannot author, the stage says what it IS — a preview —
+   rather than looking like an editor that has stopped responding. */
+.studio[data-authoring="no"] .scene-chrome { cursor: default; }

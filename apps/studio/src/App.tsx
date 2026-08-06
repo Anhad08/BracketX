@@ -217,6 +217,22 @@ export function App() {
   qualityRef.current = { choice: workspace.quality, device };
 
   /**
+   * What this machine can offer.
+   *
+   * Combined with depth, never instead of it. Depth is what the USER chose to
+   * see; the profile is what the SCREEN can hold. A beginner on a desktop and
+   * an expert on a phone are different problems, and collapsing them into one
+   * number gets both wrong.
+   */
+  const profile = profileFor(device);
+  const docks = docksAt(workspace.depth);
+  const shows = {
+    left: docks.left && profile.canDock,
+    bottom: docks.bottom && profile.canDock,
+    right: docks.right,
+  };
+
+  /**
    * Records a drawn frame, and publishes a report about once a second.
    *
    * Not on every frame: re-rendering the shell sixty times a second to update
@@ -1472,8 +1488,14 @@ export function App() {
   };
 
   return (
-    <div className="studio" data-section={section}
-        data-depth={workspace.depth}>
+    <div
+      className="studio"
+      data-section={section}
+      data-depth={workspace.depth}
+      data-device={profile.deviceClass}
+      data-authoring={profile.canAuthor ? "yes" : "no"}
+      data-touch={profile.touchTargets ? "yes" : "no"}
+    >
       <Nav
         section={section}
         onSection={goTo}
@@ -1550,7 +1572,7 @@ export function App() {
       ) : (
       <>
       <div className="body">
-        {workspace.leftOpen && docksAt(workspace.depth).left ? (
+        {workspace.leftOpen && shows.left ? (
           <aside className="dock left" style={{ width: workspace.leftWidth }}>
             <Toolbox
               onCreate={create}
@@ -1686,7 +1708,7 @@ export function App() {
 
           {/* Align, distribute, group. All operate on a selection, and a
               beginner has no selection because they have no layer tree. */}
-          {docksAt(workspace.depth).left ? (
+          {shows.left ? (
             <ArrangeBar
               session={session}
               selection={selection}
@@ -1716,6 +1738,7 @@ export function App() {
                the view buttons and the keyboard can never disagree about
                where "Side" is. */
             onFrame={onFrame}
+            canAuthor={profile.canAuthor}
             onCompass={(axis, sign) => {
               const wanted =
                 axis === "y"
@@ -1732,7 +1755,7 @@ export function App() {
             <ProgramRow bus={bus} canvas={programCanvasRef.current} revision={revision} />
           ) : null}
 
-          {workspace.bottomOpen && docksAt(workspace.depth).bottom ? (
+          {workspace.bottomOpen && shows.bottom ? (
             <>
               <Divider
                 axis="y"

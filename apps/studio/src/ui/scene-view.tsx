@@ -135,6 +135,16 @@ export interface SceneViewProps {
   readonly onCompass: (axis: "x" | "y" | "z", sign: 1 | -1) => void;
   /** Milliseconds between drawn frames. Only frames that actually drew. */
   readonly onFrame: (milliseconds: number) => void;
+  /**
+   * This screen can be authored in.
+   *
+   * False on a phone: a resize handle is eight pixels and a fingertip is
+   * about forty-four. The stage still pans, zooms and selects — looking at
+   * your work and choosing a layer are not authoring — but the gizmos are
+   * neither drawn nor grabbable, because a control you cannot hit is worse
+   * than one that is not there.
+   */
+  readonly canAuthor: boolean;
 }
 
 /** Screen pixels within which a handle counts as grabbed. */
@@ -209,6 +219,7 @@ export function SceneView({
   menuCommands,
   onCompass,
   onFrame,
+  canAuthor,
 }: SceneViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -725,7 +736,7 @@ export function SceneView({
 
     // A handle is checked BEFORE picking, because handles sit on the box edge
     // and would otherwise be swallowed by the node underneath them.
-    const selectionRect = selectionBounds(bounds, selection.ids);
+    const selectionRect = canAuthor ? selectionBounds(bounds, selection.ids) : null;
     if (selectionRect !== null) {
       // 10 screen px, converted — a handle must be equally grabbable at 10 %
       // and at 800 %, which a fixed world tolerance is not. Shared with the
@@ -763,7 +774,7 @@ export function SceneView({
     // AXIS ARMS. Checked after the resize handles, which sit on the box edge,
     // and before picking a node, because the arms start at the selection's
     // centre — where a free drag would otherwise begin.
-    if (view !== null && axisOrigin !== null && arms.length > 0) {
+    if (canAuthor && view !== null && axisOrigin !== null && arms.length > 0) {
       const grabbedAxis = pickAxis(arms, screenToCanvas(viewport, screen), HANDLE_TOLERANCE);
       if (grabbedAxis !== null) {
         const startParam = axisParameterAt(
@@ -824,6 +835,7 @@ export function SceneView({
       const node = findAuthored(session, id);
       if (node !== null) origins.set(id, node);
     }
+    if (!canAuthor) return;
     setDrag({
       kind: "move",
       startScreen: screen,
@@ -1280,7 +1292,7 @@ export function SceneView({
             guess: the pointer has two dimensions and the scene has three, so
             something has to decide the third, and it will be wrong often
             enough to be maddening. Saying WHICH first makes the drag exact. */}
-        {arms.length === 0 ? null : (
+        {arms.length === 0 || !canAuthor ? null : (
           <g className="axes" data-testid="axes">
             {arms.map((arm) => {
               const from = canvasToScreen(viewport, arm.from);
@@ -1328,7 +1340,7 @@ export function SceneView({
             grabbable. */}
         {(() => {
           const union = selectionBounds(bounds, selection.ids);
-          if (union === null) return null;
+          if (union === null || !canAuthor) return null;
           return (
             <g className="gizmo" data-testid="gizmo">
               {handlesFor(union).map((h) => {
