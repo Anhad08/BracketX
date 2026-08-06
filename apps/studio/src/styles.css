@@ -16,45 +16,157 @@
 
 :root,
 :root[data-theme="dark"] {
-  --bg: #0c0f14;
-  --panel: #12161d;
-  --panel-2: #171c25;
-  --line: #232a35;
-  --line-strong: #303a49;
-  --text: #d8dee8;
-  --text-strong: #f2f5fa;
-  --dim: #8b97a8;
-  --accent: #62a8ff;
-  --accent-bg: #1f6feb26;
-  --good: #63d297;
-  --warn: #f0c164;
-  --bad: #ff7a7a;
-  /* Tally red. `--bad` is a light error text colour and would be unreadable
-     behind white; on-air needs a saturated fill, and it must read as on-air
-     from across a gallery. */
-  --onair: #c62828;
-  --canvas-void: #2a2e35;
-  --checker: #3a3f47;
+  /* ------------------------------------------------------------------
+     THE CHASSIS
+     ------------------------------------------------------------------
+     Neutral, not blue. The interface was a blue-tinted dark IDE
+     (#0c0f14 / #12161d) while the Design OS specifies a machined
+     instrument: near-black, uncoloured, so that EVERY colour on screen
+     means something. A chassis with a hue of its own competes with the
+     graphic being authored, which is the one thing on screen that is
+     allowed to be colourful. */
+  --chassis: #0a0a0c;
+  --bg: #0a0a0c;
+  --panel: #131417;
+  --panel-hi: #181a1e;
+  --panel-2: #181a1e;
+  --control: #20232a;
+  --control-hi: #292d35;
+  --well: #050506;
+
+  --line: rgba(255, 255, 255, 0.07);
+  --hair: rgba(255, 255, 255, 0.055);
+  --hair-strong: rgba(255, 255, 255, 0.1);
+  --seam: rgba(0, 0, 0, 0.55);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  --ink: #f3f4f6;
+  --ink-2: #a7aab2;
+  --ink-3: #6e717a;
+  --text: #a7aab2;
+  --text-strong: #f3f4f6;
+  --dim: #6e717a;
+
+  /* ------------------------------------------------------------------
+     COLOUR MEANS STATE. NOTHING ELSE.
+     ------------------------------------------------------------------
+     The accent was #62a8ff — a bright blue that said "selected" in the
+     same voice a status colour would use. In the Design OS the accent is
+     a near-white cool grey, which leaves red, teal, amber and green free
+     to mean exactly one thing each: on air, preview, warning, ready.
+     That is not a stylistic preference. In a gallery, a blue that means
+     "selected" and a red that means "on air" are competing for the same
+     glance. */
+  --accent: #c9d1da;
+  --accent-2: #9aa5b1;
+  --accent-bg: rgba(201, 209, 218, 0.14);
+
+  --live: #ff3b30;
+  --onair: #ff3b30;
+  --preview: #2ee6c8;
+  --warn: #ffb020;
+  --ok: #3ddc97;
+  --good: #3ddc97;
+  --bad: #ff3b30;
+
+  /* Keycaps are light with dark ink — a physical key, not a painted one. */
+  --key: #eef0f3;
+  --key-2: #c6cad1;
+  --key-ink: #0c0d10;
+
+  --canvas-void: #17181c;
+  --checker: #26282d;
+
+  /* Surface treatment. Small numbers on purpose: at these strengths they
+     read as material rather than as texture. */
+  --grain: 0.042;
+  --sheen: 0.04;
+  --brush: 0.012;
+  --edge: inset 0 1px 0 var(--hair), inset 0 -1px 0 var(--seam);
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0, 0, 0, 0.7);
+  --recess: inset 0 2px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(0, 0, 0, 0.5);
+
   color-scheme: dark;
 }
 
+/* ------------------------------------------------------------------------
+   TYPE AND MOTION, as the Design OS defines them
+   ------------------------------------------------------------------------
+   Three roles, one scale, and letter-spacing that tightens as size grows —
+   which is what stops a 20px title looking loose beside 13px body text. The
+   micro size is tracked WIDE (.16em) because it is only ever used for
+   uppercase labels, where tight tracking is unreadable. */
+:root {
+  --display: ui-sans-serif, -apple-system, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --iface: ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --meta: ui-monospace, "Cascadia Mono", "SF Mono", "Roboto Mono", Menlo, monospace;
+
+  --t-title: 20px;   --tr-title: -0.028em;
+  --t-head: 14px;    --tr-head: -0.018em;
+  --t-body: 13px;    --tr-body: -0.004em;
+  --t-small: 11px;   --tr-small: 0em;
+  --t-micro: 9px;    --tr-micro: 0.16em;
+
+  /* `press` for a control acknowledging a click, `glide` for something
+     arriving, `weight` for something that has mass. */
+  --press: cubic-bezier(0.3, 0.7, 0.4, 1);
+  --glide: cubic-bezier(0.16, 1, 0.3, 1);
+  --weight: cubic-bezier(0.45, 0.05, 0.15, 1);
+}
+
 :root[data-theme="light"] {
-  --bg: #eef1f5;
-  --panel: #f8fafc;
-  --panel-2: #eceff4;
-  --line: #d6dce5;
-  --line-strong: #b9c2ce;
-  --text: #1e2733;
-  --text-strong: #0b1119;
-  --dim: #61708a;
-  --accent: #1f6feb;
-  --accent-bg: #1f6feb1f;
-  --good: #16794a;
-  --warn: #8a6100;
-  --bad: #b42318;
+  /* Warm, not cool. The Design OS light theme is a lit studio — a warm grey
+     chassis with a bronze accent — rather than the blue-white of an office
+     application. The state colours do not change: on air is on air in any
+     light. */
+  --chassis: #dbd8d3;
+  --bg: #dbd8d3;
+  --panel: #eeece8;
+  --panel-hi: #f6f5f2;
+  --panel-2: #f6f5f2;
+  --control: #fcfbfa;
+  --control-hi: #ffffff;
+  --well: #c3bfb9;
+
+  --line: rgba(0, 0, 0, 0.1);
+  --hair: rgba(255, 255, 255, 0.95);
+  --hair-strong: #ffffff;
+  --seam: rgba(0, 0, 0, 0.1);
+  --line-strong: rgba(0, 0, 0, 0.2);
+
+  --ink: #16171a;
+  --ink-2: #53555b;
+  --ink-3: #83858c;
+  --text: #53555b;
+  --text-strong: #16171a;
+  --dim: #83858c;
+
+  --accent: #8a6a3a;
+  --accent-2: #6d5129;
+  --accent-bg: rgba(138, 106, 58, 0.16);
+
+  --live: #ff3b30;
   --onair: #c62828;
-  --canvas-void: #dfe4ea;
-  --checker: #cfd6de;
+  --preview: #0f9b8a;
+  --warn: #8a6100;
+  --ok: #16794a;
+  --good: #16794a;
+  --bad: #b42318;
+
+  --key: #2a2b30;
+  --key-2: #141519;
+  --key-ink: #ffffff;
+
+  --canvas-void: #cbc7c1;
+  --checker: #bdb9b3;
+
+  --grain: 0.03;
+  --sheen: 0.55;
+  --brush: 0.028;
+  --edge: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  --edge-key: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  --recess: inset 0 2px 6px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(0, 0, 0, 0.06);
+
   color-scheme: light;
 }
 
@@ -536,7 +648,7 @@ kbd {
   width: 100%; padding: 5px 8px; font: inherit; font-size: 12px; text-align: left;
   background: none; border: 0; border-radius: 4px; color: inherit; cursor: pointer;
 }
-.context-menu button:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.context-menu button:hover:not(:disabled) { background: var(--accent); color: var(--key-ink); }
 .context-menu button:disabled { opacity: 0.38; cursor: default; }
 .context-menu kbd {
   font: inherit; font-size: 10px; opacity: 0.6; letter-spacing: 0.04em;
