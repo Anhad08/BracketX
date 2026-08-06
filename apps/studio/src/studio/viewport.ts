@@ -27,6 +27,7 @@
  * this arithmetic is how a gizmo ends up half a pixel from the thing it drags.
  */
 import { childrenOf, type SceneDocument, type SceneNode } from "@bracketx/engine-scene";
+import { intersectPlane, project, rayThrough, type CameraView } from "./camera";
 
 export interface Viewport {
   /** Screen pixels per canvas pixel. */
@@ -116,20 +117,47 @@ export function screenToCanvas(viewport: Viewport, screen: Point): Point {
   return { x: (screen.x - viewport.panX) / viewport.zoom, y: (screen.y - viewport.panY) / viewport.zoom };
 }
 
+/**
+ * Screen → the world, THROUGH THE CAMERA when one is supplied.
+ *
+ * The `view` argument is what makes the editor follow the camera instead of
+ * assuming one. Without it these fall back to the flat map, which is exactly
+ * right for a scene whose camera is the default broadcast camera — proved
+ * element by element in `camera.test.ts`, which is what made replacing the
+ * flat map safe rather than hopeful.
+ *
+ * The plane is z = `planeZ`. A broadcast scene is overwhelmingly flat content
+ * at known depths, so picking against the plane a node lives on is both exact
+ * for that case and cheap enough for every pointer move.
+ */
 export function screenToWorld(
   document: SceneDocument,
   viewport: Viewport,
   screen: Point,
+  view?: CameraView,
+  planeZ = 0,
 ): Point {
-  return canvasToWorld(document, screenToCanvas(viewport, screen));
+  const canvas = screenToCanvas(viewport, screen);
+  if (view === undefined) return canvasToWorld(document, canvas);
+  const ray = rayThrough(view, canvas);
+  const hit = ray === null ? null : intersectPlane(ray, planeZ);
+  // Behind the camera, or a degenerate matrix. The flat map is wrong here but
+  // finite, and a finite wrong answer beats NaN spreading into a drag.
+  return hit === null ? canvasToWorld(document, canvas) : { x: hit.x, y: hit.y };
 }
 
 export function worldToScreen(
   document: SceneDocument,
   viewport: Viewport,
   world: Point,
+  view?: CameraView,
+  worldZ = 0,
 ): Point {
-  return canvasToScreen(viewport, worldToCanvas(document, world));
+  if (view === undefined) return canvasToScreen(viewport, worldToCanvas(document, world));
+  const projected = project(view, { x: world.x, y: world.y, z: worldZ });
+  return projected === null
+    ? canvasToScreen(viewport, worldToCanvas(document, world))
+    : canvasToScreen(viewport, projected.point);
 }
 
 // ---------------------------------------------------------------------------

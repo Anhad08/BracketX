@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { SceneDocument } from "@bracketx/engine-scene";
+import type { SceneDocument, SceneNode } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "../studio/session";
 import type { Selection } from "../studio/selection";
@@ -11,7 +11,7 @@ import {
   selectOnly,
   toggle,
 } from "../studio/selection";
-import { setPropOnMany } from "../studio/editing";
+import { setProp, setPropOnMany, setProps } from "../studio/editing";
 import {
   handleAt,
   handleDirection,
@@ -35,6 +35,7 @@ import {
   safeAreas,
   screenToCanvas,
   screenToWorld,
+  worldToScreen,
   snap,
   snapCandidates,
   worldToCanvas,
@@ -46,6 +47,14 @@ import {
   type Viewport,
 } from "../studio/viewport";
 import { SCENE_DRAG } from "../studio/place";
+import {
+  lookAtRotation,
+  orbitBy,
+  orbitOf,
+  positionFor,
+  type Orbit,
+  type Vec3,
+} from "../studio/camera";
 import type { StudioCommand } from "../studio/commands";
 import type { Workspace } from "../studio/workspace";
 
@@ -145,7 +154,7 @@ function cursorFor(
 }
 
 interface DragState {
-  readonly kind: "pan" | "move" | "marquee" | "resize" | "rotate";
+  readonly kind: "pan" | "move" | "marquee" | "resize" | "rotate" | "orbit";
   readonly startScreen: Point;
   readonly startWorld: Point;
   /** World positions of the nodes being moved, at drag start. */
@@ -158,6 +167,10 @@ interface DragState {
   readonly startScales?: ReadonlyMap<string, readonly [number, number, number]>;
   /** Authored Z rotation at drag start, so rotation composes. */
   readonly startRotations?: ReadonlyMap<string, number>;
+  /** Orbit only: the camera node, where it started, and what it turns about. */
+  readonly cameraId?: string;
+  readonly startOrbit?: Orbit;
+  readonly pivot?: Vec3;
 }
 
 export function SceneView({
@@ -308,6 +321,15 @@ export function SceneView({
 
   // -- Bounds and picking ---------------------------------------------------
 
+  /**
+   * The camera the scene is shot through.
+   *
+   * Rebuilt with the same dependencies as `bounds`, because a camera that
+   * moved and bounds that did not would disagree — and a disagreement here
+   * shows up as handles that no longer sit on the graphic.
+   */
+  const view = useMemo(() => session.cameraView(size), [session, revision, size.width, size.height]);
+
   const bounds = useMemo<readonly NodeBounds[]>(
     () => nodeBounds(document_, (id) => session.worldMatrixOf(id)),
     // Recomputed when the document changes or a frame moved something.
@@ -328,6 +350,37 @@ export function SceneView({
    * apply the final state through the recording path, so the stack holds one
    * entry whose inverse is the pre-gesture transform.
    */
+  /**
+   * Turns the camera about the pivot, silently.
+   *
+   * Silent for the same reason resize is: a drag that wrote an undo entry per
+   * pointer move would fill the history with a hundred steps nobody wants
+   * back. `finishDrag` commits the whole turn as one.
+   */
+  const applyOrbit = (state: DragState, screen: Point) => {
+    if (state.startOrbit === undefined || state.pivot === undefined) return;
+    if (state.cameraId === undefined) return;
+
+    const turned = orbitBy(
+      state.startOrbit,
+      screen.x - state.startScreen.x,
+      screen.y - state.startScreen.y,
+    );
+    const position = positionFor(turned, state.pivot);
+    const rotation = lookAtRotation(position, state.pivot);
+
+    const turn = setProps(
+      session.document,
+      state.cameraId,
+      new Map<string, unknown>([
+        ["transform.position", [round(position.x), round(position.y), round(position.z)]],
+        ["transform.rotation", [round(rotation[0]), round(rotation[1]), round(rotation[2])]],
+      ]),
+      "Orbit",
+    );
+    if (turn !== null) session.store.applySilently(turn);
+  };
+
   const commitGesture = (state: DragState) => {
     const ids = [...state.origins.keys()];
     const label =
@@ -481,8 +534,45 @@ export function SceneView({
   const onPointerDown = (event: React.PointerEvent) => {
     if (error !== null) return;
     const screen = pointOf(event);
-    const world = screenToWorld(document_, viewport, screen);
+    const world = screenToWorld(document_, viewport, screen, view ?? undefined);
     (event.target as Element).setPointerCapture?.(event.pointerId);
+
+    // ORBIT. Shift with the middle button, or Shift+Alt with the left — a
+    // navigation gesture, never a mode you must first select, because a 3D
+    // product where looking around is a tool is a modelling application.
+    //
+    // Unlike pan and zoom, this MOVES THE SCENE CAMERA. That is a document
+    // edit: it changes what the output frames, so it is undoable and it goes
+    // to air. Navigating the stage and aiming the camera are different acts
+    // and the product must not blur them.
+    if (view !== null && (event.shiftKey && (event.button === 1 || event.altKey))) {
+      const camera = cameraNode(document_);
+      if (camera !== null) {
+        const position = camera.transform?.position ?? [0, 0, 10];
+        // Orbit about what you are looking AT: the selection if there is one,
+        // the origin otherwise. Orbiting about the origin while working on a
+        // corner of the set is the single most irritating thing a 3D editor
+        // can do.
+        const union = selectionBounds(bounds, selection.ids);
+        const pivot: Vec3 = union === null
+          ? { x: 0, y: 0, z: 0 }
+          : { x: union.x, y: union.y, z: 0 };
+        setDrag({
+          kind: "orbit",
+          startScreen: screen,
+          startWorld: world,
+          origins: new Map(),
+          startViewport: viewport,
+          cameraId: camera.id,
+          pivot,
+          startOrbit: orbitOf(
+            { x: position[0], y: position[1], z: position[2] },
+            pivot,
+          ),
+        });
+        return;
+      }
+    }
 
     // Middle button or space-drag pans. Never the scene camera — see viewport.ts.
     if (event.button === 1 || event.altKey) {
@@ -580,7 +670,7 @@ export function SceneView({
       // would actually grab — a hover that disagreed with the hit test would
       // be worse than none.
       const screen = pointOf(event);
-      const world = screenToWorld(document_, viewport, screen);
+      const world = screenToWorld(document_, viewport, screen, view ?? undefined);
       const rect = selectionBounds(bounds, selection.ids);
       const tolerance = HANDLE_TOLERANCE / (viewport.zoom * pixelsPerUnit(document_));
       const handle = rect === null ? null : handleAt(rect, world, tolerance);
@@ -592,7 +682,7 @@ export function SceneView({
       return;
     }
     const screen = pointOf(event);
-    const world = screenToWorld(document_, viewport, screen);
+    const world = screenToWorld(document_, viewport, screen, view ?? undefined);
 
     if (drag.kind === "pan") {
       onViewport(
@@ -602,6 +692,10 @@ export function SceneView({
           screen.y - drag.startScreen.y,
         ),
       );
+      return;
+    }
+    if (drag.kind === "orbit") {
+      applyOrbit(drag, screen);
       return;
     }
     if (drag.kind === "marquee") {
@@ -709,6 +803,50 @@ export function SceneView({
       }
     }
 
+    if (drag.kind === "orbit" && drag.cameraId !== undefined && drag.startOrbit !== undefined) {
+      // One undo entry for the whole turn, with the camera's starting pose as
+      // the prior state. Rewound first, exactly like a move, so the stack
+      // records where the camera WAS rather than where the last silent frame
+      // left it — the bug that made undo restore only part of a drag.
+      const start = positionFor(drag.startOrbit, drag.pivot ?? { x: 0, y: 0, z: 0 });
+      const startRotation = lookAtRotation(start, drag.pivot ?? { x: 0, y: 0, z: 0 });
+      const endPosition = findAuthored(session, drag.cameraId);
+      const endTransform = session.document;
+      void endTransform;
+
+      const endRotation = findRotation(session, drag.cameraId);
+      if (endPosition !== null && endRotation !== null) {
+        // Rewind to where the camera started, then apply ONE transaction
+        // carrying both position and rotation. Two transactions undo as two,
+        // and the user gets half their camera back: standing in the old place
+        // still pointing the new way.
+        const rewind = setProps(
+          session.document,
+          drag.cameraId,
+          new Map<string, unknown>([
+            ["transform.position", [round(start.x), round(start.y), round(start.z)]],
+            [
+              "transform.rotation",
+              [round(startRotation[0]), round(startRotation[1]), round(startRotation[2])],
+            ],
+          ]),
+          "rewind",
+        );
+        if (rewind !== null) session.store.applySilently(rewind);
+
+        const turn = setProps(
+          session.document,
+          drag.cameraId,
+          new Map<string, unknown>([
+            ["transform.position", [...endPosition]],
+            ["transform.rotation", [...endRotation]],
+          ]),
+          "Orbit camera",
+        );
+        if (turn !== null) session.store.apply(turn);
+      }
+    }
+
     if ((drag.kind === "resize" || drag.kind === "rotate") && drag.origins.size > 0) {
       commitGesture(drag);
     }
@@ -730,7 +868,7 @@ export function SceneView({
   // -- Chrome ---------------------------------------------------------------
 
   const toScreen = (worldX: number, worldY: number) =>
-    canvasToScreen(viewport, worldToCanvas(document_, { x: worldX, y: worldY }));
+    worldToScreen(document_, viewport, { x: worldX, y: worldY }, view ?? undefined);
 
   const safe = safeAreas(document_);
   const selectedBounds = bounds.filter((entry) => selection.ids.includes(entry.nodeId));
@@ -763,7 +901,7 @@ export function SceneView({
           // Right-clicking something that is not selected selects it first.
           // Anything else means the menu acts on a thing the user cannot see
           // they are acting on, which is how people delete the wrong layer.
-          const world = screenToWorld(document_, viewport, pointOf(event));
+          const world = screenToWorld(document_, viewport, pointOf(event), view ?? undefined);
           const hit = pick(bounds, world);
           if (hit !== null && !lockedIds.has(hit) && !selection.ids.includes(hit)) {
             onSelection(selectOnly(hit));
@@ -1058,6 +1196,34 @@ function findAuthored(
       const position = node.transform?.position ?? [0, 0, 0];
       return [position[0] ?? 0, position[1] ?? 0, position[2] ?? 0];
     }
+    for (const child of node.children ?? []) stack.push(child);
+  }
+  return null;
+}
+
+/** The authored rotation of a node, for the same reason as `findAuthored`. */
+function findRotation(
+  session: StudioSession,
+  nodeId: string,
+): readonly [number, number, number] | null {
+  const stack = [session.document.root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.id === nodeId) {
+      const rotation = node.transform?.rotation ?? [0, 0, 0];
+      return [rotation[0] ?? 0, rotation[1] ?? 0, rotation[2] ?? 0];
+    }
+    for (const child of node.children ?? []) stack.push(child);
+  }
+  return null;
+}
+
+/** The first node carrying a camera — the one the scene is shot through. */
+function cameraNode(document: SceneDocument): SceneNode | null {
+  const stack = [document.root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if ((node.components ?? []).some((component) => component.type === "camera")) return node;
     for (const child of node.children ?? []) stack.push(child);
   }
   return null;

@@ -29,6 +29,7 @@ import type {
   MirrorBackend,
   TextProvider,
 } from "@bracketx/engine-reconciler";
+import type { CameraView } from "./camera";
 import type { RuntimeValue } from "@bracketx/engine-runtime";
 import type { Mat4, SceneDocument } from "@bracketx/engine-scene";
 
@@ -91,6 +92,27 @@ export class StudioSession {
   /** World matrix of a node, from the mirror. What gizmos and picking read. */
   worldMatrixOf(nodeId: string): Mat4 | undefined {
     return this.host.reconciler.mirror.get(nodeId)?.worldMatrix;
+  }
+
+  /**
+   * The camera the scene is shot through, as the RENDERER understands it.
+   *
+   * Descriptor from the projector, world matrix from the mirror — the same two
+   * pieces the backend draws with. The editor must hit-test in the space the
+   * renderer draws in, and the only way to guarantee that is to read the same
+   * numbers rather than re-derive them from the document.
+   *
+   * Null when the scene has no camera. A scene with no camera cannot be shot,
+   * and an editor that invented one would be showing a view nothing will ever
+   * output.
+   */
+  cameraView(canvas: { readonly width: number; readonly height: number }): CameraView | null {
+    const facts = this.host.reconciler.projector.cameraFacts();
+    for (const [nodeId, descriptor] of facts) {
+      const world = this.worldMatrixOf(nodeId);
+      if (world !== undefined) return { descriptor, world, canvas };
+    }
+    return null;
   }
 
   exists(nodeId: string): boolean {

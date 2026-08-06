@@ -37,6 +37,10 @@ import {
   verticalFov,
   type CameraView,
 } from "./studio/camera";
+import { canvasSize, canvasToWorld, worldToCanvas } from "./studio/viewport";
+import { instantiateTemplate } from "./studio/packs";
+import { ESSENTIALS } from "./studio/essentials";
+import { makeIdFactory } from "./studio/ids";
 
 const PERSPECTIVE: CameraDescriptor = {
   kind: "perspective",
@@ -293,3 +297,55 @@ describe("orbit", () => {
     expect(forward.dot(toPivot)).toBeCloseTo(1, 6);
   });
 });
+
+// ===========================================================================
+// Equivalence with the affine map it replaces
+// ===========================================================================
+
+/**
+ * The safety proof for the swap.
+ *
+ * Every existing 2D scene uses the default broadcast camera: orthographic,
+ * size 5, at (0, 0, 10), unrotated. For THAT camera the new projection must
+ * agree with `worldToCanvas` exactly — otherwise replacing the affine map
+ * moves every lower third in the product by a few pixels, and no test that
+ * looks only at 3D would notice.
+ *
+ * This is what makes the change safe to make at all: it is a strict
+ * generalisation, not a replacement.
+ */
+describe("agreement with the affine map, for the default broadcast camera", () => {
+  const document_ = instantiateTemplate(ESSENTIALS[0]!, makeIdFactory(11), "2026-01-01T00:00:00.000Z");
+  const canvas = canvasSize(document_);
+  const view: CameraView = {
+    descriptor: { kind: "orthographic", size: 5, near: 0.1, far: 100 },
+    world: translation(0, 0, 10),
+    canvas,
+  };
+
+  const points = [
+    { x: 0, y: 0, z: 0 },
+    { x: 3.2, y: -1.8, z: 0 },
+    { x: -4.9, y: 2.4, z: 0 },
+    { x: 8.88, y: 4.99, z: 0 },
+  ];
+
+  it("projects every point to the same canvas pixel", () => {
+    for (const point of points) {
+      const affine = worldToCanvas(document_, { x: point.x, y: point.y });
+      const ours = project(view, point)!;
+      expect(ours.point.x, `x for ${JSON.stringify(point)}`).toBeCloseTo(affine.x, 6);
+      expect(ours.point.y, `y for ${JSON.stringify(point)}`).toBeCloseTo(affine.y, 6);
+    }
+  });
+
+  it("unprojects every point back the same way", () => {
+    for (const point of points) {
+      const canvasPoint = worldToCanvas(document_, { x: point.x, y: point.y });
+      const affine = canvasToWorld(document_, canvasPoint);
+      const ours = intersectPlane(rayThrough(view, canvasPoint)!, 0)!;
+      expect(ours.x).toBeCloseTo(affine.x, 6);
+      expect(ours.y).toBeCloseTo(affine.y, 6);
+    }
+  });
+})

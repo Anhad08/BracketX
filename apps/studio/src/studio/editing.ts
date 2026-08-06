@@ -529,6 +529,32 @@ export function setProp(
   return transaction(label, [operation]);
 }
 
+/**
+ * Several properties of ONE node, as a single undo step.
+ *
+ * A gesture that writes two transactions undoes as two, and the user gets
+ * half their camera back — orbit sets position and rotation together, and
+ * pressing undo once must return the camera to where it was pointing as well
+ * as where it was standing.
+ *
+ * Returns null when nothing actually changed, for the same reason `setProp`
+ * does: an undo stack full of no-ops is an undo stack nobody trusts.
+ */
+export function setProps(
+  document: SceneDocument,
+  nodeId: string,
+  values: ReadonlyMap<string, unknown>,
+  label = "Set properties",
+): Transaction | null {
+  const operations: SceneOperation[] = [];
+  for (const [path, value] of values) {
+    const operation = makeSetProp(document, nodeId, path, value);
+    if (Object.is(operation.previousValue, value)) continue;
+    operations.push(operation);
+  }
+  return operations.length === 0 ? null : transaction(label, operations);
+}
+
 /** One transaction for many nodes — a multi-selection nudge is one undo step. */
 export function setPropOnMany(
   document: SceneDocument,
