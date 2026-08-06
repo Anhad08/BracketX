@@ -99,3 +99,70 @@ test("selection still lands on the graphic after the camera has moved", async ({
   ).toBeVisible();
   await expect(page.getByTestId("statusbar")).toContainText("1 selected");
 });
+
+test("named views move the camera, and the control says where you are", async ({ page }) => {
+  await open3D(page);
+
+  // Studio opens Front — that is where flat graphics are designed.
+  await expect(page.getByTestId("view-front")).toHaveClass(/on/);
+
+  await page.getByTestId("view-side").click();
+  await expect(page.getByTestId("view-side")).toHaveClass(/on/);
+  await expect(page.getByTestId("view-front")).not.toHaveClass(/on/);
+
+  const side = await cameraPosition(page);
+  // From the right: X carries the distance, Z is through zero.
+  expect(Math.abs(side[0])).toBeGreaterThan(1);
+  expect(Math.abs(side[2])).toBeLessThan(0.01);
+
+  await page.getByTestId("view-top").click();
+  const top = await cameraPosition(page);
+  expect(top[1], "Top must be above the scene").toBeGreaterThan(1);
+
+  // Choosing a view RE-AIMS without RE-FRAMING: the distance is preserved.
+  expect(Math.hypot(...top)).toBeCloseTo(Math.hypot(...side), 1);
+
+  // Orbiting away un-highlights the view — "I am in Top" and "I have orbited
+  // back to roughly the top" are different states, and only one of them is
+  // pixel-accurate.
+  const box = (await page.getByTestId("scene-chrome").boundingBox())!;
+  await page.keyboard.down("Shift");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down({ button: "middle" });
+  await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.up({ button: "middle" });
+  await page.keyboard.up("Shift");
+  await expect(page.getByTestId("view-top")).not.toHaveClass(/on/);
+
+  // And it undoes as one step, back into the named view.
+  await page.keyboard.press("Control+z");
+  await expect(page.getByTestId("view-top")).toHaveClass(/on/);
+});
+
+test("a 3D object is really 3D: turning the camera changes what it looks like", async ({
+  page,
+}) => {
+  await open3D(page);
+
+  // A box, from the toolbox that already builds real geometry.
+  await page.getByTestId("tool-box").click();
+  await expect(page.getByTestId("gizmo")).toBeVisible();
+
+  const shot = async (): Promise<Buffer> =>
+    page.getByTestId("scene-view").screenshot();
+
+  await page.getByTestId("view-front").click();
+  await page.waitForTimeout(400);
+  const front = await shot();
+
+  await page.getByTestId("view-three-quarter").click();
+  await page.waitForTimeout(400);
+  const threeQuarter = await shot();
+
+  // The rendered pixels must differ. A "3D" product where turning the camera
+  // changes nothing is a 2D product with extra buttons.
+  expect(
+    Buffer.compare(front, threeQuarter),
+    "turning the camera must change what the scene looks like",
+  ).not.toBe(0);
+});

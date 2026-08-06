@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createCanvasBackend } from "@bracketx/engine-render-three";
 import type { ImageProvider, TextProvider } from "@bracketx/engine-reconciler";
-import { findNode, type SceneDocument, type Transaction } from "@bracketx/engine-scene";
+import { findNode, type SceneDocument, type SceneNode, type Transaction } from "@bracketx/engine-scene";
 
 import { StudioSession } from "./studio/session";
 import {
@@ -21,6 +21,7 @@ import {
   moveNode,
   renameNode,
   setProp,
+  setProps,
   type NodeKind,
 } from "./studio/editing";
 import { outline, pathTo } from "./studio/outline";
@@ -80,6 +81,8 @@ import { Home } from "./ui/home";
 import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections";
 import { DeveloperPanel } from "./ui/developer";
 import { placeScene } from "./studio/place";
+import { orbitOf, type Vec3 } from "./studio/camera";
+import { poseFor, viewOf, VIEWS, type NamedView } from "./studio/views";
 import {
   PACKS,
   installTheme,
@@ -120,6 +123,28 @@ const TAB_LABEL: Record<BottomTab, string> = {
   variables: "Data",
   library: "Templates",
 };
+
+/**
+ * What the named views turn about.
+ *
+ * The world origin, not the selection: a view control that re-pivoted as the
+ * selection changed would send the camera somewhere different each time you
+ * pressed the same button. Orbit pivots on the selection because it is a
+ * continuous gesture you are watching; a named view is a place you go back to,
+ * and it has to be the same place every time.
+ */
+const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
+
+/** The first node carrying a camera — the one the scene is shot through. */
+function findCameraNode(document: SceneDocument): SceneNode | null {
+  const stack = [document.root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if ((node.components ?? []).some((component) => component.type === "camera")) return node;
+    for (const child of node.children ?? []) stack.push(child);
+  }
+  return null;
+}
 
 export function App() {
   // The canvas is created ONCE, imperatively, before any component mounts. The
@@ -1101,6 +1126,49 @@ export function App() {
    * system, and the first place the two disagreed would be a bug report
    * nobody could reproduce.
    */
+  /**
+   * Where the camera is standing, in the terms the view control speaks.
+   *
+   * Recovered from the camera's position each render rather than remembered,
+   * so orbiting away from a view un-highlights it. A remembered "current
+   * view" would keep claiming Front long after the camera had left it, which
+   * is the state where a graphic quietly stops being pixel-accurate.
+   */
+  const cameraOrbit = useMemo(() => {
+    if (session === null) return null;
+    const camera = findCameraNode(session.document);
+    if (camera === null) return null;
+    const [x, y, z] = camera.transform?.position ?? [0, 0, 10];
+    return { node: camera, orbit: orbitOf({ x, y, z }, ORIGIN) };
+  }, [session, revision]);
+
+  const currentView = cameraOrbit === null ? null : viewOf(cameraOrbit.orbit);
+
+  /**
+   * Moves the scene camera to a named view.
+   *
+   * A document edit, exactly like orbit and for the same reason: it changes
+   * what the output frames. The distance is kept, so choosing a view re-aims
+   * without also re-framing.
+   */
+  const setView = useCallback(
+    (view: NamedView) => {
+      if (session === null || cameraOrbit === null) return;
+      const pose = poseFor(view, ORIGIN, cameraOrbit.orbit.radius || 10);
+      const turn = setProps(
+        session.document,
+        cameraOrbit.node.id,
+        new Map<string, unknown>([
+          ["transform.position", [...pose.position]],
+          ["transform.rotation", [...pose.rotation]],
+        ]),
+        `${view.label} view`,
+      );
+      if (turn !== null) session.store.apply(turn);
+    },
+    [session, cameraOrbit],
+  );
+
   const menuCommands = useMemo<readonly StudioCommand[]>(() => {
     const wanted = [
       "edit.duplicate",
@@ -1493,6 +1561,26 @@ export function App() {
               f{session.frame}
             </span>
             <span className="spacer" />
+
+            {/* THE VIEW. Five named angles, because orbit alone is a gesture
+                you have to know about and a camera you can turn freely is a
+                camera you can lose. Pressing "Top" is also what teaches
+                somebody the camera can move at all. */}
+            <span className="views" data-testid="views">
+              {VIEWS.map((view) => (
+                <button
+                  key={view.id}
+                  type="button"
+                  className={`chip ${currentView?.id === view.id ? "on" : ""}`}
+                  data-testid={`view-${view.id}`}
+                  title={view.hint}
+                  onClick={() => setView(view)}
+                >
+                  {view.label}
+                </button>
+              ))}
+            </span>
+
             <button type="button" className="chip" onClick={() => setFitToken((v) => v + 1)}>
               Fit
             </button>

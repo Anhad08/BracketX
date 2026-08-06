@@ -271,3 +271,9 @@
 .scene-chip:hover { border-color: var(--accent); }
 .scene-chip:active { cursor: grabbing; }
 .scene-chip .chip-art { width: 22px; height: 14px; border-radius: 3px; flex: none; }
+
+/* THE VIEW CONTROL. Five angles, grouped so they read as one instrument
+   rather than five loose buttons. */
+.views { display: inline-flex; gap: 2px; margin-right: var(--s2); }
+.views .chip { padding: 3px 8px; font-size: 11px; }
+.views .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
