@@ -547,3 +547,13 @@ kbd {
 .axes { pointer-events: none; }
 .axis line, .axis polygon { transition: opacity 90ms ease; }
 .axis.hot line, .axis.dragging line { filter: brightness(1.25); }
+
+/* THE AXIS WIDGET. Top-right, out of the way of the graphic, which is
+   centred — the one corner a lower third never reaches. */
+.compass { position: absolute; top: 10px; right: 10px; z-index: 5; cursor: pointer; }
+.compass-ball { cursor: pointer; }
+.compass-ball:hover circle { filter: brightness(1.35); }
+.compass-label { font-size: 9px; font-weight: 700; fill: #0b0d11; pointer-events: none; }
+/* Brighter than a panel border: this is content you read distances off,
+   not a divider. */
+.ground { color: #7b8794; pointer-events: none; }

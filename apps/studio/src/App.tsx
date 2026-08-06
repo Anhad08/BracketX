@@ -1641,6 +1641,20 @@ export function App() {
             frameToken={frameToken}
             /* The SAME command objects the palette and keyboard run. */
             menuCommands={menuCommands}
+            /* Clicking a ball looks down that axis. It reuses the named-view
+               machinery rather than aiming the camera itself, so the widget,
+               the view buttons and the keyboard can never disagree about
+               where "Side" is. */
+            onCompass={(axis, sign) => {
+              const wanted =
+                axis === "y"
+                  ? sign > 0 ? "top" : "low"
+                  : axis === "x"
+                    ? "side"
+                    : sign > 0 ? "front" : "three-quarter";
+              const view = VIEWS.find((candidate) => candidate.id === wanted);
+              if (view !== undefined) setView(view);
+            }}
           />
 
           {workspace.programOpen && bus !== null && programCanvasRef.current !== null ? (

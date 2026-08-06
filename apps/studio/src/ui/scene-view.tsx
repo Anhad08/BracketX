@@ -47,6 +47,7 @@ import {
   type Viewport,
 } from "../studio/viewport";
 import { SCENE_DRAG } from "../studio/place";
+import { cameraPosition, groundGrid, navigationGizmo } from "../studio/grid";
 import {
   armLength,
   axisParameterAt,
@@ -130,6 +131,8 @@ export interface SceneViewProps {
    * reproduce. The menu is a view onto the commands, not a second set.
    */
   readonly menuCommands: readonly StudioCommand[];
+  /** A ball on the axis widget was clicked: look down that axis. */
+  readonly onCompass: (axis: "x" | "y" | "z", sign: 1 | -1) => void;
 }
 
 /** Screen pixels within which a handle counts as grabbed. */
@@ -202,6 +205,7 @@ export function SceneView({
   frameToken,
   onDropScene,
   menuCommands,
+  onCompass,
 }: SceneViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -369,6 +373,34 @@ export function SceneView({
     const union = selectionBounds(bounds, selection.ids);
     return union === null ? null : { x: union.x, y: union.y, z: 0 };
   }, [bounds, selection.ids]);
+
+  /**
+   * Is the camera looking at the scene from an angle?
+   *
+   * The ground and the axis widget appear when it is, and vanish when the
+   * camera returns to Front. A flat graphic seen head on gains nothing from a
+   * floor — the grid would project to a single horizontal line across the
+   * middle of a lower third, which is worse than drawing nothing.
+   *
+   * The viewport therefore follows the scene instead of offering a mode to
+   * choose, which is the same rule the move gizmo's Z arm follows.
+   */
+  const dimensional = useMemo(() => {
+    if (view === null) return false;
+    const position = cameraPosition(view);
+    // Off the Z axis by more than a hair in either direction.
+    return Math.abs(position.x) > 0.05 || Math.abs(position.y) > 0.05;
+  }, [view]);
+
+  const ground = useMemo(
+    () => (view === null || !dimensional ? [] : groundGrid(view, { extent: 24, spacing: 1 })),
+    [view, dimensional],
+  );
+
+  const compass = useMemo(
+    () => (view === null || !dimensional ? [] : navigationGizmo(view, 26)),
+    [view, dimensional],
+  );
 
   const ARM_PIXELS = 74;
   const arms = useMemo(() => {
@@ -1165,6 +1197,31 @@ export function SceneView({
           );
         })}
 
+        {/* THE GROUND. Drawn first, under everything: it is the thing you
+            measure against, never the thing you look at. */}
+        {ground.length === 0 ? null : (
+          <g className="ground" data-testid="ground">
+            {ground.map((line, index) => {
+              const from = canvasToScreen(viewport, line.from);
+              const to = canvasToScreen(viewport, line.to);
+              return (
+                <line
+                  key={index}
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke={
+                    line.axis === "x" ? "#e5484d" : line.axis === "z" ? "#3b82f6" : "currentColor"
+                  }
+                  strokeOpacity={line.axis === undefined ? line.strength : line.strength * 0.85}
+                  strokeWidth={line.axis === undefined ? 1 : 1.5}
+                />
+              );
+            })}
+          </g>
+        )}
+
         {/* HOVER. Drawn under the gizmo so selection always reads stronger,
             and suppressed for anything already selected — an outline that
             doubled up on a selected node just made the selection look wrong. */}
@@ -1310,6 +1367,51 @@ export function SceneView({
       {workspace.showRulers ? (
         <Rulers document={document_} viewport={viewport} element={element} />
       ) : null}
+
+      {/* THE AXIS WIDGET. Answers "which way am I facing?" without the
+          designer having to work it out, and clicking a ball is the fastest
+          way back to a known angle. It reads the same camera everything else
+          does, so it cannot disagree with the scene. */}
+      {compass.length === 0 ? null : (
+        <svg className="compass" width={78} height={78} data-testid="compass" aria-hidden={false}>
+          <g transform="translate(39 39)">
+            {compass.map((ball) => (
+              <g
+                key={`${ball.id}${ball.sign}`}
+                className="compass-ball"
+                data-testid={`compass-${ball.id}${ball.sign > 0 ? "" : "-neg"}`}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  onCompass(ball.id, ball.sign);
+                }}
+              >
+                <line
+                  x1={0}
+                  y1={0}
+                  x2={ball.at.x}
+                  y2={ball.at.y}
+                  stroke={ball.colour}
+                  strokeOpacity={ball.labelled ? 0.9 : 0.3}
+                  strokeWidth={1.5}
+                />
+                <circle
+                  cx={ball.at.x}
+                  cy={ball.at.y}
+                  r={8}
+                  fill={ball.labelled ? ball.colour : "var(--panel)"}
+                  stroke={ball.colour}
+                  strokeWidth={1.5}
+                />
+                {ball.labelled ? (
+                  <text x={ball.at.x} y={ball.at.y + 3.5} textAnchor="middle" className="compass-label">
+                    {ball.label}
+                  </text>
+                ) : null}
+              </g>
+            ))}
+          </g>
+        </svg>
+      )}
 
       {menu === null ? null : (
         <>

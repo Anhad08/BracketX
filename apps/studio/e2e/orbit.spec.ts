@@ -166,3 +166,30 @@ test("a 3D object is really 3D: turning the camera changes what it looks like", 
     "turning the camera must change what the scene looks like",
   ).not.toBe(0);
 });
+
+test("the viewport becomes a 3D viewport when the camera turns, and not before", async ({
+  page,
+}) => {
+  await open3D(page);
+
+  // Front on: a flat graphic gains nothing from a floor. The grid would
+  // project to a single horizontal line across the middle of a lower third,
+  // which is worse than drawing nothing.
+  await page.getByTestId("view-front").click();
+  await expect(page.getByTestId("ground")).toHaveCount(0);
+  await expect(page.getByTestId("compass")).toHaveCount(0);
+
+  // Turned: the ground and the axis widget arrive together.
+  await page.getByTestId("view-three-quarter").click();
+  await expect(page.getByTestId("ground")).toBeVisible();
+  await expect(page.getByTestId("compass")).toBeVisible();
+
+  // The widget goes back to a known angle, through the same named views the
+  // buttons use — so the two can never disagree about where "Top" is.
+  await page.getByTestId("compass-y").click();
+  await expect(page.getByTestId("view-top")).toHaveClass(/on/);
+
+  // And back to Front removes it again.
+  await page.getByTestId("view-front").click();
+  await expect(page.getByTestId("ground")).toHaveCount(0);
+});
