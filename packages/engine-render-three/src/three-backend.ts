@@ -293,6 +293,29 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
       record.mesh.matrixWorld.copy(record.object.matrixWorld);
       record.mesh.matrixWorldNeedsUpdate = false;
     }
+
+    // AND THE CAMERA, if this node carries one.
+    //
+    // A camera is deliberately NOT parented into the scene - `attachCamera`
+    // says so - which means Three propagates nothing to it and this is the
+    // only place its world matrix can come from. Without this, moving a
+    // camera node moved the node and left the lens exactly where it was.
+    //
+    // `matrixWorldInverse` is the half that actually matters: it IS the view
+    // matrix, Three derives it in `updateMatrixWorld`, and auto-update is off
+    // by design here - so a camera whose inverse is never recomputed renders
+    // the scene through a lens that has not moved, while every other system in
+    // the editor correctly believes it has. That disagreement is what made a
+    // lower third lose its background after a trip to the 3/4 view and back:
+    // the document was byte-identical and the picture was not.
+    if (record.attachment === "camera" && record.camera !== null) {
+      const cameraObject = this.#cameras.get(record.camera);
+      if (cameraObject !== undefined) {
+        cameraObject.matrixWorld.copy(record.object.matrixWorld);
+        cameraObject.matrixWorldNeedsUpdate = false;
+        cameraObject.matrixWorldInverse.copy(cameraObject.matrixWorld).invert();
+      }
+    }
   }
 
   setVisible(node: NodeHandle, visible: boolean): void {
@@ -435,6 +458,9 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
     // other transform.
     cameraObject.matrixWorld.copy(record.object.matrixWorld);
     cameraObject.matrixWorldNeedsUpdate = false;
+    // The view matrix. See `setWorldMatrix` for why this cannot be left to
+    // Three to derive.
+    cameraObject.matrixWorldInverse.copy(cameraObject.matrixWorld).invert();
   }
 
   detach(node: NodeHandle): void {
