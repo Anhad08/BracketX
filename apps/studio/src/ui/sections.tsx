@@ -13,6 +13,7 @@ import {
   type QualityChoice,
 } from "../studio/quality";
 import type { DeviceInput } from "../studio/device";
+import { VOICE_NAMES, VOICES, type VoiceName } from "../studio/sound";
 import { PACKS, installTheme, type Pack, type PackTemplate } from "../studio/packs";
 import { STUDIO_FONTS } from "../studio/fonts";
 import { PRESETS, presetById } from "../studio/presets";
@@ -790,6 +791,12 @@ export interface SettingsProps {
   readonly device: DeviceInput;
   /** What the last few seconds actually measured. Null before any frame. */
   readonly frames: FrameReport | null;
+  readonly sound: boolean;
+  readonly onSound: (on: boolean) => void;
+  /** Auditions a voice. Does nothing while sound is off, by design. */
+  readonly onAudition: (voice: VoiceName) => void;
+  /** True while the desk is live, when the interface is ducked. */
+  readonly onAir: boolean;
 }
 
 export function Settings({
@@ -802,6 +809,10 @@ export function Settings({
   onQuality,
   device,
   frames,
+  sound,
+  onSound,
+  onAudition,
+  onAir,
 }: SettingsProps) {
   const resolved = resolveTier(quality, device);
   const active = QUALITY_PRESETS[resolved];
@@ -894,6 +905,55 @@ export function Settings({
           Quality changes the editor preview only. What you send to air is
           never scaled or softened.
         </p>
+      </section>
+
+      {/* SOUND. Off by default and remembered — a gallery has its own audio
+          discipline, and an unexpected noise on a live desk is a fault. */}
+      <section className="home-block">
+        <div className="block-head">
+          <h2>Sound</h2>
+          <span className="dim">Nine voices · synthesised, no files</span>
+        </div>
+
+        <label className="sound-switch">
+          <input
+            type="checkbox"
+            checked={sound}
+            onChange={(event) => onSound(event.target.checked)}
+            data-testid="sound-toggle"
+          />
+          <span>
+            <strong>Interface sound</strong>
+            <span className="dim tiny">
+              Short, dry, mechanical. A sound only ever confirms something you
+              can already see.
+            </span>
+          </span>
+        </label>
+
+        <div className="voice-grid" data-testid="voices">
+          {VOICE_NAMES.map((name) => (
+            <button
+              key={name}
+              type="button"
+              className="voice"
+              data-testid={`voice-${name}`}
+              disabled={!sound}
+              onClick={() => onAudition(name)}
+              title={sound ? `Play ${VOICES[name].label}` : "Turn sound on to audition"}
+            >
+              <strong>{VOICES[name].label}</strong>
+              <span className="dim tiny">{VOICES[name].when}</span>
+            </button>
+          ))}
+        </div>
+
+        {onAir ? (
+          <p className="note" data-testid="ducked">
+            Ducked. While you are on air the interface is silent — except
+            Attention, which has to survive or it is not an alert.
+          </p>
+        ) : null}
       </section>
 
       <section className="home-block">

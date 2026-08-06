@@ -104,6 +104,14 @@ export interface Workspace {
    * itself on the next launch is not a setting, it is a suggestion.
    */
   readonly quality: QualityChoice;
+  /**
+   * Interface sound.
+   *
+   * Off by default and REMEMBERED PER OPERATOR — Volume One §4. A gallery has
+   * its own audio discipline, and an unexpected noise on a live desk is a
+   * fault, not a delight.
+   */
+  readonly sound: boolean;
 
   /**
    * Which part of the product is open.
@@ -170,6 +178,7 @@ export interface Workspace {
 export const DEFAULT_WORKSPACE: Workspace = {
   theme: "dark",
   quality: "auto",
+  sound: false,
   section: "home",
   developerMode: false,
   depth: "beginner",
@@ -232,6 +241,9 @@ function sanitize(value: unknown): Workspace {
       raw.quality === "low" || raw.quality === "mid" || raw.quality === "high"
         ? raw.quality
         : "auto",
+    // Anything other than an explicit `true` is off. A corrupted preference
+    // must never turn sound ON.
+    sound: raw.sound === true,
     // A section that no longer exists, or the Developer section with the mode
     // off, both fall back to Home. Without the second check a stale preference
     // renders the Developer panel while the rail hides its entry — Developer

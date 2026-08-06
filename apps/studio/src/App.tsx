@@ -82,6 +82,7 @@ import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections
 import { DeveloperPanel } from "./ui/developer";
 import { placeScene } from "./studio/place";
 import { readDevice, profileFor, type DeviceInput } from "./studio/device";
+import { SoundEngine, type VoiceName } from "./studio/sound";
 import {
   FrameMeter,
   previewOptions,
@@ -199,6 +200,17 @@ export function App() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  /**
+   * The nine voices.
+   *
+   * One engine for the session. It builds no AudioContext until sound is
+   * switched on, so a tab that never asks for sound never acquires an audio
+   * indicator.
+   */
+  const soundRef = useRef<SoundEngine | null>(null);
+  if (soundRef.current === null) soundRef.current = new SoundEngine();
+  const sound = soundRef.current;
+
   const [frames, setFrames] = useState<FrameReport | null>(null);
   const meterRef = useRef(new FrameMeter());
   /**
@@ -215,6 +227,30 @@ export function App() {
   });
 
   qualityRef.current = { choice: workspace.quality, device };
+
+  /**
+   * The engine follows the preference and the programme bus.
+   *
+   * Ducking is driven from `bus.onAir` rather than inferred from anything the
+   * UI knows: the one thing that must never be wrong is whether the desk is
+   * live, and there is exactly one authority on that.
+   */
+  useEffect(() => {
+    sound.toggle(workspace.sound);
+  }, [sound, workspace.sound]);
+  useEffect(() => {
+    sound.setOnAir(bus?.onAir ?? false);
+  }, [sound, bus?.onAir, revision]);
+  useEffect(() => () => sound.dispose(), [sound]);
+
+  /**
+   * Plays a voice.
+   *
+   * A sound may CONFIRM that something happened and may never be the only way
+   * to know it happened — so every call site below already has a visible
+   * result, and removing the sound would lose nothing but the confirmation.
+   */
+  const say = useCallback((voice: VoiceName) => sound.play(voice), [sound]);
 
   /**
    * What this machine can offer.
@@ -723,6 +759,7 @@ export function App() {
 
       session.store.apply(placement.transaction);
       setSelection(selectMany(placement.nodeIds));
+      say("detent");
       update({ section: "design" });
       setNotice(`${template.name} added`);
     },
@@ -734,6 +771,7 @@ export function App() {
       update({
         installedPacks: [...new Set([...workspace.installedPacks, pack.id])],
       });
+      say("install");
       setNotice(`${pack.name} installed`);
     },
     [update, workspace.installedPacks],
@@ -994,6 +1032,7 @@ export function App() {
               keywords: ["air", "live", "transition"],
               run: () => {
                 bus.take();
+                say("take");
                 update({ programOpen: true });
               },
             },
@@ -1473,6 +1512,15 @@ export function App() {
             onQuality={(quality) => update({ quality })}
             device={device}
             frames={frames}
+            sound={workspace.sound}
+            onSound={(on) => {
+              update({ sound: on });
+              // The switch confirms itself — the one place a sound is allowed
+              // to be the thing you just asked for.
+              if (on) sound.toggle(true), say("detent");
+            }}
+            onAudition={say}
+            onAir={bus?.onAir ?? false}
             onResetWorkspace={() => {
               resetWorkspace();
               setWorkspace(DEFAULT_WORKSPACE);
@@ -1832,9 +1880,14 @@ export function App() {
                 // One button, both directions. Opening the Program row is part
                 // of going live: an operator must SEE what is on air, and a
                 // beginner who is broadcasting has earned that row.
-                if (bus.onAir) bus.clear();
-                else {
+                if (bus.onAir) {
+                  bus.clear();
+                  // Ducking lifts with the broadcast, so this is the first
+                  // voice heard again — which is why it is the descending one.
+                  say("offair");
+                } else {
                   bus.take();
+                  say("take");
                   update({ programOpen: true });
                 }
               }}
