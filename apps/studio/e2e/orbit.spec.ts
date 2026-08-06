@@ -35,10 +35,15 @@ async function cameraPosition(page: Page): Promise<[number, number, number]> {
 test("orbiting turns the scene camera, and it undoes in one step", async ({ page }) => {
   await open3D(page);
 
+  // Studio opens on the Z axis, square-on, and the flat view is FIXED — see
+  // the test below. Entering 3D is a deliberate, named act, so the gesture
+  // being tested here starts where a designer would actually perform it.
+  const front = await cameraPosition(page);
+  expect(front[0]).toBeCloseTo(0, 5);
+  expect(front[2]).toBeGreaterThan(0);
+
+  await page.getByTestId("view-three-quarter").click();
   const before = await cameraPosition(page);
-  // A default broadcast camera sits on the Z axis looking at the origin.
-  expect(before[0]).toBeCloseTo(0, 5);
-  expect(before[2]).toBeGreaterThan(0);
 
   const chrome = page.getByTestId("scene-chrome");
   const box = (await chrome.boundingBox())!;
@@ -52,8 +57,11 @@ test("orbiting turns the scene camera, and it undoes in one step", async ({ page
   await page.mouse.up({ button: "middle" });
 
   const after = await cameraPosition(page);
-  // Turned about Y: X must have swung out, and the distance is preserved.
-  expect(Math.abs(after[0]), "orbiting must move the camera off the Z axis").toBeGreaterThan(1);
+  // Turned further about Y, and the distance to the pivot is preserved.
+  expect(
+    Math.abs(after[0] - before[0]),
+    "orbiting must turn the camera",
+  ).toBeGreaterThan(0.5);
   const radiusBefore = Math.hypot(before[0], before[1], before[2]);
   const radiusAfter = Math.hypot(after[0], after[1], after[2]);
   expect(radiusAfter, "orbit must not change the distance to the pivot").toBeCloseTo(
@@ -186,4 +194,56 @@ test("the viewport becomes a 3D viewport when the camera turns, and not before",
   // And back to Front removes it again.
   await page.getByTestId("view-front").click();
   await expect(page.getByTestId("ground")).toHaveCount(0);
+});
+
+test("the flat view is fixed: the camera cannot be nudged off axis", async ({ page }) => {
+  await open3D(page);
+  await page.getByTestId("view-front").click();
+
+  const before = await cameraPosition(page);
+  const box = (await page.getByTestId("scene-chrome").boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+
+  await page.mouse.move(cx, cy);
+  await page.mouse.down({ button: "middle" });
+  await page.mouse.move(cx + 200, cy + 120, { steps: 10 });
+  await page.mouse.up({ button: "middle" });
+
+  // A lower third is designed square-on and stays square-on. A camera nudged
+  // off axis by a stray drag makes every later judgement about alignment and
+  // letter-spacing wrong, and the designer has no idea why.
+  const after = await cameraPosition(page);
+  expect(after[0]).toBeCloseTo(before[0], 5);
+  expect(after[1]).toBeCloseTo(before[1], 5);
+  expect(after[2]).toBeCloseTo(before[2], 5);
+  await expect(page.getByTestId("view-front")).toHaveClass(/on/);
+
+  // The way into 3D is the view control, which is deliberate and named.
+  await page.getByTestId("view-three-quarter").click();
+  await page.mouse.move(cx, cy);
+  await page.mouse.down({ button: "middle" });
+  await page.mouse.move(cx + 120, cy, { steps: 8 });
+  await page.mouse.up({ button: "middle" });
+  expect(Math.abs((await cameraPosition(page))[0])).not.toBeCloseTo(Math.abs(before[0]), 1);
+});
+
+test("the flat design chrome does not appear in the 3D viewport", async ({ page }) => {
+  await open3D(page);
+
+  // Flat: the checkerboard, the safe areas and the rulers are the tools of a
+  // square-on design view.
+  await page.getByTestId("view-front").click();
+  await expect(page.locator(".scene-checker")).toHaveCount(1);
+  await expect(page.getByTestId("safe-title")).toBeVisible();
+
+  // Turned: they are measured in canvas space, so under a moved camera they
+  // are not merely unwanted, they are drawn somewhere the scene is not.
+  await page.getByTestId("view-three-quarter").click();
+  await expect(page.locator(".scene-checker")).toHaveCount(0);
+  await expect(page.getByTestId("safe-title")).toHaveCount(0);
+  await expect(page.locator(".ruler")).toHaveCount(0);
+
+  // And the ground replaces them.
+  await expect(page.getByTestId("ground")).toBeVisible();
 });

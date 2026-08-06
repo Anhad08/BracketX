@@ -661,7 +661,15 @@ export function SceneView({
     // edit: it changes what the output frames, so it is undoable and it goes
     // to air. Navigating the stage and aiming the camera are different acts
     // and the product must not blur them.
-    if (view !== null && event.button === 1 && !event.shiftKey) {
+    // ...and only once the view is already three-dimensional. THE FLAT VIEW
+    // IS FIXED. A lower third is designed square-on and stays square-on; a
+    // camera that could be nudged off axis by a stray middle-drag would make
+    // every subsequent judgement about alignment and letter-spacing wrong,
+    // and the designer would have no idea why their work looked off.
+    //
+    // The way into 3D is the view control, which is deliberate and named. The
+    // way back is Front, which is exact rather than approximately-square-on.
+    if (view !== null && dimensional && event.button === 1 && !event.shiftKey) {
       const camera = cameraNode(document_);
       if (camera !== null) {
         const position = camera.transform?.position ?? [0, 0, 10];
@@ -1090,7 +1098,10 @@ export function SceneView({
           height: size.height,
         }}
       >
-        <div className="scene-checker" aria-hidden />
+        {/* The transparency checkerboard belongs to the flat view. In 3D it
+            is a flat sheet floating in a perspective scene, and it reads as a
+            panel someone forgot to hide — because that is what it is. */}
+        {dimensional ? null : <div className="scene-checker" aria-hidden />}
       </div>
 
       <svg
@@ -1162,9 +1173,12 @@ export function SceneView({
           height={canvasExtent.y - canvasOrigin.y}
         />
 
-        {workspace.showGrid ? <Grid document={document_} viewport={viewport} step={workspace.gridStep} element={element} /> : null}
+        {/* The flat grid and the safe areas are measured in CANVAS space, so
+            in 3D they are not merely unwanted — they are drawn somewhere the
+            scene is not. The ground grid replaces them. */}
+        {workspace.showGrid && !dimensional ? <Grid document={document_} viewport={viewport} step={workspace.gridStep} element={element} /> : null}
 
-        {workspace.showSafeAreas
+        {workspace.showSafeAreas && !dimensional
           ? (["action", "title"] as const).map((kind) => {
               const rect = kind === "title" ? safe.title : safe.action;
               const topLeft = canvasToScreen(viewport, {
@@ -1369,7 +1383,10 @@ export function SceneView({
         ) : null}
       </svg>
 
-      {workspace.showRulers ? (
+      {/* Rulers read in flat canvas units. Under a turned camera those units
+          no longer run along the screen, so the numbers would be confidently
+          wrong rather than merely unhelpful. */}
+      {workspace.showRulers && !dimensional ? (
         <Rulers document={document_} viewport={viewport} element={element} />
       ) : null}
 
