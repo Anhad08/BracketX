@@ -483,6 +483,44 @@ kbd {
    cover the graphic it is reporting on. */
 .well { flex: 1; min-height: 0; display: flex; }
 
+/* --- 3D, and the finishes it unlocks ------------------------------------- */
+
+/* THE ONE BUTTON. Full width and primary, because it is the single most
+   consequential thing a beginner can press on this panel — it is the product's
+   defining capability behind one control. */
+.depth-toggle-3d {
+  display: block; width: 100%; height: 34px; border: 0; border-radius: var(--r-sm);
+  font: inherit; font-size: 12px; font-weight: 640; cursor: pointer;
+  color: var(--key-ink);
+  background: linear-gradient(180deg, var(--key), var(--key-2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), var(--cast);
+  transition: transform 0.09s var(--press), filter 0.16s var(--press);
+}
+.depth-toggle-3d:hover { filter: brightness(1.06); }
+.depth-toggle-3d:active { transform: translateY(1px); }
+/* Once it is on, the control states a state and offers the way back, so it
+   stops being the loudest thing on the panel. */
+.depth-toggle-3d.on {
+  color: var(--text-strong); background: none;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.depth-toggle-3d.on:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.depth-toggle-3d:disabled { opacity: 0.4; pointer-events: none; }
+
+/* Named by outcome. A person picks "Chrome"; the numbers it generated are in
+   Properties, for somebody who wants them. */
+.finishes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.finish {
+  height: 26px; padding: 0 9px; border: 0; border-radius: var(--r-xs);
+  font: inherit; font-size: 11px; color: var(--dim); cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: color 0.16s var(--press), box-shadow 0.16s var(--press);
+}
+.finish:hover { color: var(--text-strong); background: rgba(255, 255, 255, 0.06); }
+.finish.on { color: var(--text-strong); box-shadow: inset 0 0 0 1px var(--accent); }
+.finish:disabled { opacity: 0.4; pointer-events: none; }
+
 /* --- The confidence strip ------------------------------------------------ */
 
 .conf-strip {

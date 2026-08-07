@@ -132,7 +132,12 @@ function changedTokenNames(before: unknown, after: unknown): Set<string> {
 import { DirtySet, type DirtyStats } from "./dirty";
 import { MirrorGraph, MirrorViolation } from "./mirror";
 import { channelForPath, localMatrixOf, resolveProps, type VariableSource } from "./resolve";
-import { imageQuadDescriptor, quadDescriptor, rgbaFromHex } from "./primitives";
+import {
+  extrudedQuadDescriptor,
+  imageQuadDescriptor,
+  quadDescriptor,
+  rgbaFromHex,
+} from "./primitives";
 import {
   primitiveDescriptor,
   primitiveKey,
@@ -392,7 +397,11 @@ export class Projector {
     {
       width: number;
       height: number;
+      /** 0 is the flat quad. Anything else is extruded — see `#applyRect`. */
+      depth: number;
       fill: string;
+      /** Kept so an appearance change can be compared without rebuilding it. */
+      descriptor: MaterialDescriptor;
       geometry: GeometryHandle;
       material: MaterialHandle;
     }
@@ -1578,40 +1587,69 @@ export class Projector {
     const height = typeof props.height === "number" ? props.height : 1;
     const fill = typeof props.fill === "string" ? props.fill : "#FFFFFF";
 
-    const material: MaterialDescriptor = {
-      kind: "unlit",
-      color: rgbaFromHex(fill),
-      // Broadcast graphics composite over live video, so alpha is the norm.
-      transparent: true,
-      doubleSided: true,
-    };
+    // ======================================================================
+    // DEPTH IS A PROPERTY. IT IS NOT A DIFFERENT KIND OF NODE
+    // ======================================================================
+    // SCENE_FORMAT gains no new component for this, and the node does not
+    // become a mesh: a rect with `depth` is still a rect, still carries its
+    // own width, height and fill, and still animates, binds and states
+    // exactly as it did flat. That is what "any 2D object can become 3D,
+    // everything remains editable, nothing leaves the document model" has to
+    // mean if it is to survive contact with the timeline and the variable
+    // system.
+    //
+    // Zero or absent is the flat quad, unchanged, down to the same geometry
+    // call — so nothing that exists today renders differently.
+    const depth = typeof props.depth === "number" && props.depth > 0 ? props.depth : 0;
+
+    // A flat quad is DOUBLE-SIDED — seen from behind it must still draw, or a
+    // graphic disappears the moment a camera passes it. A solid must not be:
+    // back faces of a closed box are never visible, and drawing them shades
+    // the inside of the object over its own front face.
+    const material = materialDescriptorOf({
+      baseColor: fill,
+      doubleSided: depth === 0,
+      ...(typeof props.opacity === "number" ? { opacity: props.opacity } : {}),
+      ...(typeof props.metallic === "number" ? { metallic: props.metallic } : {}),
+      ...(typeof props.roughness === "number" ? { roughness: props.roughness } : {}),
+    });
 
     const previous = this.#rects.get(node.id);
     if (
       previous !== undefined &&
       previous.width === width &&
       previous.height === height &&
-      previous.fill === fill
+      previous.depth === depth &&
+      sameMaterial(previous.descriptor, material)
     ) {
       return;
     }
 
     if (previous !== undefined) {
-      const sizeChanged =
-        previous.width !== width || previous.height !== height;
+      // Geometry depends on size AND depth, because both are baked into the
+      // vertices. Anything else is a material change and must not reallocate.
+      const shapeChanged =
+        previous.width !== width ||
+        previous.height !== height ||
+        previous.depth !== depth;
 
-      if (!sizeChanged) {
-        // Colour only. Update in place so the handle stays stable — recreating
-        // would free and reallocate a GPU resource to change a colour.
+      if (!shapeChanged) {
+        // Appearance only. Update in place so the handle stays stable —
+        // recreating would free and reallocate a GPU resource to change a
+        // colour, which a team colour bound to a variable does sixty times a
+        // second.
         this.backend.updateMaterial(previous.material, material);
-        this.#rects.set(node.id, { ...previous, fill });
+        this.#rects.set(node.id, { ...previous, fill, descriptor: material });
         return;
       }
-      // The quad's dimensions are baked in, so a resize needs new geometry.
       this.#releaseRect(node.id);
     }
 
-    const geometry = this.backend.createGeometry(quadDescriptor(width, height));
+    const geometry = this.backend.createGeometry(
+      depth === 0
+        ? quadDescriptor(width, height)
+        : extrudedQuadDescriptor(width, height, depth),
+    );
     if (!geometry.ok) {
       // Refusing over budget is the documented behaviour (ENGINE_RUNTIME §4.4).
       // The node survives unattached rather than the show stopping.
@@ -1632,7 +1670,9 @@ export class Projector {
     this.#rects.set(node.id, {
       width,
       height,
+      depth,
       fill,
+      descriptor: material,
       geometry: geometry.value,
       material: materialHandle.value,
     });

@@ -363,6 +363,58 @@ export function hasLight(document: SceneDocument): boolean {
   return false;
 }
 
+/**
+ * The lighting a lit surface needs, or nothing when the scene already has some.
+ *
+ * ==========================================================================
+ * A KEY LIGHT AND A FILL, NOT ONE DIRECTIONAL LIGHT
+ * ==========================================================================
+ * A lit object in an unlit scene renders BLACK. Adding the lighting alongside
+ * it is the difference between "I made a cube" and "I made something broken",
+ * and asking a beginner to know that a solid needs a light first is exactly
+ * the engine concept the product exists to hide.
+ *
+ * With a single directional light, every face turned away receives nothing and
+ * renders pure black — so a cube reads as two bright faces and a hole. That is
+ * not what "lit" means to anyone looking at it, and it is why every lighting
+ * rig ever built has a fill in it. The ambient is deliberately weak: enough
+ * that a shadowed face is dark rather than absent, not so much that the form
+ * flattens out again.
+ *
+ * Returned as OPERATIONS rather than applied, so the caller folds them into
+ * whatever transaction it is already building. One undo then removes the
+ * lighting along with whatever asked for it, and the scene can never be left
+ * holding a light nobody asked for.
+ *
+ * Extracted from `createNode`, which had this inline. Enabling depth on a flat
+ * rect needs exactly the same rig for exactly the same reason, and two copies
+ * of a lighting default is two products.
+ */
+export function lightingOperations(
+  document: SceneDocument,
+  parentId: string,
+  ids: IdFactory,
+): readonly SceneOperation[] {
+  if (hasLight(document)) return [];
+
+  const key = makeNode("light", orderAfterLast(document, parentId), ids);
+  const fill: SceneNode = {
+    ...makeNode("light", generateKeyBetween(key.order, null), ids),
+    name: "Fill",
+    components: [
+      {
+        id: ids("component"),
+        type: "light",
+        props: { kind: "ambient", color: "#FFFFFF", intensity: 0.55 },
+      },
+    ],
+  };
+  return [
+    { type: "node.insert", parentId, node: key },
+    { type: "node.insert", parentId, node: fill },
+  ];
+}
+
 export function createNode(
   document: SceneDocument,
   kind: NodeKind,
@@ -378,31 +430,8 @@ export function createNode(
   //
   // In the same transaction, so one undo removes both and the scene cannot be
   // left holding a light nobody asked for.
-  if (LIT_KINDS.includes(kind) && !hasLight(document)) {
-    // A KEY LIGHT AND A FILL, not one directional light.
-    //
-    // With a single light, every face turned away from it receives nothing
-    // and renders pure black — so a cube reads as two bright faces and a
-    // hole. That is not what "lit" means to anyone looking at it, and it is
-    // why every lighting rig ever built has a fill in it.
-    //
-    // The ambient is deliberately weak: enough that a shadowed face is dark
-    // rather than absent, not so much that the form flattens out again.
-    const key = makeNode("light", orderAfterLast(document, parentId), ids);
-    operations.push({ type: "node.insert", parentId, node: key });
-
-    const fill: SceneNode = {
-      ...makeNode("light", generateKeyBetween(key.order, null), ids),
-      name: "Fill",
-      components: [
-        {
-          id: ids("component"),
-          type: "light",
-          props: { kind: "ambient", color: "#FFFFFF", intensity: 0.55 },
-        },
-      ],
-    };
-    operations.push({ type: "node.insert", parentId, node: fill });
+  if (LIT_KINDS.includes(kind)) {
+    operations.push(...lightingOperations(document, parentId, ids));
   }
 
   // After whatever lighting was added, so the order keys cannot collide.

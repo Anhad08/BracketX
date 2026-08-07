@@ -98,6 +98,8 @@ export {
 export {
   boxAnchorOf,
   boxCentreOffset,
+  extrudedQuadDescriptor,
+  quadDescriptor,
   type BoxAnchor,
 } from "./primitives";
 

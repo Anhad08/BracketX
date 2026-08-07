@@ -11,6 +11,44 @@
 import type { SceneNode } from "@bracketx/engine-scene";
 
 import type { GeometryDescriptor, Rgba } from "./mirror-backend";
+import { boxDescriptor } from "./mesh-primitives";
+
+/**
+ * An extruded quad: the same rectangle, given depth.
+ *
+ * ==========================================================================
+ * THE FRONT FACE DOES NOT MOVE
+ * ==========================================================================
+ * This is the geometry behind "any 2D object can become 3D". A rect that gains
+ * depth must stay exactly where it was on screen — a lower third that jumped
+ * forward when somebody enabled 3D would have destroyed the composition they
+ * spent ten minutes on, and would make the feature something people undo
+ * rather than use.
+ *
+ * So the box grows BACKWARD. The front face sits at z = 0, precisely where the
+ * flat quad was, and the depth extends to −z, away from the viewer. Enabling
+ * 3D changes how the graphic is lit and shaded; it does not change where it
+ * is.
+ *
+ * Topology is delegated to `boxDescriptor` rather than rewritten: twenty-four
+ * vertices with per-face normals is a decision that belongs in exactly one
+ * place, and a second copy would drift on winding or UV origin the first time
+ * either was touched.
+ */
+export function extrudedQuadDescriptor(
+  width: number,
+  height: number,
+  depth: number,
+): GeometryDescriptor {
+  const box = boxDescriptor(width, height, depth);
+  const positions = new Float32Array(box.positions);
+  // Shift so the +Z face lands on 0. Positions only — normals are directions
+  // and a translation must not touch them.
+  for (let index = 2; index < positions.length; index += 3) {
+    positions[index] = positions[index]! - depth / 2;
+  }
+  return { ...box, positions };
+}
 
 /**
  * Where a node's `size` box sits relative to its origin.

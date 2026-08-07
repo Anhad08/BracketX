@@ -23,6 +23,14 @@ import { SCENE_DRAG } from "../studio/place";
 import { PACKS } from "../studio/packs";
 import type { AssetRecord } from "@bracketx/engine-assets";
 import { colourTokens, setToken } from "../studio/library";
+import {
+  FINISHES,
+  applyFinishEverywhere,
+  disableDepthEverywhere,
+  enableDepthEverywhere,
+  graphicFinish,
+  graphicHasDepth,
+} from "../studio/finishes";
 import { PRESETS, applyPreset, type AnimationPreset } from "../studio/presets";
 import type { IdFactory as PresetIds } from "../studio/ids";
 import type { Depth } from "../studio/workspace";
@@ -1119,6 +1127,8 @@ export function Content({
   const fields = contentSurface(session.host);
   const report = preflight(session.host);
   const colours = colourTokens(document_);
+  const solid = graphicHasDepth(document_);
+  const current = graphicFinish(document_);
 
   return (
     <section className="panel content" aria-label="Content" data-testid="content">
@@ -1191,6 +1201,68 @@ export function Content({
           </div>
         </div>
       ) : null}
+
+      {/* ==================================================================
+          3D — THE GOLDEN RULE, AS ONE BUTTON
+          ==================================================================
+          "Enable 3D → Engine creates camera, lighting, environment, default
+          material, shadows, perspective. The user presses ONE button. The
+          engine performs hundreds of decisions."
+
+          It acts on the whole graphic rather than on a selection, because a
+          beginner has no selection and because a lower third whose plate went
+          solid while its accent bar stayed flat is not a 3D lower third.
+
+          The finishes are named by what they LOOK like. Metalness and
+          roughness are generated and are visible to an advanced user in
+          Properties — never here. */}
+      <div className="fgrp" data-testid="content-depth">
+        <div className="lbl">3D<span className="ln" /></div>
+        <button
+          type="button"
+          className={`depth-toggle-3d ${solid ? "on" : ""}`}
+          data-testid="enable-3d"
+          data-on={solid ? "yes" : "no"}
+          disabled={onAir}
+          title={
+            onAir
+              ? "The graphic is on air. Take it off before changing its shape."
+              : solid
+                ? "Return the graphic to flat"
+                : "Give the graphic depth. Lighting is set up for you."
+          }
+          onClick={() => {
+            const txn = solid
+              ? disableDepthEverywhere(document_)
+              : enableDepthEverywhere(document_, ids);
+            if (txn) onEdit(txn);
+          }}
+        >
+          {solid ? "Back to flat" : "Enable 3D"}
+        </button>
+
+        {solid ? (
+          <div className="finishes" data-testid="finishes">
+            {FINISHES.map((finish) => (
+              <button
+                key={finish.id}
+                type="button"
+                className={`finish ${current?.id === finish.id ? "on" : ""}`}
+                data-testid={`finish-${finish.id}`}
+                aria-pressed={current?.id === finish.id}
+                title={finish.hint}
+                disabled={onAir}
+                onClick={() => {
+                  const txn = applyFinishEverywhere(document_, finish);
+                  if (txn) onEdit(txn);
+                }}
+              >
+                {finish.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       {/* ANIMATION — Volume One L8 and Blueprint M-0. One choice generates the
           keyframes, the easing and the timing. The generated timeline is an
