@@ -18,13 +18,16 @@ Studio is wrong.
 
 | | |
 |---|---|
-| `.spine` | narrow leftmost strip |
+| `.spine` | **a 3px hairline across the TOP of the whole app** — see §11 |
 | `.rail` | primary navigation |
 | `.stage` | transport row, then the well |
 | `.dock` | **ONE** dock, on the right |
 
 **Studio today has three docks (left, right, bottom). The prototype has one.**
 Layers and Content live in the same dock, stacked, with Content always first.
+
+*(An earlier reading of this file called the spine a navigation column. It is
+not. It is the tally — see §11.)*
 
 ## 2. The rail is four destinations
 
@@ -162,6 +165,86 @@ S.air = "off"   //  off · cued · live
 **off → cued → live.** Studio has on-air and off-air. The prototype cues
 first, which is what the `Cue (␣)` key is for and why it renders `.armed`.
 
+## 11. The spine IS the tally
+
+```css
+.spine { position:absolute; inset:0 0 auto 0; height:3px; z-index:30;
+         background:rgba(255,255,255,.05);
+         transition:background .5s var(--weight), box-shadow .5s var(--weight); }
+.app.live .spine { background:linear-gradient(180deg,#ff8078,var(--live) 50%,#a81d16);
+                   box-shadow:0 0 16px rgba(255,59,48,.85), 0 0 48px rgba(255,59,48,.3); }
+.app.live .spine.igniting { animation:ignite .09s var(--weight); }
+```
+
+**A three-pixel hairline across the top of the entire application.** Nearly
+invisible off air; a glowing red bar when live, with a 90ms `ignite` flash at
+the moment of the take.
+
+This is the most important single thing on the screen and it costs three
+pixels. You cannot be on air and not know it, from any distance, without
+reading anything. Studio has a text tally in a corner.
+
+## 12. The keyboard, and one rule worth quoting
+
+```js
+// ⏎ takes, unconditionally, even from a focused field. A show outranks a form.
+if (e.key === "Enter") { e.preventDefault(); take(); return; }
+if (e.altKey && e.key === "e") { toggleExpert(); return; }
+if (typing) return;
+if (e.key === " ") cue();
+if (e.key === "Escape" && S.air === "cued") S.air = "off";
+```
+
+| Key | Does | While typing |
+|---|---|---|
+| `⏎` | **Take** | **yes — a show outranks a form** |
+| `⌥E` | toggle expert | yes |
+| `␣` | Cue | no |
+| `Esc` | un-cue | no |
+
+**Take is reversible by taking again** — live → off. And an air timer counts
+elapsed seconds into the transport while live.
+
+## 13. Entrances are real animation specs
+
+```js
+STYLES = [
+  { id:"rise",  nm:"Rise + fade", f:12, ease:"glide", note:"translate up, opacity 0→1" },
+  { id:"wipe",  nm:"Wipe",        f:10, ease:"glide", note:"reveal along the long axis" },
+  { id:"slide", nm:"Slide",       f:14, ease:"glide", note:"translate from the frame edge" },
+  { id:"scale", nm:"Scale",       f:11, ease:"press", note:"0.94 → 1 with opacity" },
+  { id:"hold",  nm:"None",        f:0,  ease:"press", note:"present from frame 0" },
+]
+```
+
+Each carries its own **frame count** and **easing**, and a note in plain words.
+That note is what "Motion · generated" shows the expert.
+
+## 14. First run, and coaching
+
+The start screen asks one question:
+
+> ### What are you making?
+> Pick one. You can change everything afterwards.
+
+Then the three templates. That is the Canva test, verbatim, as a screen.
+
+`coach(html, ms)` shows a dismissible hint that auto-hides after 5s; once
+dismissed, `S.coached` silences coaching for the session. Take fires one:
+*"On air. …"*
+
+## 15. Overflow is MEASURED, not guessed
+
+```js
+/* Overflow is a real measurement in this prototype: the name is laid out at
+   the format's width and compared against title safe. An implementation does
+   this in the shaping pass; the arithmetic is the same shape. */
+function overflows(fmtWidth) { ... }
+```
+
+Studio already has this in `preflight()` reading real shaper output — it has
+simply never been run per format.
+
 ## 10. The dock header
 
 ```
@@ -195,6 +278,17 @@ is on air.
 10. **Motion is measured in frames**, and the expert panel shows the generated
     definition rather than a second motion system.
 11. **⌥E is the one key** that moves between the two levels.
+12. **The spine.** A 3px hairline across the top of the app, red and glowing
+    when live, with a 90ms ignite on the take. Three pixels, and you cannot be
+    on air without knowing it.
+13. **Enter takes, even from a focused field** — a show outranks a form.
+    Space cues, Escape un-cues, and taking again goes off air.
+14. **Entrances carry frames and easing**, and the expert panel shows the
+    generated note.
+15. **The start screen asks "What are you making?"** and offers three
+    templates with real sample content.
+16. **Coaching**: one dismissible hint at the moment it is needed, silenced
+    for the session once dismissed.
 
 ## What is already right
 
