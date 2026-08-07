@@ -26,6 +26,7 @@
 import type { ProgramBus } from "../studio/program";
 import type { StudioSession } from "../studio/session";
 import type { PackTemplate } from "../studio/packs";
+import { TemplateArt } from "./art";
 import type { Pack } from "../studio/packs";
 import { PACKS } from "../studio/packs";
 import { contentSurface, preflight } from "../studio/preflight";
@@ -44,12 +45,16 @@ export interface ProductionProps {
   readonly onOffAir: () => void;
   /** Rendered stills of each scene, by template id. */
   readonly art: ReadonlyMap<string, string>;
+  readonly onPlay: ((templateId: string, into: HTMLCanvasElement) => void) | undefined;
+  readonly onStop: (() => void) | undefined;
 }
 
 export function Production({
   session,
   bus,
   art,
+  onPlay,
+  onStop,
   programCanvas,
   previewCanvas,
   revision,
@@ -156,21 +161,24 @@ export function Production({
                     wearing five gradients told an operator which PACK a scene
                     came from and nothing at all about what would go to air —
                     which is the only question being asked at this moment. */}
-                <span
+                {/* An operator choosing a graphic under time pressure is
+                    matching a remembered picture — and half of what they
+                    remember is the move. Pointing at a tile plays it. */}
+                <TemplateArt
                   className="scene-art"
-                  aria-hidden
-                  style={
-                    art.get(template.id) === undefined
-                      ? {
-                          background: `linear-gradient(135deg, ${pack.swatch[0]}, ${pack.swatch[1]})`,
-                        }
-                      : undefined
+                  templateId={template.id}
+                  still={art.get(template.id)}
+                  onPlay={onPlay}
+                  onStop={onStop}
+                  placeholder={
+                    <span
+                      className="art-swatch"
+                      style={{
+                        background: `linear-gradient(135deg, ${pack.swatch[0]}, ${pack.swatch[1]})`,
+                      }}
+                    />
                   }
-                >
-                  {art.get(template.id) === undefined ? null : (
-                    <img src={art.get(template.id)} alt="" />
-                  )}
-                </span>
+                />
                 <strong>{template.name}</strong>
                 <span className="dim tiny">{template.description}</span>
               </button>

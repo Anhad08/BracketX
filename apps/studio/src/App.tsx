@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBackend } from "./studio/renderer";
-import { renderTemplatePreviews } from "./studio/previews";
+import { PreviewPlayer, renderTemplatePreviews } from "./studio/previews";
 import type { ImageProvider, TextProvider } from "@bracketx/engine-reconciler";
 import { findNode, type SceneDocument, type SceneNode, type Transaction } from "@bracketx/engine-scene";
 
@@ -434,6 +434,65 @@ export function App() {
   const [templateArt, setTemplateArt] = useState<ReadonlyMap<string, string>>(
     new Map(),
   );
+
+  /**
+   * THE HOVER PLAYER.
+   *
+   * One hidden renderer for the whole product. Only one card is ever under the
+   * pointer, so a player per tile would mean forty WebGL contexts on the
+   * Marketplace and a browser that refuses the seventeenth — this one blits
+   * its frames into whichever tile is asking.
+   *
+   * Built once the fonts have parsed, kept for the session, and disposed with
+   * it. Building one on hover would cost a couple of hundred milliseconds,
+   * which is exactly long enough for somebody to have moved on.
+   */
+  const playerRef = useRef<PreviewPlayer | null>(null);
+  const [playerReady, setPlayerReady] = useState(false);
+
+  useEffect(() => {
+    if (!fontsReady) return;
+    const first = templatesOf()[0];
+    if (first === undefined) return;
+    const player = PreviewPlayer.create(
+      {
+        renderer: rendererRef.current,
+        ...(textRef.current === null ? {} : { text: textRef.current }),
+        ...(imagesRef.current === null ? {} : { images: imagesRef.current }),
+        width: 400,
+      },
+      instantiateTemplate(first, ids, new Date().toISOString()),
+    );
+    playerRef.current = player;
+    setPlayerReady(player !== null);
+    return () => {
+      player?.dispose();
+      playerRef.current = null;
+      setPlayerReady(false);
+    };
+  }, [fontsReady]);
+
+  const playTemplate = useCallback((templateId: string, into: HTMLCanvasElement) => {
+    const player = playerRef.current;
+    const template = templatesOf().find((entry) => entry.id === templateId);
+    if (player === null || template === undefined) return;
+    // Built with the OPEN PROJECT'S palette, so hovering a card in a themed
+    // project previews the graphic as it would actually arrive — not as the
+    // catalogue's default.
+    player.play(
+      instantiateTemplate(
+        template,
+        ids,
+        new Date().toISOString(),
+        session?.document.tokens ?? [],
+      ),
+      into,
+    );
+  }, [session]);
+
+  const stopTemplate = useCallback(() => {
+    playerRef.current?.stop();
+  }, []);
 
   useEffect(() => {
     if (!fontsReady) return;
@@ -1673,6 +1732,8 @@ export function App() {
             installedPacks={installed}
             onCreate={openTemplate}
             art={templateArt}
+            onPlay={playerReady ? playTemplate : undefined}
+            onStop={playerReady ? stopTemplate : undefined}
             onBlank={() => {
               openJson(serializeDocument(newDocument("Untitled", ids, new Date().toISOString())));
               update({ section: "design" });
@@ -1705,6 +1766,8 @@ export function App() {
             session={session}
             bus={bus}
             art={templateArt}
+            onPlay={playerReady ? playTemplate : undefined}
+            onStop={playerReady ? stopTemplate : undefined}
             programCanvas={programCanvasRef.current}
             previewCanvas={canvasRef.current}
             revision={revision}

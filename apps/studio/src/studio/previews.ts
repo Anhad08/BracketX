@@ -41,6 +41,7 @@
 import type { SceneDocument, SceneToken } from "@bracketx/engine-scene";
 
 import { instantiateTemplate, type PackTemplate } from "./packs";
+import { entranceOf } from "./program";
 import { createBackend, type RendererChoice } from "./renderer";
 import { StudioSession } from "./session";
 import type { IdFactory } from "./ids";
@@ -304,4 +305,206 @@ export async function renderTemplatePreviews(
   } finally {
     rig.dispose();
   }
+}
+
+/**
+ * THE HOVER PLAYER.
+ *
+ * ============================================================================
+ * POINT AT A GRAPHIC AND IT PLAYS
+ * ============================================================================
+ * A still tells you what a template looks like. It cannot tell you what it
+ * DOES — and for a broadcast graphic, what it does is most of the decision.
+ * "Slides in from the left", "wipes open, then the headline arrives", "fades
+ * up": those are the descriptions under the cards, and until now they were
+ * words a person had to take on trust.
+ *
+ * Hovering plays the real animation, through the real engine, at the real
+ * frame rate. Not a video, not a sprite sheet, not a recording — the same
+ * renderer that will put it on air, running the same timeline, one second
+ * before the person decides. Nothing else in a browser can do that, which is
+ * exactly why it is worth the code.
+ *
+ * ============================================================================
+ * ONE CONTEXT, MOVED AROUND
+ * ============================================================================
+ * A player per card would mean forty WebGL contexts on the Marketplace and a
+ * browser that refuses the seventeenth. Only one card is ever under the
+ * pointer, so there is one hidden renderer and its frames are BLITTED into
+ * whichever tile is asking — the same trick the confidence strip uses, and it
+ * costs one `drawImage` per frame.
+ *
+ * Starting is instant because the context already exists. Building one on
+ * hover would take a couple of hundred milliseconds, which is exactly long
+ * enough for a person to have moved on.
+ */
+export class PreviewPlayer {
+  readonly #canvas: HTMLCanvasElement;
+  readonly #session: StudioSession;
+  #target: HTMLCanvasElement | null = null;
+  #document: SceneDocument | null = null;
+  #raf = 0;
+  #started = 0;
+  #loop = 0;
+  #disposed = false;
+
+  private constructor(canvas: HTMLCanvasElement, session: StudioSession) {
+    this.#canvas = canvas;
+    this.#session = session;
+  }
+
+  static create(options: PreviewOptions, seed: SceneDocument): PreviewPlayer | null {
+    try {
+      const canvas = globalThis.document?.createElement("canvas");
+      if (canvas === undefined) return null;
+      const width = options.width ?? 480;
+      canvas.width = width;
+      canvas.height = Math.round((width * seed.world.output.height) / seed.world.output.width);
+      const backend = createBackend(options.renderer, canvas, { antialias: true });
+      return new PreviewPlayer(
+        canvas,
+        new StudioSession(backend, seed, {
+          ...(options.text === undefined ? {} : { text: options.text }),
+          ...(options.images === undefined ? {} : { images: options.images }),
+        }),
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Plays a document into a tile until told to stop.
+   *
+   * It LOOPS, with a pause at the end. A broadcast entrance is under a second;
+   * played once, a person who glanced away has missed it and has to leave and
+   * come back. The hold is what stops the loop reading as a stutter — you see
+   * the graphic arrive, you see it SIT there, and then it goes again.
+   */
+  play(document_: SceneDocument, target: HTMLCanvasElement): void {
+    if (this.#disposed) return;
+    this.stop();
+    try {
+      this.#session.open(document_);
+    } catch {
+      return;
+    }
+    this.#target = target;
+    this.#document = document_;
+    this.#loop = loopLength(document_);
+    this.#started = performance.now();
+    // THE CLOCK HAS TO BE RUNNING.
+    //
+    // The first version seeked a stopped clock frame by frame and every frame
+    // came out identical — because a template is AUTHORED at its arrived
+    // state and its entrance animates from an offset back to that. A static
+    // render is therefore the finished graphic, which looks entirely correct
+    // and is not an animation at all. (It is also why the stills looked right
+    // by accident.)
+    //
+    // The engine owns the clock, so the honest thing is to start it and let it
+    // run, exactly as the editor's transport does.
+    this.#restart(document_);
+    this.#tick();
+  }
+
+  stop(): void {
+    if (this.#raf !== 0) cancelAnimationFrame(this.#raf);
+    this.#raf = 0;
+    this.#target = null;
+    // The clock stops with it. A paused renderer costs nothing; one left
+    // running is a timeline advancing for a card nobody is looking at.
+    if (!this.#disposed) {
+      try {
+        this.#session.pause();
+      } catch {
+        // A disposed session refuses, which is the state we wanted anyway.
+      }
+    }
+  }
+
+  dispose(): void {
+    if (this.#disposed) return;
+    this.stop();
+    this.#disposed = true;
+    this.#session.dispose();
+  }
+
+  /**
+   * Runs the graphic's entrance, the way going to air runs it.
+   *
+   * A TIMELINE IS A CLIP, and a clip has to be PLAYED. Starting the clock and
+   * expecting motion is the mistake that cost this feature an afternoon: the
+   * clock ran, the frame counter advanced, and every rendered frame was
+   * identical — because a template is authored at its ARRIVED state and its
+   * entrance animates from an offset back to that. A document with a running
+   * clock and no clip playing is a finished graphic sitting still.
+   *
+   * `entranceOf` is the same selector `ProgramBus` uses when a graphic
+   * actually goes on air, so the card shows what a take would show. Two ways
+   * of deciding which timeline is the entrance would eventually disagree, and
+   * the day they did, a card would advertise a move the show does not make.
+   */
+  #restart(document_: SceneDocument | null): void {
+    if (document_ === null) return;
+    this.#session.seek(0);
+    this.#session.play();
+    const entrance = entranceOf(document_);
+    if (entrance !== null) this.#session.playClip(entrance.id);
+  }
+
+  #tick = (): void => {
+    const target = this.#target;
+    if (target === null || this.#disposed) return;
+
+    const now = performance.now();
+    try {
+      // Back to the top when the loop is up, and then playing again. A
+      // broadcast entrance is under a second; played once, somebody who
+      // glanced away has missed it and has to leave the card and come back.
+      if (this.#loop > 0 && now - this.#started > this.#loop * 1000) {
+        this.#started = now;
+        this.#restart(this.#document);
+      }
+      // NO WALL TIME. `render()` with an argument treats it as absolute, and
+      // `performance.now()` is however long the page has been open — so the
+      // clock jumped several seconds past the end of the entrance on the very
+      // first frame and every frame after it, which renders as a graphic that
+      // has already arrived and never moves. The engine keeps its own 60fps
+      // counter; the editor's own render loop calls it exactly like this.
+      this.#session.render();
+      const context = target.getContext("2d");
+      if (context !== null) {
+        // The tile is sized in CSS pixels and the renderer works at its own
+        // resolution, so the blit is a scale as well as a copy. Cleared first:
+        // a broadcast graphic is transparent, and without the clear the
+        // previous frame shows through the gaps in this one.
+        if (target.width !== this.#canvas.width || target.height !== this.#canvas.height) {
+          target.width = this.#canvas.width;
+          target.height = this.#canvas.height;
+        }
+        context.clearRect(0, 0, target.width, target.height);
+        context.drawImage(this.#canvas, 0, 0);
+      }
+    } catch {
+      this.stop();
+      return;
+    }
+    this.#raf = requestAnimationFrame(this.#tick);
+  };
+}
+
+/**
+ * How long a template's loop is: its longest timeline, plus a beat to sit.
+ *
+ * The hold matters more than it sounds. Without it the graphic arrives and
+ * instantly restarts, which reads as a glitch rather than as a loop — and a
+ * preview that looks broken is worse than no preview.
+ */
+function loopLength(document_: SceneDocument): number {
+  let longest = 0;
+  for (const timeline of document_.animations ?? []) {
+    longest = Math.max(longest, timeline.duration);
+  }
+  return longest === 0 ? 0 : longest + 1.1;
 }

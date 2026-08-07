@@ -217,11 +217,49 @@
 .start-art .preview { width: 100%; height: 100%; display: block; }
 /* The engine's own pixels. `contain`, never `cover`: a lower third cropped to
    fill a tile is a lower third with its name cut off. */
-.start-frame {
+.art-still {
   width: 100%; height: 100%; display: block; object-fit: contain;
   animation: art-in var(--settle) var(--ease) both;
 }
 @keyframes art-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ==========================================================================
+   THE LIVE FRAME
+
+   Stacked ON the still rather than replacing it. Unmounting the still on
+   hover flashes the card's background between the last still frame and the
+   first rendered one — about 16ms of a hole, which is short enough to be
+   invisible as an event and long enough to read as a flicker.
+
+   So both are always present and the canvas fades over the top. Leaving fades
+   it back out, and the still underneath was never disturbed.
+   ========================================================================== */
+.art { position: relative; display: block; overflow: hidden; }
+.art-live {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; object-fit: contain;
+  opacity: 0; pointer-events: none;
+  transition: opacity 140ms var(--ease);
+}
+.art-live.on { opacity: 1; }
+/* The placeholder, and the pack swatch Production falls back to. */
+.art-swatch { position: absolute; inset: 0; display: block; }
+
+/* A tile that can play says so before you point at it — the corner mark of a
+   transport, drawn in the card rather than printed on the picture. */
+.art::after {
+  content: ""; position: absolute; right: 8px; bottom: 8px;
+  width: 0; height: 0; pointer-events: none;
+  border-left: 8px solid rgb(255 255 255 / 0.5);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  opacity: 0; transition: opacity 140ms var(--ease);
+}
+.start-card:hover .art::after, .scene-tile:hover .art::after { opacity: 0; }
+.start-card .art::after, .scene-tile .art::after { opacity: 0.55; }
+@media (prefers-reduced-motion: reduce) {
+  .art-live { transition: none; }
+}
 .preview .p-surface { fill: var(--panel-2); }
 .preview .p-accent { fill: var(--accent); }
 .preview .p-ink { fill: var(--text-strong); }

@@ -3,6 +3,7 @@ import type { SceneDocument } from "@bracketx/engine-scene";
 import type { RecentProject } from "../studio/project";
 import type { LibraryEntry } from "../studio/library";
 import { PACKS, templatesOf, type PackTemplate } from "../studio/packs";
+import { TemplateArt } from "./art";
 
 /**
  * Home.
@@ -33,6 +34,9 @@ export interface HomeProps {
   readonly onHybrid: () => void;
   /** Rendered template stills, by template id. Absent until they arrive. */
   readonly art: ReadonlyMap<string, string>;
+  /** Plays a template into a tile while the pointer is on it. */
+  readonly onPlay: ((templateId: string, into: HTMLCanvasElement) => void) | undefined;
+  readonly onStop: (() => void) | undefined;
   readonly onOpenRecent: (project: RecentProject) => void;
   readonly onOpenLibrary: (entry: LibraryEntry) => void;
   readonly onBrowse: () => void;
@@ -47,6 +51,8 @@ export function Home({
   onBlank,
   onHybrid,
   art,
+  onPlay,
+  onStop,
   onOpenRecent,
   onOpenLibrary,
   onBrowse,
@@ -84,18 +90,18 @@ export function Home({
               onClick={() => onCreate(template)}
               data-testid={`start-${template.id}`}
             >
-              <span className="start-art" aria-hidden>
-                {/* THE REAL GRAPHIC, not a drawing of one. Rendered by the
-                    engine that will put it on air — so a card restyles when a
-                    theme is installed, because the card IS the graphic. The
-                    drawn placeholder holds the space until the pixels land, so
-                    the grid never reflows. */}
-                {art.get(template.id) === undefined ? (
-                  <TemplatePreview id={template.id} />
-                ) : (
-                  <img className="start-frame" src={art.get(template.id)} alt="" />
-                )}
-              </span>
+              {/* THE REAL GRAPHIC, not a drawing of one — and it PLAYS when
+                  you point at it. A still says what a template looks like; it
+                  cannot say what it does, and "slides in from the left" is
+                  most of the choice being made on this screen. */}
+              <TemplateArt
+                className="start-art"
+                templateId={template.id}
+                still={art.get(template.id)}
+                onPlay={onPlay}
+                onStop={onStop}
+                placeholder={<TemplatePreview id={template.id} />}
+              />
               <strong>{template.name}</strong>
               <span className="dim">{template.description}</span>
             </button>

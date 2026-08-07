@@ -21,8 +21,8 @@ test("gallery", async ({ page }) => {
   await page.setViewportSize({ width: W, height: H });
   await page.goto("/");
   await expect(page.getByTestId("rail")).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator(".start-frame")).toHaveCount(8, { timeout: 20_000 });
-  const art = await page.locator(".start-frame").evaluateAll((nodes) =>
+  await expect(page.locator(".start-card .art-still")).toHaveCount(8, { timeout: 20_000 });
+  const art = await page.locator(".start-card .art-still").evaluateAll((nodes) =>
     nodes.map((node) => (node as HTMLImageElement).src),
   );
   expect(new Set(art).size, "every template card must show its own graphic").toBe(art.length);

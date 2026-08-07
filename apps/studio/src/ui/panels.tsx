@@ -1269,20 +1269,32 @@ export function Content({
       {colours.length > 0 ? (
         <div className="fgrp" data-testid="content-colour">
           <div className="lbl">Colour<span className="ln" /></div>
+          {/* THE SWATCHES WERE DEAD.
+              Each one wrote the token's OWN VALUE straight back — a guaranteed
+              no-op, and `setToken` refuses an unchanged value anyway, so
+              clicking a colour did nothing at all. It looked like a picker and
+              it was a decoration.
+
+              A swatch is a colour INPUT now. Changing one rewrites the token,
+              and every layer bound to that token restyles — which is the whole
+              mechanism behind installing a theme, reached directly. The name
+              is on screen rather than in a tooltip, because the point of
+              tokens is that a person picks an identity role and not a hex. */}
           <div className="swatches">
             {colours.map((token) => (
-              <button
-                key={token.name}
-                type="button"
-                className="swatch"
-                title={token.name}
-                aria-label={token.name}
-                style={{ background: String(token.value) }}
-                onClick={() => {
-                  const txn = setToken(document_, { ...token, value: String(token.value) });
-                  if (txn) onEdit(txn);
-                }}
-              />
+              <label className="swatch" key={token.name} title={`${token.name} — ${String(token.value)}`}>
+                <input
+                  type="color"
+                  value={hexOf(token.value)}
+                  aria-label={token.name}
+                  data-testid={`token-${token.name}`}
+                  onChange={(event) => {
+                    const txn = setToken(document_, { ...token, value: event.target.value });
+                    if (txn) onEdit(txn);
+                  }}
+                />
+                <span className="swatch-name">{token.name.replace(/^brand\./, "")}</span>
+              </label>
             ))}
           </div>
         </div>
@@ -1584,4 +1596,21 @@ function hasSolids(document_: SceneDocument): boolean {
     return false;
   };
   return visit(document_.root);
+}
+
+/**
+ * A token's value as something `<input type="color">` will accept.
+ *
+ * The format allows `#rgb`, `#rrggbb` and `#rrggbbaa`; the control accepts
+ * exactly `#rrggbb` and silently shows black for anything else — which is how
+ * a picker ends up claiming every brand colour is black.
+ */
+function hexOf(value: unknown): string {
+  const text = String(value ?? "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(text)) return text;
+  if (/^#[0-9a-f]{8}$/i.test(text)) return text.slice(0, 7);
+  if (/^#[0-9a-f]{3}$/i.test(text)) {
+    return `#${text[1]!}${text[1]!}${text[2]!}${text[2]!}${text[3]!}${text[3]!}`;
+  }
+  return "#000000";
 }

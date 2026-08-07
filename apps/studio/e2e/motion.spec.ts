@@ -108,8 +108,12 @@ test("a selection springs onto the layer", async ({ page }) => {
  */
 test("nothing moves unless somebody did something", async ({ page }) => {
   await boot(page);
-  // Long enough for every entrance to have finished several times over.
-  await page.waitForTimeout(2_500);
+  // The card stills are RENDERED at start-up and fade in as each one lands, so
+  // the page is legitimately still settling for a couple of seconds. Waiting
+  // for the last of them is the difference between "nothing loops" — the claim
+  // — and "nothing was still arriving", which is not a claim about motion.
+  await expect(page.locator(".start-card .art-still")).toHaveCount(8, { timeout: 25_000 });
+  await page.waitForTimeout(1_500);
 
   const forever = await page.evaluate(() =>
     document

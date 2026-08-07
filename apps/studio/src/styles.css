@@ -1034,13 +1034,37 @@ kbd {
 
 /* Colour and Animation on the content surface — Volume One L8.
    The operator picks an outcome; the engine resolves the value. */
-.swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+/* A BRAND COLOUR, NAMED.
+   The point of tokens is that a person picks an identity role — Accent,
+   Surface, Ink — and the engine resolves it everywhere at once. A row of
+   unlabelled squares hides exactly that, so the name is on screen and the
+   square is the control that changes it. */
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; }
 .swatches .swatch {
-  width: 26px; height: 30px; border-radius: 6px; border: 0; padding: 0; cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 1px var(--line);
-  transition: transform 90ms cubic-bezier(.3,.7,.4,1), box-shadow 160ms;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  cursor: pointer; border: 0; padding: 0; background: none;
+  transition: transform 90ms var(--press);
 }
-.swatches .swatch:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 1px var(--accent, #6ea8fe); }
+.swatches .swatch input[type="color"] {
+  width: 34px; height: 30px; padding: 0; border: 0; border-radius: 7px;
+  background: none; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 1px var(--line);
+  transition: box-shadow 160ms var(--press);
+}
+/* Chrome and Safari draw their own inset around a colour input, which turns a
+   34px chip into a 26px chip in a grey frame. */
+.swatches .swatch input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.swatches .swatch input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+.swatches .swatch input[type="color"]::-moz-color-swatch { border: 0; border-radius: 6px; }
+.swatches .swatch:hover { transform: translateY(-1px); }
+.swatches .swatch:hover input[type="color"] {
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 1px var(--accent);
+}
+.swatch-name {
+  font-size: 10.5px; letter-spacing: 0.02em; color: var(--dim);
+  max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.swatches .swatch:hover .swatch-name { color: var(--text-strong); }
 .motion-picks { display: flex; gap: 5px; flex-wrap: wrap; }
 .motion-pick {
   height: 30px; padding: 0 10px; border-radius: 6px; border: 0; cursor: pointer;
