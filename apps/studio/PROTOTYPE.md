@@ -97,7 +97,72 @@ Overlays on the frame itself:
 - top-left: `1920 × 1080 · 50p`
 - bottom-right: the selected object's size
 
-## 7. The dock header
+## 7. The dock body — four groups, in this order
+
+```
+[expert]  Layers
+          Content          Name · Role · Logo
+          Look             Colour · Entrance
+[expert]  Motion · generated   Definition · Frames
+          ─────────────────────────────────────
+          foot hint
+```
+
+**"Motion · generated"** is the Golden Rule made literal: the expert panel
+shows the DEFINITION that the two beginner choices (Colour, Entrance) produced.
+Not a separate motion system — the same one, revealed.
+
+The foot states the bargain in one line, and it differs by level:
+
+- beginner — *"Everything else is decided for you. **⌥E** to see how."*
+- expert — *"Layers, motion and frames. **⌥E** to hide."*
+
+**⌥E toggles expert.** One key, both directions.
+
+Frames, not seconds: `frames: 12`. Motion is measured in frames because
+broadcast is.
+
+## 8. The data, by name
+
+**Templates** — three, each with real sample content, not lorem:
+
+| id | Name | Description | Sample |
+|---|---|---|---|
+| `lower` | Lower third | Name and role over a picture | Amara Okonkwo · Chief Correspondent · Lagos |
+| `strap` | Breaking strap | A headline across the frame | Markets close at record high · Business |
+| `sponsor` | Sponsor bar | A partner mark with a line | Match Day · In partnership with |
+
+**Colours are named by ROLE, never by hex:**
+
+`Brand blue` `Brand gold` `Brand teal` `Brand claret` `Neutral`
+
+**Logos:** `None` `BBS` `MD` `Sport`
+
+**Entrances:** `rise` `wipe` `slide`
+
+**Formats** — the primary, and the four the confidence strip carries:
+
+```js
+PRIMARY = { id:"1080", nm:"1080p50", w:1920 }
+FORMATS = [ 2160p50 (16/9), 720p50 (16/9), 9:16 (1080), 4:3 (1440) ]
+```
+
+The prototype leaves a note beside these worth reproducing verbatim:
+
+> *The primary is checked on exactly the same terms as the secondaries. It was
+> not, briefly, and the result was a clipped name on the main canvas with no
+> warning anywhere — the precise failure the confidence strip exists to stop.*
+
+## 9. Air has THREE states, not two
+
+```js
+S.air = "off"   //  off · cued · live
+```
+
+**off → cued → live.** Studio has on-air and off-air. The prototype cues
+first, which is what the `Cue (␣)` key is for and why it renders `.armed`.
+
+## 10. The dock header
 
 ```
 Content        (spacer)        [on air lock note]   [expert: layer count]
@@ -120,6 +185,16 @@ is on air.
    cadence, layerMask and alpha; `preflight()` already reports overflow per
    node. Both halves exist and have never been joined.
 6. **Canvas overlays** for format and selection size.
+7. **Air is three states** — off, cued, live — with Cue on Space and Take on
+   Enter, and the Cue key rendered armed.
+8. **The dock is four groups in a fixed order**: Layers (expert), Content,
+   Look, Motion · generated (expert), then a foot line that states the bargain
+   and names ⌥E.
+9. **Colours are named by role.** Studio shows swatches; the prototype shows
+   "Brand blue".
+10. **Motion is measured in frames**, and the expert panel shows the generated
+    definition rather than a second motion system.
+11. **⌥E is the one key** that moves between the two levels.
 
 ## What is already right
 
