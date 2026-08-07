@@ -114,7 +114,7 @@ export class PreviewRig {
       // faithful rendering of a graphic that has not arrived yet.
       this.#session.seek(holdPoint(document_));
       this.#session.render();
-      return this.#canvas.toDataURL("image/png");
+      return framed(this.#canvas);
     } catch {
       return null;
     }
@@ -125,6 +125,126 @@ export class PreviewRig {
     this.#disposed = true;
     this.#session.dispose();
   }
+}
+
+/**
+ * The picture, framed on what is actually in it.
+ *
+ * ============================================================================
+ * A FULL FRAME IS MOSTLY EMPTY, AND THAT MADE THE CARDS LOOK EMPTY
+ * ============================================================================
+ * A lower third occupies the lower third. A ticker is a strip along the
+ * bottom. Rendered at full frame into a card, seven tenths of every tile was
+ * black and the graphic was a band too small to read — truthful, and it made
+ * the most important screen in the product look unfinished.
+ *
+ * Cropping to the graphic alone would fix the emptiness and lose the one thing
+ * the emptiness was saying: WHERE in frame the graphic sits. A lower third
+ * cropped to its own edges is just a bar, and a designer choosing between a
+ * lower third and a sponsor bar would have nothing to choose by.
+ *
+ * So it crops to the content and then GIVES BACK a generous margin, keeping
+ * the frame's own shape. The graphic fills the tile, and it is still visibly
+ * sitting at the bottom of a wider picture.
+ *
+ * Read from the alpha channel, because a broadcast graphic is transparent
+ * everywhere it is not: "what is in the picture" is a question the pixels
+ * already answer exactly.
+ */
+function framed(source: HTMLCanvasElement): string {
+  const context = source.getContext("2d") ?? null;
+  // A WebGL canvas has no 2D context, so the pixels are copied into one that
+  // does. This is one small blit per template, once, at start-up.
+  const scratch = globalThis.document.createElement("canvas");
+  scratch.width = source.width;
+  scratch.height = source.height;
+  const scratchContext = scratch.getContext("2d", { willReadFrequently: true });
+  if (scratchContext === null) return source.toDataURL("image/png");
+  scratchContext.drawImage(source, 0, 0);
+  void context;
+
+  const box = contentBounds(scratchContext, scratch.width, scratch.height);
+  if (box === null) return source.toDataURL("image/png");
+
+  const out = globalThis.document.createElement("canvas");
+  out.width = source.width;
+  out.height = source.height;
+  const outContext = out.getContext("2d");
+  if (outContext === null) return source.toDataURL("image/png");
+  outContext.drawImage(
+    scratch,
+    box.x, box.y, box.width, box.height,
+    0, 0, out.width, out.height,
+  );
+  return out.toDataURL("image/png");
+}
+
+/**
+ * The part of the frame the graphic actually occupies, plus air, in the
+ * frame's own aspect.
+ *
+ * The margin is a share of the CONTENT rather than of the frame, so a strap
+ * and a full-screen title card both end up with the same amount of air around
+ * them rather than the strap being lost in a fixed border.
+ */
+function contentBounds(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): { x: number; y: number; width: number; height: number } | null {
+  const { data } = context.getImageData(0, 0, width, height);
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+
+  // Every fourth row and column. A broadcast graphic is a solid shape, not a
+  // scatter of pixels, so a coarse scan finds the same box for a sixteenth of
+  // the reads — and this runs once per template while somebody is waiting.
+  for (let y = 0; y < height; y += 4) {
+    for (let x = 0; x < width; x += 4) {
+      // 10 rather than 0: an antialiased edge and a shadow both leave a haze
+      // of nearly-nothing across half the frame, and cropping to that is
+      // cropping to the whole frame again.
+      if (data[(y * width + x) * 4 + 3]! < 10) continue;
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+    }
+  }
+  if (right < 0 || bottom < 0) return null;
+
+  const margin = Math.max((right - left) * 0.14, (bottom - top) * 0.5, width * 0.03);
+  let x0 = left - margin;
+  let y0 = top - margin;
+  let x1 = right + margin;
+  let y1 = bottom + margin;
+
+  // Back to the frame's aspect, by growing the short side. Growing rather than
+  // cropping, so nothing that was in the box is pushed out of it.
+  const aspect = width / height;
+  let boxWidth = x1 - x0;
+  let boxHeight = y1 - y0;
+  if (boxWidth / boxHeight < aspect) {
+    const wanted = boxHeight * aspect;
+    const grow = (wanted - boxWidth) / 2;
+    x0 -= grow;
+    x1 += grow;
+  } else {
+    const wanted = boxWidth / aspect;
+    const grow = (wanted - boxHeight) / 2;
+    y0 -= grow;
+    y1 += grow;
+  }
+
+  // Slid back inside the frame rather than clamped: clamping changes the
+  // aspect again and the crop stops matching the tile.
+  boxWidth = Math.min(x1 - x0, width);
+  boxHeight = Math.min(y1 - y0, height);
+  x0 = Math.max(0, Math.min(width - boxWidth, x0));
+  y0 = Math.max(0, Math.min(height - boxHeight, y0));
+  return { x: x0, y: y0, width: boxWidth, height: boxHeight };
 }
 
 /**

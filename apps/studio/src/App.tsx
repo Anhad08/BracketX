@@ -2114,9 +2114,15 @@ export function App() {
             ))}
           </div>
 
-          {/* Align, distribute, group. All operate on a selection, and a
-              beginner has no selection because they have no layer tree. */}
-          {shows.construction ? (
+          {/* Align, distribute, group. All operate on a SELECTION — so the row
+              exists when there is one and not before.
+
+              It used to be permanent, which meant the stage carried three
+              stacked bars and a hundred pixels of chrome above the picture,
+              two of them full of greyed-out icons for actions that could not
+              be performed. A row of disabled controls is a row that teaches
+              somebody the product is mostly unavailable. */}
+          {shows.construction && selection.ids.length > 0 ? (
             <ArrangeBar
               session={session}
               selection={selection}
