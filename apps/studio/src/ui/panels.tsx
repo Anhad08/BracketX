@@ -970,15 +970,32 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
                 <tr key={variable.id}>
                   <td className="mono">{variable.key}</td>
                   <td>
-                    <input
-                      className="field"
-                      defaultValue={String(variable.default ?? "")}
-                      key={`${variable.id}:${String(variable.default)}`}
-                      onBlur={(event) =>
-                        onEdit(setVariableDefault(document_, variable.id, event.target.value))
-                      }
-                      aria-label={`Default for ${variable.key}`}
-                    />
+                    {/* A STRUCTURED VALUE IS NOT A STRING, and offering a text
+                        box for one is not merely ugly — it DESTROYS the data.
+                        A standings table is an array of team objects;
+                        `String()` renders it "[object Object],[object Object]"
+                        and the blur handler wrote that back as the new
+                        default, turning five teams into a sentence. Silently,
+                        on a click somebody made by accident.
+
+                        So a list says what it is and refuses to be typed
+                        over. Editing it belongs where the rows are, not in a
+                        one-line field. */}
+                    {isStructured(variable.default) ? (
+                      <span className="field-static" data-testid={`shape-${variable.key}`}>
+                        {describeValue(variable.default)}
+                      </span>
+                    ) : (
+                      <input
+                        className="field"
+                        defaultValue={String(variable.default ?? "")}
+                        key={`${variable.id}:${String(variable.default)}`}
+                        onBlur={(event) =>
+                          onEdit(setVariableDefault(document_, variable.id, event.target.value))
+                        }
+                        aria-label={`Default for ${variable.key}`}
+                      />
+                    )}
                   </td>
                   {/* The runtime value, editable — and visibly a DIFFERENT act.
                       Setting it is a command, not an operation: not undoable,
@@ -988,15 +1005,19 @@ export function Variables({ session, selection, ids, onEdit }: VariablesProps) {
                       work believing they had edited the document. */}
                   <td>
                     <span className={overridden ? "override" : ""}>
-                      <input
-                        className="field"
-                        value={String(runtime ?? "")}
-                        onChange={(event) =>
-                          session.overrideVariable(variable.key, event.target.value)
-                        }
-                        aria-label={`Runtime value for ${variable.key}`}
-                        title="Live. Not undoable and not saved — RFC-002 §4.3"
-                      />
+                      {isStructured(runtime ?? variable.default) ? (
+                        <span className="field-static">{describeValue(runtime)}</span>
+                      ) : (
+                        <input
+                          className="field"
+                          value={String(runtime ?? "")}
+                          onChange={(event) =>
+                            session.overrideVariable(variable.key, event.target.value)
+                          }
+                          aria-label={`Runtime value for ${variable.key}`}
+                          title="Live. Not undoable and not saved — RFC-002 §4.3"
+                        />
+                      )}
                       {overridden ? (
                         <button
                           type="button"
@@ -1627,4 +1648,27 @@ function hexOf(value: unknown): string {
 function roleName(name: string): string {
   const last = name.split(".").at(-1) ?? name;
   return last.charAt(0).toUpperCase() + last.slice(1);
+}
+
+/** A value with a shape — a list, or a record. Not something to type into. */
+function isStructured(value: unknown): boolean {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * What a structured value IS, in a phrase.
+ *
+ * "5 rows" is the useful fact about a standings table; the rows themselves are
+ * edited where they are shown. Anything else here is a text box pretending it
+ * can hold a table.
+ */
+function describeValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `${value.length} ${value.length === 1 ? "row" : "rows"}`;
+  }
+  if (typeof value === "object" && value !== null) {
+    const count = Object.keys(value).length;
+    return `${count} ${count === 1 ? "field" : "fields"}`;
+  }
+  return String(value ?? "");
 }
