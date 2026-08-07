@@ -1366,3 +1366,111 @@ kbd {
   display: inline-flex; align-items: center; height: 26px; padding: 0 2px;
   font-size: 12.5px; color: var(--dim); font-variant-numeric: tabular-nums;
 }
+
+/* ==========================================================================
+   THE TIMELINE
+
+   Read left to right, always. Everything is positioned against one time axis,
+   so the ruler, a keyframe and the playhead cannot disagree about where a
+   moment is — which is the whole reason the old one could not be trusted.
+   ========================================================================== */
+
+.tl-grid {
+  position: relative; flex: 1; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+  --play: 0px; --nudge: 0px;
+  /* Wheel means zoom here, so the page must not scroll underneath it. */
+  overscroll-behavior: contain;
+}
+
+/* ---- The ruler ---------------------------------------------------------- */
+
+.tl-ruler {
+  position: relative; flex: none; height: 24px;
+  margin-left: var(--header);
+  border-bottom: 1px solid var(--line);
+  cursor: ew-resize; user-select: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+}
+.tl-tick {
+  position: absolute; top: 4px; padding-left: 4px;
+  font-size: 10.5px; color: var(--dim);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  border-left: 1px solid var(--line); height: 19px;
+  pointer-events: none; white-space: nowrap;
+}
+
+/* ---- Tracks ------------------------------------------------------------- */
+
+.tl-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.tl-row { display: flex; align-items: stretch; }
+.tl-row:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+
+/* The header names the LAYER first and the property second, because a
+   designer looks for "the name" long before they look for "position x". */
+.tl-head {
+  width: var(--header); flex: none; display: flex; align-items: baseline; gap: 6px;
+  padding: 0 10px; min-width: 0;
+  border-right: 1px solid var(--line);
+}
+.tl-layer {
+  font-size: 12px; color: var(--text-strong);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tl-prop {
+  font-size: 10.5px; color: var(--dim); flex: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62px;
+}
+
+.tl-lane { position: relative; flex: 1; min-width: 0; }
+
+/* The stretch a track occupies. Without it an empty run of time and a track
+   that failed to load look identical. */
+.tl-span {
+  position: absolute; top: 50%; height: 3px; margin-top: -1.5px;
+  border-radius: 2px; background: rgba(255, 255, 255, 0.09);
+  pointer-events: none;
+}
+
+/* ---- Keyframes ---------------------------------------------------------- */
+
+/* A diamond, because that is what a keyframe is in every tool anybody comes
+   here from. Big enough to hit: 11px of diamond is about 8px of target, which
+   is under the threshold at which people start missing. */
+.tl-key {
+  position: absolute; top: 50%; width: 13px; height: 13px;
+  margin: -6.5px 0 0 -6.5px; padding: 0; border: 0; border-radius: 2px;
+  background: var(--dim); transform: rotate(45deg);
+  cursor: grab;
+  transition: background var(--react) var(--press), box-shadow var(--react) var(--press);
+}
+.tl-key:hover { background: var(--text-strong); }
+.tl-key.on {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+/* Moved by ONE style write during a drag, not by a render per pointer move.
+   A fifty-keyframe timeline re-rendering per move cannot hold sixty frames a
+   second, and a timeline that stutters is one you stop trusting. */
+.tl-key.on { translate: var(--nudge) 0; }
+.tl-key:active { cursor: grabbing; }
+
+/* ---- The playhead ------------------------------------------------------- */
+
+.tl-playhead {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  left: calc(var(--header) + var(--play));
+  background: var(--live); pointer-events: none;
+  box-shadow: 0 0 6px rgba(255, 59, 48, 0.5);
+}
+/* The head of it, on the ruler, so the line has something to grab hold of in
+   the eye even where it crosses a bright track. */
+.tl-playhead::before {
+  content: ""; position: absolute; top: 0; left: -4px;
+  border-left: 4.5px solid transparent; border-right: 4.5px solid transparent;
+  border-top: 7px solid var(--live);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-key { transition: none; }
+}

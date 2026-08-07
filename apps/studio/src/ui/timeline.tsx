@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { findNode, type Timeline, type Transaction } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "../studio/session";
+import { TimelineGrid } from "./timeline-grid";
 import type { Selection } from "../studio/selection";
 import { primaryOf } from "../studio/selection";
 import type { IdFactory } from "../studio/ids";
@@ -13,15 +14,12 @@ import {
   pasteKeyframes,
   rateOf,
   removeTimeline,
-  removeTrack,
   renameTimeline,
   scaleTiming,
   setEasing,
   setKeyframe,
-  setKeyframeValue,
   setTimelineDuration,
   setTimelineLoop,
-  setTrackDelay,
   timelineById,
   timelinesOf,
   type KeyframeClipboard,
@@ -117,7 +115,6 @@ export function TimelineEditor({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [picked, setPicked] = useState<readonly KeyframeRef[]>([]);
   const [clipboard, setClipboard] = useState<KeyframeClipboard | null>(null);
-  const drag = useRef<{ startX: number; width: number; span: number } | null>(null);
 
   const active =
     (activeId === null ? undefined : timelineById(document_, activeId)) ?? timelines[0];
@@ -136,11 +133,6 @@ export function TimelineEditor({
     [session, revision, session.frame],
   );
 
-  const isPicked = useCallback(
-    (track: number, index: number) =>
-      picked.some((ref) => ref.track === track && ref.index === index),
-    [picked],
-  );
 
   const editAndKeep = useCallback(
     (candidate: Transaction | null) => {
@@ -413,140 +405,45 @@ export function TimelineEditor({
       </div>
 
       <div className="tracks" data-testid="tracks">
-        {active.tracks.length === 0 ? (
-          <p className="note pad">
-            No tracks. Select a node and key a property — the track is created by
-            the first keyframe, and removed by the last one deleted.
-          </p>
-        ) : null}
+      {active.tracks.length === 0 ? (
+        <p className="note pad">
+          No tracks. Select a node and key a property — the track is created by
+          the first keyframe, and removed by the last one deleted.
+        </p>
+      ) : (
+        /* THE TIMELINE ITSELF.
+           A ruler you can scrub, a playhead you can drag, tracks named by the
+           layer they belong to, and keyframes you move with the pointer or the
+           arrow keys. What stood here was a keyframe table: no ruler, so you
+           could not tell when anything happened; no playhead, so you could not
+           go to a moment and look at it.
 
-        {active.tracks.map((track, trackIndex) => (
-          <div className="track-row" key={`${track.target}:${track.path}`}>
-            <div className="track-label">
-              <span title={track.path}>{propertyLabel(track.path)}</span>
-              <span className="dim mono">
-                {findNode(document_.root, track.target)?.name ?? track.target}
-              </span>
-              <input
-                className="field number tiny"
-                type="number"
-                step={0.05}
-                min={0}
-                key={`${active.id}:${trackIndex}:${track.delay ?? 0}`}
-                defaultValue={track.delay ?? 0}
-                onBlur={(event) =>
-                  onEdit(
-                    setTrackDelay(document_, active.id, trackIndex, Number(event.target.value)),
-                  )
-                }
-                aria-label={`Delay for ${track.path}`}
-                title="Delay, in seconds"
-              />
-              {track.stagger !== undefined ? <span className="badge">stagger</span> : null}
-              <button
-                type="button"
-                className="link danger"
-                onClick={() => editAndKeep(removeTrack(document_, active.id, trackIndex))}
-                aria-label={`Remove ${track.path}`}
-              >
-                ×
-              </button>
-            </div>
-
-            <div
-              className="lane"
-              data-testid="lane"
-              onPointerDown={(event) => {
-                // A click on empty lane scrubs. Seeking, not playing — so it
-                // crosses no markers and fires no cues.
-                const box = event.currentTarget.getBoundingClientRect();
-                session.seek(Math.round(timeAt(event.clientX, box) * rate));
-                setPicked([]);
-              }}
-              onPointerMove={(event) => {
-                const current = drag.current;
-                if (current === null || event.buttons === 0) return;
-                const delta = ((event.clientX - current.startX) / current.width) * current.span;
-                if (Math.abs(delta) < 1 / rate) return;
-                drag.current = { ...current, startX: event.clientX };
-                onEdit(moveKeyframes(document_, active.id, picked, delta));
-              }}
-              onPointerUp={() => {
-                drag.current = null;
-              }}
-            >
-              {track.keyframes.map((keyframe, keyframeIndex) => {
-                const left = ((keyframe.time + (track.delay ?? 0)) / span) * 100;
-                if (left > 100) return null;
-                return (
-                  <button
-                    key={keyframeIndex}
-                    type="button"
-                    className={`keyframe ${isPicked(trackIndex, keyframeIndex) ? "picked" : ""}`}
-                    style={{ left: `${left}%` }}
-                    data-testid="keyframe"
-                    title={`${keyframe.time.toFixed(3)}s · ${String(keyframe.value)}${
-                      keyframe.easing === undefined ? "" : ` · ${String(keyframe.easing)}`
-                    }`}
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                      const ref = { track: trackIndex, index: keyframeIndex };
-                      const next =
-                        event.shiftKey || event.metaKey || event.ctrlKey
-                          ? isPicked(trackIndex, keyframeIndex)
-                            ? picked.filter((p) => !(p.track === ref.track && p.index === ref.index))
-                            : [...picked, ref]
-                          : [ref];
-                      setPicked(next);
-                      const box = event.currentTarget.parentElement!.getBoundingClientRect();
-                      drag.current = { startX: event.clientX, width: box.width, span };
-                      (event.target as Element).setPointerCapture(event.pointerId);
-                    }}
-                    onDoubleClick={() => {
-                      const raw = window.prompt("Value", String(keyframe.value));
-                      if (raw === null) return;
-                      const parsed = Number(raw);
-                      onEdit(
-                        setKeyframeValue(
-                          document_,
-                          active.id,
-                          { track: trackIndex, index: keyframeIndex },
-                          Number.isFinite(parsed) && raw.trim() !== "" ? parsed : raw,
-                        ),
-                      );
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        ))}
-
-        <div className="lane ruler-lane" aria-hidden>
-          {(active.markers ?? []).map((marker) =>
-            marker.time / span > 1 ? null : (
-              <span
-                key={marker.id}
-                className={`marker ${marker.kind}`}
-                style={{ left: `${(marker.time / span) * 100}%` }}
-                title={`${marker.id} · ${marker.kind} @ ${marker.time}s`}
-                data-testid="timeline-marker"
-              />
-            ),
-          )}
-          {/* Always drawn. Hiding it until a clip is cued would leave a
-              designer keying against a playhead they cannot see. */}
-          <div
-            className="playhead"
-            style={{ left: `${Math.min(100, (playSeconds / span) * 100)}%` }}
-            data-testid="playhead"
-          />
-          {ticks(span, rate).map((tick) => (
-            <span key={tick} className="tick" style={{ left: `${(tick / span) * 100}%` }}>
-              {tick.toFixed(1)}
-            </span>
-          ))}
-        </div>
+           The loop everyone who edits motion actually works in is
+           scrub-look-adjust, and all three of those were missing. */
+        <TimelineGrid
+          timeline={active}
+          rate={rate}
+          time={playSeconds}
+          onScrub={(seconds) => session.seek(Math.round(seconds * rate))}
+          labelOf={(index) => {
+            const track = active.tracks[index];
+            return {
+              layer:
+                track === undefined
+                  ? ""
+                  : (findNode(document_.root, track.target)?.name ?? track.target),
+              property: track === undefined ? "" : propertyLabel(track.path),
+            };
+          }}
+          picked={picked}
+          onPick={setPicked}
+          onMove={(refs, delta) => onEdit(moveKeyframes(document_, active.id, refs, delta))}
+          onDelete={() => {
+            onEdit(deleteKeyframes(document_, active.id, picked));
+            setPicked([]);
+          }}
+        />
+      )}
       </div>
 
       <p className="note">
@@ -559,13 +456,6 @@ export function TimelineEditor({
 }
 
 /** Roughly six labelled divisions, on a round number of frames. */
-function ticks(span: number, rate: number): readonly number[] {
-  const rough = span / 6;
-  const step = Math.max(1, Math.round(rough * rate)) / rate;
-  const out: number[] = [];
-  for (let time = 0; time <= span + 1e-9; time += step) out.push(time);
-  return out;
-}
 
 function readPath(node: unknown, path: string): unknown {
   let current: unknown = node;
