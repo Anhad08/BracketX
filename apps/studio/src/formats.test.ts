@@ -182,7 +182,7 @@ function orders(count: number): string[] {
 }
 
 const VERTICAL = SECONDARY_FORMATS.find((f) => f.id === "vertical")!;
-const WIDE: DeliveryFormat = { id: "1080", name: "1080p", width: 1920, height: 1080 };
+const WIDE: DeliveryFormat = { id: "1080", name: "16:9", width: 1920, height: 1080 };
 
 // ---------------------------------------------------------------------------
 
@@ -218,7 +218,7 @@ describe("the primary is in the list, checked on the same terms", () => {
     const document = documentWith([camera(generateKeyBetween(null, null))]);
     const list = formatsFor(document);
     expect(list[0]).toEqual(primaryFormat(document));
-    expect(list[0]!.name).toBe("1080p");
+    expect(list[0]!.name).toBe("16:9");
   });
 
   it("does not list the primary twice when a secondary matches it", () => {
@@ -259,9 +259,10 @@ describe("fits at 16:9, breaks at 9:16", () => {
     const checks = checksFor(document);
 
     const by = (id: string) => checks.find((check) => check.format.id === id)!;
+    // The wide shapes are comfortable. 2160p and 720p used to be checked here
+    // and were pure noise: both are 16:9, so both are the same crop as the
+    // primary and could never disagree with it.
     expect(by("primary").clear).toBe(true);
-    expect(by("2160").clear).toBe(true);
-    expect(by("720").clear).toBe(true);
     expect(by("sd").clear).toBe(true);
 
     const vertical = by("vertical");
@@ -325,7 +326,7 @@ describe("overflow breaks every format, so every tile says so", () => {
     ]);
     const checks = checksFor(document);
 
-    expect(checks).toHaveLength(5);
+    expect(checks).toHaveLength(4);
     for (const check of checks) {
       expect(check.clear, check.format.name).toBe(false);
       expect(

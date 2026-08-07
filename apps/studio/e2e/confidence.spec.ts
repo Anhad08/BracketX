@@ -61,7 +61,7 @@ test("every delivery format is shown at once, with the engine's own pixels", asy
   // The primary is IN the list, not above it. The recorded failure this stops
   // is "a clipped name on the main canvas with no warning anywhere".
   await expect(page.getByTestId("conf-primary")).toBeVisible();
-  for (const id of ["2160", "720", "vertical", "sd"]) {
+  for (const id of ["vertical", "square", "sd"]) {
     await expect(page.getByTestId(`conf-${id}`)).toBeVisible();
   }
 
@@ -94,7 +94,6 @@ test("a graphic that fits in 16:9 and not in 9:16 says so, on the tile that brea
   // to spare. One graphic, two verdicts, and nothing about the document
   // changed between them.
   await expect(page.getByTestId("conf-primary")).toHaveAttribute("data-warn", "no");
-  await expect(page.getByTestId("conf-2160")).toHaveAttribute("data-warn", "no");
   await expect(page.getByTestId("conf-vertical")).toHaveAttribute("data-warn", "yes");
 
   // The lamp says which layer, in the author's words, not a node id.

@@ -155,9 +155,24 @@ export function ConfidenceStrip({
   }, [session, paint, revision]);
 
   const primary = primaryFormat(document_);
+  const unclear = checks.filter((check) => !check.clear).length;
 
   return (
     <aside className="conf-strip" data-testid="conf-strip" aria-label="Delivery formats">
+      {/* IT HAS TO SAY WHAT IT IS.
+          A row of small pictures labelled with ratios, and nothing else, is a
+          row somebody has to ask about — which is exactly what happened. The
+          heading states the job in the words the job is done in, and the
+          verdict beside it means the row can be ignored at a glance when there
+          is nothing to act on. */}
+      <header className="conf-head">
+        <span className="conf-title">Delivers in</span>
+        <span className={`conf-verdict ${unclear === 0 ? "ok" : "warn"}`} data-testid="conf-verdict">
+          {unclear === 0
+            ? "all clear"
+            : `${unclear} ${unclear === 1 ? "shape needs" : "shapes need"} a look`}
+        </span>
+      </header>
       {checks.map((check) => (
         <Tile
           key={check.format.id}

@@ -687,6 +687,20 @@ kbd {
    the row reads the way a contact sheet reads: same frame, several crops,
    compared left to right. It is also where the eye already goes after looking
    at the picture. */
+/* The heading turns a row of unexplained pictures into a statement. It sits at
+   the left, on its own column, so the tiles keep reading as a set. */
+.conf-head {
+  flex: none; display: flex; flex-direction: column; gap: 4px;
+  align-self: center; width: 96px; padding-right: 4px;
+}
+.conf-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--dim);
+}
+.conf-verdict { font-size: 11px; }
+.conf-verdict.ok { color: var(--ok); }
+.conf-verdict.warn { color: var(--warn); }
+
 .conf-strip {
   flex: none; display: flex; flex-direction: row; align-items: flex-start;
   gap: 12px; padding: 12px 14px; overflow-x: auto; overflow-y: hidden;

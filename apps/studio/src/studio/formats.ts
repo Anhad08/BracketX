@@ -82,26 +82,62 @@ export interface DeliveryFormat {
  * These are the prototype's four. They are not configurable yet, and saying so
  * here is more honest than a settings screen that stores a list nothing reads.
  */
+/**
+ * The shapes a graphic is delivered in.
+ *
+ * ============================================================================
+ * SHAPES, NOT RESOLUTIONS
+ * ============================================================================
+ * This list used to be 2160p, 720p, 9:16 and 4:3 — and 2160p, 720p and the
+ * usual 1080p output are ALL 16:9. The check crops by aspect, so those three
+ * rendered the identical picture at different pixel counts: three tiles that
+ * could never, under any circumstances, differ from each other.
+ *
+ * That is the whole reason somebody looking at the row had to ask what it was
+ * for. What it actually catches is a name that fits across a 16:9 strap and
+ * runs off the edge of a vertical cut, and resolution has nothing to do with
+ * that — a 4K frame and an HD frame crop identically.
+ *
+ * So the row is shapes now, named as shapes, and each one is a delivery a
+ * broadcaster actually makes: the feed, the vertical social cut, the square
+ * one, and the archive.
+ */
 export const SECONDARY_FORMATS: readonly DeliveryFormat[] = [
-  { id: "2160", name: "2160p", width: 3840, height: 2160 },
-  { id: "720", name: "720p", width: 1280, height: 720 },
   { id: "vertical", name: "9:16", width: 1080, height: 1920 },
+  { id: "square", name: "1:1", width: 1080, height: 1080 },
   { id: "sd", name: "4:3", width: 1440, height: 1080 },
 ];
 
 /** The document's own output, as a format. Checked on the same terms. */
 export function primaryFormat(document: SceneDocument): DeliveryFormat {
   const { width, height } = document.world.output;
-  return { id: "primary", name: `${height}p`, width, height };
+  // Named by its SHAPE, like the others, because that is what the row
+  // compares. "1080p" beside "9:16" invited exactly the wrong reading — that
+  // the row was about resolutions, one of which happened to be a ratio.
+  return { id: "primary", name: aspectName(width, height), width, height };
+}
+
+/** A ratio in the terms a broadcaster says out loud. */
+function aspectName(width: number, height: number): string {
+  const divisor = greatestCommonDivisor(width, height);
+  return `${width / divisor}:${height / divisor}`;
+}
+
+function greatestCommonDivisor(a: number, b: number): number {
+  return b === 0 ? a : greatestCommonDivisor(b, a % b);
 }
 
 /** The primary first, then the secondaries, with duplicates of it removed. */
 export function formatsFor(document: SceneDocument): readonly DeliveryFormat[] {
   const primary = primaryFormat(document);
+  const primaryAspect = aspectOf(primary);
   return [
     primary,
+    // Compared by ASPECT, not by dimensions. Filtering on width and height let
+    // 2160p through beside a 1080p output — the same shape, the same crop, a
+    // second tile that could never say anything different.
     ...SECONDARY_FORMATS.filter(
-      (format) => format.width !== primary.width || format.height !== primary.height,
+      (format) => Math.abs(aspectOf(format) - primaryAspect) > 0.001,
     ),
   ];
 }

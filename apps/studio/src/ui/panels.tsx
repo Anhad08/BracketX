@@ -1293,7 +1293,7 @@ export function Content({
                     if (txn) onEdit(txn);
                   }}
                 />
-                <span className="swatch-name">{token.name.replace(/^brand\./, "")}</span>
+                <span className="swatch-name">{roleName(token.name)}</span>
               </label>
             ))}
           </div>
@@ -1613,4 +1613,18 @@ function hexOf(value: unknown): string {
     return `#${text[1]!}${text[1]!}${text[2]!}${text[2]!}${text[3]!}${text[3]!}`;
   }
   return "#000000";
+}
+
+/**
+ * A token's name, as a person says it.
+ *
+ * `color.ink` is how the format stores it and is not something a broadcaster
+ * should ever read — it is the same leak the Developer Mode audit exists to
+ * catch, on a surface a beginner sees on their first day. The namespace goes
+ * and the role is capitalised, so the row reads Ink · Muted · Primary ·
+ * Surface: four identity roles rather than four variable names.
+ */
+function roleName(name: string): string {
+  const last = name.split(".").at(-1) ?? name;
+  return last.charAt(0).toUpperCase() + last.slice(1);
 }
