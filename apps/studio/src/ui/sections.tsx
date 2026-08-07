@@ -12,6 +12,7 @@ import {
   type FrameReport,
   type QualityChoice,
 } from "../studio/quality";
+import { RENDERERS, rendererSpec, type RendererChoice } from "../studio/renderer";
 import type { DeviceInput } from "../studio/device";
 import { VOICE_NAMES, VOICES, type VoiceName } from "../studio/sound";
 import { PACKS, installTheme, type Pack, type PackTemplate } from "../studio/packs";
@@ -788,6 +789,10 @@ export interface SettingsProps {
   readonly onResetWorkspace: () => void;
   readonly quality: QualityChoice;
   readonly onQuality: (choice: QualityChoice) => void;
+  /** The renderer this session STARTED on, which may differ from the choice. */
+  readonly renderer: RendererChoice;
+  readonly activeRenderer: RendererChoice;
+  readonly onRenderer: (choice: RendererChoice) => void;
   readonly device: DeviceInput;
   /** What the last few seconds actually measured. Null before any frame. */
   readonly frames: FrameReport | null;
@@ -807,6 +812,9 @@ export function Settings({
   onResetWorkspace,
   quality,
   onQuality,
+  renderer,
+  activeRenderer,
+  onRenderer,
   device,
   frames,
   sound,
@@ -824,6 +832,52 @@ export function Settings({
           <p className="lede">Appearance and behaviour.</p>
         </div>
       </header>
+
+      {/* RENDERER. The founder's decision: a second selectable backend, with
+          three as the default.
+
+          This is the only control in the product that names a rendering
+          library, and it is in Settings rather than anywhere near the Stage
+          for that reason — a designer making a lower third should never have
+          to have an opinion about it.
+
+          The choice takes effect on the next start, and the panel SAYS SO. A
+          backend binds to its canvas for the session's lifetime (MirrorBackend
+          C2), so applying it live would rebuild every GPU resource while a
+          graphic might be on air. A setting that appears to do nothing is
+          worse than one that says when it lands. */}
+      <section className="home-block">
+        <div className="block-head">
+          <h2>Renderer</h2>
+          <span className="dim" data-testid="renderer-active">
+            {renderer === activeRenderer
+              ? `Running on ${rendererSpec(activeRenderer).label}`
+              : `Running on ${rendererSpec(activeRenderer).label} — reload to use ${rendererSpec(renderer).label}`}
+          </span>
+        </div>
+
+        <div className="quality-grid">
+          {RENDERERS.map((spec) => (
+            <button
+              key={spec.id}
+              type="button"
+              className={`quality-card ${renderer === spec.id ? "on" : ""}`}
+              data-testid={`renderer-${spec.id}`}
+              aria-pressed={renderer === spec.id}
+              onClick={() => onRenderer(spec.id)}
+            >
+              <strong>{spec.label}</strong>
+              <span className="dim tiny">{spec.hint}</span>
+            </button>
+          ))}
+        </div>
+
+        {renderer === activeRenderer ? null : (
+          <p className="note" data-testid="renderer-pending">
+            Reload Streamatrix to draw with {rendererSpec(renderer).label}.
+          </p>
+        )}
+      </section>
 
       {/* QUALITY. Named for what it costs, not for what it switches off — a
           user picking a preset is answering "how much machine do I have?",

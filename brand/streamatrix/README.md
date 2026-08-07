@@ -154,9 +154,39 @@ being an S. Judge any change to `FAVICON_HINT` with
 `node tools/brand/favicon-proof.mjs`, which renders the ladder at true size on
 both grounds and magnified 6×. Guessing at this scale does not work.
 
-## Not included
+## The logotype
 
-No wordmark or lockup. The "STREAMATRIX" logotype in the reference is a custom
-geometric face; setting it in a substitute would change the identity more than
-anything in the mark does, and drawing it is a separate piece of work. The mark
-here is built to sit alongside that logotype once it exists.
+Constructed, not set. Every glyph in
+[`streamatrix-wordmark.mjs`](../../tools/brand/streamatrix-wordmark.mjs) is a
+list of polylines on a unit grid, drawn with one stroke weight, flat caps and
+mitred joins — which is what the face is: wide, geometric, evenly weighted, no
+modulation anywhere. Building it from strokes ties the whole logotype to two
+numbers (`weight`, `tracking`) instead of to outlines that would need redrawing
+by hand every time either changed.
+
+Two details carry the brand into the type. The **I of STREAMATRIX is replaced by
+a column of LEDs** sampled from the mark's own colour wheel, and the tagline's
+periods are picked out in the same spectrum. Both pull their colours from
+`ledColour`, so they cannot drift away from the panel.
+
+The miter limit is deliberately low (1.6). At the apex of A, M, V and X a full
+miter shoots a spike well past the cap line; bevelling those flat both stops the
+spike and gives the face its cut-corner look.
+
+**This is a reconstruction.** It matches the reference's character — proportions,
+weight, tracking, cut corners — but it is not the reference's actual typeface, and
+the letterfits are not glyph-for-glyph identical. If the original font turns up,
+swap it in.
+
+## Lockup
+
+[`streamatrix-lockup.mjs`](../../tools/brand/streamatrix-lockup.mjs) stacks mark
+over logotype over tagline. Everything is positioned from the mark's own width
+and the logotype is sized as a *fraction* of it, so the composition survives the
+mark being retuned — which it has been, repeatedly.
+
+| File | Use |
+| --- | --- |
+| `streamatrix-lockup.svg` | Transparent, full bloom. |
+| `streamatrix-lockup-on-black.svg` | Black ground, as the reference. |
+| `streamatrix-lockup-light.svg` | No bloom, for light grounds and print. |

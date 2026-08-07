@@ -23,7 +23,9 @@ import {
   ENGINE_PACKAGES,
   NON_ENGINE_PACKAGES,
   RENDER_BACKEND_MODULE,
-  RENDER_BACKEND_TYPES,
+  RENDER_BACKEND_MODULES,
+  RENDER_BACKEND_TYPES_BY_RENDERER,
+  SHARED_BACKEND_TYPES,
 } from "./engine-layers.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -168,19 +170,47 @@ for (const { dir, pkg } of packages) {
   }
 }
 
-// 3b. Three.js type names do not leak outside the render adapter.
-//     An import check alone would miss a type re-exported through the adapter.
+// 3b. A renderer's type names do not leak outside ITS OWN adapter.
+//     An import check alone would miss a type re-exported through an adapter.
+//
+//     Checked per renderer now that there are two. Each adapter may name only
+//     its own library's types; every other package may name neither. That is
+//     stricter than the old flat list, which could not have caught a three
+//     type inside the Babylon adapter.
 for (const { dir, pkg } of packages) {
-  if (ENGINE_PACKAGES[pkg.name]?.mayImportThree === true) continue;
+  // ANY render adapter, not just the first one. `mayImportThree` names the
+  // three adapter specifically; the layer is what makes a package an adapter.
+  const isAdapter = ENGINE_PACKAGES[pkg.name]?.layer === "render-adapter";
+
+  for (const [renderer, typeNames] of Object.entries(RENDER_BACKEND_TYPES_BY_RENDERER)) {
+    // The sole permitted importer of THIS renderer may use its vocabulary.
+    if (RENDER_BACKEND_MODULES[renderer] === pkg.name) continue;
+
+    for (const file of sourceFiles(dir)) {
+      const source = readFileSync(file, "utf8");
+      for (const typeName of typeNames) {
+        // Word-boundary match, so "Object3DHelper" in a comment is not a hit
+        // while an actual type reference is.
+        if (!new RegExp(String.raw`\b${typeName}\b`).test(source)) continue;
+        violations.push(
+          `${file.replace(repoRoot + "\\", "").replace(repoRoot + "/", "")} ` +
+            `references the ${renderer} type "${typeName}" outside that ` +
+            `renderer's adapter. The backend must stay replaceable ` +
+            `(Phase 2.5n).`,
+        );
+      }
+    }
+  }
+
+  // Names both libraries share are banned outside every adapter.
+  if (isAdapter) continue;
   for (const file of sourceFiles(dir)) {
     const source = readFileSync(file, "utf8");
-    for (const typeName of RENDER_BACKEND_TYPES) {
-      // Word-boundary match, so "Object3DHelper" in a comment is not a hit
-      // while an actual type reference is.
+    for (const typeName of SHARED_BACKEND_TYPES) {
       if (!new RegExp(String.raw`\b${typeName}\b`).test(source)) continue;
       violations.push(
         `${file.replace(repoRoot + "\\", "").replace(repoRoot + "/", "")} ` +
-          `references the Three.js type "${typeName}" outside the render ` +
+          `references the renderer type "${typeName}" outside a render ` +
           `adapter. The backend must stay replaceable (Phase 2.5n).`,
       );
     }

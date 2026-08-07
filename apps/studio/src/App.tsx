@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createCanvasBackend } from "@bracketx/engine-render-three";
+import { createBackend } from "./studio/renderer";
 import type { ImageProvider, TextProvider } from "@bracketx/engine-reconciler";
 import { findNode, type SceneDocument, type SceneNode, type Transaction } from "@bracketx/engine-scene";
 
@@ -58,6 +58,7 @@ import {
   docksAt,
 } from "./studio/workspace";
 import { matchBinding, shortcutFor, type StudioCommand } from "./studio/commands";
+import type { RendererChoice } from "./studio/renderer";
 import { ProgramBus } from "./studio/program";
 import { PRESETS, applyPreset } from "./studio/presets";
 import { align, distribute, group, reorder, ungroup } from "./studio/arrange";
@@ -179,6 +180,14 @@ export function App() {
   // backend binds to it for the session's lifetime (MirrorBackend contract C2),
   // so a canvas that mounted with a component would tear down the mirror every
   // time the panel layout changed.
+  /**
+   * The renderer this session was STARTED on.
+   *
+   * Read once, at boot, and never again. A backend binds to its canvas for the
+   * session's lifetime, so reading the live preference here would let a
+   * settings change tear down a mirror mid-show.
+   */
+  const rendererRef = useRef<RendererChoice>(loadWorkspace().renderer);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   if (canvasRef.current === null && typeof document !== "undefined") {
     canvasRef.current = document.createElement("canvas");
@@ -528,7 +537,11 @@ export function App() {
       // something everyone has to remember.
       const settings = settingsFor(qualityRef.current.choice, qualityRef.current.device);
       const preview = new StudioSession(
-        createCanvasBackend(canvas, previewOptions(settings, window.devicePixelRatio || 1)),
+        createBackend(
+          rendererRef.current,
+          canvas,
+          previewOptions(settings, window.devicePixelRatio || 1),
+        ),
         created,
         {
           ...(text === undefined ? {} : { text }),
@@ -539,7 +552,7 @@ export function App() {
       // Preview's: sharing one would be the exact leak the whole split exists
       // to prevent, and it would be invisible until the first edit.
       const program = new StudioSession(
-        createCanvasBackend(programCanvas, programOptions(settings)),
+        createBackend(rendererRef.current, programCanvas, programOptions(settings)),
         newDocument("Program", ids, new Date().toISOString()),
         {
           ...(text === undefined ? {} : { text }),
@@ -1723,6 +1736,9 @@ export function App() {
             onDeveloperMode={(developerMode) => update({ developerMode })}
             quality={workspace.quality}
             onQuality={(quality) => update({ quality })}
+            renderer={workspace.renderer}
+            activeRenderer={rendererRef.current}
+            onRenderer={(renderer) => update({ renderer })}
             device={device}
             frames={frames}
             sound={workspace.sound}

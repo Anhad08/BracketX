@@ -54,9 +54,9 @@ function h2(i, j, salt = 0) {
 /* ── geometry ───────────────────────────────────────────────────────────── */
 
 export const G = {
-  reach: 430, // how far the bar terminals run past the descenders
-  side: 380, // x of the two descenders
-  bar: 470, // y of the two bars
+  reach: 480, // how far the bar terminals run past the descenders
+  side: 400, // x of the two descenders
+  bar: 480, // y of the two bars
   // Inner-corner radii. Outer corners are already round — distance to a polyline
   // rounds them for free — but the inner ones arrive sharp, and sharp inner
   // corners are most of what makes a jointed letterform read as hard. They cost
@@ -67,20 +67,20 @@ export const G = {
   // the top-left shoulder and takes the swell off the bottom-right corner. Those
   // are the same corner rotated 180°, so one number governs both — which is what
   // keeps the letter from listing to one side.
-  filletBar: 30, // bar ↔ descender: the shoulders
-  filletMid: 46, // descender ↔ diagonal
-  mid: 128, // y at which the middle diagonal leaves the descender. This is the
+  filletBar: 16, // bar ↔ descender: the shoulders
+  filletMid: 24, // descender ↔ diagonal
+  mid: 150, // y at which the middle diagonal leaves the descender. This is the
   //           single most important number in the letter: it sets how steeply
   //           the diagonal falls, and a shallow diagonal reads as a third
   //           horizontal bar — which is precisely what turns an S into an E.
   //           It also has to leave the descender longer than the two round
   //           joins that eat it from both ends, or the flanks go bulbous.
-  Wbar: 92, // half stroke width through the bars. Close to Wmid on purpose: too
+  Wbar: 100, // half stroke width through the bars. Close to Wmid on purpose: too
   //            far apart and the letter reads as a heavy diagonal with two thin
   //            rails attached rather than as one stroke.
-  Wmid: 152, // half stroke width through the diagonal — thick enough for the play
+  Wmid: 130, // half stroke width through the diagonal — thick enough for the play
   //            button, which is the only reason the modulation exists
-  bow: 18, // sagitta of the two bars. Roughly 2% of the bar's own length: enough
+  bow: 0.001, // sagitta of the two bars. Roughly 2% of the bar's own length: enough
   //          that the S flows, far too little to read as a curve on its own.
   bowLift: 0.78, // how much of the bow sits above the old bar line rather than
   //                below it. The bar's low end is the ceiling of the counter, so
@@ -268,7 +268,7 @@ const S_HEIGHT = S_BOX.h;
 /* ── the play button, carved from the diagonal ──────────────────────────── */
 
 export const PLAY = {
-  height: 0.214, // of the S's overall height — bounded by the diagonal it sits in
+  height: 0.26, // of the S's overall height — bounded by the diagonal it sits in
   ratio: 0.866, // equilateral — the only triangle that never looks arbitrary
   corner: 0.115, // corner radius, as a fraction of the triangle height. An
   //                equilateral triangle's inradius is only 0.289 of its height,
@@ -276,6 +276,10 @@ export const PLAY = {
   //                past about a tenth the triangle rounds off into a blob.
   nudgeX: 0.02, // optical centring: a right-pointing triangle reads left-heavy
   nudgeY: 0,
+  riseN: 0.28, // how far up the diagonal's normal the triangle sits, in Wmid.
+  //              Push it too far and the lower edge leaves the stroke, the void
+  //              opens into the counter below, and the S falls in half — watch
+  //              the contour loop count, which must stay at 2.
 };
 
 /** Unit normal of the middle diagonal — the direction the play button must clear. */
@@ -297,11 +301,17 @@ function playTriangle() {
   const gx = (raw[0].x + raw[1].x + raw[2].x) / 3;
   let tri = raw.map((p) => ({ x: p.x - gx + PLAY.nudgeX * w, y: p.y + PLAY.nudgeY * h }));
 
-  // Centre it across the diagonal rather than on the spine. The triangle is
+  // Centre it across the diagonal rather than on the spine — the triangle is
   // taller than wide and the band is tilted, so its support along the band's
-  // normal is lopsided; split the difference and both corners clear.
+  // normal is lopsided — then push it up the normal by `riseN`.
+  //
+  // That rise is what makes the void read like the reference. The play button
+  // there is larger than the stroke is thick, so it cannot be carved out of the
+  // diagonal alone: it has to break upward and merge with the counter above,
+  // and the two together read as one big triangle. Only its lower edge stays
+  // inside the stroke, which is what keeps the S in one piece.
   const proj = tri.map((p) => p.x * MID_N.x + p.y * MID_N.y);
-  const off = -(Math.max(...proj) + Math.min(...proj)) / 2;
+  const off = -(Math.max(...proj) + Math.min(...proj)) / 2 + PLAY.riseN * G.Wmid;
   return tri.map((p) => ({ x: p.x + off * MID_N.x, y: p.y + off * MID_N.y }));
 }
 
@@ -664,23 +674,25 @@ function ledColour(X, Y) {
 export const M = {
   pitch: 33, // LED pitch. The lattice is anchored at the mark's centre, so the
   //           matrix is point-symmetric exactly as the S is.
-  rMax: 0.345, // of pitch — an LED wall reads by its gaps as much as its dots
-  rMin: 0.075, // of pitch — the last ring of the halftone
-  fillIn: 1.0, // depth (in pitches) at which dots reach full size. Wide enough
-  //              that the panel grades large → medium → small on the way out
-  //              instead of switching between two sizes at the edge.
-  fillOut: 0.48, // distance outside the edge at which they die. Still tight: the
-  //                panel is meant to look driven, not airbrushed, and a soft
-  //                falloff erodes a dot of mass off every boundary — including
-  //                all three sides of the play button.
-  dither: 0.18, // how much the outermost ring breaks up
+  rMax: 0.375, // of pitch — an LED wall reads by its gaps as much as its dots
+  rMin: 0.3, // of pitch. Close to rMax on purpose: the reference panel is a
+  //            uniform grid of equal LEDs, not a halftone that grades away at
+  //            the edges. Every lit site is the same lamp.
+  fillIn: 0.3, // depth (in pitches) at which dots reach full size
+  fillOut: 0.24, // distance outside the edge at which they die. Tight, so the
+  //                panel edge is a clean step rather than a fade.
+  dither: 0, // no speckle — the reference panel has none
   trail: {
     lambda: 3.0, // decay length, in pitches
     cols: 10, // how far the stream carries
     packet: 1.5, // spatial frequency of the data "packets"
     survive: 2.9, // how readily a site stays lit against the gap noise
     spread: 1.9, // per-row variation in streak length
-    rowGate: 0.4, // fraction of rows that shed nothing at all. Without this every
+    style: "streak", // "streak" for the reference's drawn light trails, "particle"
+    //                  for shed pixels
+    minLen: 2.2, // shortest streak, in pitches
+    thickness: 0.62, // streak height, as a fraction of an LED's diameter
+    rowGate: 0.62, // fraction of rows that shed nothing at all. Without this every
     //               row trails and the result is one soft smear off the side of
     //               the letter rather than a handful of distinct streams.
     scatter: 0.55, // how far a shed particle drifts off-lattice, in pitches.
@@ -728,6 +740,26 @@ function buildDots({ pitch = M.pitch, trails = true, mono = false, grade = null 
   }
 
   if (!trails) return dots;
+  if (M.trail.style === "streak") {
+    // The reference trails are drawn light, not shed pixels: a few thin lines
+    // running off the panel's left edge and fading out. Only a minority of rows
+    // carry one, or the letter grows a smear instead of a few streaks.
+    for (const [j, iAttach] of rows) {
+      if (h2(j, 0, 13) < M.trail.rowGate) continue;
+      const Y = j * pitch;
+      const len = pitch * (M.trail.minLen + M.trail.spread * h2(j, 0, 7));
+      const x1 = iAttach * pitch + rMax;
+      dots.push({
+        streak: true,
+        x0: x1 - len,
+        x1,
+        y: Y,
+        h: rMax * 2 * M.trail.thickness,
+        fill: mono ? null : ledColour(x1 - len * 0.35, Y),
+      });
+    }
+    return dots;
+  }
 
   const lambdaBase = M.trail.lambda * pitch;
   for (const [j, iAttach] of rows) {
@@ -770,17 +802,46 @@ function bbox(dots, pad = 0) {
   let x1 = -Infinity;
   let y1 = -Infinity;
   for (const d of dots) {
-    x0 = Math.min(x0, d.x - d.r);
-    y0 = Math.min(y0, d.y - d.r);
-    x1 = Math.max(x1, d.x + d.r);
-    y1 = Math.max(y1, d.y + d.r);
+    const [a, b, c, e] = d.streak
+      ? [d.x0, d.y - d.h / 2, d.x1, d.y + d.h / 2]
+      : [d.x - d.r, d.y - d.r, d.x + d.r, d.y + d.r];
+    x0 = Math.min(x0, a);
+    y0 = Math.min(y0, b);
+    x1 = Math.max(x1, c);
+    y1 = Math.max(y1, e);
   }
   return { x: x0 - pad, y: y0 - pad, w: x1 - x0 + pad * 2, h: y1 - y0 + pad * 2 };
 }
 
+/**
+ * Streaks need a per-streak gradient — they fade to nothing at the tail and each
+ * one sits at a different point on the colour wheel, so they cannot share one.
+ */
+function streakDefs(dots, indent = "      ") {
+  return dots
+    .filter((d) => d.streak)
+    .map(
+      (d, i) =>
+        `${indent}<linearGradient id="sx-tr${i}" x1="0" y1="0" x2="1" y2="0">` +
+        `<stop offset="0" stop-color="${d.fill ?? "#fff"}" stop-opacity="0"/>` +
+        `<stop offset="1" stop-color="${d.fill ?? "#fff"}" stop-opacity=".85"/></linearGradient>`,
+    )
+    .join("\n");
+}
+
 function circles(dots, indent = "    ") {
+  let streak = 0;
   return dots
     .map((d) => {
+      if (d.streak) {
+        const id = `sx-tr${streak++}`;
+        const fill = d.fill ? `url(#${id})` : "currentColor";
+        return (
+          `${indent}<rect x="${round(d.x0, 1)}" y="${round(d.y - d.h / 2, 1)}" ` +
+          `width="${round(d.x1 - d.x0, 1)}" height="${round(d.h, 1)}" ` +
+          `rx="${round(d.h / 2, 2)}" fill="${fill}"${d.fill ? "" : ' opacity=".55"'}/>`
+        );
+      }
       const o = d.o !== undefined && d.o < 0.995 ? ` opacity="${round(d.o, 2)}"` : "";
       const f = d.fill ? ` fill="${d.fill}"` : "";
       return `${indent}<circle cx="${round(d.x, 1)}" cy="${round(d.y, 1)}" r="${round(d.r, 2)}"${f}${o}/>`;
@@ -818,6 +879,7 @@ ${glow ? GLOW_FILTERS + "\n" : ""}    <!-- The analytic silhouette. Not drawn by
          matrix samples — keep them in step if you edit either. -->
     <path id="sx-silhouette" d="${silhouettePath()}"/>
     <path id="sx-play" d="${playPath()}"/>
+${streakDefs(dots)}
     <g id="sx-leds">
 ${circles(dots, "      ")}
     </g>
@@ -881,6 +943,7 @@ ${GLOW_FILTERS}
       <stop offset=".5" stop-color="#8b5cf6" stop-opacity=".35"/>
       <stop offset="1" stop-color="#22d3ee" stop-opacity=".55"/>
     </linearGradient>
+${streakDefs(dots)}
     <g id="sx-leds">
 ${circles(dots, "      ")}
     </g>
@@ -1014,6 +1077,7 @@ function main() {
 if (process.argv[1] && process.argv[1].endsWith("streamatrix-mark.mjs")) main();
 
 export {
+  ledColour,
   buildDots,
   markSvg,
   monoSvg,

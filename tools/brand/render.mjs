@@ -16,6 +16,8 @@ const PNG = join(DIR, "png");
 
 /** Targets: [svg, output, width, background]. */
 const TARGETS = [
+  ["streamatrix-lockup-on-black.svg", "streamatrix-lockup-2048.png", 2048, null],
+  ["streamatrix-lockup.svg", "streamatrix-lockup-transparent-1536.png", 1536, null],
   ["streamatrix-mark.svg", "streamatrix-mark-2048.png", 2048, null],
   ["streamatrix-mark.svg", "streamatrix-mark-1024.png", 1024, null],
   ["streamatrix-mark.svg", "streamatrix-mark-on-dark-2048.png", 2048, "#05060a"],

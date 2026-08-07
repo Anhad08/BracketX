@@ -96,6 +96,26 @@ export {
 } from "./mesh-primitives";
 
 export {
+  estimateGeometryBytes,
+  estimateMaterialBytes,
+  estimateTextureBytes,
+  geometryKey,
+  materialKey,
+  textureKey,
+} from "./resource-keys";
+
+export {
+  GpuResourceManager,
+  ResourceViolation,
+  hashBytes,
+  hashString,
+  type ClassStats,
+  type ResourceBudget,
+  type ResourceClass,
+  type ResourceStats,
+} from "./gpu-resources";
+
+export {
   boxAnchorOf,
   boxCentreOffset,
   extrudedQuadDescriptor,

@@ -93,6 +93,9 @@ importers:
       '@bracketx/engine-reconciler':
         specifier: workspace:*
         version: link:../../packages/engine-reconciler
+      '@bracketx/engine-render-babylon':
+        specifier: workspace:*
+        version: link:../../packages/engine-render-babylon
       '@bracketx/engine-render-three':
         specifier: workspace:*
         version: link:../../packages/engine-render-three
@@ -400,6 +403,28 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.15.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)
 
+  packages/engine-render-babylon:
+    dependencies:
+      '@babylonjs/core':
+        specifier: ^7.54.3
+        version: 7.54.3
+      '@bracketx/engine-reconciler':
+        specifier: workspace:*
+        version: link:../engine-reconciler
+      '@bracketx/engine-scene':
+        specifier: workspace:*
+        version: link:../engine-scene
+    devDependencies:
+      '@bracketx/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@22.15.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)
+
   packages/engine-render-three:
     dependencies:
       '@bracketx/engine-reconciler':
@@ -482,6 +507,9 @@ importers:
       bidi-js:
         specifier: ^1.0.3
         version: 1.0.3
+      graphemer:
+        specifier: ^1.4.0
+        version: 1.4.0
       harfbuzzjs:
         specifier: ^1.5.0
         version: 1.5.0
@@ -695,6 +723,9 @@ packages:
   '@babel/types@7.29.8':
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
+
+  '@babylonjs/core@7.54.3':
+    resolution: {integrity: sha512-P5ncXVd8GEUJLhwloP9V0oVwQYIrvZztguVeLlvd5Rx+9aQnenKjpV8auJ6SRsUlAmNZU4pFTKzwF6o2EUfhAw==}
 
   '@better-auth/core@1.6.25':
     resolution: {integrity: sha512-lMTlhtwyK4NpY9kPF+2rQCRKYpg136d3gM2xl8esxT1PjJx5Nh5YwZvxcYCIjDuO759sx6TCloJTuwcZGG6ZBw==}
@@ -2995,6 +3026,9 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
+  graphemer@1.4.0:
+    resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
+
   harfbuzzjs@1.5.0:
     resolution: {integrity: sha512-IYrYhWlY6BqSJlzhYbc2sxuFaJQXGpl74+1060SBDnYLt1gyyyUWM9LUbn8c/IWedmFW7Jgi9l+uI5cj0GN+qA==}
 
@@ -4129,6 +4163,8 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
+
+  '@babylonjs/core@7.54.3': {}
 
   '@better-auth/core@1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.5)(kysely@0.29.4)(nanostores@1.4.2)':
     dependencies:
@@ -6140,6 +6176,8 @@ snapshots:
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
+
+  graphemer@1.4.0: {}
 
   harfbuzzjs@1.5.0: {}
 

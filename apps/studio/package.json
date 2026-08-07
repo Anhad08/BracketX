@@ -16,6 +16,7 @@
   "dependencies": {
     "@bracketx/engine-host": "workspace:*",
     "@bracketx/engine-reconciler": "workspace:*",
+    "@bracketx/engine-render-babylon": "workspace:*",
     "@bracketx/engine-render-three": "workspace:*",
     "@bracketx/engine-scene": "workspace:*",
     "@bracketx/engine-runtime": "workspace:*",

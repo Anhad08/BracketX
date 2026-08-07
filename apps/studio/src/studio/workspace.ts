@@ -13,6 +13,7 @@
 
 import { SECTIONS, type Section } from "./shell";
 import type { QualityChoice } from "./quality";
+import type { RendererChoice } from "./renderer";
 
 /**
  * Bumped to v2 in Phase 4: the shape gained a section, a mode and installed
@@ -155,6 +156,15 @@ export interface Workspace {
    */
   readonly quality: QualityChoice;
   /**
+   * Which renderer draws the scene.
+   *
+   * Remembered like any other layout choice and applied on the next start —
+   * a backend binds to its canvas for the session's lifetime (MirrorBackend
+   * C2), so swapping under a running session would rebuild every GPU resource
+   * while a graphic might be on air.
+   */
+  readonly renderer: RendererChoice;
+  /**
    * Interface sound.
    *
    * Off by default and REMEMBERED PER OPERATOR — Volume One §4. A gallery has
@@ -229,6 +239,7 @@ export interface Workspace {
 export const DEFAULT_WORKSPACE: Workspace = {
   theme: "dark",
   quality: "auto",
+  renderer: "three",
   sound: false,
   section: "home",
   developerMode: false,
@@ -289,6 +300,9 @@ function sanitize(value: unknown): Workspace {
 
   return {
     theme: raw.theme === "light" ? "light" : "dark",
+    // An unknown renderer falls back to the default rather than throwing: a
+    // corrupt preference must never leave the editor unable to draw.
+    renderer: raw.renderer === "babylon" ? "babylon" : "three",
     quality:
       raw.quality === "low" || raw.quality === "mid" || raw.quality === "high"
         ? raw.quality

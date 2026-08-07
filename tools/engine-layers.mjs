@@ -160,20 +160,54 @@ export const RENDER_BACKEND_MODULE = "three";
  * naming `three`, which would make the backend un-swappable while passing a
  * pure import check. Phase 2.5n.
  */
-export const RENDER_BACKEND_TYPES = [
-  // Babylon's, which must not escape its adapter either. Listed first
-  // because they are the ones nobody has muscle memory for yet.
-  "AbstractMesh",
-  "TransformNode",
-  "ShaderMaterial",
-  "PBRMaterial",
-  // Three's.
-  "WebGLRenderer",
-  "Object3D",
-  "Matrix4",
+/**
+ * PER RENDERER, because two libraries share type names.
+ *
+ * `Vector3` and `TransformNode` are Babylon's names AND, in the first case,
+ * three's. A single flat list made the Babylon adapter fail for using its own
+ * library's vocabulary — the rule was correct and its expression was not.
+ *
+ * Scoped this way the rule is stricter than before, not weaker: each adapter
+ * may name only ITS OWN library's types, and every other package may name
+ * neither. A three type appearing in the Babylon adapter is now a violation
+ * that the flat list could never have caught.
+ */
+export const RENDER_BACKEND_TYPES_BY_RENDERER = {
+  three: [
+    "WebGLRenderer",
+    "Object3D",
+    "Matrix4",
+    "Quaternion",
+    "BufferGeometry",
+    "PerspectiveCamera",
+    "OrthographicCamera",
+  ],
+  "@babylonjs/core": [
+    "AbstractMesh",
+    "TransformNode",
+    "PBRMaterial",
+    "NullEngine",
+    "VertexData",
+  ],
+};
+
+/**
+ * Names that belong to more than one renderer.
+ *
+ * Banned everywhere EXCEPT inside a render adapter — any adapter. Scoping
+ * these to one library would have made the checker wrong for the other, and
+ * dropping them would have let `Vector3` leak into the editor unnoticed.
+ */
+export const SHARED_BACKEND_TYPES = [
+  // Both libraries define these. Discovered by the checker itself the first
+  // time it ran per-renderer, which is the checker doing its job.
   "Vector3",
-  "Quaternion",
-  "BufferGeometry",
-  "PerspectiveCamera",
-  "OrthographicCamera",
+  "ShaderMaterial",
+];
+
+/** Retained for callers that predate the second adapter. */
+export const RENDER_BACKEND_TYPES = [
+  ...RENDER_BACKEND_TYPES_BY_RENDERER.three,
+  ...RENDER_BACKEND_TYPES_BY_RENDERER["@babylonjs/core"],
+  ...SHARED_BACKEND_TYPES,
 ];
