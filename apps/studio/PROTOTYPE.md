@@ -339,8 +339,25 @@ them.
    sat half a box-width from the words. `boxAnchorOf` now states the
    convention where it is established.
 6. ~~**Canvas overlays** for format and selection size.~~ **Done** — `08bf236`.
-7. **Air is three states** — off, cued, live — with Cue on Space and Take on
-   Enter, and the Cue key rendered armed.
+7. ~~**Air is three states** — off, cued, live — with Cue on Space and Take on
+   Enter, and the Cue key rendered armed.~~ **Done (states)** — `f74ec1f`.
+   `off · cued · live` on the bus, the spine, the rail tally, Production and
+   the Program row, with the Cue key rendered `.armed`. Cued also reports when
+   the graphic was edited after it was armed.
+
+   **Two divergences, both recorded in the code:**
+
+   - **Cue is `C`, not Space.** The prototype's handler cues on Space while
+     its own transport labels Play "SPC" — the specimen contradicts itself,
+     the way Volume One §4 does about `offair`. Space stays play/pause;
+     Studio has a timeline somebody scrubs all day.
+   - **Take is still one-directional.** The prototype takes again to go off
+     air. Streamatrix has an explicit, named OFF AIR control and an `offair`
+     voice, and one key that both starts and kills a transmission is a
+     gallery hazard a three-field prototype does not have to think about.
+
+   Still outstanding from this item: **Enter takes, even from a focused
+   field** (change 13) — it belongs with the transport row, change 4.
 8. **The dock is four groups in a fixed order**: Layers (expert), Content,
    Look, Motion · generated (expert), then a foot line that states the bargain
    and names ⌥E.
