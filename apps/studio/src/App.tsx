@@ -43,6 +43,7 @@ import {
   fileNameFor,
   loadRecents,
   newDocument,
+  newHybridDocument,
   parseDocument,
   rememberProject,
   serializeDocument,
@@ -1629,6 +1630,16 @@ export function App() {
             onBlank={() => {
               openJson(serializeDocument(newDocument("Untitled", ids, new Date().toISOString())));
               update({ section: "design" });
+            }}
+            onHybrid={() => {
+              openJson(
+                serializeDocument(newHybridDocument("Untitled scene", ids, new Date().toISOString())),
+              );
+              // Expert, because a set has parts. The layer tree, the toolbox
+              // and the transform gizmo are the whole of the work here, and a
+              // beginner level that hid them would open a 3D scene with no way
+              // to put anything in it.
+              update({ section: "design", depth: "expert" });
             }}
             onOpenRecent={(project) => {
               openJson(project.json);

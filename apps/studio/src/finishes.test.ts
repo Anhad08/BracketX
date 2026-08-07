@@ -36,18 +36,23 @@ import {
   DEFAULT_DEPTH,
   DEFAULT_FINISH,
   FINISHES,
+  applyFinish,
   applyFinishEverywhere,
+  applyFinishTo,
+  canFinish,
   disableDepthEverywhere,
   enableDepth,
   enableDepthEverywhere,
   finishOf,
+  finishOfAll,
   graphicFinish,
   graphicHasDepth,
   hasDepth,
   rectNodeIds,
   setDepth,
 } from "./studio/finishes";
-import { hasLight, setProps } from "./studio/editing";
+import { createNode, hasLight, setProps } from "./studio/editing";
+import { newDocument } from "./studio/project";
 
 const TIME = "2026-01-01T00:00:00.000Z";
 
@@ -393,5 +398,117 @@ describe("emissive is unlit, and that is the mechanism", () => {
     expect(props.metallic).toBe(chrome.metallic);
     expect(props.roughness).toBe(chrome.roughness);
     expect(finishOf(lit, "node_plate")?.id).toBe("chrome");
+  });
+});
+
+/**
+ * The same finishes, on a 3D object.
+ *
+ * ============================================================================
+ * ONE VOCABULARY, TWO COMPONENT SHAPES
+ * ============================================================================
+ * A rect keeps its material values on its props; a meshRenderer keeps them
+ * under `material`. If that difference became two finish systems, "Chrome"
+ * would mean one thing on a plate and something else on a plinth — and a set
+ * dressed from both would never quite match.
+ *
+ * These assert that it did not.
+ */
+describe("finishes on a 3D object", () => {
+  const withBox = () => {
+    const factory = testIdFactory();
+    const document = newDocument("Set", factory);
+    const created = createNode(document, "box", document.root.id, factory);
+    return {
+      document: applyTransaction(document, created.transaction),
+      nodeId: created.nodeId,
+    };
+  };
+
+  it("puts a finish on a mesh, under the material where the engine reads it", () => {
+    const { document, nodeId } = withBox();
+    const chrome = FINISHES.find((finish) => finish.id === "chrome")!;
+    const next = applyTransaction(document, applyFinish(document, nodeId, chrome)!);
+
+    const node = findNode(next.root, nodeId)!;
+    const mesh = (node.components ?? []).find((c) => c.type === "meshRenderer")!;
+    const material = (mesh.props as { material: Record<string, unknown> }).material;
+    expect(material.metallic).toBe(chrome.metallic);
+    expect(material.roughness).toBe(chrome.roughness);
+  });
+
+  it("reads back the finish it wrote", () => {
+    const { document, nodeId } = withBox();
+    for (const finish of FINISHES) {
+      const next = applyTransaction(document, applyFinish(document, nodeId, finish)!);
+      expect(finishOf(next, nodeId)?.id, finish.label).toBe(finish.id);
+    }
+  });
+
+  /**
+   * Emissive is identified by ABSENCE, and that has to survive the extra level
+   * of nesting a mesh's material sits at. A zero written here rather than an
+   * undefined would produce a black lit surface — the exact opposite of "glows
+   * on its own".
+   */
+  it("keeps Emissive unlit on a mesh, by writing nothing rather than zero", () => {
+    const { document, nodeId } = withBox();
+    const emissive = FINISHES.find((finish) => finish.selfLit === true)!;
+    const next = applyTransaction(document, applyFinish(document, nodeId, emissive)!);
+
+    const node = findNode(next.root, nodeId)!;
+    const mesh = (node.components ?? []).find((c) => c.type === "meshRenderer")!;
+    const material = (mesh.props as { material: Record<string, unknown> }).material;
+    expect(material.metallic).toBeUndefined();
+    expect(material.roughness).toBeUndefined();
+  });
+
+  it("dresses a whole selection in one undo step", () => {
+    const factory = testIdFactory();
+    let document = newDocument("Set", factory);
+    const created: string[] = [];
+    for (const kind of ["box", "sphere", "rect"] as const) {
+      const result = createNode(document, kind, document.root.id, factory);
+      document = applyTransaction(document, result.transaction);
+      created.push(result.nodeId);
+    }
+
+    const matte = FINISHES.find((finish) => finish.id === "matte")!;
+    const applied = applyFinishTo(document, created, matte)!;
+    const next = applyTransaction(document, applied);
+
+    // One transaction, three objects, and a rect among them — the point being
+    // that a set is dressed from one vocabulary whatever it is made of.
+    expect(finishOfAll(next, created)?.id).toBe("matte");
+    expect(canFinish(next, created)).toBe(true);
+  });
+
+  it("reports no shared finish when the selection disagrees", () => {
+    const factory = testIdFactory();
+    let document = newDocument("Set", factory);
+    const created: string[] = [];
+    for (const kind of ["box", "sphere"] as const) {
+      const result = createNode(document, kind, document.root.id, factory);
+      document = applyTransaction(document, result.transaction);
+      created.push(result.nodeId);
+    }
+    document = applyTransaction(
+      document,
+      applyFinish(document, created[0]!, FINISHES.find((f) => f.id === "chrome")!)!,
+    );
+    document = applyTransaction(
+      document,
+      applyFinish(document, created[1]!, FINISHES.find((f) => f.id === "matte")!)!,
+    );
+    expect(finishOfAll(document, created)).toBeNull();
+  });
+
+  it("offers nothing to finish on a light or a camera", () => {
+    const factory = testIdFactory();
+    const document = newDocument("Set", factory);
+    const light = createNode(document, "light", document.root.id, factory);
+    const next = applyTransaction(document, light.transaction);
+    expect(canFinish(next, [light.nodeId])).toBe(false);
+    expect(applyFinishTo(next, [light.nodeId], FINISHES[0]!)).toBeNull();
   });
 });

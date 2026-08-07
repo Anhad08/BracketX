@@ -357,3 +357,123 @@ describe("the first 3D workflow, end to end", () => {
     babylon.dispose();
   });
 });
+
+/**
+ * The environment. ADR-013 amendment 3.
+ *
+ * ============================================================================
+ * WHY THE DEFAULTS ARE ASSERTED FIRST
+ * ============================================================================
+ * A new backend method that changes the picture of every scene that never asks
+ * for it is a regression dressed as a feature. Exposure of 1 must be a multiply
+ * by one and shadows off must build nothing at all — so the neutral case is
+ * asserted before either switch is touched.
+ */
+describe("the environment — ADR-013 amendment 3", () => {
+  it("starts neutral, so a document that never mentions it renders as before", () => {
+    const babylon = backend();
+    expect(babylon.snapshot().environment).toEqual({
+      exposure: 1,
+      shadows: false,
+      reflections: 0,
+    });
+    babylon.dispose();
+  });
+
+  it("gives a metal a room to reflect, so Chrome is not a black box", () => {
+    const babylon = backend();
+    babylon.setEnvironment({ exposure: 1, shadows: false, reflections: 1 });
+    expect(babylon.snapshot().environment.reflections).toBe(1);
+    // Refusing them is a real state and must not leave a texture behind.
+    babylon.setEnvironment({ exposure: 1, shadows: false, reflections: 0 });
+    expect(babylon.snapshot().environment.reflections).toBe(0);
+    babylon.dispose();
+  });
+
+  it("carries exposure through to the image the scene produces", () => {
+    const babylon = backend();
+    babylon.setEnvironment({ exposure: 1.6, shadows: false, reflections: 1 });
+    expect(babylon.snapshot().environment.exposure).toBe(1.6);
+    babylon.dispose();
+  });
+
+  it("lights a set with shadows and takes them away again without leaking", () => {
+    const babylon = backend();
+
+    const geometry = babylon.createGeometry(boxDescriptor(1, 1, 1));
+    const material = babylon.createMaterial({
+      kind: "pbr",
+      baseColor: [0.5, 0.5, 0.5, 1],
+      metallic: 0,
+      roughness: 0.8,
+      transparent: false,
+      doubleSided: false,
+    } as MaterialDescriptor);
+    if (!geometry.ok || !material.ok) throw new Error("resources");
+
+    const cube = babylon.createNode();
+    babylon.attachMesh(cube, geometry.value, material.value);
+    const light = babylon.createLight({
+      kind: "directional",
+      color: [1, 1, 1, 1],
+      intensity: 1,
+    } as never);
+    babylon.attachLight(babylon.createNode(), light);
+
+    babylon.setEnvironment({ exposure: 1, shadows: true, reflections: 1 });
+    expect(babylon.snapshot().environment.shadows).toBe(true);
+
+    // A mesh attached AFTER shadows were switched on still casts one. This is
+    // the case a naive implementation misses, and it shows up as one object in
+    // the set floating while everything else sits on the floor.
+    const second = babylon.createNode();
+    babylon.attachMesh(second, geometry.value, material.value);
+
+    // Off again, and back on, with no accumulation. Pressing a switch four
+    // times must leave the state the fourth press asked for.
+    babylon.setEnvironment({ exposure: 1, shadows: false, reflections: 1 });
+    babylon.setEnvironment({ exposure: 1, shadows: true, reflections: 1 });
+    babylon.setEnvironment({ exposure: 1, shadows: false, reflections: 1 });
+    expect(babylon.snapshot().environment.shadows).toBe(false);
+
+    expect(() =>
+      babylon.render(
+        babylon.createCamera({
+          kind: "perspective",
+          focalLengthMm: 35,
+          sensorWidthMm: 36,
+          near: 0.1,
+          far: 100,
+        } as never),
+        {
+          target: null,
+          viewport: { width: 320, height: 180 },
+          clearColor: [0, 0, 0, 0],
+          layerMask: 0xffffffff,
+        },
+      ),
+    ).not.toThrow();
+
+    babylon.dispose();
+  });
+
+  /**
+   * A light disposed while it owned a shadow generator.
+   *
+   * The generator holds a render target. Left behind, it is a texture nobody
+   * will ever draw into again and nothing will ever free — the exact shape of
+   * leak clause C8 exists to forbid.
+   */
+  it("frees a light's shadow generator with the light", () => {
+    const babylon = backend();
+    const light = babylon.createLight({
+      kind: "directional",
+      color: [1, 1, 1, 1],
+      intensity: 1,
+    } as never);
+    babylon.setEnvironment({ exposure: 1, shadows: true, reflections: 1 });
+    expect(() => babylon.destroyLight(light)).not.toThrow();
+    expect(() => babylon.setEnvironment({ exposure: 1, shadows: true, reflections: 1 })).not.toThrow();
+    babylon.dispose();
+  });
+});

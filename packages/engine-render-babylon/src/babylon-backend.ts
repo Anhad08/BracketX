@@ -56,6 +56,13 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { SpotLight } from "@babylonjs/core/Lights/spotLight";
+import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+// SIDE EFFECT, and a required one. Babylon's shadow rendering is registered on
+// the scene by this module, not by `ShadowGenerator` itself — without it the
+// constructor throws, in a test and in a browser alike. This package imports
+// every Babylon symbol by path to stay tree-shakeable, which is exactly why
+// the omission is possible at all.
+import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
@@ -64,6 +71,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { PBRMetallicRoughnessMaterial } from "@babylonjs/core/Materials/PBR/pbrMetallicRoughnessMaterial";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture";
+import { RawCubeTexture } from "@babylonjs/core/Materials/Textures/rawCubeTexture";
 import { Scene } from "@babylonjs/core/scene";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import type { Light } from "@babylonjs/core/Lights/light";
@@ -72,6 +80,8 @@ import type { BaseTexture } from "@babylonjs/core/Materials/Textures/baseTexture
 
 import {
   GpuResourceManager,
+  NEUTRAL_ENVIRONMENT,
+  studioEnvironmentFaces,
   estimateGeometryBytes,
   estimateMaterialBytes,
   estimateTextureBytes,
@@ -85,6 +95,7 @@ import {
   type GeometryDescriptor,
   type GeometryHandle,
   type InspectableMirrorBackend,
+  type EnvironmentDescriptor,
   type LightDescriptor,
   type LightHandle,
   type Mat4,
@@ -160,6 +171,11 @@ export class BabylonMirrorBackend implements InspectableMirrorBackend {
   readonly #materials = new Map<MaterialHandle, Material>();
   readonly #textures = new Map<TextureHandle, BaseTexture>();
   readonly #lights = new Map<LightHandle, Light>();
+  /** ADR-013 amendment 3. One generator per light that can cast. */
+  readonly #shadows = new Map<Light, ShadowGenerator>();
+  #environment: EnvironmentDescriptor = NEUTRAL_ENVIRONMENT;
+  #studio: RawCubeTexture | null = null;
+  readonly #headless: boolean;
   readonly #cameras = new Map<CameraHandle, FreeCamera>();
 
   #frame = 0;
@@ -168,6 +184,11 @@ export class BabylonMirrorBackend implements InspectableMirrorBackend {
   constructor(options: BabylonBackendOptions = {}) {
     this.#ownsEngine = options.engine === undefined;
     this.#engine = options.engine ?? new NullEngine();
+    // A raw cube texture is uploaded through the GL context, and `NullEngine`
+    // has none — it throws rather than no-opping. Checked explicitly rather
+    // than caught, because "the environment failed to build" and "there is no
+    // GPU here at all" are different facts and only one of them is a bug.
+    this.#headless = (options.engine ?? null) === null || this.#engine instanceof NullEngine;
     this.#scene = new Scene(this.#engine);
     // Fully transparent. Broadcast output composites over live video, and an
     // opaque default is a black rectangle on air.
@@ -329,6 +350,7 @@ export class BabylonMirrorBackend implements InspectableMirrorBackend {
     mesh.freezeWorldMatrix();
 
     record.mesh = mesh;
+    this.#enrolShadowCaster(mesh);
     record.geometry = geometry;
     record.material = material;
     this.#resources.geometry.retain(geometry as number);
@@ -576,6 +598,10 @@ export class BabylonMirrorBackend implements InspectableMirrorBackend {
     }
     this.#lights.set(id, light);
     this.#applyLight(light, descriptor);
+    // A light created while shadows are on casts one immediately. Without
+    // this, the key light added by "Enable 3D" would be the one light in the
+    // scene that lit without casting.
+    if (this.#environment.shadows) this.#rebuildShadows();
     return id;
   }
 
@@ -587,8 +613,90 @@ export class BabylonMirrorBackend implements InspectableMirrorBackend {
   destroyLight(light: LightHandle): void {
     const found = this.#lights.get(light);
     if (found === undefined) return;
+    const generator = this.#shadows.get(found);
+    if (generator !== undefined) {
+      // Disposed with its light. A generator outliving the light it belongs to
+      // holds a render target nobody will ever draw into again.
+      generator.dispose();
+      this.#shadows.delete(found);
+    }
     found.dispose();
     this.#lights.delete(light);
+  }
+
+  // -- Environment. ADR-013 amendment 3. ------------------------------------
+
+  /**
+   * Exposure and shadows.
+   *
+   * ========================================================================
+   * WHY SHADOW GENERATORS ARE REBUILT RATHER THAN TOGGLED
+   * ========================================================================
+   * Babylon has no scene-wide shadow switch. A shadow is a `ShadowGenerator`
+   * owned by ONE light, holding a render target and a list of casters — so
+   * "shadows on" means building one per capable light and telling it about
+   * every mesh, and "shadows off" means disposing them.
+   *
+   * Rebuilding on every change rather than diffing is deliberate: this is
+   * called when a designer presses a switch, not per frame, and a diff over
+   * caster lists is exactly the sort of bookkeeping that ends with a mesh that
+   * casts a shadow after it has been deleted.
+   */
+  setEnvironment(descriptor: EnvironmentDescriptor): void {
+    this.#environment = descriptor;
+
+    // Exposure is applied by the image-processing block every PBR material
+    // already runs through. At 1 it is a multiply by one, so a scene that
+    // never mentions exposure renders exactly as it did before this existed.
+    const processing = this.#scene.imageProcessingConfiguration;
+    processing.isEnabled = true;
+    processing.exposure = descriptor.exposure;
+
+    // The room a metal reflects. Built once and kept — 32px a face, and
+    // rebuilding it per change would be work for a picture that cannot differ.
+    if (descriptor.reflections > 0 && this.#studio === null && !this.#headless) {
+      this.#studio = studioEnvironment(this.#scene);
+    }
+    this.#scene.environmentTexture = descriptor.reflections > 0 ? this.#studio : null;
+    this.#scene.environmentIntensity = descriptor.reflections;
+
+    this.#rebuildShadows();
+  }
+
+  #rebuildShadows(): void {
+    for (const generator of this.#shadows.values()) generator.dispose();
+    this.#shadows.clear();
+    if (!this.#environment.shadows) {
+      for (const record of this.#nodes.values()) {
+        if (record.mesh !== null) record.mesh.receiveShadows = false;
+      }
+      return;
+    }
+
+    for (const light of this.#lights.values()) {
+      // Ambient has no direction to project from; a point light needs a cube
+      // map, which is six renders a frame for a fill nobody is looking at.
+      if (!(light instanceof DirectionalLight) && !(light instanceof SpotLight)) continue;
+      const generator = new ShadowGenerator(1024, light);
+      // Soft. A hard 1024 map reads as a jagged stencil, which on a broadcast
+      // set looks like a rendering fault rather than a shadow.
+      generator.useBlurExponentialShadowMap = true;
+      generator.blurKernel = 32;
+      this.#shadows.set(light, generator);
+    }
+
+    for (const record of this.#nodes.values()) {
+      if (record.mesh === null) continue;
+      record.mesh.receiveShadows = true;
+      for (const generator of this.#shadows.values()) generator.addShadowCaster(record.mesh);
+    }
+  }
+
+  /** A mesh that arrives after shadows were turned on still casts one. */
+  #enrolShadowCaster(mesh: Mesh): void {
+    if (!this.#environment.shadows) return;
+    mesh.receiveShadows = true;
+    for (const generator of this.#shadows.values()) generator.addShadowCaster(mesh);
   }
 
   #applyLight(light: Light, descriptor: LightDescriptor): void {
@@ -766,6 +874,7 @@ export class BabylonMirrorBackend implements InspectableMirrorBackend {
         cameras: this.#cameras.size,
         renderTargets: 0,
       },
+      environment: this.#environment,
     };
   }
 
@@ -784,3 +893,34 @@ export class BabylonMirrorBackend implements InspectableMirrorBackend {
 // here; naming them once keeps the numeric literals out of the logic.
 const Camera_PERSPECTIVE = 0;
 const Camera_ORTHOGRAPHIC = 1;
+
+/**
+ * The studio environment, as a Babylon cube texture.
+ *
+ * The PIXELS come from the reconciler, so both renderers reflect the same room.
+ * A chrome plinth that looked different in each would mean the finish did not
+ * mean one thing, which is the whole argument for generating geometry there
+ * too.
+ *
+ * `RawCubeTexture` rather than a prefiltered `.env`: an .env file is an ASSET,
+ * and an asset means a loader, a fetch and a decode before the first metal can
+ * draw. Roughness blurring comes from ordinary mip levels here, which is
+ * coarser than a proper prefilter and is entirely adequate for a soft gradient.
+ */
+function studioEnvironment(scene: Scene): RawCubeTexture {
+  const { size, faces } = studioEnvironmentFaces(32);
+  const texture = new RawCubeTexture(
+    scene,
+    faces.map((face) => face) as never,
+    size,
+    5, // TEXTUREFORMAT_RGBA
+    0, // TEXTURETYPE_UNSIGNED_BYTE
+    true, // generate mip maps — roughness selects a level
+    false,
+    3, // TRILINEAR_SAMPLINGMODE
+  );
+  // Babylon expects an environment in linear space; these bytes are authored
+  // as display values, so it has to be told rather than left to assume.
+  texture.gammaSpace = true;
+  return texture;
+}

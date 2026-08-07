@@ -17,13 +17,23 @@
  * Three's own matrix maintenance is disabled on every object. The engine
  * computes world matrices; Three is told them. See translate.disableAutoMatrix.
  */
-import { Mesh, Object3D, Scene, type Camera, type Light, type Material } from "three";
+import {
+  Mesh,
+  Object3D,
+  Scene,
+  type Camera,
+  type Light,
+  type Material,
+  type Texture,
+} from "three";
 
+import { NEUTRAL_ENVIRONMENT } from "@bracketx/engine-reconciler";
 import type {
   BackendCapabilities,
   BackendResult,
   CameraDescriptor,
   CameraHandle,
+  EnvironmentDescriptor,
   LightDescriptor,
   LightHandle,
   GeometryDescriptor,
@@ -140,6 +150,8 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
    */
   #lights = new Map<number, { object: Light; target: Object3D | null }>();
   #nextLightHandle = 1;
+  /** ADR-013 amendment 3. Remembered so late arrivals inherit it. */
+  #environment: EnvironmentDescriptor = NEUTRAL_ENVIRONMENT;
   #nextCameraHandle = 1;
 
   #width: number;
@@ -365,6 +377,7 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
     // drop back to the default and stop being drawn by a camera masked to
     // anything else — a node that renders until something re-attaches it.
     mesh.layers.mask = record.object.layers.mask;
+    applyShadowReceiving(mesh, this.#environment.shadows);
     record.object.add(mesh);
     record.mesh = mesh;
 
@@ -419,10 +432,45 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
     entry.target.matrixWorldNeedsUpdate = false;
   }
 
+  /**
+   * The environment. ADR-013 amendment 3.
+   *
+   * Two halves, and both are needed. The renderer-wide half — exposure and
+   * whether shadow maps are rendered at all — goes through the host, which is
+   * the only thing that can see a `WebGLRenderer`. The per-object half —
+   * which lights cast and which surfaces receive — has to be written onto
+   * every object that exists AND remembered, because a mesh attached after
+   * shadows were turned on would otherwise be the one object in the set that
+   * floats.
+   */
+  setEnvironment(descriptor: EnvironmentDescriptor): void {
+    this.#assertUsable();
+    this.#environment = descriptor;
+    this.#host.setEnvironment({
+      exposure: descriptor.exposure,
+      shadows: descriptor.shadows,
+    });
+    // The room a metal reflects. The host owns it, because building it needs a
+    // DOM and a render pass — see `environmentTexture`. A host with no GPU
+    // answers null, and a scene with nothing to reflect is what it draws.
+    this.#scene.environment =
+      descriptor.reflections > 0
+        ? ((this.#host.environmentTexture() as Texture | null) ?? null)
+        : null;
+    (this.#scene as { environmentIntensity?: number }).environmentIntensity =
+      descriptor.reflections;
+
+    for (const entry of this.#lights.values()) applyShadowCasting(entry.object, descriptor.shadows);
+    for (const record of this.#nodes.values()) {
+      if (record.mesh !== null) applyShadowReceiving(record.mesh, descriptor.shadows);
+    }
+  }
+
   createLight(descriptor: LightDescriptor): LightHandle {
     this.#assertUsable();
     const handle = this.#nextLightHandle++;
     const created = createLight(descriptor);
+    applyShadowCasting(created.object, this.#environment.shadows);
     if (created.target !== null) {
       // The target must be in the scene graph for Three to read its world
       // matrix. Parenting it to the light keeps its lifetime tied to one.
@@ -798,6 +846,7 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
         cameras: this.#cameras.size,
         renderTargets: stats.renderTarget.live,
       },
+      environment: this.#environment,
     };
   }
 
@@ -926,3 +975,59 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
 }
 
 export { ResourceViolation };
+
+/**
+ * Whether a light casts, and how well.
+ *
+ * Ambient and point lights are left alone. Ambient has no direction to project
+ * from, and a point light needs a cube shadow map — six renders per light per
+ * frame, which is not a cost a broadcast graphic should pay by default for a
+ * fill light nobody is looking at.
+ *
+ * The directional light's shadow camera is widened to twenty units. Three's
+ * default is ten across, which is a metre or two of a broadcast set: with the
+ * default, a plinth casts a shadow and the floor it stands on is outside the
+ * frustum, so the shadow simply stops in mid-air.
+ */
+function applyShadowCasting(light: Light, shadows: boolean): void {
+  const castable = light as Light & {
+    isDirectionalLight?: boolean;
+    isSpotLight?: boolean;
+    shadow?: {
+      mapSize: { width: number; height: number };
+      camera: { left?: number; right?: number; top?: number; bottom?: number; far?: number; updateProjectionMatrix?: () => void };
+      bias: number;
+      normalBias: number;
+    };
+  };
+  const supported = castable.isDirectionalLight === true || castable.isSpotLight === true;
+  light.castShadow = shadows && supported;
+  if (!light.castShadow || castable.shadow === undefined) return;
+
+  castable.shadow.mapSize.width = 1024;
+  castable.shadow.mapSize.height = 1024;
+  // Acne on a large flat floor is the classic shadow-map artefact and it looks
+  // like dirt on the set. A normal bias rather than a depth bias, because a
+  // depth bias large enough to clear it detaches the shadow from its object.
+  castable.shadow.normalBias = 0.02;
+  if (castable.isDirectionalLight === true) {
+    castable.shadow.camera.left = -10;
+    castable.shadow.camera.right = 10;
+    castable.shadow.camera.top = 10;
+    castable.shadow.camera.bottom = -10;
+    castable.shadow.camera.far = 60;
+    castable.shadow.camera.updateProjectionMatrix?.();
+  }
+}
+
+/**
+ * A mesh both casts and receives, or neither.
+ *
+ * Not separable, deliberately. Splitting them is the first thing a 3D tool
+ * offers and the first thing that produces a floor with no shadow on it — and
+ * the descriptor has one switch precisely so that state is unreachable.
+ */
+function applyShadowReceiving(mesh: Mesh, shadows: boolean): void {
+  mesh.castShadow = shadows;
+  mesh.receiveShadow = shadows;
+}

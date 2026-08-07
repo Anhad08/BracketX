@@ -13,10 +13,12 @@
  * out of VRAM, unsupported format — and the reconciler must not corrupt the
  * mirror when it does.
  */
+import { NEUTRAL_ENVIRONMENT } from "./mirror-backend";
 import type {
   BackendCapabilities,
   BackendResult,
   CameraDescriptor,
+  EnvironmentDescriptor,
   LightDescriptor,
   LightHandle,
   CameraHandle,
@@ -388,6 +390,8 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
     this.#counters.materialsDestroyed += 1;
   }
 
+  #environment: EnvironmentDescriptor = NEUTRAL_ENVIRONMENT;
+
   createLight(descriptor: LightDescriptor): LightHandle {
     this.#assertUsable();
     const handle = this.#nextHandle++;
@@ -416,6 +420,12 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
   /** The descriptor a light currently holds. Verification only. */
   lightDescriptor(light: LightHandle): LightDescriptor | undefined {
     return this.#lights.get(light);
+  }
+
+  setEnvironment(descriptor: EnvironmentDescriptor): void {
+    this.#assertUsable();
+    this.#environment = descriptor;
+    this.#counters.writes += 1;
   }
 
   createCamera(descriptor: CameraDescriptor): CameraHandle {
@@ -512,6 +522,7 @@ export class MockMirrorBackend implements InspectableMirrorBackend {
         cameras: this.#cameras.size,
         renderTargets: this.#renderTargets.size,
       },
+      environment: this.#environment,
     };
   }
 

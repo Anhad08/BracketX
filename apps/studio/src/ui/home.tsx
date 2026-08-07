@@ -30,6 +30,7 @@ export interface HomeProps {
   readonly installedPacks: ReadonlySet<string>;
   readonly onCreate: (template: PackTemplate) => void;
   readonly onBlank: () => void;
+  readonly onHybrid: () => void;
   readonly onOpenRecent: (project: RecentProject) => void;
   readonly onOpenLibrary: (entry: LibraryEntry) => void;
   readonly onBrowse: () => void;
@@ -42,6 +43,7 @@ export function Home({
   installedPacks,
   onCreate,
   onBlank,
+  onHybrid,
   onOpenRecent,
   onOpenLibrary,
   onBrowse,
@@ -86,6 +88,24 @@ export function Home({
               <span className="dim">{template.description}</span>
             </button>
           ))}
+
+          {/* A SET, not a frame. The flat start gives an orthographic camera
+              and an empty plane, which is right for a lower third and wrong
+              for anything standing in a room — and the seven steps between
+              the two are seven things a broadcaster should not have to know.
+              Named for what it makes rather than for the dimension count. */}
+          <button
+            type="button"
+            className="start-card blank"
+            onClick={onHybrid}
+            data-testid="start-hybrid"
+          >
+            <span className="start-art blank-art" aria-hidden>
+              ◱
+            </span>
+            <strong>3D scene</strong>
+            <span className="dim">A lit set with a floor and a camera in it.</span>
+          </button>
 
           <button
             type="button"

@@ -797,3 +797,100 @@ describe("backend neutrality", () => {
     expect(JSON.stringify(document)).toBe(before);
   });
 });
+
+/**
+ * The environment. ADR-013 amendment 3.
+ *
+ * ============================================================================
+ * THE COST OF GETTING THIS WRONG IS A BACKEND WRITE PER FRAME
+ * ============================================================================
+ * An environment is one value for the whole document, so the temptation is to
+ * push it on every flush and be done. That would be a backend write every
+ * projection for a value nobody touched — which is precisely the cost the
+ * dirty tracking exists to avoid, and it would have made every `backendWrites`
+ * assertion in this file one too high.
+ *
+ * So the interesting assertions here are the ones about NOT calling it.
+ */
+describe("the environment reaches the backend, once", () => {
+  const environmentDoc = (
+    environment: Record<string, unknown> | undefined,
+  ): SceneDocument => {
+    const base = makeTree();
+    return environment === undefined
+      ? base
+      : { ...base, world: { ...base.world, environment } as never };
+  };
+
+  /**
+   * Reflections are ON for a document that says nothing, and that is the one
+   * default here that is not "changes nothing".
+   *
+   * A metallic surface with no environment renders BLACK — so zero is not a
+   * neutral starting point, it is a broken one, and "Chrome" would be a control
+   * that lies. Exposure and shadows keep their neutral defaults.
+   */
+  it("gives a silent document a room to reflect, and nothing else", () => {
+    const backend = new MockMirrorBackend();
+    const reconciler = new Reconciler(backend);
+    reconciler.build(environmentDoc(undefined));
+    expect(backend.snapshot().environment).toEqual({
+      exposure: 1,
+      shadows: false,
+      reflections: 1,
+    });
+  });
+
+  it("carries exposure and shadows through to the backend", () => {
+    const backend = new MockMirrorBackend();
+    const reconciler = new Reconciler(backend);
+    reconciler.build(environmentDoc({ exposure: 1.75, shadows: true }));
+    expect(backend.snapshot().environment).toEqual({
+      exposure: 1.75,
+      shadows: true,
+      reflections: 1,
+    });
+  });
+
+  it("does not write it again when nothing about it changed", () => {
+    const backend = new MockMirrorBackend();
+    const reconciler = new Reconciler(backend);
+    const document = environmentDoc({ exposure: 1.75, shadows: true });
+    reconciler.build(document);
+
+    backend.resetWriteCount();
+    const report = reconciler.project(
+      {
+        id: "txn_noop",
+        label: "rename",
+        actorId: "test",
+        operations: [
+          { type: "doc.setMeta", path: "meta.name", value: "Renamed", previousValue: "Test" },
+        ],
+      },
+      { ...document, meta: { ...document.meta, name: "Renamed" } },
+    );
+    expect(report.backendWrites).toBe(0);
+  });
+
+  /**
+   * A malformed exposure must render the picture UNCHANGED, not black.
+   *
+   * This is a hand-editable JSON format and a scene arriving over the wire is
+   * not necessarily one this build wrote. Zero, negative and "bright" are all
+   * things a document can genuinely contain.
+   */
+  it("lets a document refuse reflections deliberately", () => {
+    const backend = new MockMirrorBackend();
+    new Reconciler(backend).build(environmentDoc({ reflections: 0 }));
+    expect(backend.snapshot().environment.reflections).toBe(0);
+  });
+
+  it("refuses an exposure that would black the picture out", () => {
+    for (const exposure of [0, -1, Number.NaN, "bright" as unknown as number]) {
+      const backend = new MockMirrorBackend();
+      new Reconciler(backend).build(environmentDoc({ exposure }));
+      expect(backend.snapshot().environment.exposure).toBe(1);
+    }
+  });
+});

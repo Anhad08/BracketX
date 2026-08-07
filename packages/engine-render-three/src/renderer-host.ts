@@ -19,6 +19,8 @@
  * THIS INTERFACE IS INTERNAL. It is not exported from the package. Nothing
  * above the render adapter may know a renderer host exists.
  */
+import { CubeTexture, LinearToneMapping, PCFSoftShadowMap, PMREMGenerator } from "three";
+import { studioEnvironmentFaces } from "@bracketx/engine-reconciler";
 import type { Camera, Object3D, WebGLRenderer } from "three";
 
 export interface HostCapabilities {
@@ -39,6 +41,11 @@ export interface HostRenderOptions {
   readonly target: object | null;
 }
 
+export interface HostEnvironment {
+  readonly exposure: number;
+  readonly shadows: boolean;
+}
+
 export interface HostSubmission {
   readonly frame: number;
   readonly drawCalls: number;
@@ -52,6 +59,27 @@ export interface RendererHost {
 
   render(scene: Object3D, camera: Camera, options: HostRenderOptions): void;
   setSize(width: number, height: number): void;
+
+  /**
+   * Exposure and shadow mapping. ADR-013 amendment 3.
+   *
+   * On the seam rather than in the backend because both live on the
+   * `WebGLRenderer` — the one object the backend deliberately cannot see. The
+   * headless host records them instead, which is what makes the amendment
+   * testable without a GPU.
+   */
+  setEnvironment(environment: HostEnvironment): void;
+
+  /**
+   * The studio environment a metal reflects, or null where there is no GPU.
+   *
+   * Behind the seam because building it needs both a DOM (six canvases) and the
+   * renderer itself (prefiltering by roughness is a render pass) — the two
+   * things this interface exists to keep out of the backend. A host with no
+   * context answers null, and a scene with nothing to reflect is exactly what
+   * a headless host draws.
+   */
+  environmentTexture(): unknown | null;
 
   /** Counters since the last reset. Three tracks these on `renderer.info`. */
   submission(): HostSubmission;
@@ -143,6 +171,17 @@ export class HeadlessRendererHost implements RendererHost {
     this.#height = height;
   }
 
+  /** What the backend last asked for. Asserted by the conformance suite. */
+  environment: HostEnvironment = { exposure: 1, shadows: false };
+
+  setEnvironment(environment: HostEnvironment): void {
+    this.environment = environment;
+  }
+
+  environmentTexture(): unknown | null {
+    return null;
+  }
+
   submission(): HostSubmission {
     return {
       frame: this.#frame,
@@ -197,6 +236,7 @@ export class WebGLRendererHost implements RendererHost {
   #lostHandlers: (() => void)[] = [];
   #restoredHandlers: (() => void)[] = [];
   #capabilities: HostCapabilities;
+  #studio: unknown | null = null;
 
   constructor(renderer: WebGLRenderer, canvas: HTMLCanvasElement) {
     this.#renderer = renderer;
@@ -251,6 +291,69 @@ export class WebGLRendererHost implements RendererHost {
 
   setSize(width: number, height: number): void {
     this.#renderer.setSize(width, height, false);
+  }
+
+  /**
+   * The studio environment, prefiltered.
+   *
+   * ========================================================================
+   * WHY THIS IS NOT A PLAIN CUBE TEXTURE
+   * ========================================================================
+   * Two reasons, and the first is a hard failure rather than a quality one.
+   *
+   * Three uploads a `CubeTexture` through `texImage2D` expecting DOM images,
+   * so a cube built from raw bytes never reaches the GPU — the scene keeps a
+   * texture, every metal keeps rendering black, and nothing reports an error.
+   * The faces are therefore drawn onto canvases first.
+   *
+   * And roughness selects a MIP LEVEL of the environment. Ordinary mipmaps are
+   * box filters of a cube face, which is not the same thing as a hemispherical
+   * convolution — with them, a brushed metal reflects almost as sharply as a
+   * mirror and "Premium" is indistinguishable from "Chrome". `PMREMGenerator`
+   * does the convolution properly, on the GPU, once.
+   */
+  environmentTexture(): unknown | null {
+    if (this.#studio !== null) return this.#studio;
+    if (typeof document === "undefined") return null;
+
+    const { size, faces } = studioEnvironmentFaces(32);
+    const images = faces.map((pixels) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      if (context === null) return null;
+      const image = context.createImageData(size, size);
+      image.data.set(pixels);
+      context.putImageData(image, 0, 0);
+      return canvas;
+    });
+    if (images.some((image) => image === null)) return null;
+
+    const cube = new CubeTexture(images as never);
+    cube.needsUpdate = true;
+
+    const generator = new PMREMGenerator(this.#renderer);
+    generator.compileCubemapShader();
+    this.#studio = generator.fromCubemap(cube).texture;
+    generator.dispose();
+    cube.dispose();
+    return this.#studio;
+  }
+
+  setEnvironment(environment: HostEnvironment): void {
+    // LINEAR tone mapping, not ACES or Reinhard. At an exposure of 1 the
+    // linear curve is `saturate(colour)`, which is byte-for-byte what NO tone
+    // mapping already produced — so turning this on cannot change a picture
+    // that never asks for exposure. A filmic curve would have quietly
+    // recoloured every graphic already on air.
+    this.#renderer.toneMapping = LinearToneMapping;
+    this.#renderer.toneMappingExposure = environment.exposure;
+    this.#renderer.shadowMap.enabled = environment.shadows;
+    // Soft edges. A hard shadow map at this resolution reads as a jagged
+    // stencil, which on a broadcast set looks like a rendering fault.
+    this.#renderer.shadowMap.type = PCFSoftShadowMap;
+    this.#renderer.shadowMap.needsUpdate = true;
   }
 
   submission(): HostSubmission {

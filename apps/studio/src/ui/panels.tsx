@@ -26,11 +26,24 @@ import { colourTokens, setToken } from "../studio/library";
 import {
   FINISHES,
   applyFinishEverywhere,
+  applyFinishTo,
+  canFinish,
+  finishOfAll,
   disableDepthEverywhere,
   enableDepthEverywhere,
   graphicFinish,
   graphicHasDepth,
 } from "../studio/finishes";
+import {
+  LOOKS,
+  applyLook,
+  exposureOf,
+  lightsOf,
+  lookOf,
+  setExposure,
+  setShadows,
+  shadowsOn,
+} from "../studio/lighting";
 import { PRESETS, applyPreset, type AnimationPreset } from "../studio/presets";
 import type { IdFactory as PresetIds } from "../studio/ids";
 import type { Depth } from "../studio/workspace";
@@ -392,6 +405,7 @@ export function Inspector({ session, selection, onEdit, developerMode }: Inspect
   // property animatable and bindable without a per-type vocabulary).
   const rectProps = (rect?.props ?? {}) as Record<string, unknown>;
   const mirror = session.host.reconciler.mirror.get(node.id);
+  const selectionFinish = finishOfAll(document_, selection.ids);
 
   return (
     <section className="panel inspector" aria-label="Properties" data-testid="inspector">
@@ -501,6 +515,50 @@ export function Inspector({ session, selection, onEdit, developerMode }: Inspect
             value={node.size.height}
             onCommit={(next) => set("size.height", next, "Resize")}
           />
+        </Group>
+      ) : null}
+
+      {/* MATERIALS, BY OUTCOME, ON WHAT IS SELECTED.
+          The Content panel's finishes restyle the WHOLE graphic, which is what
+          a beginner restyling a lower third means. Dressing a set is the other
+          job: the plinth is chrome and the floor is matte, and those are two
+          decisions about two objects.
+
+          Same nine finishes, same vocabulary. A set dressed half from here and
+          half from there has to match, so there is one table and one meaning
+          for the word "Chrome". */}
+      {canFinish(document_, selection.ids) ? (
+        <Group title="Material">
+          <div className="finishes" data-testid="materials">
+            {FINISHES.map((finish) => (
+              <button
+                key={finish.id}
+                type="button"
+                className={`finish ${selectionFinish?.id === finish.id ? "on" : ""}`}
+                data-testid={`material-${finish.id}`}
+                aria-pressed={selectionFinish?.id === finish.id}
+                title={finish.hint}
+                onClick={() => {
+                  const txn = applyFinishTo(document_, selection.ids, finish);
+                  if (txn) onEdit(txn);
+                }}
+              >
+                {finish.label}
+              </button>
+            ))}
+          </div>
+          {/* Null is a real answer: somebody who nudged roughness by hand has a
+              surface that is no longer any named finish, and a picker claiming
+              otherwise would misdescribe what is being rendered. */}
+          {selectionFinish === null ? (
+            <p className="note">
+              {selection.ids.length > 1
+                ? "These surfaces are not all the same. Choosing one makes them match."
+                : "Adjusted by hand. Choosing a finish replaces those values."}
+            </p>
+          ) : (
+            <p className="note">{selectionFinish.hint}</p>
+          )}
         </Group>
       ) : null}
 
@@ -1142,6 +1200,10 @@ export function Content({
   const colours = colourTokens(document_);
   const solid = graphicHasDepth(document_);
   const current = graphicFinish(document_);
+  const currentLook = lookOf(document_);
+  const lights = lightsOf(document_);
+  const exposure = exposureOf(document_);
+  const shadows = shadowsOn(document_);
 
   return (
     <section className="panel content" aria-label="Content" data-testid="content">
@@ -1275,6 +1337,84 @@ export function Content({
             ))}
           </div>
         ) : null}
+      </div>
+
+      {/* ==================================================================
+          LIGHTING — A LOOK, NOT SIX NUMBERS
+          ==================================================================
+          Lighting a set properly means choosing positions, angles, colour
+          temperatures and relative intensities for three or four sources.
+          That is a craft, and not one somebody building a strap at 14:50 for
+          a 15:00 transmission has time to practise.
+
+          So the unit is a LOOK, and every one compiles to ordinary light
+          nodes — the same nodes a person could have placed by hand, which the
+          layer tree lists, the timeline animates and the gizmos move.
+
+          Exposure and shadows sit beside them but are NOT lights: they are
+          properties of the picture. Raising exposure does not make the key
+          brighter, it makes the photograph brighter. */}
+      <div className="fgrp" data-testid="lighting">
+        <div className="lbl">Lighting<span className="ln" /></div>
+        <div className="finishes">
+          {LOOKS.map((look) => (
+            <button
+              key={look.id}
+              type="button"
+              className={`finish ${currentLook?.id === look.id ? "on" : ""}`}
+              data-testid={`look-${look.id}`}
+              aria-pressed={currentLook?.id === look.id}
+              title={look.hint}
+              disabled={onAir}
+              onClick={() => {
+                const txn = applyLook(document_, look, ids);
+                if (txn) onEdit(txn);
+              }}
+            >
+              {look.label}
+            </button>
+          ))}
+        </div>
+
+        <label className="prop inline">
+          <span>exposure</span>
+          <input
+            className="field number tiny"
+            type="number"
+            step={0.05}
+            min={0.05}
+            max={4}
+            data-testid="exposure"
+            aria-label="Exposure"
+            defaultValue={exposure}
+            key={`exposure:${exposure}`}
+            disabled={onAir}
+            onBlur={(event) => onEdit(setExposure(document_, Number(event.target.value)))}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
+          />
+        </label>
+
+        <label className="prop check">
+          <span>shadows</span>
+          <input
+            type="checkbox"
+            data-testid="shadows"
+            checked={shadows}
+            disabled={onAir}
+            onChange={(event) => onEdit(setShadows(document_, event.target.checked))}
+          />
+        </label>
+
+        {/* Said on screen, because the absence is a decision. A designer who
+            looks for an HDRI should know why there is none rather than assume
+            they have failed to find it. */}
+        <p className="note">
+          {lights.length === 0
+            ? "Nothing is lit. A solid object with no light renders black — choose a look."
+            : `${lights.length} ${lights.length === 1 ? "light" : "lights"} in this scene. Move or re-aim any of them in the layer tree.`}
+        </p>
       </div>
 
       {/* ANIMATION — Volume One L8 and Blueprint M-0. One choice generates the

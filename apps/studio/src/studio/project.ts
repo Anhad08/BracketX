@@ -25,10 +25,13 @@ import {
   generateKeyBetween,
   validateDocument,
   type SceneDocument,
+  type SceneNode,
 } from "@bracketx/engine-scene";
 
 import { makeNode } from "./editing";
 import { STUDIO_FONTS } from "./fonts";
+import { DEFAULT_LOOK, lightNodeOperations } from "./lighting";
+import { poseFor, VIEWS } from "./views";
 import type { IdFactory } from "./ids";
 
 export class ProjectError extends Error {
@@ -78,6 +81,117 @@ export function newDocument(
       // A scene with no camera renders nothing and reports a missed frame per
       // output, which reads as a broken editor rather than an empty document.
       children: [makeNode("camera", cameraOrder, ids)],
+    },
+  };
+}
+
+/**
+ * A scene that is already three-dimensional.
+ *
+ * ==========================================================================
+ * WHY THIS IS A SEPARATE STARTING POINT AND NOT A BUTTON
+ * ==========================================================================
+ * "Blank graphic" gives a flat frame and an orthographic camera, which is
+ * exactly right for a lower third and exactly wrong for a set. Getting from
+ * one to the other by hand means: swap the camera to perspective, move it off
+ * axis, add a floor, add a key light, add a fill, turn shadows on, and know
+ * that a lit object with no light renders black. That is seven pieces of
+ * knowledge before anything is on screen.
+ *
+ * So the product offers the destination instead. Everything below is an
+ * ordinary node in an ordinary document — a designer can delete the floor,
+ * re-aim the key, or flatten the camera, and nothing here is special-cased
+ * anywhere downstream.
+ *
+ * The camera is placed at the 3/4 pose, not square-on, and that is the single
+ * most important line in this function: a 3D scene that opens flat is a 3D
+ * scene whose entire point is hidden behind a control nobody pressed.
+ */
+export function newHybridDocument(
+  name: string,
+  ids: IdFactory,
+  createdAt = "2026-01-01T00:00:00.000Z",
+): SceneDocument {
+  const base = newDocument(name, ids, createdAt);
+  const threeQuarter = VIEWS.find((view) => view.id === "three-quarter")!;
+  // Ten units back is the distance the flat camera uses, so switching to Front
+  // frames the same graphic at the same size it would have had all along.
+  const pose = poseFor(threeQuarter, { x: 0, y: 0, z: 0 }, 10);
+
+  const camera: SceneNode = {
+    ...makeNode("camera", generateKeyBetween(null, null), ids),
+    name: "Camera",
+    components: [
+      {
+        id: ids("component"),
+        type: "camera",
+        // PERSPECTIVE. An orthographic camera in a 3D set draws a box with
+        // parallel edges, which reads as a technical drawing rather than as a
+        // thing standing in a room — and no amount of lighting recovers it.
+        props: { projection: "perspective", focalLength: 35, sensorWidth: 36, near: 0.1, far: 200 },
+      },
+    ],
+    transform: {
+      position: [...pose.position],
+      rotation: [...pose.rotation],
+      scale: [1, 1, 1],
+    },
+  };
+
+  const order = generateKeyBetween(camera.order, null);
+  const floor: SceneNode = {
+    id: ids("node"),
+    order,
+    name: "Floor",
+    size: { width: 24, height: 24 },
+    // NO ROTATION. `planeDescriptor` already lies in the XZ plane with its
+    // normals pointing up — it IS a floor, which is what the toolbox entry has
+    // always said. Pitching it back ninety degrees stood it on edge, and a
+    // vertical plane seen from a camera near the horizon is invisible: the
+    // scene rendered a cube floating in black and every unit test passed.
+    // Found by looking at the picture.
+    transform: { position: [0, -1.5, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    components: [
+      {
+        id: ids("component"),
+        type: "meshRenderer",
+        props: {
+          primitive: { shape: "plane", width: 24, depth: 24 },
+          // Matte, and darker than anything that will stand on it. A floor
+          // brighter than the set is a floor the eye reads as the subject.
+          material: { baseColor: "#151a24", metallic: 0, roughness: 0.95, finish: "matte" },
+        },
+      },
+    ],
+  };
+
+  const lights = lightNodeOperations(
+    { ...base, root: { ...base.root, children: [camera, floor] } },
+    base.root.id,
+    DEFAULT_LOOK,
+    ids,
+  );
+
+  return {
+    ...base,
+    world: {
+      ...base.world,
+      environment: {
+        // Shadows are what make a box stand ON the floor rather than in front
+        // of it, and a set without contact shadows reads as a collage.
+        shadows: DEFAULT_LOOK.shadows,
+        exposure: 1,
+      },
+    },
+    root: {
+      ...base.root,
+      children: [
+        camera,
+        floor,
+        ...lights.flatMap((operation) =>
+          operation.type === "node.insert" ? [operation.node] : [],
+        ),
+      ],
     },
   };
 }

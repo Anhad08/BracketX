@@ -151,8 +151,10 @@ import {
   readCollection,
   type RepeatInstance,
 } from "./repeat";
+import { NEUTRAL_ENVIRONMENT } from "./mirror-backend";
 import type {
   CameraDescriptor,
+  EnvironmentDescriptor,
   GeometryHandle,
   MaterialDescriptor,
   LightDescriptor,
@@ -218,6 +220,34 @@ function sameItem(a: unknown, b: unknown): boolean {
     if (!Object.is(left[key], right[key])) return false;
   }
   return true;
+}
+
+/**
+ * The environment a document describes.
+ *
+ * Defensive about every field, because `world.environment` is optional, its
+ * members are optional, and a hand-edited document may carry anything at all.
+ * A malformed exposure must render the picture unchanged rather than black.
+ */
+export function environmentDescriptorOf(document: SceneDocument): EnvironmentDescriptor {
+  const environment = document.world?.environment;
+  const exposure = environment?.exposure;
+  const reflections = (environment as { reflections?: unknown } | undefined)?.reflections;
+  return {
+    exposure:
+      typeof exposure === "number" && Number.isFinite(exposure) && exposure > 0
+        ? exposure
+        : NEUTRAL_ENVIRONMENT.exposure,
+    shadows: environment?.shadows === true,
+    // ON unless a document says otherwise, which is the one place this file
+    // does not simply default to "changes nothing". The alternative default
+    // leaves every metallic surface black, and a black Chrome is not a neutral
+    // starting point — it is a broken one.
+    reflections:
+      typeof reflections === "number" && Number.isFinite(reflections) && reflections >= 0
+        ? Math.min(2, reflections)
+        : 1,
+  };
 }
 
 export class Projector {
@@ -306,6 +336,9 @@ export class Projector {
   >();
 
   #lights = new Map<string, { handle: LightHandle; descriptor: LightDescriptor }>();
+
+  /** What the backend was last told the environment is. ADR-013 amendment 3. */
+  #environment: EnvironmentDescriptor = NEUTRAL_ENVIRONMENT;
 
   /**
    * One drawable batch of a text node. Several when it spans atlas pages.
@@ -517,6 +550,10 @@ export class Projector {
     variables: VariableSource,
   ): ProjectionReport {
     this.#adoptDocument(document);
+    // Before the tree, not after. `build` does not go through `#flush`, and a
+    // scene whose shadows arrived one projection late would render its first
+    // frame — the one somebody is looking at — without them.
+    this.#syncEnvironment(document);
     const dirty = new DirtySet();
     const before = this.#writeCount();
     let created = 0;
@@ -907,6 +944,29 @@ export class Projector {
    */
   #pixelsPerUnit = DEFAULT_PIXELS_PER_UNIT;
 
+  /**
+   * Tells the backend about the document's environment, once, when it changes.
+   *
+   * Compared against what was last sent rather than sent every flush. A setter
+   * called on every projection would be a backend write per frame for a value
+   * nobody touched, which is precisely the kind of cost the dirty tracking
+   * exists to avoid — and `backendWrites` is asserted in the test suite, so an
+   * unconditional call would have shown up as every write count being one too
+   * high.
+   */
+  #syncEnvironment(document: SceneDocument): void {
+    const wanted = environmentDescriptorOf(document);
+    if (
+      this.#environment.exposure === wanted.exposure &&
+      this.#environment.shadows === wanted.shadows &&
+      this.#environment.reflections === wanted.reflections
+    ) {
+      return;
+    }
+    this.#environment = wanted;
+    this.backend.setEnvironment(wanted);
+  }
+
   #flush(
     document: SceneDocument,
     variables: VariableSource,
@@ -914,6 +974,7 @@ export class Projector {
     localRefresh: Set<string> = new Set(),
   ): void {
     this.#adoptDocument(document);
+    this.#syncEnvironment(document);
     // Re-read authored values for nodes whose own properties changed, before
     // anything is recomputed from them. Without this, world matrices are
     // composed from a stale local and propagation is correct but its input is

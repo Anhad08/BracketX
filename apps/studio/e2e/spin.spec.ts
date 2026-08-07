@@ -130,7 +130,11 @@ test("dragging a ring turns the real layer, as one undo step", async ({ page }) 
     .trim()
     .split(/\s+/)
     .map((pair) => pair.split(",").map(Number));
-  const on = drawn[Math.floor(drawn.length / 4)]!;
+  // A QUARTER of the way round is exactly where this ring crosses another —
+  // every pair of rings shares a centre and a radius, so they meet at the
+  // axis points. A grab there is genuinely ambiguous and the hit test may
+  // legitimately answer with either. An eighth is on one ring and no other.
+  const on = drawn[Math.floor(drawn.length / 8)]!;
   const grab = { x: chrome.x + on[0]!, y: chrome.y + on[1]! };
 
   await page.mouse.move(grab.x, grab.y);
@@ -148,9 +152,12 @@ test("dragging a ring turns the real layer, as one undo step", async ({ page }) 
     y: await field(page, "rotation y"),
     z: await field(page, "rotation z"),
   };
-  const moved =
-    Math.abs(after.x - before.x) + Math.abs(after.y - before.y) + Math.abs(after.z - before.z);
-  expect(moved, "dragging a ring must turn the layer").toBeGreaterThan(2);
+  // The Y ring turned it about Y, and about nothing else. "Something moved"
+  // would pass for a gizmo that turns the object about whichever axis it
+  // pleases, which is not a rotate tool.
+  expect(Math.abs(after.y - before.y), "the Y ring must turn the layer about Y").toBeGreaterThan(2);
+  expect(after.x).toBeCloseTo(before.x, 3);
+  expect(after.z).toBeCloseTo(before.z, 3);
 
   // One gesture, one undo entry.
   await page.keyboard.press("ControlOrMeta+z");

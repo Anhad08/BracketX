@@ -178,6 +178,38 @@ export function finishById(id: string): Finish | undefined {
  */
 export const DEFAULT_DEPTH = 0.08;
 
+/**
+ * Every surface on a node a finish can be applied to.
+ *
+ * ==========================================================================
+ * TWO COMPONENTS, ONE VOCABULARY
+ * ==========================================================================
+ * A rect keeps its material values directly on its props; a meshRenderer keeps
+ * them under `material`. That is the format's shape and it is not worth
+ * changing — but it must not become two finish systems, or "Chrome" would mean
+ * one thing on a plate and something else on a plinth, and a set dressed from
+ * both would never quite match.
+ *
+ * So the difference is reduced to a PATH PREFIX here, once, and everything
+ * above this line is written as though there were only one kind of surface.
+ */
+interface Surface {
+  readonly index: number;
+  /** "" for a rect, "material." for a meshRenderer. */
+  readonly prefix: string;
+}
+
+function surfacesOf(document: SceneDocument, nodeId: string): readonly Surface[] {
+  const node = findNode(document.root, nodeId);
+  if (node === null) return [];
+  const out: Surface[] = [];
+  (node.components ?? []).forEach((component, index) => {
+    if (component.type === "rect") out.push({ index, prefix: "" });
+    else if (component.type === "meshRenderer") out.push({ index, prefix: "material." });
+  });
+  return out;
+}
+
 /** Every rect component on a node. Depth belongs to rects. */
 function rectComponentIndexes(
   document: SceneDocument,
@@ -225,9 +257,11 @@ export function depthOf(document: SceneDocument, nodeId: string): number {
 export function finishOf(document: SceneDocument, nodeId: string): Finish | null {
   const node = findNode(document.root, nodeId);
   if (node === null) return null;
-  for (const component of node.components ?? []) {
-    if (component.type !== "rect") continue;
-    const props = component.props as Record<string, unknown>;
+  for (const surface of surfacesOf(document, nodeId)) {
+    const component = (node.components ?? [])[surface.index]!;
+    const props = surface.prefix === ""
+      ? (component.props as Record<string, unknown>)
+      : ((component.props as Record<string, unknown>).material as Record<string, unknown> ?? {});
     // Self-lit is identified by absence, which is also how the engine reads
     // it — so a graphic someone stripped the PBR values from reports as
     // Emissive, because that is genuinely what it now renders as.
@@ -258,29 +292,81 @@ export function applyFinish(
   nodeId: string,
   finish: Finish,
 ): Transaction | null {
-  const indexes = rectComponentIndexes(document, nodeId);
-  if (indexes.length === 0) return null;
+  const values = finishValues(document, nodeId, finish);
+  if (values === null) return null;
+  return setProps(document, nodeId, values, `Finish: ${finish.label}`);
+}
+
+/**
+ * The property writes a finish implies on one node, or null when it has no
+ * surface to finish.
+ *
+ * Split out of `applyFinish` so a selection of five objects is ONE transaction
+ * rather than five. Five undo steps to change the look of a set is five too
+ * many.
+ */
+function finishValues(
+  document: SceneDocument,
+  nodeId: string,
+  finish: Finish,
+): Map<string, unknown> | null {
+  const surfaces = surfacesOf(document, nodeId);
+  if (surfaces.length === 0) return null;
 
   const values = new Map<string, unknown>();
-  for (const index of indexes) {
+  for (const surface of surfaces) {
+    const at = (name: string) => `components.${surface.index}.props.${surface.prefix}${name}`;
     // A SELF-LIT surface has no PBR values at all. Writing zeroes would make
     // it a black lit material rather than an unlit one — the engine decides
     // lit-or-unlit on whether these are present, so absent is the whole
     // mechanism.
-    values.set(
-      `components.${index}.props.metallic`,
-      finish.selfLit === true ? undefined : finish.metallic,
-    );
-    values.set(
-      `components.${index}.props.roughness`,
-      finish.selfLit === true ? undefined : finish.roughness,
-    );
-    values.set(`components.${index}.props.finish`, finish.id);
+    values.set(at("metallic"), finish.selfLit === true ? undefined : finish.metallic);
+    values.set(at("roughness"), finish.selfLit === true ? undefined : finish.roughness);
+    values.set(at("finish"), finish.id);
     // Written every time, including back to 1, so switching away from Glass
     // restores an opaque surface rather than leaving it ghosted.
-    values.set(`components.${index}.props.opacity`, finish.opacity ?? 1);
+    values.set(at("opacity"), finish.opacity ?? 1);
   }
-  return setProps(document, nodeId, values, `Finish: ${finish.label}`);
+  return values;
+}
+
+/**
+ * A finish, applied to a SELECTION, in one transaction.
+ *
+ * The document-wide `applyFinishEverywhere` is for a beginner restyling a
+ * graphic. This is for somebody dressing a set: the plinth is chrome, the
+ * floor is matte, and the two decisions are separate.
+ */
+export function applyFinishTo(
+  document: SceneDocument,
+  nodeIds: readonly string[],
+  finish: Finish,
+): Transaction | null {
+  const operations: SceneOperation[] = [];
+  for (const nodeId of nodeIds) {
+    const values = finishValues(document, nodeId, finish);
+    if (values === null) continue;
+    const props = setProps(document, nodeId, values, `Finish: ${finish.label}`);
+    if (props !== null) operations.push(...props.operations);
+  }
+  return operations.length === 0 ? null : transaction(`Finish: ${finish.label}`, operations);
+}
+
+/** The finish a whole selection is wearing, when they all agree on one. */
+export function finishOfAll(
+  document: SceneDocument,
+  nodeIds: readonly string[],
+): Finish | null {
+  const finishable = nodeIds.filter((id) => surfacesOf(document, id).length > 0);
+  if (finishable.length === 0) return null;
+  const first = finishOf(document, finishable[0]!);
+  if (first === null) return null;
+  return finishable.every((id) => finishOf(document, id)?.id === first.id) ? first : null;
+}
+
+/** True when anything in the selection has a surface a finish can be put on. */
+export function canFinish(document: SceneDocument, nodeIds: readonly string[]): boolean {
+  return nodeIds.some((id) => surfacesOf(document, id).length > 0);
 }
 
 /** Sets depth on every rect of a node. Zero switches it back to flat. */

@@ -24,6 +24,7 @@ export type {
   BackendResult,
   CameraDescriptor,
   CameraHandle,
+  EnvironmentDescriptor,
   GeometryDescriptor,
   GeometryHandle,
   LightDescriptor,
@@ -43,6 +44,14 @@ export type {
   TextureHandle,
   Vec2,
 } from "./mirror-backend";
+
+export { NEUTRAL_ENVIRONMENT } from "./mirror-backend";
+
+export {
+  CUBE_FACES,
+  studioEnvironmentFaces,
+  type EnvironmentFaces,
+} from "./environment-map";
 
 export {
   MirrorBackendViolation,
@@ -137,6 +146,7 @@ export {
   ProjectionError,
   Projector,
   documentNodeIds,
+  environmentDescriptorOf,
   type ProjectionReport,
 } from "./projection";
 

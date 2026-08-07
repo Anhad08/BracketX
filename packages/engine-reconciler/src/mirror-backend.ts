@@ -336,6 +336,28 @@ export interface MirrorBackend {
   updateLight(light: LightHandle, descriptor: LightDescriptor): void;
   destroyLight(light: LightHandle): void;
 
+  /**
+   * The scene's environment. ADR-013 amendment 3.
+   *
+   * ========================================================================
+   * WHY THIS IS ONE SETTER AND NOT A RESOURCE
+   * ========================================================================
+   * Every other thing the backend owns is created, attached to a node and
+   * destroyed, because every other thing is a THING somewhere in the scene. An
+   * environment is not — there is exactly one, it belongs to the document
+   * rather than to any node, and there is nothing to attach it to.
+   *
+   * So it is a setter with no handle, called whenever the document's
+   * environment changes and never otherwise. Modelling it as a resource would
+   * have meant inventing a node for it, and a node nobody authored is a node
+   * that appears in the layer tree and can be deleted.
+   *
+   * Idempotent by contract: the projector only calls this when the descriptor
+   * has actually changed, and a backend may assume repeated identical calls
+   * are free.
+   */
+  setEnvironment(descriptor: EnvironmentDescriptor): void;
+
   createCamera(descriptor: CameraDescriptor): CameraHandle;
   updateCamera(camera: CameraHandle, descriptor: CameraDescriptor): void;
   destroyCamera(camera: CameraHandle): void;
@@ -374,6 +396,59 @@ export interface InspectableMirrorBackend extends MirrorBackend {
   snapshot(): MirrorSnapshot;
 }
 
+/**
+ * The scene's environment. ADR-013 amendment 3.
+ *
+ * ==========================================================================
+ * WHAT IS IN HERE, AND WHAT DELIBERATELY IS NOT
+ * ==========================================================================
+ * Two fields, and both are properties of the PICTURE rather than of anything
+ * in the scene.
+ *
+ * `exposure` is a multiplier on the rendered image, exactly as a camera's
+ * exposure is a property of the camera and not of the set. One is neutral, so
+ * a document that never mentions exposure renders identically to one written
+ * before this existed.
+ *
+ * `shadows` is a single switch rather than a per-light flag. A broadcast
+ * operator turns shadows on for a set and off for a lower third; nobody has
+ * ever wanted the key light to cast and the fill not to, and a per-light flag
+ * would have put that decision in front of them anyway.
+ *
+ * Ambient light is NOT here even though SCENE_FORMAT §5 has a slot for it.
+ * Ambient is already expressible as a light node with `kind: "ambient"`, and
+ * two ways to say the same thing is two things to keep in step — one of which
+ * can be animated, parented and hidden, and one of which cannot.
+ *
+ * Background is NOT here either. It is already `RenderOptions.clearColor`,
+ * which is per-OUTPUT: the same graphic goes to air over live video with a
+ * transparent background and renders onto a solid one in a preview tile, and a
+ * scene-level background could not express that.
+ */
+export interface EnvironmentDescriptor {
+  /** Multiplier on the rendered image. 1 is neutral. */
+  readonly exposure: number;
+  /** Whether lights that can cast shadows do, and surfaces receive them. */
+  readonly shadows: boolean;
+  /**
+   * How strongly surfaces reflect the built-in studio environment. 0 is none.
+   *
+   * A metallic surface has almost no diffuse response — nearly everything you
+   * see on a chrome plinth is a reflection of the room it stands in. Without an
+   * environment, "Chrome" renders BLACK, which makes the control a lie. See
+   * `studioEnvironmentFaces` for what the room is and why it is generated
+   * rather than shipped.
+   */
+  readonly reflections: number;
+}
+
+/** The environment a backend starts in, and the one that changes nothing. */
+export const NEUTRAL_ENVIRONMENT: EnvironmentDescriptor = {
+  exposure: 1,
+  shadows: false,
+  reflections: 0,
+};
+
 export interface MirrorSnapshot {
   /** Roots first, then depth-first, so comparison is order-stable. */
   readonly nodes: readonly MirrorNodeSnapshot[];
@@ -384,6 +459,14 @@ export interface MirrorSnapshot {
     readonly cameras: number;
     readonly renderTargets: number;
   };
+  /**
+   * The environment the backend was last told about.
+   *
+   * In the snapshot because R9 requires `build` and `project` to agree, and an
+   * environment set by one path and not the other is exactly the kind of
+   * divergence R9 exists to catch.
+   */
+  readonly environment: EnvironmentDescriptor;
 }
 
 /**

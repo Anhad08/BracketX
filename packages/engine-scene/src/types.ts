@@ -390,6 +390,25 @@ export interface SceneWorld {
     readonly ambient?: { readonly color: ColorHex; readonly intensity: number };
     readonly iblAssetId?: string;
     readonly background?: "transparent" | ColorHex;
+    /**
+     * Multiplier on the rendered image. 1 is neutral.
+     *
+     * ADDITIVE — SCENE_FORMAT §13 rule 4, so no version bump. A document that
+     * omits it renders exactly as it did before the field existed, which is
+     * what makes the default safe: the neutral value and the absent value are
+     * the same picture.
+     */
+    readonly exposure?: number;
+    /** Whether lights that can cast shadows do. Off unless asked for. */
+    readonly shadows?: boolean;
+    /**
+     * How strongly surfaces reflect the built-in studio environment.
+     *
+     * ON by default — a metallic surface with nothing to reflect renders
+     * black, so 0 is not a neutral value but a broken one. Set it to 0 to
+     * refuse reflections deliberately.
+     */
+    readonly reflections?: number;
   };
   readonly output: {
     readonly width: number;
