@@ -115,9 +115,9 @@ test("text goes to air through the ordinary Take path", async ({ page }) => {
   await page.getByTestId("tool-text").click();
 
   await page.getByTestId("nav-production").click();
-  await expect(page.getByTestId("tally")).toHaveText("OFF");
+  await expect(page.getByTestId("program-state")).toHaveText("CLEAN");
   await page.getByTestId("cut").click();
-  await expect(page.getByTestId("tally")).toHaveText("ON AIR");
+  await expect(page.getByTestId("monitors")).toHaveAttribute("data-air", "live");
 
   // Editing Preview afterwards still does not reach air — text changed nothing
   // about the guarantee, which is the point. Editing happens in Design now;
@@ -125,8 +125,8 @@ test("text goes to air through the ordinary Take path", async ({ page }) => {
   await page.getByTestId("nav-design").click();
   await page.getByTestId("tool-rect").click();
   await page.getByTestId("nav-production").click();
-  await expect(page.getByTestId("program-row")).toContainText(
+  await expect(page.getByTestId("monitors")).toContainText(
     "Preview differs from what is on air",
   );
-  await expect(page.getByTestId("tally")).toHaveText("ON AIR");
+  await expect(page.getByTestId("monitors")).toHaveAttribute("data-air", "live");
 });

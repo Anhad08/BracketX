@@ -29,12 +29,14 @@ import type { PackTemplate } from "../studio/packs";
 import type { Pack } from "../studio/packs";
 import { PACKS } from "../studio/packs";
 import { contentSurface, preflight } from "../studio/preflight";
-import { ProgramRow } from "./program";
+import { Monitors } from "./monitors";
 
 export interface ProductionProps {
   readonly session: StudioSession | null;
   readonly bus: ProgramBus | null;
   readonly programCanvas: HTMLCanvasElement | null;
+  /** The design session's canvas, shown as the PREVIEW monitor. */
+  readonly previewCanvas: HTMLCanvasElement | null;
   readonly revision: number;
   readonly installed: ReadonlySet<string>;
   /** Loads a scene ready to cue. */
@@ -46,6 +48,7 @@ export function Production({
   session,
   bus,
   programCanvas,
+  previewCanvas,
   revision,
   installed,
   onOpenScene,
@@ -88,6 +91,43 @@ export function Production({
         </span>
       </header>
 
+      {session === null || bus === null || programCanvas === null ? (
+        <p className="note pad">Open a scene to cue it.</p>
+      ) : (
+        <>
+          {/* WHAT IS ABOUT TO GO OUT, before the button that sends it. */}
+          <section className="home-block">
+            <div className="block-head">
+              <h2>Check</h2>
+              <span className="dim">{fields.length} fields · before you take it</span>
+            </div>
+            {report === null || report.clear ? (
+              <p className="note ok" data-testid="production-clear">
+                Ready. Nothing to report.
+              </p>
+            ) : (
+              <ul className="checks" data-testid="production-issues">
+                {report.issues.map((issue) => (
+                  <li key={`${issue.nodeId ?? issue.label}:${issue.kind}`}>
+                    <strong>{issue.label}</strong>
+                    <span className="dim"> {issue.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <Monitors
+            bus={bus}
+            previewCanvas={previewCanvas}
+            programCanvas={programCanvas}
+            revision={revision}
+            onOffAir={onOffAir}
+            onTake={() => bus.take()}
+            onCue={() => (bus.cued ? bus.uncue() : bus.cue())}
+          />
+        </>
+      )}
       <section className="home-block">
         <div className="block-head">
           <h2>Scenes</h2>
@@ -124,40 +164,6 @@ export function Production({
         )}
       </section>
 
-      {session === null || bus === null || programCanvas === null ? (
-        <p className="note pad">Open a scene to cue it.</p>
-      ) : (
-        <>
-          {/* WHAT IS ABOUT TO GO OUT, before the button that sends it. */}
-          <section className="home-block">
-            <div className="block-head">
-              <h2>Check</h2>
-              <span className="dim">{fields.length} fields · before you take it</span>
-            </div>
-            {report === null || report.clear ? (
-              <p className="note ok" data-testid="production-clear">
-                Ready. Nothing to report.
-              </p>
-            ) : (
-              <ul className="checks" data-testid="production-issues">
-                {report.issues.map((issue) => (
-                  <li key={`${issue.nodeId ?? issue.label}:${issue.kind}`}>
-                    <strong>{issue.label}</strong>
-                    <span className="dim"> {issue.detail}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <ProgramRow
-            bus={bus}
-            canvas={programCanvas}
-            revision={revision}
-            onOffAir={onOffAir}
-          />
-        </>
-      )}
     </div>
   );
 }

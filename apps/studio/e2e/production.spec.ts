@@ -31,7 +31,7 @@ test("Design no longer carries the transmission", async ({ page }) => {
   await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
 
   // No programme row, no take, no off-air on the design surface.
-  await expect(page.getByTestId("program-row")).toHaveCount(0);
+  await expect(page.getByTestId("monitors")).toHaveCount(0);
   await expect(page.getByTestId("take")).toHaveCount(0);
   await expect(page.getByTestId("off-air")).toHaveCount(0);
 
@@ -48,7 +48,7 @@ test("a scene is cued and taken from Production alone", async ({ page }) => {
   await page.locator('[data-testid^="cue-"]').first().click();
   // Loading a scene opens it for editing; come back to put it out.
   await page.getByTestId("nav-production").click();
-  await expect(page.getByTestId("program-row")).toBeVisible();
+  await expect(page.getByTestId("monitors")).toBeVisible();
 
   await page.getByTestId("take").click();
   await expect(page.getByTestId("air-state")).toHaveText(/ON AIR/);

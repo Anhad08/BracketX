@@ -120,6 +120,26 @@ export class ProgramBus {
   #listeners = new Set<BusListener>();
 
   /**
+   * The show's own record of itself.
+   *
+   * ==========================================================================
+   * A CLOSURE NEEDS FACTS, NOT A FEELING
+   * ==========================================================================
+   * When a transmission ends the operator is shown what happened: how long it
+   * ran, how many takes went out. Those are the two numbers anyone asks about
+   * a show afterwards, and they are worth nothing unless they are counted by
+   * the thing that did them.
+   *
+   * `#firstAiredAt` rather than "the last take": a show that took thirty-four
+   * graphics ran from the first one to going off air, not from the most
+   * recent. `#takes` counts what actually reached air, so a cue that was
+   * disarmed never inflates it.
+   */
+  #takes = 0;
+  #firstAiredAt: number | null = null;
+  #wentOffAt: number | null = null;
+
+  /**
    * Canonical form, cached on the document's object identity.
    *
    * `pending` is read on every render of the Program row, and canonicalizing a
@@ -158,6 +178,28 @@ export class ProgramBus {
 
   get cued(): boolean {
     return this.#state === "cued";
+  }
+
+  /** Graphics that actually reached air this run. A disarmed cue is not one. */
+  get takes(): number {
+    return this.#takes;
+  }
+
+  /**
+   * Milliseconds on air, live while transmitting and frozen once off.
+   *
+   * Frozen rather than reset: the number an operator reads AFTER a show is the
+   * one they need, and a duration that snapped to zero the moment they went
+   * off air would be the one moment it was useless.
+   */
+  elapsed(now = Date.now()): number {
+    if (this.#firstAiredAt === null) return 0;
+    return (this.#wentOffAt ?? now) - this.#firstAiredAt;
+  }
+
+  /** When the transmission ended, or null if it has not. */
+  get wentOffAt(): number | null {
+    return this.#wentOffAt;
   }
 
   /**
@@ -244,6 +286,11 @@ export class ProgramBus {
     // cue that survived its own take would leave the strip armed for a graphic
     // that has already gone.
     this.#cuedHash = null;
+    this.#takes += 1;
+    // The run starts at the FIRST take and is not restarted by later ones —
+    // a show is one transmission however many graphics go through it.
+    if (this.#firstAiredAt === null) this.#firstAiredAt = Date.now();
+    this.#wentOffAt = null;
     this.#state = "on-air";
     this.#playing = null;
 
@@ -319,6 +366,9 @@ export class ProgramBus {
     this.#state = "off-air";
     this.#cuedHash = null;
     this.#playing = null;
+    // Stamped only if something was ever on air, so an operator who never
+    // took anything is not shown a closure for a show that did not happen.
+    if (this.#firstAiredAt !== null) this.#wentOffAt = Date.now();
     // The aired hash is NOT cleared: what was last on air is still what was
     // last on air, and `pending` should not become true merely because the
     // surface is empty.

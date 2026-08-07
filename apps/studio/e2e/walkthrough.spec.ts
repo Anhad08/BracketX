@@ -175,11 +175,11 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
 
   // ------------------------------------------ 6 & 7. Preview → Program
   await page.getByTestId("nav-production").click();
-  await expect(page.getByTestId("program-row")).toBeVisible();
+  await expect(page.getByTestId("monitors")).toBeVisible();
   await shot(page, "program-row");
 
   await page.getByTestId("take").click();
-  await expect(page.getByTestId("tally")).toHaveText("ON AIR");
+  await expect(page.getByTestId("monitors")).toHaveAttribute("data-air", "live");
   await expect(page.getByTestId("rail-tally")).toHaveText("ON AIR");
   await page.waitForTimeout(700);
   await shot(page, "on-air");

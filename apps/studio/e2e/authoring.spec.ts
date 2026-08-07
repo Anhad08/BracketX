@@ -237,13 +237,16 @@ test("Take puts a graphic on air, and editing Preview afterwards does not", asyn
   await addNode(page, "rect");
 
   await page.getByTestId("nav-production").click();
-  const row = page.getByTestId("program-row");
+  const row = page.getByTestId("monitors");
   await expect(row).toBeVisible();
-  await expect(page.getByTestId("tally")).toHaveText("OFF");
+  await expect(page.getByTestId("program-state")).toHaveText("CLEAN");
 
   await page.getByTestId("cut").click();
-  await expect(page.getByTestId("tally")).toHaveText("ON AIR");
-  await expect(row).toContainText("Program matches what was last taken");
+  await expect(page.getByTestId("monitors")).toHaveAttribute("data-air", "live");
+  // Nothing to say, so nothing is said. Immediately after a take Preview and
+  // Program are the same graphic — the note that reports a difference is
+  // absent rather than replaced by a sentence claiming agreement.
+  await expect(page.getByTestId("pending-note")).toHaveCount(0);
 
   // The claim the whole split exists for: a Preview edit changes what is
   // PENDING and nothing else. The tally stays on air, unchanged.
@@ -253,8 +256,9 @@ test("Take puts a graphic on air, and editing Preview afterwards does not", asyn
   await page.getByTestId("nav-design").click();
   await addNode(page, "ellipse");
   await page.getByTestId("nav-production").click();
+  await expect(page.getByTestId("pending-note")).toBeVisible();
   await expect(row).toContainText("Preview differs from what is on air");
-  await expect(page.getByTestId("tally")).toHaveText("ON AIR");
+  await expect(page.getByTestId("monitors")).toHaveAttribute("data-air", "live");
 });
 
 // ---------------------------------------------------------------------------

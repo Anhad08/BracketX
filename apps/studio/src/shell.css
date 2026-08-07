@@ -444,3 +444,129 @@
 .checks li { font-size: 12px; }
 .note.ok { color: var(--ok); }
 .production .program-row { margin-top: var(--s4); }
+
+/* ==========================================================================
+   PREVIEW AND PROGRAM
+   ==========================================================================
+   A gallery is two pictures and one decision between them. The monitors are
+   the largest thing on this page because they are what the page is for. */
+
+.monitors {
+  margin: var(--s5) 0 var(--s6);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+  box-shadow: var(--edge), var(--ambient);
+}
+
+/* THE STRIP. One row across both monitors, so the two states are read in a
+   single glance rather than hunted for in two places. It takes the live
+   colour along its whole length — the same tally the spine carries, at the
+   place the operator is already looking. */
+.mon-strip {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: 0 var(--s4); height: 26px; flex: none;
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+  color: var(--dim);
+  box-shadow: inset 0 -1px 0 var(--seam);
+  transition: background 0.5s var(--weight), box-shadow 0.5s var(--weight);
+}
+.monitors.live .mon-strip {
+  background: linear-gradient(180deg, rgba(255, 59, 48, 0.22), transparent);
+  box-shadow: inset 0 1px 0 var(--live), inset 0 -1px 0 var(--seam);
+  color: color-mix(in oklab, var(--live) 70%, var(--text-strong));
+}
+.mon-label { display: inline-flex; align-items: center; gap: 6px; }
+.mon-state { color: var(--preview); }
+.mon-strip .sp { flex: 1; }
+.mon-clock {
+  font-family: var(--meta); letter-spacing: 0.06em; font-size: 10px;
+  color: var(--dim);
+}
+.monitors.live .mon-clock { color: var(--live); }
+
+.mon-row { display: flex; gap: 1px; background: var(--seam); }
+.mon {
+  flex: 1; min-width: 0; position: relative; aspect-ratio: 16 / 9;
+  /* Capped so that a single monitor — the state after a show ends — does not
+     grow to the full page width and push its own closure off the screen. */
+  max-height: 46vh;
+  background: #05060a;
+  /* The edge is the state. Transparent by default so that gaining one is a
+     visible event rather than a colour change. */
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 0.28s var(--press), opacity 0.28s var(--press);
+}
+.mon-face { position: absolute; inset: 0; display: grid; place-items: center; }
+.mon-face canvas { display: block; max-width: 100%; max-height: 100%; }
+
+/* CUED: the preview monitor gains a teal edge. Nothing else moves — cue is
+   fully reversible, so it needs no confirmation, no warning and no guard, and
+   it says so by being quiet. */
+.mon.preview.cued { box-shadow: inset 0 0 0 1px var(--preview); }
+
+/* LIVE: the red edge arrives with the cut, never before it. */
+.mon.program.live {
+  box-shadow: inset 0 0 0 1px var(--live), 0 0 30px rgba(255, 59, 48, 0.18);
+}
+/* Once something is out, the armed picture steps back. It is still there —
+   an operator must be able to see what is next — but it stops competing. */
+.monitors.live .mon.preview { opacity: 0.55; }
+
+.mon-note {
+  position: absolute; left: 8px; bottom: 8px;
+  padding: 4px 8px; border-radius: var(--r-xs);
+  font-size: 10px; background: rgba(8, 10, 14, 0.9);
+}
+.mon-note.warn { color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
+
+/* THE KEY, on the monitor it acts on. One primary control on the screen,
+   sitting over Program because that is where the consequence lands. */
+.take-key {
+  position: absolute; right: var(--s4); bottom: var(--s4);
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 var(--s5); border: 0; border-radius: var(--r-sm);
+  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+  color: var(--key-ink); cursor: pointer;
+  background: linear-gradient(180deg, var(--key), var(--key-2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), var(--cast-lg);
+  transition: transform 0.08s var(--press), filter 0.16s var(--press);
+}
+.take-key:hover { filter: brightness(1.05); }
+/* 1px of travel. The cut has already happened on keydown; this is the key
+   REPORTING it, and it must never look like it is deciding. */
+.take-key:active { transform: translateY(1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+.take-key .kbd-inline { background: rgba(0, 0, 0, 0.14); color: rgba(0, 0, 0, 0.55); }
+
+.mon-controls,
+.mon-closure {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  box-shadow: inset 0 1px 0 var(--hair);
+}
+.mon-controls .sp { flex: 1; }
+.mon-controls .offair {
+  height: 27px; padding: 0 var(--s4); border: 0; border-radius: var(--r-xs);
+  font: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  color: #fff; cursor: pointer;
+  background: linear-gradient(180deg, #ff5f55, #cd271e);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), var(--cast);
+}
+.mon-controls .offair:disabled {
+  background: none; color: var(--dim);
+  box-shadow: inset 0 0 0 1px var(--line); cursor: default;
+}
+
+/* CLOSURE. What the show actually did, counted by the thing that did it. */
+.mon-closure { justify-content: space-between; align-items: flex-end; }
+.mon-closure strong { display: block; font-size: 15px; letter-spacing: -0.02em; }
+.closure-facts { display: flex; gap: var(--s7); margin: 0; }
+.closure-facts div { display: flex; flex-direction: column; gap: 2px; }
+.closure-facts dt {
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
+}
+.closure-facts dd { margin: 0; font-size: 15px; color: var(--text-strong); }
+
+@media (max-width: 900px) {
+  .mon-row { flex-direction: column; }
+}

@@ -83,7 +83,7 @@ test("there is an off-air control, and it says off air", async ({ page }) => {
   await expect(page.getByTestId("content")).toBeVisible();
 
   await goLive(page);
-  await expect(page.getByTestId("program-row")).toBeVisible();
+  await expect(page.getByTestId("monitors")).toBeVisible();
 
   const offAir = page.getByTestId("off-air");
   await expect(offAir).toBeVisible();
@@ -91,10 +91,15 @@ test("there is an off-air control, and it says off air", async ({ page }) => {
   await expect(offAir).toBeEnabled();
 
   await offAir.click();
-  await expect(page.getByTestId("tally")).toHaveText("OFF");
+  // The strip keeps the FROZEN duration once a show has ended — the number an
+  // operator reads afterwards is the one they need. "Nothing is out" is said
+  // by the rail tally and by the closure appearing.
   await expect(page.getByTestId("rail-tally")).not.toHaveText("ON AIR");
+  await expect(page.getByTestId("closure")).toBeVisible();
 
-  // And it is disabled when there is nothing to end — a control that offers
-  // to stop a transmission that is not happening is a control you distrust.
-  await expect(offAir).toBeDisabled();
+  // And it is GONE once the show has ended — the transport is replaced by the
+  // closure, because there is no longer a transmission to act on. A control
+  // that offers to stop something that is not happening is one you distrust,
+  // and absent says that more plainly than disabled.
+  await expect(offAir).toHaveCount(0);
 });

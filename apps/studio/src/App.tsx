@@ -1628,6 +1628,7 @@ export function App() {
             session={session}
             bus={bus}
             programCanvas={programCanvasRef.current}
+            previewCanvas={canvasRef.current}
             revision={revision}
             installed={installed}
             onOpenScene={openTemplate}

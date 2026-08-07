@@ -77,9 +77,9 @@ test("a first-time user gets a lower third on air", async ({ page }) => {
 
   // 4. PREVIEW, and 5. TAKE IT LIVE.
   await page.getByTestId("nav-production").click();
-  await expect(page.getByTestId("tally")).toHaveText("OFF");
+  await expect(page.getByTestId("program-state")).toHaveText("CLEAN");
   await page.getByTestId("take").click();
-  await expect(page.getByTestId("tally")).toHaveText("ON AIR");
+  await expect(page.getByTestId("monitors")).toHaveAttribute("data-air", "live");
   // The rail says so too, so an operator never has to navigate to find out.
   await expect(page.getByTestId("rail-tally")).toHaveText("ON AIR");
 
