@@ -36,14 +36,17 @@ Vendored artifacts, with the claude.ai artifact each came from:
 |---|---|---|
 | `design-os/volume-one.html` | `da877ce5` | Design OS — Volume One |
 | `design-os/volume-two.html` | `5f376485` | Design OS — Volume Two |
+| `design-os/volume-three.html` | `f90480f0` | Design OS — Volume Three (Sound) |
+| `design-os/volume-four.html` | `a73e2468` | Design OS — Volume Four (Invention) |
+| `design-os/volume-five.html` | `f2b70a1e` | Design OS — Volume Five (Workspace Intelligence) |
 | `design-os/blueprint.html` | `ac8228e9` | Studio — Final Blueprint |
 | `design-os/studio-specification.html` | `357f489f` | Studio — Specification |
 | `design-os/studio-prototype.html` | `1a764642` | Studio — Prototype |
 | `design-os/ui-prototype.html` | `ff8427d8` | Studio — UI Prototype |
 
-**Volumes Three through Eight are not yet vendored.** They exist as artifacts
-`f90480f0`, `a73e2468`, `f2b70a1e`, `d63dd462`, `69c6335a`, `fa64294b` and must
-be vendored before anything may rely on them.
+**Volumes Six, Seven and Eight are not yet vendored.** They exist as artifacts
+`d63dd462`, `69c6335a` and `fa64294b`. They must be vendored before anything
+may rely on them, and that is the first task of the next session.
 
 **These artifacts conflict with one another on the Studio layout.** The
 conflict is unresolved and reserved for the founder — see "Unresolved

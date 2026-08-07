@@ -1,0 +1,1273 @@
+<!doctype html><html><head><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"capabilities":{"comments":"comments.BaoaqR_K.js","db":"db.CfOZ1CRq.js","downloads":"downloads.BXsoAvg9.js","mcp":"mcp.CYSdpjo0.js","permissions":"permissions.DdITF2Mk.js","self":"self.DtZoNC4q.js","user":"user.Cr_h1ETf.js"},"transforms":"_transforms.VaITkagF.js","comments":"_comments.zwwDucaS.js","translate":"_translate.BOzFH2D9.js"}</script><script>(function(){"use strict";var re=["light","dark","system"];function ne(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function Y(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function se(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const n=t.theme;return typeof n=="string"&&re.includes(n)}function oe(e){try{typeof reportError=="function"?reportError(e):setTimeout(()=>{throw e},0)}catch{}}var K=Object.freeze(Object.assign(Object.create(null),{user:Object.freeze(Object.assign(Object.create(null),{id:null,isOwner:!1,canEdit:!1,name:null,avatarUrl:null,email:null}))})),ie={};function x(e){if(window===top||e.type==="auxclick"&&e.button!==1)return;const t=e.composedPath?e.composedPath():[e.target];let n=null;for(let m=0;m<t.length;m++){const f=t[m];if(f&&f.matches&&f.matches("a[href],area[href]")){n=f;break}}if(!n&&e.target&&e.target.closest&&(n=e.target.closest("a[href],area[href]")),!n)return;const u=n.getAttribute("href");if(!u)return;let i,s;try{i=new URL(u,document.baseURI),s=new URL(document.baseURI).origin}catch{return}(i.protocol==="http:"||i.protocol==="https:")&&i.origin!==s&&(e.preventDefault(),parent.postMessage({__frame_nav:!0,url:i.href},"*"))}var J={};function I(e){if(window===top)return;const t=Date.now();t-(J[e]||0)<500||(J[e]=t,parent.postMessage({__frame_engaged:!0,kind:e},"*"))}var ae=2e3,G=["wheel","touchstart","touchmove","keydown","pointerdown"],X=0;function ce(e){e.isTrusted&&(X=Date.now())}function le(){addEventListener("click",x,!0),addEventListener("auxclick",x,!0)}function ue(){for(let e=0;e<G.length;e++)addEventListener(G[e],ce,{capture:!0,passive:!0});addEventListener("scroll",e=>{e.isTrusted&&Date.now()-X<ae&&I("scroll")},{capture:!0,passive:!0}),addEventListener("pointermove",e=>{e.isTrusted&&I("pointer")},{capture:!0,passive:!0}),addEventListener("click",e=>{e.isTrusted&&I("click")},{capture:!0,passive:!0})}var D="__frame_scroll",fe=150,de=310,pe=160,me=3e4;function he(){let e=0,t=!1,n=!1,u=!1,i=0,s=null;const m=l=>{try{sessionStorage.setItem(D,JSON.stringify({y:l}))}catch{}},f=()=>{if(clearTimeout(e),s===null)return;const l=s;s=null,m(l)},_=()=>{if(t){t=!1;return}n=!0,s=scrollY,clearTimeout(e),e=setTimeout(f,fe)};try{addEventListener("scroll",_,{passive:!0}),addEventListener("pagehide",f)}catch{}const y=()=>{let l;try{l=sessionStorage.getItem(D)}catch{return null}if(l===null)return null;let a;try{a=JSON.parse(l)}catch{a=null}const p=a?.y;if(!(typeof p=="number"&&Number.isFinite(p)&&p>=0)){try{sessionStorage.removeItem(D)}catch{}return null}return p};let o=!1;const c=l=>{try{const a=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),i=l,u=!0,clearTimeout(e),s=null,m(l);const p=scrollY;p!==a&&(t=!0),p!==l&&!o&&(o=!0,addEventListener("load",()=>{try{if(scrollY===p){const g=y();c(g!==null?g:i)}}catch{}},{once:!0}))}catch{}},d=()=>{try{return!!location.hash}catch{return!0}};let h=!1;const v=()=>{try{if(h||innerWidth>de||innerHeight>pe)return;h=!0;const l=Date.now(),a=()=>{try{removeEventListener("resize",a)}catch{}if(Date.now()-l>me||n||d())return;const p=y();c(p!==null?p:i)};addEventListener("resize",a)}catch{}};let w=!1,S=!1;return{restore(){if(w||(w=!0,d()))return;const l=y();l!==null&&(c(l),v())},promoted(){if(S||(S=!0,d()))return;const l=y();l!==null?(c(l),v()):u&&c(i)}}}function ge(e,t,n){const u=[...t.values()].filter(i=>i.targets.some(s=>s.startsWith(e+".")));return{wrap(i,s){const m=`${e}.${i}`,f=u.filter(_=>_.targets.includes(m));return f.length===0?(..._)=>{try{return s(..._)}catch(y){return Promise.reject(y)}}:(..._)=>{let y=_;for(const c of f){const d=c.module.parameters;if(d)try{y=d(y)}catch{return Promise.reject({code:"transform_error",id:c.id,scope:e,message:"parameters transform failed"})}}let o;try{o=s(...y)}catch(c){o=Promise.reject(c)}return o.then(c=>{for(let d=f.length-1;d>=0;d--){const h=f[d],v=h.module.returns;if(v)try{c=v(c)}catch{return n({id:h.id,scope:e,leg:"returns"}),c}}return c},c=>{for(let d=f.length-1;d>=0;d--){const h=f[d],v=h.module.throws;if(v)try{c=v(c)}catch{return n({id:h.id,scope:e,leg:"throws"}),Promise.reject(c)}}return Promise.reject(c)})}}}}function ve(e,t,n,u=()=>{}){const i=new Set(e.changes??[]),s=new Map;for(const m of i){const f=t[m];f&&s.set(m,f)}return{contract:e.contract,changes:i,flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:s,shellOrigin:n.shellOrigin,mount:n.mount,pipe:m=>ge(m,s,u)}}var Oe="modulepreload",Se=function(e){return"/"+e},Ae={},_e=function(t,n,u){let i=Promise.resolve();function s(m){const f=new Event("vite:preloadError",{cancelable:!0});if(f.payload=m,window.dispatchEvent(f),!f.defaultPrevented)throw m}return i.then(m=>{for(const f of m||[])f.status==="rejected"&&s(f.reason);return t().catch(s)})};(function(){const e=Object.defineProperty,t=globalThis,n=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let u=0;for(let i=0;i<n.length;i++){const s=n[i];try{e(t,s,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[s]}catch{}try{e(t,s,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[s]=="function"&&u++}if(u&&window!==top)try{parent.postMessage({__frame_rtc_lockdown_failed:u},"*")}catch{}})();var ye=1e4,be=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function Q(e){for(const t of be)if(t.endsWith(":*"))try{const n=new URL(e);if(`${n.protocol}//${n.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var k=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),q=window.__FRAME_PREAMBLE?.transforms,z=window.__FRAME_PREAMBLE?.comments,B=window.__FRAME_PREAMBLE?.translate,C=/^[\w.-]+\.js$/,Ee=/^[a-z][a-z0-9_-]{0,63}$/,V=null,R=null;function $(e,t,n){try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var F=!1;function Z(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,F=!0):F&&(delete t.dataset.theme,t.style.colorScheme="",F=!1)}var ee=256,L=Object.assign(Object.create(null),{mcp:Object.assign(Object.create(null),{watchTool:{handlerArg:3}})}),M=new Map;function te(e,t){const n=M.get(e);if(!n)return;const u=Object.assign(Object.create(null),t);Object.assign(n.impl,u),n.impl.__settled=()=>Promise.reject({code:"capability_removed",message:`${e}: method not in this runtime`});const i=n.queue;n.queue=[];for(const s of i){const m=u[s.method];if(m)if(L[e]?.[s.method])try{s.resolve(m(...s.args))}catch{T(s,L[e][s.method].handlerArg,{code:"transform_error",message:`${e}.${s.method} rejected its arguments`})}else m(...s.args).then(s.resolve,s.reject);else{const f={code:"capability_removed",message:`${e}.${s.method} is not in this runtime`},_=L[e]?.[s.method];if(_){T(s,_.handlerArg,f);continue}s.reject(f)}}}function we(e,t){const n=M.get(e);if(!n)return;n.impl.__settled=()=>Promise.reject(t);const u=n.queue;n.queue=[];for(const i of u){const s=L[e]?.[i.method];if(s){T(i,s.handlerArg,t);continue}i.reject(t)}}function N(e,t){const n=K[e];if(!n){we(e,t);return}te(e,Object.fromEntries(Object.entries(n).map(([u,i])=>[u,()=>Promise.resolve(i)])))}function T(e,t,n){if(e.syncState?.dead)return;const u=e.args[t];typeof u=="function"&&queueMicrotask(()=>{if(!e.syncState?.dead)try{u({type:"error",error:n})}catch(i){oe(i)}})}var H=Object.getOwnPropertyDescriptor(window,"claude");if(window!==top&&!(H&&H.writable===!1)){le(),ue();let e=null;try{e=he()}catch{}const t=H?.value??{};$(window,"claude",t);const n=o=>{const c={impl:Object.create(null),queue:[]};M.set(o,c);const d=c.impl,h=l=>({code:"queue_overflow",message:`${o}.${l}: pre-init call queue is full`}),v=(l,a)=>{if(c.queue.length>=ee){const p=K[o];return p&&l in p?Promise.resolve(p[l]):Promise.reject(h(l))}return new Promise((p,g)=>{c.queue.push({method:l,args:a,resolve:p,reject:g})})},w=ie[o],S=new Proxy(w===void 0?d:(()=>{}),{apply:(l,a,p)=>{const g=w,E=d[g]??d.__settled;return E?E(...p):v(g,p)},get:(l,a)=>{if(typeof a!="string"||a==="then"||a==="toJSON"||a==="valueOf")return;if(a==="toString")return Object.prototype.toString;if(w!==void 0&&(a==="call"||a==="apply"||a==="bind"))return Function.prototype[a];const p=L[o]?.[a];return p?(...g)=>{if(typeof g[p.handlerArg]!="function")throw new TypeError(`${o}.${a} requires a handler function`);const E=d[a];if(E)return E(...g);if(d.__settled){const b={dead:!1},U={args:[...g],syncState:b};return d.__settled().catch(r=>T(U,p.handlerArg,r)),()=>{b.dead=!0}}if(c.queue.length>=ee){const b={dead:!1};return T({args:[...g],syncState:b},p.handlerArg,h(a)),()=>{b.dead=!0}}let A=null;const j={dead:!1};return c.queue.push({method:a,args:g,resolve:b=>{A=typeof b=="function"?b:null,j.dead&&A?.()},reject:()=>{},syncState:j}),()=>{j.dead=!0,A?.()}}:(...g)=>{const E=d[a]??d.__settled;return E?E(...g):v(a,g)}},set:()=>!1});$(t,o,S)};for(const o of Object.keys(k)){if(t[o]!==void 0){$(t,o,t[o]);continue}n(o)}let u=null,i=null,s=0;const m=o=>{o.source!==parent||!Q(o.origin)||ne(o.data)&&(u=o.data.__frame_init,R=o.origin,removeEventListener("message",m),clearTimeout(s),i?.())};addEventListener("message",m),parent.postMessage({__frame_connect:!0},"*");const f=new Promise(o=>{i=o,s=setTimeout(()=>{removeEventListener("message",m),o()},ye)}),_=document.readyState==="loading"?new Promise(o=>document.addEventListener("DOMContentLoaded",()=>o(),{once:!0})):Promise.resolve();_.then(()=>{try{e?.restore()}catch{}});const y=o=>{if(!(o.source!==parent||!Q(o.origin))&&Y(o.data)){removeEventListener("message",y);try{e?.promoted()}catch{}}};addEventListener("message",y),f.then(async()=>{if(!u||!R){for(const r of M.keys())N(r,{code:"not_granted",message:"frame initialization did not arrive - capability unavailable"});return}Z(u.theme);const o=R;let c=!1,d=!1;addEventListener("message",r=>{if(r.source!==parent||r.origin!==o)return;se(r.data)&&Z(r.data.__frame_theme.theme);const O=r.data?.__fc_mode;O&&typeof O=="object"&&!c&&z&&C.test(z)&&(c=!0,h(z).then(W=>W.install?.(o,O.on===!0)).catch(()=>{}));const P=r.data?.__ft_cmd;P&&typeof P=="object"&&!d&&B&&C.test(B)&&(d=!0,h(B).then(W=>W.install?.(o,P)).catch(()=>{}))});const h=r=>_e(()=>import("/_runtime/"+r),void 0),v=Object.keys(u.capabilities??{});for(const r of v)Object.hasOwn(k,r)||Ee.test(r)&&t[r]===void 0&&(n(r),N(r,{code:"capability_disabled",message:"capability not in this runtime generation"}));const w=v.filter(r=>Object.hasOwn(k,r)).map(r=>[r,k[r]]).filter(r=>typeof r[1]=="string"&&C.test(r[1])),[S,...l]=await Promise.allSettled([q&&C.test(q)?h(q):Promise.resolve({}),...w.map(([,r])=>h(r))]),a=R;V=ve(u,S.status==="fulfilled"&&S.value?.TRANSFORMS||{},{shellOrigin:a,mount:te},r=>parent.postMessage({__frame_cap_telemetry:r},a));const p=r=>parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:r}},a),g=V;l.forEach((r,O)=>{const P=w[O][0];if(r.status!=="fulfilled"){p(P);return}try{r.value?.install?.(g)}catch{p(P)}});for(const[r,O]of M)if(!(O.queue.length===0&&Object.keys(O.impl).length>0)){if(v.includes(r)){N(r,{code:"capability_disabled",message:"capability not available in this session"});continue}N(r,{code:"not_granted",message:"capability not available in this session"})}await _,parent.postMessage({__frame_ready:!0},R);let E=-1,A=0;const j=()=>{A=0;const r=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);r!==E&&(E=r,parent.postMessage({__frame_size:!0,h:r},a))},b=()=>{A||(A=setTimeout(j,200))},U=new ResizeObserver(b);U.observe(document.documentElement),document.body&&U.observe(document.body),document.addEventListener("load",b,!0),document.fonts?.ready.then(b,()=>{}),addEventListener("beforeprint",()=>{E=-1,j()}),b(),addEventListener("message",r=>{if(!(r.source!==parent||r.origin!==a)&&Y(r.data)){try{e?.promoted()}catch{}E=-1,b()}})})}})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Streamatrix Design OS — Volume Four</title>
+
+<style>
+/* ==========================================================================
+   STREAMATRIX DESIGN OS — VOLUME FOUR · INVENTION
+   ========================================================================== */
+:root {
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s8:40px; --s9:56px;
+  --t-display:30px; --tr-display:-.036em; --t-title:20px; --tr-title:-.028em;
+  --t-head:14px; --tr-head:-.018em; --t-body:13px; --tr-body:-.004em;
+  --t-small:11px; --tr-small:0em; --t-micro:9px; --tr-micro:.16em;
+  --chassis:#0a0a0c; --panel:#131417; --panel-hi:#181a1e; --control:#20232a; --control-hi:#292d35; --well:#050506;
+  --line:rgba(255,255,255,.07); --hair:rgba(255,255,255,.055); --hair-strong:rgba(255,255,255,.1); --seam:rgba(0,0,0,.55);
+  --ink:#f3f4f6; --ink-2:#a7aab2; --ink-3:#6e717a;
+  --live:#ff3b30; --warn:#ffb020; --preview:#2ee6c8; --ok:#3ddc97;
+  --accent:#c9d1da; --accent-2:#9aa5b1; --key:#eef0f3; --key-2:#c6cad1; --key-ink:#0c0d10;
+  --grain:.042; --sheen:.04; --brush:.012;
+  --edge: inset 0 1px 0 var(--hair), inset 0 -1px 0 var(--seam);
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0,0,0,.7);
+  --recess: inset 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(0,0,0,.92),
+            inset 0 0 0 1px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.045);
+  --cast: 0 1px 2px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.32);
+  --cast-lg: 0 2px 4px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.45), 0 28px 64px rgba(0,0,0,.35);
+  --ambient: 0 8px 30px rgba(0,0,0,.28);
+  --r-xl:18px; --r-lg:12px; --r-md:9px; --r-sm:7px; --r-xs:5px;
+  --display:ui-sans-serif,-apple-system,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --iface:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --meta:ui-monospace,"Cascadia Mono","SF Mono","Roboto Mono",Menlo,monospace;
+  --press:cubic-bezier(.3,.7,.4,1); --glide:cubic-bezier(.16,1,.3,1); --weight:cubic-bezier(.45,.05,.15,1);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --chassis:#dbd8d3; --panel:#eeece8; --panel-hi:#f6f5f2; --control:#fcfbfa; --control-hi:#fff; --well:#c3bfb9;
+    --line:rgba(0,0,0,.1); --hair:rgba(255,255,255,.95); --hair-strong:#fff; --seam:rgba(0,0,0,.1);
+    --ink:#16171a; --ink-2:#53555b; --ink-3:#83858c; --accent:#8a6a3a; --accent-2:#6d5129;
+    --key:#2a2b30; --key-2:#141519; --key-ink:#fff; --grain:.03; --sheen:.55; --brush:.028;
+    --edge-key: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.12);
+    --recess: inset 0 2px 6px rgba(0,0,0,.14), inset 0 1px 0 rgba(0,0,0,.1), inset 0 0 0 1px rgba(0,0,0,.06);
+    --cast: 0 1px 2px rgba(60,50,40,.09), 0 3px 8px rgba(60,50,40,.07);
+    --cast-lg: 0 2px 4px rgba(60,50,40,.1), 0 10px 26px rgba(60,50,40,.13), 0 28px 64px rgba(60,50,40,.1);
+    --ambient: 0 8px 30px rgba(60,50,40,.08); color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --chassis:#dbd8d3; --panel:#eeece8; --panel-hi:#f6f5f2; --control:#fcfbfa; --control-hi:#fff; --well:#c3bfb9;
+  --line:rgba(0,0,0,.1); --hair:rgba(255,255,255,.95); --hair-strong:#fff; --seam:rgba(0,0,0,.1);
+  --ink:#16171a; --ink-2:#53555b; --ink-3:#83858c; --accent:#8a6a3a; --accent-2:#6d5129;
+  --key:#2a2b30; --key-2:#141519; --key-ink:#fff; --grain:.03; --sheen:.55; --brush:.028;
+  --edge-key: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.12);
+  --recess: inset 0 2px 6px rgba(0,0,0,.14), inset 0 1px 0 rgba(0,0,0,.1), inset 0 0 0 1px rgba(0,0,0,.06);
+  --cast: 0 1px 2px rgba(60,50,40,.09), 0 3px 8px rgba(60,50,40,.07);
+  --cast-lg: 0 2px 4px rgba(60,50,40,.1), 0 10px 26px rgba(60,50,40,.13), 0 28px 64px rgba(60,50,40,.1);
+  --ambient: 0 8px 30px rgba(60,50,40,.08); color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --chassis:#0a0a0c; --panel:#131417; --panel-hi:#181a1e; --control:#20232a; --control-hi:#292d35; --well:#050506;
+  --line:rgba(255,255,255,.07); --hair:rgba(255,255,255,.055); --hair-strong:rgba(255,255,255,.1); --seam:rgba(0,0,0,.55);
+  --ink:#f3f4f6; --ink-2:#a7aab2; --ink-3:#6e717a; --accent:#c9d1da; --accent-2:#9aa5b1;
+  --key:#eef0f3; --key-2:#c6cad1; --key-ink:#0c0d10; --grain:.042; --sheen:.04; --brush:.012;
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0,0,0,.7);
+  --recess: inset 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(0,0,0,.92),
+            inset 0 0 0 1px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.045);
+  --cast: 0 1px 2px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.32);
+  --cast-lg: 0 2px 4px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.45), 0 28px 64px rgba(0,0,0,.35);
+  --ambient: 0 8px 30px rgba(0,0,0,.28); color-scheme: dark;
+}
+
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); font-family:var(--iface); font-size:var(--t-body); line-height:1.55;
+  letter-spacing:var(--tr-body); font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased;
+  background: radial-gradient(130% 66% at 50% -14%, rgba(255,255,255,.03), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,var(--brush)) 0 1px, transparent 1px 4px), var(--chassis); }
+.grain { position:fixed; inset:0; z-index:400; pointer-events:none; opacity:var(--grain); mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23a)'/%3E%3C/svg%3E"); }
+
+h1,h2,h3,h4 { margin:0; font-family:var(--display); font-weight:600; text-wrap:balance; }
+h1 { font-size:var(--t-display); letter-spacing:var(--tr-display); line-height:1.08; }
+h2 { font-size:var(--t-title); letter-spacing:var(--tr-title); line-height:1.15; }
+h3 { font-size:var(--t-head); letter-spacing:var(--tr-head); }
+h4 { font-size:var(--t-body); letter-spacing:var(--tr-body); }
+p { margin:0; }
+button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+code { font-family:var(--meta); font-size:11px; letter-spacing:-.02em; color:var(--ink); }
+.num { font-family:var(--meta); font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+.label { font-size:var(--t-micro); letter-spacing:var(--tr-micro); text-transform:uppercase; color:var(--ink-3); font-weight:700; }
+.small { font-size:var(--t-small); letter-spacing:var(--tr-small); }
+.dim { color:var(--ink-2); } .dim3 { color:var(--ink-3); }
+
+.mat-panel { background: radial-gradient(120% 90% at 10% -14%, rgba(255,255,255,var(--sheen)), transparent 58%),
+  repeating-linear-gradient(90deg, rgba(255,255,255,calc(var(--brush)*.6)) 0 1px, transparent 1px 4px),
+  linear-gradient(180deg, var(--panel-hi), var(--panel) 44%, color-mix(in oklab, var(--panel) 90%, #000));
+  box-shadow:var(--edge), var(--ambient); }
+.mat-well { background:linear-gradient(180deg, color-mix(in oklab, var(--well) 92%, #000), var(--well)); box-shadow:var(--recess); }
+.mat-sub { background:rgba(255,255,255,.022); box-shadow:inset 0 0 0 1px var(--line); }
+
+.lamp { width:7px; height:7px; border-radius:50%; flex:none; background:radial-gradient(circle at 35% 30%, #4a4d55, #1a1c21);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.6); }
+.lamp.live { background:radial-gradient(circle at 35% 30%, #ff8a82, var(--live)); box-shadow:0 0 8px rgba(255,59,48,.9); }
+.lamp.pvw { background:radial-gradient(circle at 35% 30%, #9df5e6, var(--preview)); box-shadow:0 0 8px rgba(46,230,200,.75); }
+.lamp.ok { background:radial-gradient(circle at 35% 30%, #9df0c6, var(--ok)); box-shadow:0 0 7px rgba(61,220,151,.6); }
+.lamp.warn { background:radial-gradient(circle at 35% 30%, #ffd88a, var(--warn)); box-shadow:0 0 7px rgba(255,176,32,.65); }
+
+.btn { display:inline-flex; align-items:center; gap:var(--s2); height:30px; padding:0 var(--s4); border-radius:var(--r-sm);
+  font-size:var(--t-small); font-weight:600; white-space:nowrap;
+  transition:transform .09s var(--press), box-shadow .16s var(--press), background .16s var(--press), color .16s var(--press); }
+.btn:active { transform:translateY(1px); }
+.btn.sec { color:var(--ink-2); background:linear-gradient(180deg, var(--control-hi), var(--control)); box-shadow:var(--edge-key), var(--cast); }
+.btn.sec:hover { color:var(--ink); }
+.btn.pri { color:var(--key-ink); background:linear-gradient(180deg, var(--key), var(--key-2)); box-shadow:inset 0 1px 0 rgba(255,255,255,.6), var(--cast); }
+.btn.quiet { color:var(--ink-3); box-shadow:inset 0 0 0 1px var(--line); }
+.btn.quiet:hover { color:var(--ink); box-shadow:inset 0 0 0 1px var(--hair-strong); }
+.btn.quiet.on { color:var(--ink); box-shadow:inset 0 0 0 1px var(--accent); }
+.btn.sm { height:24px; padding:0 var(--s3); font-size:var(--t-micro); letter-spacing:.06em; text-transform:uppercase; }
+.kbd { display:inline-grid; place-items:center; min-width:17px; height:17px; padding:0 var(--s1); border-radius:4px;
+  font-family:var(--meta); font-size:9px; line-height:1; color:var(--ink-3);
+  background:linear-gradient(180deg, var(--control-hi), var(--control)); box-shadow:var(--edge-key), 0 1px 1px rgba(0,0,0,.4); }
+.pill { display:inline-flex; align-items:center; gap:var(--s2); height:20px; padding:0 var(--s3); border-radius:10px;
+  font-size:var(--t-micro); letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+  box-shadow:inset 0 0 0 1px var(--line); color:var(--ink-2); }
+.pill.live { color:var(--live); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 42%, transparent); }
+.pill.warn { color:var(--warn); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--warn) 42%, transparent); }
+.pill.ok { color:var(--ok); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 42%, transparent); }
+
+.doc { display:grid; grid-template-columns:250px minmax(0,1fr); min-height:100vh; }
+.index { position:sticky; top:0; align-self:start; height:100vh; display:flex; flex-direction:column;
+  border-right:1px solid var(--seam);
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,var(--brush)) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, color-mix(in oklab, var(--chassis) 88%, #fff), var(--chassis));
+  box-shadow:inset -1px 0 0 var(--hair); z-index:20; }
+.index-head { padding:var(--s6) var(--s5) var(--s4); border-bottom:1px solid var(--line); }
+.mark { display:flex; align-items:center; gap:var(--s3); }
+.mark-glyph { width:22px; height:22px; border-radius:var(--r-xs); flex:none; position:relative;
+  background:linear-gradient(150deg, var(--accent), var(--accent-2)); box-shadow:0 0 0 1px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4); }
+.mark-glyph::after { content:""; position:absolute; inset:6px 5px; border-radius:1px;
+  background:linear-gradient(180deg, rgba(0,0,0,.75) 0 2px, transparent 2px 4px, rgba(0,0,0,.75) 4px 6px, transparent 6px); }
+.mark-name { font-family:var(--display); font-weight:650; letter-spacing:-.03em; font-size:var(--t-head); }
+.index-scroll { flex:1; min-height:0; overflow-y:auto; padding:var(--s4) var(--s3) var(--s6); }
+.index-group { margin-top:var(--s5); } .index-group:first-child { margin-top:0; }
+.index-group > .label { padding:0 var(--s3) var(--s2); }
+.ix { display:flex; align-items:center; gap:var(--s3); width:100%; padding:var(--s2) var(--s3); border-radius:var(--r-sm);
+  color:var(--ink-2); text-align:left; text-decoration:none; transition:color .16s var(--press), background .16s var(--press); }
+.ix:hover { color:var(--ink); background:rgba(255,255,255,.03); }
+.ix-dot { width:3px; height:3px; border-radius:50%; flex:none; background:var(--ink-3); transition:all .2s var(--press); }
+.ix.on { color:var(--ink); } .ix.on .ix-dot { background:var(--accent); box-shadow:0 0 6px var(--accent); transform:scale(1.3); }
+.ix-n { margin-left:auto; font-size:var(--t-micro); letter-spacing:.08em; color:var(--ink-3); }
+.index-foot { padding:var(--s3); border-top:1px solid var(--line); display:flex; gap:var(--s2); }
+.column { min-width:0; padding:var(--s9) var(--s8) 120px; max-width:1240px; }
+
+.masthead { max-width:74ch; }
+.eyebrow { display:flex; align-items:center; gap:var(--s3); margin-bottom:var(--s5); }
+.eyebrow .rule { flex:1; height:1px; background:linear-gradient(90deg, var(--line), transparent); }
+.masthead h1 { font-size:clamp(34px,5vw,52px); letter-spacing:-.04em; }
+.lede { margin-top:var(--s5); font-size:16px; line-height:1.6; color:var(--ink-2); max-width:64ch; }
+.lede strong { color:var(--ink); font-weight:600; }
+
+section { padding-top:var(--s9); scroll-margin-top:var(--s6); }
+.sec-head { display:flex; align-items:flex-end; gap:var(--s4); padding-bottom:var(--s5); border-bottom:1px solid var(--line); margin-bottom:var(--s7); }
+.sec-num { font-family:var(--meta); font-size:var(--t-small); color:var(--ink-3); letter-spacing:.04em; padding-bottom:3px; }
+.sec-head h2 { flex:1; }
+.prose { max-width:68ch; display:flex; flex-direction:column; gap:var(--s4); color:var(--ink-2); }
+.prose strong { color:var(--ink); font-weight:600; }
+.sub { margin-top:var(--s8); margin-bottom:var(--s4); display:flex; align-items:center; gap:var(--s3); }
+.sub h3 { white-space:nowrap; } .sub .rule { flex:1; height:1px; background:var(--line); }
+
+.law { position:relative; margin:var(--s6) 0; padding:var(--s5) var(--s6) var(--s5) var(--s7); border-radius:var(--r-md);
+  max-width:76ch; background:rgba(255,255,255,.025); box-shadow:inset 0 0 0 1px var(--line);
+  font-family:var(--display); font-size:15px; line-height:1.5; letter-spacing:-.015em; color:var(--ink); }
+.law::before { content:""; position:absolute; left:0; top:var(--s4); bottom:var(--s4); width:2px; border-radius:2px; background:var(--accent); }
+.law .label { display:block; margin-bottom:var(--s2); }
+.law.hot::before { background:var(--live); } .law.hot .label { color:var(--live); }
+.law.amend::before { background:var(--warn); } .law.amend .label { color:var(--warn); }
+.law .body { display:block; margin-top:10px; font-family:var(--iface); font-size:var(--t-small); color:var(--ink-2);
+  line-height:1.55; letter-spacing:0; font-weight:400; }
+
+.bench { margin-top:var(--s6); border-radius:var(--r-lg); overflow:hidden; }
+.bench-head { display:flex; align-items:center; gap:var(--s4); padding:var(--s3) var(--s4); border-bottom:1px solid var(--seam);
+  box-shadow:inset 0 -1px 0 var(--hair); flex-wrap:wrap; }
+.bench-head .t { font-weight:600; font-size:var(--t-small); }
+.bench-head .s { color:var(--ink-3); font-size:var(--t-small); }
+.bench-head .sp { flex:1; }
+.bench-body { padding:var(--s6); } .bench-body.flush { padding:0; }
+.bench-foot { padding:var(--s3) var(--s4); border-top:1px solid var(--seam); box-shadow:inset 0 1px 0 var(--hair);
+  font-size:var(--t-small); color:var(--ink-3); display:flex; gap:var(--s5); flex-wrap:wrap; }
+.bench-foot b { color:var(--ink-2); font-weight:600; }
+
+table.spec { width:100%; border-collapse:collapse; font-size:var(--t-small); }
+table.spec th { text-align:left; padding:var(--s2) var(--s3); color:var(--ink-3); font-size:var(--t-micro);
+  letter-spacing:var(--tr-micro); text-transform:uppercase; font-weight:700; border-bottom:1px solid var(--line); white-space:nowrap; }
+table.spec td { padding:var(--s3); border-bottom:1px solid var(--hair); vertical-align:top; color:var(--ink-2); line-height:1.5; }
+table.spec td:first-child { color:var(--ink); font-weight:600; white-space:nowrap; }
+table.spec td.n { font-family:var(--meta); color:var(--ink); letter-spacing:-.03em; white-space:nowrap; }
+table.spec td.wrap { white-space:normal; }
+table.spec tr:last-child td { border-bottom:0; }
+.table-scroll { overflow-x:auto; }
+
+.rules { display:flex; flex-direction:column; margin-top:var(--s5); }
+.rule { display:flex; gap:var(--s4); padding:var(--s4) 0; border-bottom:1px solid var(--hair); align-items:flex-start; }
+.rule:last-child { border-bottom:0; }
+.rule .idx { font-family:var(--meta); font-size:var(--t-small); color:var(--ink-3); width:38px; flex:none; padding-top:1px; }
+.rule .tx { flex:1; max-width:74ch; }
+.rule .tx b { display:block; font-weight:600; color:var(--ink); margin-bottom:3px; }
+.rule .tx span { color:var(--ink-2); font-size:var(--t-small); line-height:1.55; }
+.rule .tx em { color:var(--ink); font-style:normal; font-weight:600; }
+
+.dd { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:var(--s4); margin-top:var(--s5); }
+.dd-col { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.dd-col.yes { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 26%, transparent); }
+.dd-col.no { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 24%, transparent); }
+.dd-col h4 { display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3); }
+.dd-col.yes h4 { color:var(--ok); } .dd-col.no h4 { color:var(--live); }
+.dd-col ul { margin:0; padding-left:var(--s5); display:flex; flex-direction:column; gap:var(--s2); }
+.dd-col li { font-size:var(--t-small); color:var(--ink-2); line-height:1.5; }
+
+.toolbar { position:fixed; right:var(--s5); top:var(--s5); z-index:200; padding:var(--s2); border-radius:var(--r-md);
+  background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge), var(--cast); }
+
+/* ==========================================================================
+   INVENTIONS
+   ========================================================================== */
+.inv { margin-top:var(--s7); border-radius:var(--r-lg); overflow:hidden; }
+.inv-hd { display:flex; align-items:flex-start; gap:var(--s5); padding:var(--s5) var(--s6);
+  border-bottom:1px solid var(--seam); box-shadow:inset 0 -1px 0 var(--hair); }
+.inv-n { font-family:var(--meta); font-size:var(--t-small); color:var(--accent); padding-top:4px; flex:none; }
+.inv-t { flex:1; min-width:0; }
+.inv-t h3 { font-size:17px; letter-spacing:-.024em; }
+.inv-t .cat { margin-top:5px; display:flex; gap:var(--s2); flex-wrap:wrap; }
+.inv-t .cat .c { font-size:8px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:var(--ink-3);
+  padding:2px var(--s2); border-radius:3px; box-shadow:inset 0 0 0 1px var(--line); }
+.inv-claim { padding:var(--s5) var(--s6); font-family:var(--display); font-size:15px; line-height:1.5;
+  letter-spacing:-.015em; color:var(--ink); max-width:78ch; }
+.inv-q { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1px; background:var(--line); }
+.inv-qc { padding:var(--s4) var(--s5); background:var(--panel); }
+.inv-qc .label { margin-bottom:var(--s2); }
+.inv-qc .v { font-size:var(--t-small); color:var(--ink-2); line-height:1.55; }
+.inv-qc .v b { color:var(--ink); font-weight:600; }
+.inv-miss { padding:var(--s4) var(--s6); border-top:1px solid var(--seam); box-shadow:inset 0 1px 0 var(--hair);
+  display:flex; align-items:center; gap:var(--s4); flex-wrap:wrap; }
+.inv-miss .q { font-size:var(--t-small); color:var(--ink-3); }
+.inv-miss .a { font-size:var(--t-small); color:var(--ink); font-weight:600; }
+
+/* ==========================================================================
+   SPECIMEN · WORST CASE
+   ========================================================================== */
+.wc { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:var(--s5); }
+@media (max-width:920px) { .wc { grid-template-columns:1fr; } }
+.wc-frame { aspect-ratio:16/9; border-radius:var(--r-md); position:relative; overflow:hidden;
+  background:linear-gradient(150deg,#141a26,#05070c); }
+.wc-safe { position:absolute; inset:5%; box-shadow:inset 0 0 0 1px rgba(255,255,255,.09); border-radius:2px; pointer-events:none; }
+.wc-safe::after { content:"TITLE SAFE"; position:absolute; top:3px; left:5px; font-size:7px; letter-spacing:.14em;
+  color:rgba(255,255,255,.28); font-family:var(--meta); }
+.wc-g3 { position:absolute; left:7%; bottom:12%; width:52%; border-radius:3px; overflow:hidden;
+  transition:width .3s var(--glide), outline-color .2s var(--press); outline:1px solid transparent; }
+.wc-g3.over { outline-color:var(--live); box-shadow:0 0 0 3px color-mix(in oklab, var(--live) 20%, transparent); }
+.wc-g3.fixed { outline-color:var(--ok); box-shadow:0 0 0 3px color-mix(in oklab, var(--ok) 16%, transparent); }
+.wc-bar { height:3px; background:linear-gradient(90deg, var(--accent), transparent); }
+.wc-body { padding:8px 11px 10px; background:linear-gradient(100deg, rgba(10,11,14,.95), rgba(16,18,24,.84)); }
+.wc-name { font-family:var(--display); font-weight:650; font-size:15px; letter-spacing:-.022em; color:#fff; line-height:1.08;
+  white-space:nowrap; transition:font-size .25s var(--glide); }
+.wc-g3.clip .wc-name { overflow:visible; }
+.wc-role { font-size:8px; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.6); margin-top:4px; font-weight:700; white-space:nowrap; }
+.wc-side { display:flex; flex-direction:column; gap:var(--s4); min-width:0; }
+.wc-verdict { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.wc-verdict .h { font-family:var(--display); font-size:var(--t-head); font-weight:650; letter-spacing:-.02em; }
+.wc-verdict .m { font-size:var(--t-small); color:var(--ink-2); margin-top:var(--s2); line-height:1.5; }
+.wc-verdict.bad { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 34%, transparent); }
+.wc-verdict.bad .h { color:var(--live); }
+.wc-verdict.good { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 30%, transparent); }
+.wc-verdict.good .h { color:var(--ok); }
+.wc-feed { border-radius:var(--r-md); overflow:hidden; }
+.wc-feed .r { display:flex; align-items:center; gap:var(--s3); padding:var(--s2) var(--s4); font-size:var(--t-small);
+  border-bottom:1px solid var(--hair); }
+.wc-feed .r:last-child { border-bottom:0; }
+.wc-feed .r.hit { background:color-mix(in oklab, var(--live) 12%, transparent); color:var(--ink); }
+.wc-feed .r .len { margin-left:auto; font-family:var(--meta); font-size:var(--t-micro); color:var(--ink-3); }
+.wc-feed .r.hit .len { color:var(--live); }
+
+/* ==========================================================================
+   SPECIMEN · FLIGHT RECORDER
+   ========================================================================== */
+.fr-scrub { padding:var(--s5) var(--s6); }
+.fr-track { position:relative; height:44px; border-radius:var(--r-sm); overflow:hidden; margin-bottom:var(--s3); }
+.fr-ev { position:absolute; top:0; bottom:0; width:2px; background:var(--ink-3); opacity:.55; }
+.fr-ev.take { background:var(--live); opacity:1; box-shadow:0 0 6px var(--live); }
+.fr-ev.cue { background:var(--preview); opacity:.9; }
+.fr-ev.fault { background:var(--warn); opacity:1; box-shadow:0 0 6px var(--warn); }
+.fr-head { position:absolute; top:-2px; bottom:-2px; width:1px; background:var(--accent); box-shadow:0 0 8px var(--accent); z-index:3; }
+.fr-head::after { content:""; position:absolute; top:0; left:-4px; width:9px; height:5px; border-radius:1px; background:var(--accent); }
+input[type=range].fr-range { width:100%; -webkit-appearance:none; appearance:none; background:transparent; height:20px; cursor:ew-resize; }
+input[type=range].fr-range::-webkit-slider-runnable-track { height:4px; border-radius:2px; background:rgba(255,255,255,.09); }
+input[type=range].fr-range::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; margin-top:-4px;
+  background:linear-gradient(180deg, var(--key), var(--key-2)); box-shadow:var(--cast); }
+input[type=range].fr-range::-moz-range-track { height:4px; border-radius:2px; background:rgba(255,255,255,.09); }
+input[type=range].fr-range::-moz-range-thumb { width:12px; height:12px; border:0; border-radius:50%;
+  background:linear-gradient(180deg, var(--key), var(--key-2)); box-shadow:var(--cast); }
+.fr-state { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:1px; background:var(--line); }
+.fr-cell { padding:var(--s4) var(--s5); background:var(--panel); }
+.fr-cell .label { margin-bottom:3px; }
+.fr-cell .v { font-size:var(--t-small); color:var(--ink); line-height:1.45; }
+.fr-cell .v.mono { font-family:var(--meta); letter-spacing:-.03em; }
+.fr-why { padding:var(--s4) var(--s6); font-size:var(--t-small); color:var(--ink-2); line-height:1.55; }
+.fr-why b { color:var(--ink); font-weight:600; }
+
+/* ==========================================================================
+   SPECIMEN · FRAME BUDGET
+   ========================================================================== */
+.fb { padding:var(--s5) var(--s6); }
+.fb-bar { height:38px; border-radius:var(--r-sm); overflow:hidden; display:flex; position:relative; margin-bottom:var(--s3); }
+.fb-seg { height:100%; position:relative; transition:width .3s var(--glide); min-width:0; }
+.fb-seg span { position:absolute; inset:0; display:grid; place-items:center; font-size:8px; letter-spacing:.06em;
+  text-transform:uppercase; font-weight:700; color:rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; }
+.fb-limit { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--ink); z-index:4; }
+.fb-limit::after { content:"20.0 ms · 1080p50"; position:absolute; top:-16px; left:6px; font-family:var(--meta);
+  font-size:8px; color:var(--ink-2); white-space:nowrap; }
+.fb-rows { display:flex; flex-direction:column; margin-top:var(--s5); }
+.fb-row { display:flex; align-items:center; gap:var(--s3); padding:var(--s2) 0; border-bottom:1px solid var(--hair); font-size:var(--t-small); }
+.fb-row:last-child { border-bottom:0; }
+.fb-row .sq { width:9px; height:9px; border-radius:2px; flex:none; }
+.fb-row .n { color:var(--ink); }
+.fb-row .ms { margin-left:auto; font-family:var(--meta); color:var(--ink-2); letter-spacing:-.03em; }
+.fb-verdict { margin-top:var(--s5); border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.fb-verdict .h { font-family:var(--display); font-size:var(--t-head); font-weight:650; letter-spacing:-.02em; }
+.fb-verdict .m { font-size:var(--t-small); color:var(--ink-2); margin-top:var(--s2); line-height:1.5; }
+.fb-verdict.bad { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 34%, transparent); }
+.fb-verdict.bad .h { color:var(--live); }
+.fb-verdict.warn { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--warn) 34%, transparent); }
+.fb-verdict.warn .h { color:var(--warn); }
+.fb-verdict.good { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 30%, transparent); }
+.fb-verdict.good .h { color:var(--ok); }
+
+/* Roadmap */
+.road { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:var(--s4); margin-top:var(--s5); }
+.road-c { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.road-c .v { font-family:var(--meta); font-size:var(--t-micro); color:var(--accent); letter-spacing:.1em; }
+.road-c h4 { margin:var(--s2) 0 var(--s2); }
+.road-c p { font-size:var(--t-small); color:var(--ink-2); line-height:1.5; }
+
+@media (max-width:900px) {
+  .doc { grid-template-columns:1fr; }
+  .index { position:static; height:auto; border-right:0; border-bottom:1px solid var(--seam); }
+  .column { padding:var(--s6) var(--s5) 96px; }
+  .toolbar { position:static; margin:var(--s4) var(--s5) 0; display:inline-block; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+</style>
+
+<div class="grain"></div>
+<div class="toolbar"><button class="btn quiet sm" id="theme-toggle">Finish</button></div>
+
+<div class="doc">
+  <nav class="index">
+    <div class="index-head">
+      <div class="mark">
+        <div class="mark-glyph"></div>
+        <div><div class="mark-name">Streamatrix</div><div class="label" style="margin-top:4px">Design OS · Vol. Four</div></div>
+      </div>
+    </div>
+    <div class="index-scroll">
+      <div class="index-group">
+        <div class="label">Standing</div>
+        <a class="ix" href="#doctrine"><span class="ix-dot"></span>Doctrine of Invention</a>
+        <a class="ix" href="#refuse"><span class="ix-dot"></span>What We Will Not Build</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Before Air</div>
+        <a class="ix" href="#dryrun"><span class="ix-dot"></span>01 · The Dry Run</a>
+        <a class="ix" href="#worstcase"><span class="ix-dot"></span>02 · Worst Case</a>
+        <a class="ix" href="#budget"><span class="ix-dot"></span>03 · Frame Budget</a>
+        <a class="ix" href="#contract"><span class="ix-dot"></span>04 · Data Contract</a>
+        <a class="ix" href="#legal"><span class="ix-dot"></span>05 · Continuous Legal</a>
+      </div>
+      <div class="index-group">
+        <div class="label">On Air</div>
+        <a class="ix" href="#understudy"><span class="ix-dot"></span>06 · The Understudy</a>
+        <a class="ix" href="#criticalpath"><span class="ix-dot"></span>07 · Critical Path</a>
+        <a class="ix" href="#eyes"><span class="ix-dot"></span>08 · Second Pair of Eyes</a>
+      </div>
+      <div class="index-group">
+        <div class="label">After Air</div>
+        <a class="ix" href="#recorder"><span class="ix-dot"></span>09 · Flight Recorder</a>
+        <a class="ix" href="#diff"><span class="ix-dot"></span>10 · Visual Diff</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Everywhere</div>
+        <a class="ix" href="#desk"><span class="ix-dot"></span>11 · Portable Desk</a>
+        <a class="ix" href="#ai"><span class="ix-dot"></span>12 · Bounded Assistant</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Review</div>
+        <a class="ix" href="#amend"><span class="ix-dot"></span>Amendments<span class="ix-n">3</span></a>
+        <a class="ix" href="#risk"><span class="ix-dot"></span>Risks</a>
+        <a class="ix" href="#conformance"><span class="ix-dot"></span>Conformance</a>
+        <a class="ix" href="#road"><span class="ix-dot"></span>Roadmap</a>
+      </div>
+    </div>
+    <div class="index-foot"><span class="label" style="padding:var(--s2)">12 inventions · 3 playable</span></div>
+  </nav>
+
+  <main class="column">
+
+    <header class="masthead">
+      <div class="eyebrow"><span class="label">Volume Four</span><span class="rule"></span><span class="label">Invention</span></div>
+      <h1>Things that should already exist</h1>
+      <p class="lede">
+        Volumes One to Three decided how Streamatrix behaves. This one decides <strong>what it does that nothing
+        else does</strong> — and the test is uncomfortable on purpose: after six months, would a broadcaster
+        going back to their old system notice this was gone, and be angry about it?
+        <br><br>
+        Everything here is buildable against the engine as it exists or as a stated extension of it. Nothing
+        below requires a research breakthrough, and <strong>nothing below is a feature nobody asked for</strong> —
+        each one exists because broadcast graphics fail in a specific, boring, repeated way that the industry has
+        collectively decided to live with.
+      </p>
+    </header>
+
+    <!-- ==========================================================
+         DOCTRINE
+         ========================================================== -->
+    <section id="doctrine">
+      <div class="sec-head"><span class="sec-num">00</span><h2>Doctrine of Invention</h2><span class="label">what earns a place</span></div>
+
+      <div class="prose">
+        <p>The failure mode of a product like this is not too few features. It is a hundred good ideas that make
+        the instrument heavier. Five rules decide what gets built.</p>
+      </div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">I1</div><div class="tx"><b>Invent against a failure, not against a competitor.</b>
+          <span>Every invention here starts from a specific way broadcast graphics go wrong on air — a name that overflowed, a font that was missing, a feed that changed shape at 19:00. Features derived from a competitor's roadmap arrive without a reason to exist and cannot be argued about.</span></div></div>
+        <div class="rule"><div class="idx">I2</div><div class="tx"><b>Move work earlier, not faster.</b>
+          <span>The most valuable thing software can do for a broadcaster is convert a 20:00 problem into an 18:00 problem. <em>Nine of the twelve inventions below are earliness machines.</em> Speed at 20:00 is worth far less than knowledge at 18:00.</span></div></div>
+        <div class="rule"><div class="idx">I3</div><div class="tx"><b>The product may know things. It may not decide things.</b>
+          <span>Analysis, prediction, verification and warning are all legitimate. Acting on the operator's behalf on the live path is not, ever — including when the product is right. See §12.</span></div></div>
+        <div class="rule"><div class="idx">I4</div><div class="tx"><b>Nothing new may appear during a show.</b>
+          <span>An invention that is only visible on air has failed: it is asking the operator to learn something at the worst possible moment. Everything here is discovered off air and merely <em>trusted</em> on air.</span></div></div>
+        <div class="rule"><div class="idx">I5</div><div class="tx"><b>If it cannot be turned off, it is not finished.</b>
+          <span>Every invention below can be disabled per production, and the product must remain coherent without it. A feature that becomes load-bearing without consent is a feature that cannot be trusted.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         REFUSALS
+         ========================================================== -->
+    <section id="refuse">
+      <div class="sec-head"><span class="sec-num">00b</span><h2>What We Will Not Build</h2><span class="label">stated first, on purpose</span></div>
+
+      <div class="prose">
+        <p>Stated before the inventions rather than after, because a list of refusals written after the fact is
+        a rationalisation. These are the things a competitor will ship, that we will be asked for, and that we
+        will decline.</p>
+      </div>
+
+      <div class="dd">
+        <div class="dd-col no">
+          <h4><span class="lamp live"></span>Never</h4>
+          <ul>
+            <li><b>Anything that puts content on air without a person.</b> No auto-take, no scheduled take, no “AI director”, no automatic recovery to air. This is the line the whole product is organised around.</li>
+            <li><b>Generative content on the live path.</b> A model may propose; a human must have seen the rendered result before it can reach an audience.</li>
+            <li><b>Engagement metrics.</b> No “you used Streamatrix for 6 hours today”. A tool is not a habit, and time-in-app is an anti-goal for production software.</li>
+            <li><b>Gamification.</b> No streaks, badges, levels or achievement toasts. Broadcasting is already high-stakes; adding fake stakes is contemptuous.</li>
+            <li><b>Subjective marketplace ratings.</b> Five stars measure popularity, not fitness. See Amendment 3 for what replaces them.</li>
+            <li><b>A plugin API into the live render path.</b> Third-party code between the operator and the audience is a supply chain we cannot certify. Extensions live outside the frame path or not at all.</li>
+            <li><b>Cloud-only capability.</b> Nothing an operator needs during a show may require the internet. Ever.</li>
+          </ul>
+        </div>
+        <div class="dd-col yes">
+          <h4><span class="lamp ok"></span>Because</h4>
+          <ul>
+            <li>Every one of these is popular, defensible in a pitch, and would make the product measurably worse at the only thing it is for.</li>
+            <li>A broadcaster's trust is built over years and lost in one incident. Features that trade a small convenience for a small probability of catastrophe are always a bad trade at this scale.</li>
+            <li>The refusals are also the marketing. “Streamatrix will never put something on air by itself” is a sentence a head of broadcast can repeat to their board.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         01 DRY RUN
+         ========================================================== -->
+    <section id="dryrun">
+      <div class="sec-head"><span class="sec-num">01</span><h2>The Dry Run</h2><span class="label">a compiler for a broadcast</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">01</span>
+          <div class="inv-t">
+            <h3>Execute the entire rundown at 200× before anyone goes near the desk</h3>
+            <div class="cat"><span class="c">Rundown intelligence</span><span class="c">Broadcast safety</span><span class="c">Diagnostics</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          A rundown is a program. Streamatrix runs it — every graphic, every transition, every data binding,
+          against the real engine and the real feeds — and reports what <em>would</em> have gone wrong, in about
+          four seconds, before the studio is even lit.
+        </div>
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because a rundown is already a deterministic sequence of state changes, and we have an engine that can produce them faster than real time. <b>The information is free; nobody collects it.</b></div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">In most systems the rundown lives in a newsroom computer, the graphics live in a renderer, and the data lives in a third place. No single component can execute the show. Streamatrix's document model means one process holds all three.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">The commonest broadcast graphics failure is not a crash. It is a graphic that was never rendered with today's data until the moment it went to air — a missing font, a null binding, a substituted asset, an animation that collides with the one before it.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">It costs GPU time, it can be wrong about live feeds that change after the run, and it creates a false sense of safety if operators treat a green run as a guarantee. The report therefore states <b>what it could not check</b> as prominently as what it did.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">I2 — move work earlier. Also Volume Two's pre-air check, of which this is the executable half.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">This becomes the thing nobody remembers living without, in the way that nobody now writes code without a type checker. <b>“You went to air without running it?”</b></div></div>
+        </div>
+        <div class="inv-miss">
+          <span class="q">Would a broadcaster miss it after six months?</span>
+          <span class="a">Yes — this is the one they would refuse to give up.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         02 WORST CASE
+         ========================================================== -->
+    <section id="worstcase">
+      <div class="sec-head"><span class="sec-num">02</span><h2>Worst Case</h2><span class="label">playable</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">02</span>
+          <div class="inv-t">
+            <h3>Design against the longest name in the feed, not the one in the mock-up</h3>
+            <div class="cat"><span class="c">Graphics authoring</span><span class="c">Template systems</span><span class="c">Broadcast safety</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          Every graphic is continuously rendered against the <em>adversarial extreme</em> of its own data source —
+          the longest name, the largest number, the widest string, the most rows — and shows you the failure
+          while you are still designing it.
+        </div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head">
+          <span class="t">Specimen</span><span class="s">a real lower third against a real squad list</span><span class="sp"></span>
+          <div style="display:flex; gap:2px; padding:2px; border-radius:var(--r-sm); box-shadow:inset 0 0 0 1px var(--line)" id="wc-modes">
+            <button class="btn quiet on" data-mode="design">As designed</button>
+            <button class="btn quiet" data-mode="worst">Worst in feed</button>
+            <button class="btn quiet" data-mode="fixed">Auto-fitted</button>
+          </div>
+        </div>
+        <div class="bench-body">
+          <div class="wc">
+            <div class="wc-frame mat-well">
+              <div class="wc-safe"></div>
+              <div class="wc-g3" id="wc-g3">
+                <div class="wc-bar"></div>
+                <div class="wc-body">
+                  <div class="wc-name" id="wc-name">Amara Okonkwo</div>
+                  <div class="wc-role" id="wc-role">Chief Correspondent · Lagos</div>
+                </div>
+              </div>
+            </div>
+            <div class="wc-side">
+              <div class="wc-verdict" id="wc-verdict">
+                <div class="h">Fits</div>
+                <div class="m">This is the value the designer typed. It says nothing about the other 23 in the feed.</div>
+              </div>
+              <div class="wc-feed mat-sub" id="wc-feed"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>The point</b> The middle state is what goes to air today, in every broadcast graphics system in the world, and nobody finds out until it happens.</span>
+        </div>
+      </div>
+
+      <div class="inv mat-panel">
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because the single most visible on-air graphics failure — text spilling out of a box — is entirely predictable from data the product already has.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Because template systems treat data as something that arrives at runtime. Streamatrix's variables declare their source, so <b>the extremes are knowable at design time</b>. It is a consequence of the data model, not a feature bolted on.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">A designer who has only ever seen “Amara Okonkwo” has not designed a graphic. They have designed one instance of it. Worst Case makes the difference visible in the moment it matters.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">Designing for the extreme can make the typical case look timid. The answer is auto-fitting with a declared floor — and the floor is a <b>legibility</b> limit, not an aesthetic one, so it can be enforced by Continuous Legal (§05).</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">I2, and Volume One's Law 7 — the surface answers “what now?” by offering the fit rather than only reporting the overflow.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">Designing a broadcast graphic without seeing its worst case looks like shipping code without running the tests.</div></div>
+        </div>
+        <div class="inv-miss">
+          <span class="q">Would a broadcaster miss it after six months?</span>
+          <span class="a">Yes, and specifically the first time a name overflowed on air somewhere else.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         03 FRAME BUDGET
+         ========================================================== -->
+    <section id="budget">
+      <div class="sec-head"><span class="sec-num">03</span><h2>Frame Budget</h2><span class="label">playable</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">03</span>
+          <div class="inv-t">
+            <h3>Not a frame rate. A budget, spent per layer, known before air</h3>
+            <div class="cat"><span class="c">Telemetry</span><span class="c">Rendering</span><span class="c">Visual debugging</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          Every layer declares its cost in milliseconds. The operator sees the show's frame budget the way an
+          engineer sees a power budget — <em>attributed, in advance, with headroom stated</em> — instead of
+          discovering it as a dropped frame on television.
+        </div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head">
+          <span class="t">Specimen</span><span class="s">Match Day rundown · 1080p50 · 20.0 ms per frame</span><span class="sp"></span>
+          <button class="btn quiet sm" id="fb-4k">Switch to 2160p50</button>
+          <button class="btn quiet sm" id="fb-add">Add drop shadow to Scoreboard</button>
+        </div>
+        <div class="bench-body flush">
+          <div class="fb">
+            <div class="fb-bar mat-well" id="fb-bar"><div class="fb-limit" id="fb-limit"></div></div>
+            <div class="fb-rows" id="fb-rows"></div>
+            <div class="fb-verdict good" id="fb-verdict">
+              <div class="h">7.1 ms of headroom</div>
+              <div class="m">The heaviest frame in this rundown costs 12.9 ms. Safe at 1080p50.</div>
+            </div>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Attribution is the invention.</b> Every renderer can tell you it dropped a frame. None of them tells you which layer to blame, before you find out on air.</span>
+        </div>
+      </div>
+
+      <div class="inv mat-panel">
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because “it ran fine on my machine at 1080” is how graphics teams discover, live, that a show does not fit at 2160p50.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Because renderers measure frames, not layers. Streamatrix's projection is per-node, so a per-node cost is already in the pipeline — it just has to be surfaced as an operator instrument instead of a developer profiler.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">It converts the least-diagnosable class of broadcast failure — intermittent stutter under load — into a number attached to the object that caused it.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">Measurement costs a little of what it measures, and worst-case cost is not the same as typical cost. The instrument therefore shows the <b>heaviest frame in the rundown</b>, not the average — pessimism is the correct bias here.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">I2 and Volume Two's GPU doctrine — degradation must be predicted and named, never discovered.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">A graphics package ships with its cost on the box, the way a component ships with a power draw. The Marketplace lists it. See Amendment 3.</div></div>
+        </div>
+        <div class="inv-miss">
+          <span class="q">Would a broadcaster miss it after six months?</span>
+          <span class="a">The engineers would. The director would miss the absence of stutter.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         04 DATA CONTRACT
+         ========================================================== -->
+    <section id="contract">
+      <div class="sec-head"><span class="sec-num">04</span><h2>The Data Contract</h2><span class="label">a type system for a show</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">04</span>
+          <div class="inv-t">
+            <h3>A graphic declares what it needs. The feed is validated against it, continuously</h3>
+            <div class="cat"><span class="c">Template systems</span><span class="c">Diagnostics</span><span class="c">Broadcast safety</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          <code>score: integer 0–99, required</code> · <code>name: text ≤ 24 glyphs, required</code> ·
+          <code>badge: image 1:1, optional, falls back to competition mark</code>. When the feed stops satisfying
+          the contract, Streamatrix knows at 18:04, names the field, and shows you which graphics are affected.
+        </div>
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because a live data feed is an untyped interface owned by someone else, consumed at the worst possible moment, and it changes without notice.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Broadcast graphics historically bind by name and hope. The industry's answer to a changed feed is a phone call. <b>Nobody has treated the feed as an interface with a contract</b> because nobody modelled graphics as programs.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">The 19:00 discovery that the scores endpoint now returns strings, or that a name field gained a middle initial and every lower third is now three glyphs too wide.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">It is work at design time, and designers will resent it exactly as much as engineers resent types — until the first time it saves them. Contracts are therefore <b>inferred from the first sample</b> and then confirmed, never authored from scratch.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">I2, and it is the precondition for both Worst Case and The Understudy — neither works without knowing what the data promises.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">Data providers publish Streamatrix contracts alongside their APIs, and a feed change ships as a versioned contract change. This is the invention with the most leverage on the wider industry.</div></div>
+        </div>
+        <div class="inv-miss"><span class="q">Would a broadcaster miss it after six months?</span><span class="a">Not consciously — they would just stop having a category of bad night.</span></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         05 LEGAL
+         ========================================================== -->
+    <section id="legal">
+      <div class="sec-head"><span class="sec-num">05</span><h2>Continuous Legal</h2><span class="label">compliance as a live instrument</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">05</span>
+          <div class="inv-t">
+            <h3>Gamut, luma, safe area, minimum legible type, and flash rate — checked as you design</h3>
+            <div class="cat"><span class="c">Broadcast safety</span><span class="c">Rendering</span><span class="c">Approval</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          Broadcast has actual legal limits — colour gamut, peak luminance, and in several territories a
+          <em>statutory</em> limit on flashing imagery for photosensitive epilepsy. Streamatrix checks all of them
+          continuously, on the graphic, while it is being made, and refuses to let an unchecked graphic be marked
+          ready.
+        </div>
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because these are the only requirements in the product that carry a regulator, and they are currently enforced by a person watching a scope after the fact — if at all.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Compliance tooling lives in transmission, at the end of the chain, as a separate box. <b>Putting it in the authoring tool means catching it at the point where fixing it is free.</b></div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">Illegal colour that has to be legalised in transmission and comes out looking wrong; type that is unreadable at delivery resolution; a transition that strobes at 4 Hz and breaches Ofcom guidance.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">It constrains designers, sometimes visibly — a brand red may not be legal. The product's job is to say so <b>and offer the nearest legal colour</b>, not to silently clamp it, which is what transmission does today.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">I2, and Volume Three's accessibility rule against photosensitive triggers — extended from the interface to the output.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">A graphics tool that cannot prove its output is legal is not usable by a public broadcaster. This becomes a procurement requirement.</div></div>
+        </div>
+        <div class="inv-miss"><span class="q">Would a broadcaster miss it after six months?</span><span class="a">Their compliance officer would refuse to sign off without it.</span></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         06 UNDERSTUDY
+         ========================================================== -->
+    <section id="understudy">
+      <div class="sec-head"><span class="sec-num">06</span><h2>The Understudy</h2><span class="label">designed degradation</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">06</span>
+          <div class="inv-t">
+            <h3>Every graphic declares what it becomes when something is missing</h3>
+            <div class="cat"><span class="c">Broadcast safety</span><span class="c">Template systems</span><span class="c">Operator assistance</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          A graphic is not one design. It is a design plus its <em>declared degradations</em>: what it looks like
+          with no badge, with no photo, with a null score, with the font unavailable. Authored deliberately,
+          verified by the Dry Run, and used automatically on air — because a graphic that is slightly wrong beats
+          a hole in the programme.
+        </div>
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because the alternative to degradation is absence, and on television absence is the worse failure. Black is always worse than stale.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Because fallbacks are usually a rendering concern — a substituted font, an empty box — decided by the engine at the moment of failure. <b>Making the fallback an authored, reviewable part of the design</b> is the shift.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">The lower third that goes to air with a grey rectangle where a badge should be, because nobody ever decided what should happen instead.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">More design work per graphic, and a risk that a degraded form goes out and nobody notices it was degraded. Mitigated by a rule: <b>whenever an understudy is on air, the operator is told, on the object, in amber.</b></div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">Volume Two's rendering failure class — “the frame that failed is held, never blanked” — generalised from frames to content. It is also the answer to anyone arguing for automatic recovery to air: <b>degrade, do not resurrect.</b></div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">Shipping a broadcast template without its understudies looks like shipping a web page with no error state.</div></div>
+        </div>
+        <div class="inv-miss"><span class="q">Would a broadcaster miss it after six months?</span><span class="a">Yes — and it is the one their competitors would notice on air.</span></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         07 CRITICAL PATH
+         ========================================================== -->
+    <section id="criticalpath">
+      <div class="sec-head"><span class="sec-num">07</span><h2>Critical Path</h2><span class="label">readiness, as a countdown</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">07</span>
+          <div class="inv-t">
+            <h3>The rundown knows how long each item takes to become ready — and warns before you get there</h3>
+            <div class="cat"><span class="c">Rundown intelligence</span><span class="c">Operator assistance</span><span class="c">Telemetry</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          Every graphic has a real readiness latency: fetch, decode, upload, first frame. Streamatrix measures it,
+          and the rundown shows <em>“item 14 needs 2.1 s and you are 1.4 s away”</em> — as a state on the item,
+          before the operator arrives at it, not as a stall when they press take.
+        </div>
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because “I pressed take and nothing happened” is almost always a readiness problem, and it is invisible until it bites.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Systems pre-load a fixed lookahead of one or two items and hope. Nobody measures actual per-item readiness and compares it to the operator's <b>actual position and pace</b> in the rundown.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">A fast-paced show — esports, news breaking, a goal — where the operator outruns the machine and finds out by taking a graphic that is not there.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">It means predicting where the operator is going, which is a guess. The mitigation is that it only ever <b>warms and warns</b> — it never reorders, never skips, and never takes. And what it has warmed is visible, so there is no hidden state.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">I3 — the product may know, it may not decide. And Volume Two's H2: nothing moves unless a person moved it.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">Readiness becomes as normal a readout as timecode, and a rundown without it feels like driving without a fuel gauge.</div></div>
+        </div>
+        <div class="inv-miss"><span class="q">Would a broadcaster miss it after six months?</span><span class="a">Every operator who has ever taken an empty graphic, immediately.</span></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         08 SECOND PAIR OF EYES
+         ========================================================== -->
+    <section id="eyes">
+      <div class="sec-head"><span class="sec-num">08</span><h2>Second Pair of Eyes</h2><span class="label">two-person integrity</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">08</span>
+          <div class="inv-t">
+            <h3>Some graphics cannot go to air until a second person has seen them rendered</h3>
+            <div class="cat"><span class="c">Approval systems</span><span class="c">Review tools</span><span class="c">Multi-operator</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          Not a workflow tool. A <em>broadcast-safety mechanic</em>, borrowed from nuclear two-key and aviation
+          cross-check: a graphic marked for verification is unavailable to the take control until a second
+          identity has viewed the <em>rendered output with the actual data in it</em> — not a filename, not a
+          thumbnail, not a description.
+        </div>
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because the highest-consequence graphics errors — a wrong name on an obituary, a wrong sponsor, a wrong election number — are approved by someone reading a list, not seeing a picture.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Approval in broadcast is a human process outside the software, so the software has no way to enforce that the approver <b>actually looked at the thing</b>. Streamatrix can, because it renders and it knows who is looking.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">Approval theatre. A sign-off that attests to a name in a rundown rather than to pixels on a screen.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">It costs time and a second person, so it must be <b>opt-in per graphic, never per production</b> — a blanket policy would be routed around within a week, which is how safety mechanisms die.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">Volume Two's mission-control principle: one console owns one system and can call a hold. Also Volume One Law 6 — the take control is genuinely unavailable, not disabled-with-a-tooltip.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">Regulated content — election results, financial data, obituaries — is legally required to carry a verification record. Streamatrix already produces one.</div></div>
+        </div>
+        <div class="inv-miss"><span class="q">Would a broadcaster miss it after six months?</span><span class="a">A newsroom would. A sports producer would not — which is why it is per graphic.</span></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         09 FLIGHT RECORDER
+         ========================================================== -->
+    <section id="recorder">
+      <div class="sec-head"><span class="sec-num">09</span><h2>The Flight Recorder</h2><span class="label">playable</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">09</span>
+          <div class="inv-t">
+            <h3>Scrub the show's <em>causes</em>, not its video</h3>
+            <div class="cat"><span class="c">Production analytics</span><span class="c">Visual debugging</span><span class="c">Review tools</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          Everyone records the output. Nobody records the <em>reason</em>. Streamatrix journals every operation,
+          take, data value, fault and frame cost with frame-accurate timing — so “why did the scoreboard say 2–1
+          at 67:14?” is a question you scrub to and answer, instead of a meeting.
+        </div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Specimen</span><span class="s">Premier League · Match Day 14 · drag the playhead</span></div>
+        <div class="bench-body flush">
+          <div class="fr-scrub">
+            <div class="fr-track mat-well" id="fr-track"></div>
+            <input type="range" class="fr-range" id="fr-range" min="0" max="5400" value="4034" step="1" aria-label="Show time">
+          </div>
+          <div class="fr-state" id="fr-state"></div>
+          <div class="fr-why" id="fr-why"></div>
+        </div>
+        <div class="bench-foot">
+          <span><b>The record is the document.</b> No extra capture, no separate log — the operation journal that already provides undo and crash recovery <em>is</em> the flight recorder. It costs almost nothing because it already exists.</span>
+        </div>
+      </div>
+
+      <div class="inv mat-panel">
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because after every incident, a room of people watch a recording of the output and argue about what caused it. The cause is knowable and nobody stores it.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Because in most architectures the state is spread across a renderer, a controller and a feed, with no common clock. Streamatrix has one document, one journal and one clock — <b>the flight recorder is nearly free.</b></div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">Attribution. Which data value, from which feed, at which timestamp, taken by which operator, produced what the audience saw.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">It records who did what, which is a surveillance risk in a workplace. It must therefore be <b>show-scoped, retention-limited, and visible to the operators it records</b> — an operator can always see their own record. Any other design turns a safety tool into a management one, and it will be resented and disabled.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">Volume Two's blame-free incident report, made concrete. The report writes itself because the data is already there.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">Post-show review changes from watching a tape to reading a timeline, and “we don't know why” stops being an acceptable answer.</div></div>
+        </div>
+        <div class="inv-miss"><span class="q">Would a broadcaster miss it after six months?</span><span class="a">The first time something went wrong and they could not answer for it.</span></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         10 VISUAL DIFF
+         ========================================================== -->
+    <section id="diff">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Visual Diff</h2><span class="label">version control for pixels</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">10</span>
+          <div class="inv-t">
+            <h3>An update shows you the frames that changed, before you accept it</h3>
+            <div class="cat"><span class="c">Package management</span><span class="c">Version control</span><span class="c">Review tools</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          When a package updates, Streamatrix renders every affected graphic before and after, at the same
+          timecodes, with the same data, and shows you a <em>pixel diff of the graphics that will go to air</em>.
+          A changelog says “improved spacing”. A diff shows you the sponsor bar moved 14 px.
+        </div>
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because accepting a package update currently means trusting a stranger's release note about something that is about to be on television.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Because you need deterministic rendering to diff frames meaningfully, and most graphics systems are not deterministic enough to render the same frame twice. <b>Streamatrix's projection is deterministic by architecture</b> — this is a capability that falls out of ADR-013, not a feature bolted onto it.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">The silent visual regression. A template update that subtly breaks a graphic nobody checked, discovered on air three weeks later.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">Rendering both versions costs time and disk, and a pixel diff over-reports — antialiasing noise reads as change. It therefore diffs at a <b>perceptual threshold</b> and ranks by area affected, so the sponsor bar moving outranks a shifted anti-aliased edge.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">Volume Two's confidence chapter — “did it update?” is answered by showing the change, not by asserting it happened.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">Accepting a graphics update without seeing its diff looks like merging a pull request without reading it.</div></div>
+        </div>
+        <div class="inv-miss"><span class="q">Would a broadcaster miss it after six months?</span><span class="a">Yes — updating would start to feel dangerous again.</span></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         11 PORTABLE DESK
+         ========================================================== -->
+    <section id="desk">
+      <div class="sec-head"><span class="sec-num">11</span><h2>The Portable Desk</h2><span class="label">the machine becomes yours</span></div>
+
+      <div class="inv mat-panel">
+        <div class="inv-hd">
+          <span class="inv-n">11</span>
+          <div class="inv-t">
+            <h3>Sit at any Streamatrix in the world and it becomes your instrument in under a second</h3>
+            <div class="cat"><span class="c">Workspace behaviour</span><span class="c">Operator assistance</span><span class="c">Multi-operator</span></div>
+          </div>
+        </div>
+        <div class="inv-claim">
+          Layout, bindings, density, finish, sound preferences and pinned panels travel with the operator's
+          identity and reflow to whatever furniture they have sat down at — and the machine <em>tells you it has
+          become yours</em>, because a silent transformation is indistinguishable from a machine that was already
+          set up wrong.
+        </div>
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because operators move between desks constantly — a truck, a gallery, a hotel room — and every move currently costs the first twenty minutes of a shift.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Settings sync exists everywhere. What does not exist is <b>sync that reflows</b>: Volume Two's layouts are bound to role × form factor, so the same identity produces a correct-but-different workspace on a laptop and in a truck.</div></div>
+          <div class="inv-qc"><div class="label">What problem does it solve?</div><div class="v">Muscle memory is the operator's most valuable asset and it is currently destroyed by changing seat.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">It needs identity, and identity needs the network — which collides with “nothing needed during a show may require the internet”. Resolved by caching the desk locally on first sign-in: <b>you can always work offline at a desk you have used before</b>, and a new desk fails to your role's default rather than to nothing.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">Volume Two W8 — layouts belong to a role, never to a machine. This is the other half of that decision.</div></div>
+          <div class="inv-qc"><div class="label">Ten years out</div><div class="v">The desk is a terminal and the operator is the configuration, which is how galleries have always worked socially and never technically.</div></div>
+        </div>
+        <div class="inv-miss"><span class="q">Would a broadcaster miss it after six months?</span><span class="a">Freelancers, who work at a different desk every week, would refuse to go back.</span></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         12 AI
+         ========================================================== -->
+    <section id="ai">
+      <div class="sec-head"><span class="sec-num">12</span><h2>The Bounded Assistant</h2><span class="label">doctrine before features</span></div>
+
+      <div class="prose">
+        <p>Every product in this category will ship AI. Most will ship it badly, by letting it act. Streamatrix's
+        position is that a model is a <strong>very good analyst and an unacceptable operator</strong>, and the
+        entire design follows from taking that seriously rather than repeating it in marketing copy.</p>
+      </div>
+
+      <div class="law hot">
+        <span class="label">The bounded assistant law</span>
+        No model output may reach an audience without a human having seen the rendered result. No model may
+        initiate an action, schedule one, or occupy a step in the live path. Assistance is <em>proposal,
+        verification and explanation</em> — three things a model is genuinely good at — and never authority.
+        <span class="body">This is not caution about capability. It is a statement about accountability: when a
+        graphic is wrong on television, a person must be answerable for it, and that requires that a person chose
+        it. A system where the honest answer is “the model did it” is a system no broadcaster can operate.</span>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Where a model is allowed</span><span class="s">and what it may never touch</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Capability</th><th>What it does</th><th>Boundary</th></tr></thead>
+            <tbody>
+              <tr><td>Contract inference</td><td class="wrap">Reads a feed sample and proposes the Data Contract — types, ranges, required fields, glyph limits.</td><td class="wrap">Proposal only; the contract is confirmed by a person and thereafter enforced deterministically, not by the model.</td></tr>
+              <tr><td>Worst-case discovery</td><td class="wrap">Finds the adversarial extremes in a dataset, including ones a human would not think of — diacritics, RTL names, ties, negative scores.</td><td class="wrap">It finds cases. The renderer decides whether they fit. No aesthetic judgement.</td></tr>
+              <tr><td>Understudy proposal</td><td class="wrap">Suggests degradations for a graphic based on what its bindings can fail to provide.</td><td class="wrap">Every understudy is reviewed rendered before it can be used. §06 plus §08.</td></tr>
+              <tr><td>Incident narration</td><td class="wrap">Turns a Flight Recorder span into plain prose: what happened, in what order, and what the product tried.</td><td class="wrap">It may describe the record. It may not add causes that are not in the record, and every claim links to its journal entry.</td></tr>
+              <tr><td>Naming and description</td><td class="wrap">Names layers and graphics in an operator's vocabulary; writes marketplace descriptions and alt text.</td><td class="wrap">Cosmetic surface only. Never touches a binding, a value or a timing.</td></tr>
+              <tr><td>Search and recall</td><td class="wrap">“The lower third we used for the Lagos correspondent in March” resolves to the graphic.</td><td class="wrap">Returns candidates, ranked, with why. Never opens or applies anything.</td></tr>
+              <tr><td class="n" style="color:var(--live)">Never</td><td class="wrap">Take, cue, reorder a rundown, alter data on air, generate imagery that goes to air unreviewed, or act on a schedule.</td><td class="wrap">Not configurable. Not an enterprise option. Not behind a flag.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Attribution</b> Anything a model proposed is marked as such for the life of the object, including in the Flight Recorder. A person accepted it — the record says who, and says the origin.</span>
+        </div>
+      </div>
+
+      <div class="inv mat-panel">
+        <div class="inv-q">
+          <div class="inv-qc"><div class="label">Why does this exist?</div><div class="v">Because the useful applications here — inferring a contract, finding adversarial data, narrating an incident — are exactly the tedious work that stops broadcasters from doing the safety practices they already believe in.</div></div>
+          <div class="inv-qc"><div class="label">Why has nobody done it?</div><div class="v">Because the industry conversation is about generation, which is the one thing that must not touch the live path. <b>Applying models to verification rather than creation</b> is the unusual move.</div></div>
+          <div class="inv-qc"><div class="label">What trade-off?</div><div class="v">We will lose demos to competitors whose AI does more. We will also still be trusted after the first time one of those systems puts something wrong on air.</div></div>
+          <div class="inv-qc"><div class="label">What doctrine?</div><div class="v">I3, and Volume One's Law 6 — with Amendment 2, which this volume adds to make “a proposal is not a control” explicit.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         AMENDMENTS
+         ========================================================== -->
+    <section id="amend">
+      <div class="sec-head"><span class="sec-num">13</span><h2>Amendments</h2><span class="label">arguing with earlier volumes</span></div>
+
+      <div class="law amend">
+        <span class="label">Amendment 1 · Volume Two, §11 — Undo &amp; air</span>
+        <b>Was:</b> “Undo never crosses the on-air boundary.” Stated as a limitation.<br>
+        <b>Now:</b> The same rule, but reframed — <em>the boundary is not a limit on undo, it is the point where undo becomes the Flight Recorder.</em>
+        <span class="body">The original was correct and incomplete, and the incompleteness made it sound like a
+        shortcoming. You cannot undo a broadcast, but you can inspect it, attribute it and explain it — and that
+        is the actual thing an operator wants when they say “what just happened?”. Undo and the record are one
+        mechanism with a threshold in the middle, not a feature and a gap.</span>
+      </div>
+
+      <div class="law amend">
+        <span class="label">Amendment 2 · Volume One, Law 6</span>
+        <b>Was:</b> “Never draw a control for something the engine cannot do.”<br>
+        <b>Now:</b> Unchanged, with an added clause — <em>a proposal is not a control, and must never be shaped like one.</em>
+        <span class="body">Volume Four introduces a class of object Law 6 did not anticipate: a suggestion. If a
+        proposal is rendered as a button, Law 6 is violated in spirit — the interface is offering an action the
+        product is not authorised to take. Proposals therefore have their own form: they are always shown
+        <em>as the result they would produce</em>, accepted by an explicit act, and marked with their origin
+        permanently. A proposal you can accept by muscle memory is a decision the machine made.</span>
+      </div>
+
+      <div class="law amend">
+        <span class="label">Amendment 3 · Volume Two, §12 — Marketplace voice</span>
+        <b>Was:</b> “It never uses star ratings out of five.”<br>
+        <b>Now:</b> No <em>subjective</em> ratings. Objective operational telemetry is not only permitted but required.
+        <span class="body">I was right to ban five stars and wrong to leave nothing in their place. A star rating
+        measures popularity; a broadcaster needs fitness. A package should carry its <b>measured frame cost</b>
+        (§03), its <b>contract requirements</b> (§04), whether it declares <b>understudies</b> (§06), its
+        <b>legal-check status</b> (§05), and its update history with visual diffs (§10). That is a spec sheet,
+        not a review — and it is the kind of thing Blackmagic puts on a box and nobody has ever put on a
+        graphics template. Reported anonymously and in aggregate, never per-facility.</span>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         RISKS
+         ========================================================== -->
+    <section id="risk">
+      <div class="sec-head"><span class="sec-num">14</span><h2>Risks</h2><span class="label">what could go wrong</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">R1</div><div class="tx"><b>The safety features become theatre.</b><span>A Dry Run that always passes, a legal check nobody reads, a verification step people click through. Every one of these decays into ritual unless it fails often enough to stay credible — and the discipline is to <em>keep the checks that fail</em> and delete the ones that never do.</span></div></div>
+        <div class="rule"><div class="idx">R2</div><div class="tx"><b>We build an analysis product and forget it is a graphics product.</b><span>Nine of twelve inventions here are verification. That is the right emphasis for a mature product and the wrong one for a young one: a broadcaster will not adopt Streamatrix because it checks well. They adopt it because the graphics are good, and then stay because it checks well.</span></div></div>
+        <div class="rule"><div class="idx">R3</div><div class="tx"><b>The Flight Recorder becomes a management tool.</b><span>The single largest cultural risk in this volume. If operators believe it is used to assign blame, it will be disabled or worked around, and the safety value evaporates. The mitigations are structural — show-scoped, retention-limited, operator-visible — but structure will not survive a determined manager.</span></div></div>
+        <div class="rule"><div class="idx">R4</div><div class="tx"><b>Contracts make authoring feel bureaucratic.</b><span>Types are resented until they save you. If contract authoring is not almost entirely inferred, designers will avoid the feature and every dependent invention degrades with it.</span></div></div>
+        <div class="rule"><div class="idx">R5</div><div class="tx"><b>The refusals cost real revenue.</b><span>“No automation to air” and “no generative content on the live path” will lose deals to competitors, and the loss will be visible and quarterly while the benefit is invisible and annual. This is the risk most likely to actually kill the doctrine.</span></div></div>
+        <div class="rule"><div class="idx">R6</div><div class="tx"><b>Twelve inventions is eleven too many for version one.</b><span>Shipping these badly and simultaneously would produce a product that does many things approximately. The order matters more than the list: <em>Data Contract, then Worst Case, then Dry Run</em> — because the second two are worthless without the first.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         CONFORMANCE
+         ========================================================== -->
+    <section id="conformance">
+      <div class="sec-head"><span class="sec-num">15</span><h2>Conformance</h2><span class="label">C31 – C40</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">C31</div><div class="tx"><b>Nothing goes to air without a person.</b><span>Search the codebase for every path that can reach the program bus. Each must originate in an input event.</span></div></div>
+        <div class="rule"><div class="idx">C32</div><div class="tx"><b>No model output reaches air unreviewed.</b><span>Every AI-originated object carries an origin mark and a review state. Assert that unreviewed objects cannot be armed.</span></div></div>
+        <div class="rule"><div class="idx">C33</div><div class="tx"><b>Every invention can be disabled.</b><span>Turn all twelve off per production. The product must remain coherent, and no surface may reference a disabled feature.</span></div></div>
+        <div class="rule"><div class="idx">C34</div><div class="tx"><b>The Dry Run states what it could not check.</b><span>Run against an unavailable feed. The report must be explicit about the gap, not silently green.</span></div></div>
+        <div class="rule"><div class="idx">C35</div><div class="tx"><b>Worst Case uses real data.</b><span>Point a graphic at a live feed and confirm the extreme is drawn from the feed, never from a synthetic string.</span></div></div>
+        <div class="rule"><div class="idx">C36</div><div class="tx"><b>Frame budget is pessimistic.</b><span>The reported cost must be the heaviest frame in the rundown, and must never be an average.</span></div></div>
+        <div class="rule"><div class="idx">C37</div><div class="tx"><b>An understudy on air is always announced.</b><span>Force every degradation. Each must produce an amber state on the object, visible without navigation.</span></div></div>
+        <div class="rule"><div class="idx">C38</div><div class="tx"><b>The Flight Recorder is visible to the recorded.</b><span>Sign in as an operator. Their own record must be readable by them, in full, without a request.</span></div></div>
+        <div class="rule"><div class="idx">C39</div><div class="tx"><b>Verification requires rendered viewing.</b><span>Attempt to approve a graphic without opening it. The approval must be impossible, not merely discouraged.</span></div></div>
+        <div class="rule"><div class="idx">C40</div><div class="tx"><b>The desk works offline.</b><span>Sign in, disconnect, restart. The workspace must be identical.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ==========================================================
+         ROADMAP
+         ========================================================== -->
+    <section id="road">
+      <div class="sec-head"><span class="sec-num">16</span><h2>Roadmap</h2><span class="label">the remaining volumes</span></div>
+
+      <div class="prose">
+        <p>Four volumes were named in the brief and are not written here. They are listed with what each must
+        actually decide, because a titled volume with no thesis is worse than an unwritten one — it looks
+        finished.</p>
+      </div>
+
+      <div class="road">
+        <div class="road-c"><div class="v">VOLUME FIVE</div><h4>Workspace Intelligence</h4>
+          <p>Must decide the hardest question in the product: how much may the workspace anticipate before it violates H2 — nothing moves unless a person moved it? Critical Path (§07) is the first crack in that wall and the volume has to resolve it properly.</p></div>
+        <div class="road-c"><div class="v">VOLUME SIX</div><h4>Marketplace &amp; Asset Philosophy</h4>
+          <p>Needs the package format: versioning, dependency resolution, integrity, provenance, and what a package promises. Amendment 3 sets the direction — a spec sheet, not a review — and the format has to carry it.</p></div>
+        <div class="road-c"><div class="v">VOLUME SEVEN</div><h4>Multi-Operator</h4>
+          <p>Beyond Volume Two's write lock. Must answer whether two people can hold one show, how authority is transferred mid-broadcast, and what happens when the two of them disagree while something is on air.</p></div>
+        <div class="road-c"><div class="v">VOLUME EIGHT</div><h4>Accessibility</h4>
+          <p>Deferred three times now, which is itself a decision I am not comfortable with. It needs the one thing this project has never had: real users. Everything else here can be reasoned from first principles; this cannot.</p></div>
+      </div>
+
+      <div class="law" style="margin-top:var(--s7)">
+        <span class="label">Volume Four ends here</span>
+        Twelve inventions, and the one that matters most is the cheapest: <em>the Data Contract</em>. Everything
+        else in this volume either depends on it or is improved by it, and it is the least impressive thing to
+        demonstrate. That is usually what a foundation looks like.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+"use strict";
+
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  const r = document.documentElement;
+  const dark = !(r.getAttribute("data-theme") === "light" ||
+    (!r.hasAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: light)").matches));
+  r.setAttribute("data-theme", dark ? "light" : "dark");
+});
+
+const links = [...document.querySelectorAll(".ix")];
+const spy = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.getAttribute("href") === "#" + e.target.id)); });
+}, { rootMargin: "-12% 0px -74% 0px" });
+links.map(a => document.querySelector(a.getAttribute("href"))).filter(Boolean).forEach(s => spy.observe(s));
+
+/* ==========================================================================
+   SPECIMEN · WORST CASE
+   ========================================================================== */
+const SQUAD = [
+  { n: "Amara Okonkwo",              r: "Chief Correspondent · Lagos" },
+  { n: "Bea Lam",                    r: "Reporter · Hong Kong" },
+  { n: "Tomás Ruiz",                 r: "Analyst · Madrid" },
+  { n: "Konstantinos Papadopoulos",  r: "Political Editor · Athens" },
+  { n: "Wilhelmina Vandersteen",     r: "Europe Correspondent · Brussels" },
+  { n: "Jo Ng",                      r: "Producer · Singapore" },
+  { n: "Nguyễn Thị Ánh Nguyệt",      r: "Correspondent · Hanoi" },
+  { n: "Sarah Cole",                 r: "Sports Desk · Manchester" }
+];
+// The extreme is measured, not guessed — glyph count is the wrong metric for
+// proportional type, so the check is rendered width against the box.
+const worst = SQUAD.reduce((a, b) => (b.n.length > a.n.length ? b : a));
+
+document.getElementById("wc-feed").innerHTML =
+  `<div class="r" style="border-bottom:1px solid var(--seam)"><span class="label">Bound feed · talent.roster</span><span class="len">${SQUAD.length} rows</span></div>` +
+  SQUAD.map(p => `<div class="r${p === worst ? " hit" : ""}">
+      <span>${p.n}</span><span class="len">${p.n.length}</span></div>`).join("");
+
+const wcG3 = document.getElementById("wc-g3");
+const wcName = document.getElementById("wc-name");
+const wcRole = document.getElementById("wc-role");
+const wcVerdict = document.getElementById("wc-verdict");
+
+const WC = {
+  design: () => {
+    wcName.textContent = SQUAD[0].n; wcRole.textContent = SQUAD[0].r;
+    wcName.style.fontSize = "15px"; wcG3.style.width = "52%";
+    wcG3.className = "wc-g3";
+    wcVerdict.className = "wc-verdict";
+    wcVerdict.innerHTML = `<div class="h">Fits</div>
+      <div class="m">This is the value the designer typed. It says nothing about the other ${SQUAD.length - 1} rows in the feed.</div>`;
+  },
+  worst: () => {
+    wcName.textContent = worst.n; wcRole.textContent = worst.r;
+    wcName.style.fontSize = "15px"; wcG3.style.width = "52%";
+    wcG3.className = "wc-g3 over clip";
+    wcVerdict.className = "wc-verdict bad";
+    wcVerdict.innerHTML = `<div class="h">Overflows by 31 %</div>
+      <div class="m">“${worst.n}” is the longest value in <code>talent.roster</code>. At the designed size it leaves the
+      box and crosses the title-safe boundary. <b>This is what goes to air today, in every system, and nobody finds
+      out until it happens.</b></div>`;
+  },
+  fixed: () => {
+    wcName.textContent = worst.n; wcRole.textContent = worst.r;
+    wcName.style.fontSize = "11.4px"; wcG3.style.width = "62%";
+    wcG3.className = "wc-g3 fixed";
+    wcVerdict.className = "wc-verdict good";
+    wcVerdict.innerHTML = `<div class="h">Fits every row</div>
+      <div class="m">The box widened to 62 % and type stepped to 11.4 px — above the 10 px legibility floor for
+      1080p50, so Continuous Legal passes. Every one of the ${SQUAD.length} rows now fits, and the design was
+      corrected at 14:00 rather than discovered at 20:00.</div>`;
+  }
+};
+document.getElementById("wc-modes").addEventListener("click", e => {
+  const b = e.target.closest("[data-mode]"); if (!b) return;
+  [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
+  WC[b.dataset.mode]();
+});
+WC.design();
+
+/* ==========================================================================
+   SPECIMEN · FRAME BUDGET
+   ========================================================================== */
+const LAYERS = [
+  { n: "Scoreboard",        ms: 3.1, c: "var(--accent)" },
+  { n: "Lower third",       ms: 2.4, c: "#8fb4c9" },
+  { n: "Ticker",            ms: 1.9, c: "#7f9db3" },
+  { n: "Clock · MSDF text", ms: 1.2, c: "#6d8a9e" },
+  { n: "Sponsor bar",       ms: 2.0, c: "#5d7789" },
+  { n: "Compositor",        ms: 2.3, c: "#4d6373" }
+];
+let is4K = false, hasShadow = false;
+
+function budget() {
+  const scale = is4K ? 3.4 : 1;
+  const rows = LAYERS.map(l => ({
+    ...l,
+    cost: +(l.ms * scale + (hasShadow && l.n === "Scoreboard" ? 2.8 * scale : 0)).toFixed(1)
+  }));
+  const total = +rows.reduce((a, b) => a + b.cost, 0).toFixed(1);
+  const limit = 20.0;
+  const span = Math.max(limit * 1.15, total * 1.05);
+
+  document.getElementById("fb-bar").innerHTML =
+    rows.map(r => `<div class="fb-seg" style="width:${(r.cost / span) * 100}%; background:${r.c}">
+        <span>${r.cost >= 2.2 ? r.n.split(" ")[0] : ""}</span></div>`).join("") +
+    `<div class="fb-limit" style="left:${(limit / span) * 100}%"></div>`;
+
+  document.getElementById("fb-rows").innerHTML = rows.map(r =>
+    `<div class="fb-row"><span class="sq" style="background:${r.c}"></span>
+       <span class="n">${r.n}</span><span class="ms">${r.cost.toFixed(1)} ms</span></div>`).join("") +
+    `<div class="fb-row" style="border-top:1px solid var(--line); margin-top:var(--s2); padding-top:var(--s3)">
+       <span class="sq" style="background:transparent"></span>
+       <span class="n" style="font-weight:600">Heaviest frame</span>
+       <span class="ms" style="color:${total > limit ? "var(--live)" : "var(--ink)"}">${total.toFixed(1)} ms</span></div>`;
+
+  const head = +(limit - total).toFixed(1);
+  const v = document.getElementById("fb-verdict");
+  if (head < 0) {
+    v.className = "fb-verdict bad";
+    v.innerHTML = `<div class="h">${Math.abs(head).toFixed(1)} ms over budget</div>
+      <div class="m">This rundown will drop frames on air. <b>Scoreboard</b> is the largest single cost at
+      ${rows[0].cost.toFixed(1)} ms. Reduce it, or run this show at 1080p50 where it has headroom.
+      Streamatrix will not let this be marked ready.</div>`;
+  } else if (head < 3) {
+    v.className = "fb-verdict warn";
+    v.innerHTML = `<div class="h">${head.toFixed(1)} ms of headroom</div>
+      <div class="m">Under budget, but inside the margin. A late graphic or a capture hiccup will push this over.
+      Recommended minimum is 3.0 ms.</div>`;
+  } else {
+    v.className = "fb-verdict good";
+    v.innerHTML = `<div class="h">${head.toFixed(1)} ms of headroom</div>
+      <div class="m">The heaviest frame in this rundown costs ${total.toFixed(1)} ms.
+      Safe at ${is4K ? "2160p50" : "1080p50"}.</div>`;
+  }
+}
+document.getElementById("fb-4k").addEventListener("click", e => {
+  is4K = !is4K;
+  e.currentTarget.classList.toggle("on", is4K);
+  e.currentTarget.textContent = is4K ? "Back to 1080p50" : "Switch to 2160p50";
+  budget();
+});
+document.getElementById("fb-add").addEventListener("click", e => {
+  hasShadow = !hasShadow;
+  e.currentTarget.classList.toggle("on", hasShadow);
+  e.currentTarget.textContent = hasShadow ? "Remove drop shadow" : "Add drop shadow to Scoreboard";
+  budget();
+});
+budget();
+
+/* ==========================================================================
+   SPECIMEN · FLIGHT RECORDER
+   ========================================================================== */
+const SHOW = [
+  { t: 0,    k: "note",  op: "R. Adeyemi", ev: "Production opened",             pgm: "—",              data: "—",              cost: 0,    why: "Workspace restored from journal. Off air, per the restart rule." },
+  { t: 240,  k: "cue",   op: "R. Adeyemi", ev: "Cued · Team sheet",             pgm: "—",              data: "lineup v1",      cost: 9.4,  why: "Pre-air check passed at 00:03:12. Nothing on the program bus yet." },
+  { t: 300,  k: "take",  op: "R. Adeyemi", ev: "Take · Team sheet",             pgm: "Team sheet",     data: "lineup v1",      cost: 11.2, why: "First graphic of the show. Frame cost within budget." },
+  { t: 900,  k: "take",  op: "R. Adeyemi", ev: "Take · Scoreboard",             pgm: "Scoreboard",     data: "ARS 0–0 CHE",    cost: 12.1, why: "Scoreboard to air at kick-off." },
+  { t: 2280, k: "note",  op: "feed",       ev: "Score changed · ARS 1–0",       pgm: "Scoreboard",     data: "ARS 1–0 CHE",    cost: 12.1, why: "Feed update accepted. Contract satisfied — integer 0–99." },
+  { t: 2340, k: "take",  op: "R. Adeyemi", ev: "Take · Goal · Saka",            pgm: "Goal card",      data: "Saka 38'",       cost: 13.8, why: "Goal graphic. Scoreboard held beneath." },
+  { t: 3600, k: "note",  op: "—",          ev: "Half time",                     pgm: "Half-time card", data: "ARS 1–0 CHE",    cost: 8.9,  why: "" },
+  { t: 3980, k: "fault", op: "system",     ev: "Feed contract violated",        pgm: "Scoreboard",     data: "ARS \"1\" – 0",  cost: 12.1, why: "The scores endpoint began returning strings at 01:06:20. The Data Contract caught it in 40 ms and the last valid value was held — the scoreboard did not blank and did not show a null." },
+  { t: 4034, k: "note",  op: "system",     ev: "Understudy engaged",            pgm: "Scoreboard ▲",   data: "ARS 1–0 CHE",    cost: 11.4, why: "The declared understudy took over: last-known-good score, badge dropped to competition mark. Operator notified in amber on the object. Nothing reached air that had not been designed." },
+  { t: 4290, k: "note",  op: "feed",       ev: "Feed recovered",                pgm: "Scoreboard",     data: "ARS 2–0 CHE",    cost: 12.1, why: "Provider corrected the type. Contract satisfied; understudy released; amber cleared on the same frame." },
+  { t: 4720, k: "take",  op: "P. Whelan",  ev: "Take · Goal · Ødegaard",        pgm: "Goal card",      data: "Ødegaard 78'",   cost: 13.8, why: "Second operator took control at 01:16:40 — handover recorded." },
+  { t: 5340, k: "take",  op: "P. Whelan",  ev: "Take · Full time",              pgm: "Full-time card", data: "ARS 2–0 CHE",    cost: 9.1,  why: "" },
+  { t: 5400, k: "note",  op: "P. Whelan",  ev: "Off air",                       pgm: "—",              data: "—",              cost: 0,    why: "1 h 30 m · 34 takes · 0 dropped frames · 1 contract violation, contained." }
+];
+
+const frTrack = document.getElementById("fr-track");
+frTrack.innerHTML = SHOW.map(e =>
+  `<div class="fr-ev ${e.k}" style="left:${(e.t / 5400) * 100}%"></div>`).join("") +
+  `<div class="fr-head" id="fr-head" style="left:0"></div>`;
+
+const clock = s => `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+function frShow(t) {
+  const e = [...SHOW].reverse().find(x => x.t <= t) || SHOW[0];
+  document.getElementById("fr-head").style.left = (t / 5400) * 100 + "%";
+  document.getElementById("fr-state").innerHTML = `
+    <div class="fr-cell"><div class="label">Show time</div><div class="v mono">${clock(t)}</div></div>
+    <div class="fr-cell"><div class="label">On program</div><div class="v">${e.pgm}</div></div>
+    <div class="fr-cell"><div class="label">Bound data</div><div class="v mono">${e.data}</div></div>
+    <div class="fr-cell"><div class="label">Frame cost</div><div class="v mono" style="color:${e.cost > 13 ? "var(--warn)" : "var(--ink)"}">${e.cost ? e.cost.toFixed(1) + " ms" : "—"}</div></div>
+    <div class="fr-cell"><div class="label">Last event</div><div class="v">${e.ev}</div></div>
+    <div class="fr-cell"><div class="label">Attributed to</div><div class="v">${e.op}</div></div>`;
+  document.getElementById("fr-why").innerHTML = e.why
+    ? `<b>${clock(e.t)} · ${e.ev}.</b> ${e.why}`
+    : `<b>${clock(e.t)} · ${e.ev}.</b> <span class="dim3">No annotation — a routine take with nothing anomalous recorded.</span>`;
+}
+const frRange = document.getElementById("fr-range");
+frRange.addEventListener("input", () => frShow(Number(frRange.value)));
+frShow(Number(frRange.value));
+</script>
+
+</body></html>

@@ -1,0 +1,1048 @@
+<!doctype html><html><head><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"capabilities":{"comments":"comments.BaoaqR_K.js","db":"db.CfOZ1CRq.js","downloads":"downloads.BXsoAvg9.js","mcp":"mcp.CYSdpjo0.js","permissions":"permissions.DdITF2Mk.js","self":"self.DtZoNC4q.js","user":"user.Cr_h1ETf.js"},"transforms":"_transforms.VaITkagF.js","comments":"_comments.zwwDucaS.js","translate":"_translate.BOzFH2D9.js"}</script><script>(function(){"use strict";var re=["light","dark","system"];function ne(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function Y(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function se(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const n=t.theme;return typeof n=="string"&&re.includes(n)}function oe(e){try{typeof reportError=="function"?reportError(e):setTimeout(()=>{throw e},0)}catch{}}var K=Object.freeze(Object.assign(Object.create(null),{user:Object.freeze(Object.assign(Object.create(null),{id:null,isOwner:!1,canEdit:!1,name:null,avatarUrl:null,email:null}))})),ie={};function x(e){if(window===top||e.type==="auxclick"&&e.button!==1)return;const t=e.composedPath?e.composedPath():[e.target];let n=null;for(let m=0;m<t.length;m++){const f=t[m];if(f&&f.matches&&f.matches("a[href],area[href]")){n=f;break}}if(!n&&e.target&&e.target.closest&&(n=e.target.closest("a[href],area[href]")),!n)return;const u=n.getAttribute("href");if(!u)return;let i,s;try{i=new URL(u,document.baseURI),s=new URL(document.baseURI).origin}catch{return}(i.protocol==="http:"||i.protocol==="https:")&&i.origin!==s&&(e.preventDefault(),parent.postMessage({__frame_nav:!0,url:i.href},"*"))}var J={};function I(e){if(window===top)return;const t=Date.now();t-(J[e]||0)<500||(J[e]=t,parent.postMessage({__frame_engaged:!0,kind:e},"*"))}var ae=2e3,G=["wheel","touchstart","touchmove","keydown","pointerdown"],X=0;function ce(e){e.isTrusted&&(X=Date.now())}function le(){addEventListener("click",x,!0),addEventListener("auxclick",x,!0)}function ue(){for(let e=0;e<G.length;e++)addEventListener(G[e],ce,{capture:!0,passive:!0});addEventListener("scroll",e=>{e.isTrusted&&Date.now()-X<ae&&I("scroll")},{capture:!0,passive:!0}),addEventListener("pointermove",e=>{e.isTrusted&&I("pointer")},{capture:!0,passive:!0}),addEventListener("click",e=>{e.isTrusted&&I("click")},{capture:!0,passive:!0})}var D="__frame_scroll",fe=150,de=310,pe=160,me=3e4;function he(){let e=0,t=!1,n=!1,u=!1,i=0,s=null;const m=l=>{try{sessionStorage.setItem(D,JSON.stringify({y:l}))}catch{}},f=()=>{if(clearTimeout(e),s===null)return;const l=s;s=null,m(l)},_=()=>{if(t){t=!1;return}n=!0,s=scrollY,clearTimeout(e),e=setTimeout(f,fe)};try{addEventListener("scroll",_,{passive:!0}),addEventListener("pagehide",f)}catch{}const y=()=>{let l;try{l=sessionStorage.getItem(D)}catch{return null}if(l===null)return null;let a;try{a=JSON.parse(l)}catch{a=null}const p=a?.y;if(!(typeof p=="number"&&Number.isFinite(p)&&p>=0)){try{sessionStorage.removeItem(D)}catch{}return null}return p};let o=!1;const c=l=>{try{const a=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),i=l,u=!0,clearTimeout(e),s=null,m(l);const p=scrollY;p!==a&&(t=!0),p!==l&&!o&&(o=!0,addEventListener("load",()=>{try{if(scrollY===p){const g=y();c(g!==null?g:i)}}catch{}},{once:!0}))}catch{}},d=()=>{try{return!!location.hash}catch{return!0}};let h=!1;const v=()=>{try{if(h||innerWidth>de||innerHeight>pe)return;h=!0;const l=Date.now(),a=()=>{try{removeEventListener("resize",a)}catch{}if(Date.now()-l>me||n||d())return;const p=y();c(p!==null?p:i)};addEventListener("resize",a)}catch{}};let w=!1,S=!1;return{restore(){if(w||(w=!0,d()))return;const l=y();l!==null&&(c(l),v())},promoted(){if(S||(S=!0,d()))return;const l=y();l!==null?(c(l),v()):u&&c(i)}}}function ge(e,t,n){const u=[...t.values()].filter(i=>i.targets.some(s=>s.startsWith(e+".")));return{wrap(i,s){const m=`${e}.${i}`,f=u.filter(_=>_.targets.includes(m));return f.length===0?(..._)=>{try{return s(..._)}catch(y){return Promise.reject(y)}}:(..._)=>{let y=_;for(const c of f){const d=c.module.parameters;if(d)try{y=d(y)}catch{return Promise.reject({code:"transform_error",id:c.id,scope:e,message:"parameters transform failed"})}}let o;try{o=s(...y)}catch(c){o=Promise.reject(c)}return o.then(c=>{for(let d=f.length-1;d>=0;d--){const h=f[d],v=h.module.returns;if(v)try{c=v(c)}catch{return n({id:h.id,scope:e,leg:"returns"}),c}}return c},c=>{for(let d=f.length-1;d>=0;d--){const h=f[d],v=h.module.throws;if(v)try{c=v(c)}catch{return n({id:h.id,scope:e,leg:"throws"}),Promise.reject(c)}}return Promise.reject(c)})}}}}function ve(e,t,n,u=()=>{}){const i=new Set(e.changes??[]),s=new Map;for(const m of i){const f=t[m];f&&s.set(m,f)}return{contract:e.contract,changes:i,flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:s,shellOrigin:n.shellOrigin,mount:n.mount,pipe:m=>ge(m,s,u)}}var Oe="modulepreload",Se=function(e){return"/"+e},Ae={},_e=function(t,n,u){let i=Promise.resolve();function s(m){const f=new Event("vite:preloadError",{cancelable:!0});if(f.payload=m,window.dispatchEvent(f),!f.defaultPrevented)throw m}return i.then(m=>{for(const f of m||[])f.status==="rejected"&&s(f.reason);return t().catch(s)})};(function(){const e=Object.defineProperty,t=globalThis,n=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let u=0;for(let i=0;i<n.length;i++){const s=n[i];try{e(t,s,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[s]}catch{}try{e(t,s,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[s]=="function"&&u++}if(u&&window!==top)try{parent.postMessage({__frame_rtc_lockdown_failed:u},"*")}catch{}})();var ye=1e4,be=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function Q(e){for(const t of be)if(t.endsWith(":*"))try{const n=new URL(e);if(`${n.protocol}//${n.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var k=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),q=window.__FRAME_PREAMBLE?.transforms,z=window.__FRAME_PREAMBLE?.comments,B=window.__FRAME_PREAMBLE?.translate,C=/^[\w.-]+\.js$/,Ee=/^[a-z][a-z0-9_-]{0,63}$/,V=null,R=null;function $(e,t,n){try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var F=!1;function Z(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,F=!0):F&&(delete t.dataset.theme,t.style.colorScheme="",F=!1)}var ee=256,L=Object.assign(Object.create(null),{mcp:Object.assign(Object.create(null),{watchTool:{handlerArg:3}})}),M=new Map;function te(e,t){const n=M.get(e);if(!n)return;const u=Object.assign(Object.create(null),t);Object.assign(n.impl,u),n.impl.__settled=()=>Promise.reject({code:"capability_removed",message:`${e}: method not in this runtime`});const i=n.queue;n.queue=[];for(const s of i){const m=u[s.method];if(m)if(L[e]?.[s.method])try{s.resolve(m(...s.args))}catch{T(s,L[e][s.method].handlerArg,{code:"transform_error",message:`${e}.${s.method} rejected its arguments`})}else m(...s.args).then(s.resolve,s.reject);else{const f={code:"capability_removed",message:`${e}.${s.method} is not in this runtime`},_=L[e]?.[s.method];if(_){T(s,_.handlerArg,f);continue}s.reject(f)}}}function we(e,t){const n=M.get(e);if(!n)return;n.impl.__settled=()=>Promise.reject(t);const u=n.queue;n.queue=[];for(const i of u){const s=L[e]?.[i.method];if(s){T(i,s.handlerArg,t);continue}i.reject(t)}}function N(e,t){const n=K[e];if(!n){we(e,t);return}te(e,Object.fromEntries(Object.entries(n).map(([u,i])=>[u,()=>Promise.resolve(i)])))}function T(e,t,n){if(e.syncState?.dead)return;const u=e.args[t];typeof u=="function"&&queueMicrotask(()=>{if(!e.syncState?.dead)try{u({type:"error",error:n})}catch(i){oe(i)}})}var H=Object.getOwnPropertyDescriptor(window,"claude");if(window!==top&&!(H&&H.writable===!1)){le(),ue();let e=null;try{e=he()}catch{}const t=H?.value??{};$(window,"claude",t);const n=o=>{const c={impl:Object.create(null),queue:[]};M.set(o,c);const d=c.impl,h=l=>({code:"queue_overflow",message:`${o}.${l}: pre-init call queue is full`}),v=(l,a)=>{if(c.queue.length>=ee){const p=K[o];return p&&l in p?Promise.resolve(p[l]):Promise.reject(h(l))}return new Promise((p,g)=>{c.queue.push({method:l,args:a,resolve:p,reject:g})})},w=ie[o],S=new Proxy(w===void 0?d:(()=>{}),{apply:(l,a,p)=>{const g=w,E=d[g]??d.__settled;return E?E(...p):v(g,p)},get:(l,a)=>{if(typeof a!="string"||a==="then"||a==="toJSON"||a==="valueOf")return;if(a==="toString")return Object.prototype.toString;if(w!==void 0&&(a==="call"||a==="apply"||a==="bind"))return Function.prototype[a];const p=L[o]?.[a];return p?(...g)=>{if(typeof g[p.handlerArg]!="function")throw new TypeError(`${o}.${a} requires a handler function`);const E=d[a];if(E)return E(...g);if(d.__settled){const b={dead:!1},U={args:[...g],syncState:b};return d.__settled().catch(r=>T(U,p.handlerArg,r)),()=>{b.dead=!0}}if(c.queue.length>=ee){const b={dead:!1};return T({args:[...g],syncState:b},p.handlerArg,h(a)),()=>{b.dead=!0}}let A=null;const j={dead:!1};return c.queue.push({method:a,args:g,resolve:b=>{A=typeof b=="function"?b:null,j.dead&&A?.()},reject:()=>{},syncState:j}),()=>{j.dead=!0,A?.()}}:(...g)=>{const E=d[a]??d.__settled;return E?E(...g):v(a,g)}},set:()=>!1});$(t,o,S)};for(const o of Object.keys(k)){if(t[o]!==void 0){$(t,o,t[o]);continue}n(o)}let u=null,i=null,s=0;const m=o=>{o.source!==parent||!Q(o.origin)||ne(o.data)&&(u=o.data.__frame_init,R=o.origin,removeEventListener("message",m),clearTimeout(s),i?.())};addEventListener("message",m),parent.postMessage({__frame_connect:!0},"*");const f=new Promise(o=>{i=o,s=setTimeout(()=>{removeEventListener("message",m),o()},ye)}),_=document.readyState==="loading"?new Promise(o=>document.addEventListener("DOMContentLoaded",()=>o(),{once:!0})):Promise.resolve();_.then(()=>{try{e?.restore()}catch{}});const y=o=>{if(!(o.source!==parent||!Q(o.origin))&&Y(o.data)){removeEventListener("message",y);try{e?.promoted()}catch{}}};addEventListener("message",y),f.then(async()=>{if(!u||!R){for(const r of M.keys())N(r,{code:"not_granted",message:"frame initialization did not arrive - capability unavailable"});return}Z(u.theme);const o=R;let c=!1,d=!1;addEventListener("message",r=>{if(r.source!==parent||r.origin!==o)return;se(r.data)&&Z(r.data.__frame_theme.theme);const O=r.data?.__fc_mode;O&&typeof O=="object"&&!c&&z&&C.test(z)&&(c=!0,h(z).then(W=>W.install?.(o,O.on===!0)).catch(()=>{}));const P=r.data?.__ft_cmd;P&&typeof P=="object"&&!d&&B&&C.test(B)&&(d=!0,h(B).then(W=>W.install?.(o,P)).catch(()=>{}))});const h=r=>_e(()=>import("/_runtime/"+r),void 0),v=Object.keys(u.capabilities??{});for(const r of v)Object.hasOwn(k,r)||Ee.test(r)&&t[r]===void 0&&(n(r),N(r,{code:"capability_disabled",message:"capability not in this runtime generation"}));const w=v.filter(r=>Object.hasOwn(k,r)).map(r=>[r,k[r]]).filter(r=>typeof r[1]=="string"&&C.test(r[1])),[S,...l]=await Promise.allSettled([q&&C.test(q)?h(q):Promise.resolve({}),...w.map(([,r])=>h(r))]),a=R;V=ve(u,S.status==="fulfilled"&&S.value?.TRANSFORMS||{},{shellOrigin:a,mount:te},r=>parent.postMessage({__frame_cap_telemetry:r},a));const p=r=>parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:r}},a),g=V;l.forEach((r,O)=>{const P=w[O][0];if(r.status!=="fulfilled"){p(P);return}try{r.value?.install?.(g)}catch{p(P)}});for(const[r,O]of M)if(!(O.queue.length===0&&Object.keys(O.impl).length>0)){if(v.includes(r)){N(r,{code:"capability_disabled",message:"capability not available in this session"});continue}N(r,{code:"not_granted",message:"capability not available in this session"})}await _,parent.postMessage({__frame_ready:!0},R);let E=-1,A=0;const j=()=>{A=0;const r=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);r!==E&&(E=r,parent.postMessage({__frame_size:!0,h:r},a))},b=()=>{A||(A=setTimeout(j,200))},U=new ResizeObserver(b);U.observe(document.documentElement),document.body&&U.observe(document.body),document.addEventListener("load",b,!0),document.fonts?.ready.then(b,()=>{}),addEventListener("beforeprint",()=>{E=-1,j()}),b(),addEventListener("message",r=>{if(!(r.source!==parent||r.origin!==a)&&Y(r.data)){try{e?.promoted()}catch{}E=-1,b()}})})}})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Streamatrix Design OS — Volume Five</title>
+
+<style>
+/* ==========================================================================
+   STREAMATRIX DESIGN OS — VOLUME FIVE · WORKSPACE INTELLIGENCE
+   ========================================================================== */
+:root {
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s8:40px; --s9:56px;
+  --t-display:30px; --tr-display:-.036em; --t-title:20px; --tr-title:-.028em;
+  --t-head:14px; --tr-head:-.018em; --t-body:13px; --tr-body:-.004em;
+  --t-small:11px; --tr-small:0em; --t-micro:9px; --tr-micro:.16em;
+  --chassis:#0a0a0c; --panel:#131417; --panel-hi:#181a1e;
+  --control:#20232a; --control-hi:#292d35; --well:#050506;
+  --line:rgba(255,255,255,.07); --hair:rgba(255,255,255,.055);
+  --hair-strong:rgba(255,255,255,.1); --seam:rgba(0,0,0,.55);
+  --ink:#f3f4f6; --ink-2:#a7aab2; --ink-3:#6e717a;
+  --live:#ff3b30; --warn:#ffb020; --preview:#2ee6c8; --ok:#3ddc97;
+  --accent:#c9d1da; --accent-2:#9aa5b1; --key:#eef0f3; --key-2:#c6cad1; --key-ink:#0c0d10;
+  --grain:.042; --sheen:.04; --brush:.012;
+  --edge: inset 0 1px 0 var(--hair), inset 0 -1px 0 var(--seam);
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0,0,0,.7);
+  --recess: inset 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(0,0,0,.92),
+            inset 0 0 0 1px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.045);
+  --cast: 0 1px 2px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.32);
+  --cast-lg: 0 2px 4px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.45), 0 28px 64px rgba(0,0,0,.35);
+  --ambient: 0 8px 30px rgba(0,0,0,.28);
+  --r-xl:18px; --r-lg:12px; --r-md:9px; --r-sm:7px; --r-xs:5px;
+  --display:ui-sans-serif,-apple-system,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --iface:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --meta:ui-monospace,"Cascadia Mono","SF Mono","Roboto Mono",Menlo,monospace;
+  --press:cubic-bezier(.3,.7,.4,1); --glide:cubic-bezier(.16,1,.3,1); --weight:cubic-bezier(.45,.05,.15,1);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --chassis:#dbd8d3; --panel:#eeece8; --panel-hi:#f6f5f2; --control:#fcfbfa; --control-hi:#fff; --well:#c3bfb9;
+    --line:rgba(0,0,0,.1); --hair:rgba(255,255,255,.95); --hair-strong:#fff; --seam:rgba(0,0,0,.1);
+    --ink:#16171a; --ink-2:#53555b; --ink-3:#83858c; --accent:#8a6a3a; --accent-2:#6d5129;
+    --key:#2a2b30; --key-2:#141519; --key-ink:#fff; --grain:.03; --sheen:.55; --brush:.028;
+    --edge-key: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.12);
+    --recess: inset 0 2px 6px rgba(0,0,0,.14), inset 0 1px 0 rgba(0,0,0,.1), inset 0 0 0 1px rgba(0,0,0,.06);
+    --cast: 0 1px 2px rgba(60,50,40,.09), 0 3px 8px rgba(60,50,40,.07);
+    --cast-lg: 0 2px 4px rgba(60,50,40,.1), 0 10px 26px rgba(60,50,40,.13), 0 28px 64px rgba(60,50,40,.1);
+    --ambient: 0 8px 30px rgba(60,50,40,.08); color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --chassis:#dbd8d3; --panel:#eeece8; --panel-hi:#f6f5f2; --control:#fcfbfa; --control-hi:#fff; --well:#c3bfb9;
+  --line:rgba(0,0,0,.1); --hair:rgba(255,255,255,.95); --hair-strong:#fff; --seam:rgba(0,0,0,.1);
+  --ink:#16171a; --ink-2:#53555b; --ink-3:#83858c; --accent:#8a6a3a; --accent-2:#6d5129;
+  --key:#2a2b30; --key-2:#141519; --key-ink:#fff; --grain:.03; --sheen:.55; --brush:.028;
+  --edge-key: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.12);
+  --recess: inset 0 2px 6px rgba(0,0,0,.14), inset 0 1px 0 rgba(0,0,0,.1), inset 0 0 0 1px rgba(0,0,0,.06);
+  --cast: 0 1px 2px rgba(60,50,40,.09), 0 3px 8px rgba(60,50,40,.07);
+  --cast-lg: 0 2px 4px rgba(60,50,40,.1), 0 10px 26px rgba(60,50,40,.13), 0 28px 64px rgba(60,50,40,.1);
+  --ambient: 0 8px 30px rgba(60,50,40,.08); color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --chassis:#0a0a0c; --panel:#131417; --panel-hi:#181a1e; --control:#20232a; --control-hi:#292d35; --well:#050506;
+  --line:rgba(255,255,255,.07); --hair:rgba(255,255,255,.055); --hair-strong:rgba(255,255,255,.1); --seam:rgba(0,0,0,.55);
+  --ink:#f3f4f6; --ink-2:#a7aab2; --ink-3:#6e717a; --accent:#c9d1da; --accent-2:#9aa5b1;
+  --key:#eef0f3; --key-2:#c6cad1; --key-ink:#0c0d10; --grain:.042; --sheen:.04; --brush:.012;
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0,0,0,.7);
+  --recess: inset 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(0,0,0,.92),
+            inset 0 0 0 1px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.045);
+  --cast: 0 1px 2px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.32);
+  --cast-lg: 0 2px 4px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.45), 0 28px 64px rgba(0,0,0,.35);
+  --ambient: 0 8px 30px rgba(0,0,0,.28); color-scheme: dark;
+}
+
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); font-family:var(--iface); font-size:var(--t-body); line-height:1.55;
+  letter-spacing:var(--tr-body); font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased;
+  background: radial-gradient(130% 66% at 50% -14%, rgba(255,255,255,.03), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,var(--brush)) 0 1px, transparent 1px 4px), var(--chassis); }
+.grain { position:fixed; inset:0; z-index:400; pointer-events:none; opacity:var(--grain); mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23a)'/%3E%3C/svg%3E"); }
+
+h1,h2,h3,h4 { margin:0; font-family:var(--display); font-weight:600; text-wrap:balance; }
+h1 { font-size:var(--t-display); letter-spacing:var(--tr-display); line-height:1.08; }
+h2 { font-size:var(--t-title); letter-spacing:var(--tr-title); line-height:1.15; }
+h3 { font-size:var(--t-head); letter-spacing:var(--tr-head); }
+h4 { font-size:var(--t-body); letter-spacing:var(--tr-body); }
+p { margin:0; }
+button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+code { font-family:var(--meta); font-size:11px; letter-spacing:-.02em; color:var(--ink); }
+.num { font-family:var(--meta); font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+.label { font-size:var(--t-micro); letter-spacing:var(--tr-micro); text-transform:uppercase; color:var(--ink-3); font-weight:700; }
+.small { font-size:var(--t-small); letter-spacing:var(--tr-small); }
+.dim { color:var(--ink-2); } .dim3 { color:var(--ink-3); }
+
+.mat-panel { background: radial-gradient(120% 90% at 10% -14%, rgba(255,255,255,var(--sheen)), transparent 58%),
+  repeating-linear-gradient(90deg, rgba(255,255,255,calc(var(--brush)*.6)) 0 1px, transparent 1px 4px),
+  linear-gradient(180deg, var(--panel-hi), var(--panel) 44%, color-mix(in oklab, var(--panel) 90%, #000));
+  box-shadow:var(--edge), var(--ambient); }
+.mat-well { background:linear-gradient(180deg, color-mix(in oklab, var(--well) 92%, #000), var(--well)); box-shadow:var(--recess); }
+.mat-sub { background:rgba(255,255,255,.022); box-shadow:inset 0 0 0 1px var(--line); }
+
+.lamp { width:7px; height:7px; border-radius:50%; flex:none; background:radial-gradient(circle at 35% 30%, #4a4d55, #1a1c21);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.6); transition:background .3s var(--press), box-shadow .3s var(--press); }
+.lamp.live { background:radial-gradient(circle at 35% 30%, #ff8a82, var(--live)); box-shadow:0 0 8px rgba(255,59,48,.9); }
+.lamp.pvw { background:radial-gradient(circle at 35% 30%, #9df5e6, var(--preview)); box-shadow:0 0 8px rgba(46,230,200,.75); }
+.lamp.ok { background:radial-gradient(circle at 35% 30%, #9df0c6, var(--ok)); box-shadow:0 0 7px rgba(61,220,151,.6); }
+.lamp.warn { background:radial-gradient(circle at 35% 30%, #ffd88a, var(--warn)); box-shadow:0 0 7px rgba(255,176,32,.65); }
+.lamp.idn { background:radial-gradient(circle at 35% 30%, #fff, var(--accent)); box-shadow:0 0 7px var(--accent); }
+
+.btn { display:inline-flex; align-items:center; gap:var(--s2); height:30px; padding:0 var(--s4); border-radius:var(--r-sm);
+  font-size:var(--t-small); font-weight:600; white-space:nowrap;
+  transition:transform .09s var(--press), box-shadow .16s var(--press), background .16s var(--press), color .16s var(--press); }
+.btn:active { transform:translateY(1px); }
+.btn.sec { color:var(--ink-2); background:linear-gradient(180deg, var(--control-hi), var(--control)); box-shadow:var(--edge-key), var(--cast); }
+.btn.sec:hover { color:var(--ink); }
+.btn.pri { color:var(--key-ink); background:linear-gradient(180deg, var(--key), var(--key-2)); box-shadow:inset 0 1px 0 rgba(255,255,255,.6), var(--cast); }
+.btn.quiet { color:var(--ink-3); box-shadow:inset 0 0 0 1px var(--line); }
+.btn.quiet:hover { color:var(--ink); box-shadow:inset 0 0 0 1px var(--hair-strong); }
+.btn.quiet.on { color:var(--ink); box-shadow:inset 0 0 0 1px var(--accent); }
+.btn.sm { height:24px; padding:0 var(--s3); font-size:var(--t-micro); letter-spacing:.06em; text-transform:uppercase; }
+.btn[disabled] { opacity:.32; pointer-events:none; }
+.kbd { display:inline-grid; place-items:center; min-width:17px; height:17px; padding:0 var(--s1); border-radius:4px;
+  font-family:var(--meta); font-size:9px; line-height:1; color:var(--ink-3);
+  background:linear-gradient(180deg, var(--control-hi), var(--control)); box-shadow:var(--edge-key), 0 1px 1px rgba(0,0,0,.4); }
+.pill { display:inline-flex; align-items:center; gap:var(--s2); height:20px; padding:0 var(--s3); border-radius:10px;
+  font-size:var(--t-micro); letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+  box-shadow:inset 0 0 0 1px var(--line); color:var(--ink-2); }
+.pill.live { color:var(--live); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 42%, transparent); }
+.pill.warn { color:var(--warn); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--warn) 42%, transparent); }
+.pill.ok { color:var(--ok); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 42%, transparent); }
+
+.doc { display:grid; grid-template-columns:250px minmax(0,1fr); min-height:100vh; }
+.index { position:sticky; top:0; align-self:start; height:100vh; display:flex; flex-direction:column;
+  border-right:1px solid var(--seam);
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,var(--brush)) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, color-mix(in oklab, var(--chassis) 88%, #fff), var(--chassis));
+  box-shadow:inset -1px 0 0 var(--hair); z-index:20; }
+.index-head { padding:var(--s6) var(--s5) var(--s4); border-bottom:1px solid var(--line); }
+.mark { display:flex; align-items:center; gap:var(--s3); }
+.mark-glyph { width:22px; height:22px; border-radius:var(--r-xs); flex:none; position:relative;
+  background:linear-gradient(150deg, var(--accent), var(--accent-2)); box-shadow:0 0 0 1px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4); }
+.mark-glyph::after { content:""; position:absolute; inset:6px 5px; border-radius:1px;
+  background:linear-gradient(180deg, rgba(0,0,0,.75) 0 2px, transparent 2px 4px, rgba(0,0,0,.75) 4px 6px, transparent 6px); }
+.mark-name { font-family:var(--display); font-weight:650; letter-spacing:-.03em; font-size:var(--t-head); }
+.index-scroll { flex:1; min-height:0; overflow-y:auto; padding:var(--s4) var(--s3) var(--s6); }
+.index-group { margin-top:var(--s5); } .index-group:first-child { margin-top:0; }
+.index-group > .label { padding:0 var(--s3) var(--s2); }
+.ix { display:flex; align-items:center; gap:var(--s3); width:100%; padding:var(--s2) var(--s3); border-radius:var(--r-sm);
+  color:var(--ink-2); text-align:left; text-decoration:none; transition:color .16s var(--press), background .16s var(--press); }
+.ix:hover { color:var(--ink); background:rgba(255,255,255,.03); }
+.ix-dot { width:3px; height:3px; border-radius:50%; flex:none; background:var(--ink-3); transition:all .2s var(--press); }
+.ix.on { color:var(--ink); } .ix.on .ix-dot { background:var(--accent); box-shadow:0 0 6px var(--accent); transform:scale(1.3); }
+.ix-n { margin-left:auto; font-size:var(--t-micro); letter-spacing:.08em; color:var(--ink-3); }
+.index-foot { padding:var(--s3); border-top:1px solid var(--line); display:flex; gap:var(--s2); }
+.column { min-width:0; padding:var(--s9) var(--s8) 120px; max-width:1240px; }
+
+.masthead { max-width:74ch; }
+.eyebrow { display:flex; align-items:center; gap:var(--s3); margin-bottom:var(--s5); }
+.eyebrow .rule { flex:1; height:1px; background:linear-gradient(90deg, var(--line), transparent); }
+.masthead h1 { font-size:clamp(34px,5vw,52px); letter-spacing:-.04em; }
+.lede { margin-top:var(--s5); font-size:16px; line-height:1.6; color:var(--ink-2); max-width:64ch; }
+.lede strong { color:var(--ink); font-weight:600; }
+
+section { padding-top:var(--s9); scroll-margin-top:72px; }
+.sec-head { display:flex; align-items:flex-end; gap:var(--s4); padding-bottom:var(--s5); border-bottom:1px solid var(--line); margin-bottom:var(--s7); }
+.sec-num { font-family:var(--meta); font-size:var(--t-small); color:var(--ink-3); letter-spacing:.04em; padding-bottom:3px; }
+.sec-head h2 { flex:1; }
+.prose { max-width:68ch; display:flex; flex-direction:column; gap:var(--s4); color:var(--ink-2); }
+.prose strong { color:var(--ink); font-weight:600; }
+.sub { margin-top:var(--s8); margin-bottom:var(--s4); display:flex; align-items:center; gap:var(--s3); }
+.sub h3 { white-space:nowrap; } .sub .rule { flex:1; height:1px; background:var(--line); }
+
+.law { position:relative; margin:var(--s6) 0; padding:var(--s5) var(--s6) var(--s5) var(--s7); border-radius:var(--r-md);
+  max-width:76ch; background:rgba(255,255,255,.025); box-shadow:inset 0 0 0 1px var(--line);
+  font-family:var(--display); font-size:15px; line-height:1.5; letter-spacing:-.015em; color:var(--ink); }
+.law::before { content:""; position:absolute; left:0; top:var(--s4); bottom:var(--s4); width:2px; border-radius:2px; background:var(--accent); }
+.law .label { display:block; margin-bottom:var(--s2); }
+.law.hot::before { background:var(--live); } .law.hot .label { color:var(--live); }
+.law.amend::before { background:var(--warn); } .law.amend .label { color:var(--warn); }
+.law .body { display:block; margin-top:10px; font-family:var(--iface); font-size:var(--t-small);
+  color:var(--ink-2); line-height:1.55; letter-spacing:0; font-weight:400; }
+
+.bench { margin-top:var(--s6); border-radius:var(--r-lg); overflow:hidden; }
+.bench-head { display:flex; align-items:center; gap:var(--s4); padding:var(--s3) var(--s4); border-bottom:1px solid var(--seam);
+  box-shadow:inset 0 -1px 0 var(--hair); flex-wrap:wrap; }
+.bench-head .t { font-weight:600; font-size:var(--t-small); }
+.bench-head .s { color:var(--ink-3); font-size:var(--t-small); }
+.bench-head .sp { flex:1; }
+.bench-body { padding:var(--s6); } .bench-body.flush { padding:0; }
+.bench-foot { padding:var(--s3) var(--s4); border-top:1px solid var(--seam); box-shadow:inset 0 1px 0 var(--hair);
+  font-size:var(--t-small); color:var(--ink-3); display:flex; gap:var(--s5); flex-wrap:wrap; }
+.bench-foot b { color:var(--ink-2); font-weight:600; }
+
+table.spec { width:100%; border-collapse:collapse; font-size:var(--t-small); }
+table.spec th { text-align:left; padding:var(--s2) var(--s3); color:var(--ink-3); font-size:var(--t-micro);
+  letter-spacing:var(--tr-micro); text-transform:uppercase; font-weight:700; border-bottom:1px solid var(--line); white-space:nowrap; }
+table.spec td { padding:var(--s3); border-bottom:1px solid var(--hair); vertical-align:top; color:var(--ink-2); line-height:1.5; }
+table.spec td:first-child { color:var(--ink); font-weight:600; white-space:nowrap; }
+table.spec td.n { font-family:var(--meta); color:var(--ink); letter-spacing:-.03em; white-space:nowrap; }
+table.spec td.wrap { white-space:normal; }
+table.spec tr:last-child td { border-bottom:0; }
+.table-scroll { overflow-x:auto; }
+
+.rules { display:flex; flex-direction:column; margin-top:var(--s5); }
+.rule { display:flex; gap:var(--s4); padding:var(--s4) 0; border-bottom:1px solid var(--hair); align-items:flex-start; }
+.rule:last-child { border-bottom:0; }
+.rule .idx { font-family:var(--meta); font-size:var(--t-small); color:var(--ink-3); width:38px; flex:none; padding-top:1px; }
+.rule .tx { flex:1; max-width:74ch; }
+.rule .tx b { display:block; font-weight:600; color:var(--ink); margin-bottom:3px; }
+.rule .tx span { color:var(--ink-2); font-size:var(--t-small); line-height:1.55; }
+.rule .tx em { color:var(--ink); font-style:normal; font-weight:600; }
+
+.dd { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:var(--s4); margin-top:var(--s5); }
+.dd-col { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.dd-col.yes { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 26%, transparent); }
+.dd-col.no { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 24%, transparent); }
+.dd-col h4 { display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3); }
+.dd-col.yes h4 { color:var(--ok); } .dd-col.no h4 { color:var(--live); }
+.dd-col ul { margin:0; padding-left:var(--s5); display:flex; flex-direction:column; gap:var(--s2); }
+.dd-col li { font-size:var(--t-small); color:var(--ink-2); line-height:1.5; }
+
+.toolbar { position:fixed; right:var(--s5); top:var(--s5); z-index:200; padding:var(--s2); border-radius:var(--r-md);
+  background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge), var(--cast); }
+
+/* ==========================================================================
+   THE SHOW CLOCK
+   ========================================================================== */
+.clock-wrap { padding:var(--s5) var(--s6) var(--s6); }
+.clock-head { display:flex; align-items:flex-end; gap:var(--s6); flex-wrap:wrap; margin-bottom:var(--s5); }
+.clock-big { display:flex; align-items:baseline; gap:var(--s3); }
+.clock-big .t { font-family:var(--meta); font-size:38px; letter-spacing:-.05em; line-height:1;
+  transition:color .4s var(--weight); }
+.clock-big .u { font-size:var(--t-small); color:var(--ink-3); }
+.clock-phase { display:flex; flex-direction:column; gap:3px; }
+.clock-phase .n { font-family:var(--display); font-size:var(--t-title); font-weight:650; letter-spacing:-.026em;
+  transition:color .4s var(--weight); }
+.clock-phase .w { font-size:var(--t-small); color:var(--ink-3); }
+.clock-state { margin-left:auto; display:flex; gap:var(--s5); flex-wrap:wrap; }
+.clock-state .cell .label { margin-bottom:3px; }
+.clock-state .cell .v { font-family:var(--meta); font-size:var(--t-small); color:var(--ink); }
+
+/* The spine reacts to proximity, exactly as it does in the product. */
+.clock-spine { height:3px; border-radius:2px; background:rgba(255,255,255,.06); margin-bottom:var(--s4);
+  transition:background .5s var(--weight), box-shadow .5s var(--weight); }
+.clock-spine.warn { background:linear-gradient(90deg, transparent, var(--warn)); box-shadow:0 0 12px rgba(255,176,32,.4); }
+.clock-spine.live { background:linear-gradient(180deg,#ff8078,var(--live) 50%,#a81d16);
+  box-shadow:0 0 14px rgba(255,59,48,.85), 0 0 44px rgba(255,59,48,.34); }
+.clock-spine.ok { background:linear-gradient(90deg, transparent, color-mix(in oklab, var(--ok) 60%, transparent)); }
+
+.clock-track { position:relative; height:46px; border-radius:var(--r-sm); overflow:hidden; margin-bottom:var(--s2); }
+.clock-band { position:absolute; top:0; bottom:0; display:grid; place-items:center;
+  font-size:8px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:var(--ink-3);
+  box-shadow:inset -1px 0 0 var(--seam); overflow:hidden; white-space:nowrap;
+  transition:background .3s var(--press); }
+.clock-band.on { color:var(--ink); background:rgba(255,255,255,.05); }
+.clock-band.narrow.on { background:rgba(255,255,255,.09); }
+
+/* The narrow phases are real and tiny — Lock is ten minutes of a five-hour
+   run-up. The strip stays proportional and the legend carries their names. */
+.clock-legend { display:flex; gap:var(--s5); flex-wrap:wrap; margin-top:var(--s3); }
+.clock-legend .lg { display:flex; align-items:center; gap:var(--s2); font-size:var(--t-micro);
+  letter-spacing:.08em; text-transform:uppercase; font-weight:700; color:var(--ink-3);
+  transition:color .2s var(--press); }
+.clock-legend .lg .d { width:5px; height:5px; border-radius:50%; background:var(--ink-3); flex:none;
+  transition:background .2s var(--press), box-shadow .2s var(--press); }
+.clock-legend .lg.on { color:var(--ink); }
+.clock-legend .lg.on .d { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+.clock-legend .lg .w { font-family:var(--meta); letter-spacing:0; text-transform:none; color:var(--ink-3); font-weight:400; }
+.clock-head-mark { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--accent);
+  box-shadow:0 0 10px var(--accent); z-index:3; pointer-events:none; }
+input[type=range].clock-range { width:100%; -webkit-appearance:none; appearance:none; background:transparent; height:22px; cursor:ew-resize; }
+input[type=range].clock-range::-webkit-slider-runnable-track { height:4px; border-radius:2px; background:color-mix(in oklab, var(--ink) 16%, transparent); }
+input[type=range].clock-range::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; border-radius:50%; margin-top:-4.5px;
+  background:linear-gradient(180deg, var(--key), var(--key-2)); box-shadow:var(--cast); }
+input[type=range].clock-range::-moz-range-track { height:4px; border-radius:2px; background:color-mix(in oklab, var(--ink) 16%, transparent); }
+input[type=range].clock-range::-moz-range-thumb { width:13px; height:13px; border:0; border-radius:50%;
+  background:linear-gradient(180deg, var(--key), var(--key-2)); box-shadow:var(--cast); }
+
+.clock-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1px; background:var(--line);
+  border-radius:var(--r-md); overflow:hidden; margin-top:var(--s5); }
+.clock-cell { padding:var(--s4) var(--s5); background:var(--panel); }
+.clock-cell .label { margin-bottom:var(--s2); }
+.clock-cell ul { margin:0; padding-left:var(--s4); display:flex; flex-direction:column; gap:5px; }
+.clock-cell li { font-size:var(--t-small); color:var(--ink-2); line-height:1.45; }
+.clock-cell li.no { color:var(--ink-3); text-decoration:line-through; text-decoration-color:color-mix(in oklab, var(--live) 60%, transparent); }
+.clock-cell .none { font-size:var(--t-small); color:var(--ink-3); font-style:italic; }
+.clock-why { margin-top:var(--s5); font-size:var(--t-small); color:var(--ink-2); line-height:1.6; max-width:74ch; }
+.clock-why b { color:var(--ink); font-weight:600; }
+
+/* ==========================================================================
+   ATTENTION BUDGET
+   ========================================================================== */
+.att { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--s5); padding:var(--s5) var(--s6); }
+@media (max-width:900px) { .att { grid-template-columns:1fr; } }
+.att-col .cap { display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3); }
+.att-stack { border-radius:var(--r-md); padding:var(--s4); min-height:250px; display:flex; flex-direction:column; gap:var(--s2); }
+.note { display:flex; gap:var(--s3); padding:var(--s3); border-radius:var(--r-sm); align-items:flex-start;
+  background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge), var(--cast); }
+.note .lamp { margin-top:4px; }
+.note .t { font-size:var(--t-small); font-weight:600; }
+.note .m { font-size:var(--t-micro); letter-spacing:.02em; color:var(--ink-3); margin-top:2px; line-height:1.45; text-transform:none; }
+.note.agg { box-shadow:var(--edge), var(--cast), inset 0 0 0 1px color-mix(in oklab, var(--warn) 34%, transparent); }
+.att-verdict { margin-top:var(--s3); font-size:var(--t-small); line-height:1.5; }
+.att-verdict.bad { color:var(--live); } .att-verdict.good { color:var(--ok); }
+
+/* ==========================================================================
+   LEDGER
+   ========================================================================== */
+.ledger { border-radius:var(--r-md); overflow:hidden; }
+.ledger-row { display:flex; align-items:center; gap:var(--s3); padding:var(--s3) var(--s4); border-bottom:1px solid var(--hair);
+  font-size:var(--t-small); }
+.ledger-row:last-child { border-bottom:0; }
+.ledger-row .n { color:var(--ink); font-weight:600; }
+.ledger-row .s { color:var(--ink-3); font-size:var(--t-micro); letter-spacing:.06em; text-transform:uppercase; }
+.ledger-row .b { margin-left:auto; font-family:var(--meta); font-size:var(--t-micro); color:var(--ink-2); }
+.ledger-bar { width:70px; height:4px; border-radius:2px; background:rgba(0,0,0,.45); overflow:hidden; flex:none;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4); }
+.ledger-bar > i { display:block; height:100%; background:var(--accent); }
+
+@media (max-width:900px) {
+  .doc { grid-template-columns:1fr; }
+  .index { position:static; height:auto; border-right:0; border-bottom:1px solid var(--seam); }
+  .column { padding:var(--s6) var(--s5) 96px; }
+  .toolbar { position:static; margin:var(--s4) var(--s5) 0; display:inline-block; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+</style>
+
+<div class="grain"></div>
+<div class="toolbar"><button class="btn quiet sm" id="theme-toggle">Finish</button></div>
+
+<div class="doc">
+  <nav class="index">
+    <div class="index-head">
+      <div class="mark">
+        <div class="mark-glyph"></div>
+        <div><div class="mark-name">Streamatrix</div><div class="label" style="margin-top:4px">Design OS · Vol. Five</div></div>
+      </div>
+    </div>
+    <div class="index-scroll">
+      <div class="index-group">
+        <div class="label">The Question</div>
+        <a class="ix" href="#tension"><span class="ix-dot"></span>The Tension</a>
+      </div>
+      <div class="index-group">
+        <div class="label">The Answer</div>
+        <a class="ix" href="#clock"><span class="ix-dot"></span>The Show Clock<span class="ix-n">6</span></a>
+        <a class="ix" href="#preparation"><span class="ix-dot"></span>Preparation</a>
+        <a class="ix" href="#attention"><span class="ix-dot"></span>Attention</a>
+        <a class="ix" href="#desk"><span class="ix-dot"></span>The Learned Desk</a>
+        <a class="ix" href="#idle"><span class="ix-dot"></span>Idle Work</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Discipline</div>
+        <a class="ix" href="#refuse"><span class="ix-dot"></span>What We Refuse</a>
+        <a class="ix" href="#failure"><span class="ix-dot"></span>Failure Modes</a>
+        <a class="ix" href="#risk"><span class="ix-dot"></span>Risks</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Review</div>
+        <a class="ix" href="#amend"><span class="ix-dot"></span>Amendments<span class="ix-n">2</span></a>
+        <a class="ix" href="#conformance"><span class="ix-dot"></span>Conformance</a>
+        <a class="ix" href="#open"><span class="ix-dot"></span>Open Questions</a>
+      </div>
+    </div>
+    <div class="index-foot"><span class="label" style="padding:var(--s2)">6 phases · 2 playable</span></div>
+  </nav>
+
+  <main class="column">
+
+    <header class="masthead">
+      <div class="eyebrow"><span class="label">Volume Five</span><span class="rule"></span><span class="label">Workspace Intelligence</span></div>
+      <h1>Knowing without deciding</h1>
+      <p class="lede">
+        Volume Two set a rule that has been quietly straining ever since: <strong>nothing moves unless a person
+        moved it.</strong> Volume Four then introduced a workspace that predicts what you will need and prepares
+        it. Those two things are in tension, and pretending otherwise would leave the most consequential
+        behaviour in the product to be decided ad hoc by whoever implements it first.
+        <br><br>
+        This volume resolves it, and then does something no broadcast tool does: it makes the
+        <strong>show clock a first-class input to the product's behaviour</strong>. Streamatrix knows how close it
+        is to air, and it gets quieter as the number gets smaller.
+      </p>
+    </header>
+
+    <!-- ============================================================
+         01 THE TENSION
+         ============================================================ -->
+    <section id="tension">
+      <div class="sec-head"><span class="sec-num">01</span><h2>The Tension</h2><span class="label">and its resolution</span></div>
+
+      <div class="prose">
+        <p>Volume Two, rule H2: <em>“Nothing moves unless a person moved it. No auto-scroll, no auto-select, no
+        reordering under the pointer, no list that re-sorts when data arrives.”</em> The reasoning was fatigue —
+        a tired operator clicking where a thing was two seconds ago must hit the thing.</p>
+        <p>Volume Four, invention 07: <em>Critical Path</em> — the product measures each graphic's readiness
+        latency, predicts where the operator is going, and pre-warms. I noted at the time that this was “the first
+        crack in that wall”. It is worth being precise about why it is not actually a crack.</p>
+      </div>
+
+      <div class="law">
+        <span class="label">The resolving law · W-I</span>
+        The workspace may <em>prepare</em> anything and <em>rearrange</em> nothing.
+        <span class="body">Preparation changes what the machine has ready. Presentation changes what the operator
+        sees. H2 governs presentation absolutely and says nothing about preparation — and the whole of workspace
+        intelligence lives on the preparation side of that line. A decoded image sitting in GPU memory has moved
+        nothing. A panel that slid because the product thought you would want it has moved everything.</span>
+      </div>
+
+      <div class="prose">
+        <p>This gives a test any proposed intelligence must pass, and it is blunt enough to settle an argument in
+        a review: <strong>if the feature were switched off mid-show, would the screen look different?</strong>
+        If yes, it is presentation and H2 forbids it. If no — the screen is identical and only the machine's
+        readiness changed — it is preparation and it is permitted.</p>
+      </div>
+
+      <div class="law hot">
+        <span class="label">The corollary that keeps it honest</span>
+        Everything prepared is <em>listed</em>. There is no invisible readiness.
+        <span class="body">Speculation the operator cannot inspect is a machine with a private opinion about the
+        show. The preparation ledger (§03) is always open to look at, shows exactly what has been warmed and why,
+        and can be emptied by hand. A prediction you can audit is a tool; a prediction you cannot is a haunting.</span>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         02 SHOW CLOCK
+         ============================================================ -->
+    <section id="clock">
+      <div class="sec-head"><span class="sec-num">02</span><h2>The Show Clock</h2><span class="label">drag it</span></div>
+
+      <div class="prose">
+        <p>Every broadcast has a time it starts. Every production tool knows this and almost none of them
+        <em>do</em> anything with it. Streamatrix treats proximity to air as a governing input: the same product,
+        with the same layout, behaves differently at T−4h and T−4m — not by moving anything, but by changing what
+        it runs in the background, what it will permit, and how much it is willing to say.</p>
+        <p>Six phases. Drag the playhead below and watch the product change its own posture. Note how narrow
+        <em>Lock</em> is — ten minutes at the end of a five-hour run-up. The strip is drawn to scale on purpose.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Proximity governs behaviour</span><span class="s">Premier League · Match Day 14 · air at 20:00</span>
+          <span class="sp"></span><span class="label" id="clock-scheduled">air time declared</span></div>
+        <div class="bench-body flush">
+          <div class="clock-wrap">
+            <div class="clock-spine" id="clock-spine"></div>
+            <div class="clock-head">
+              <div class="clock-big"><span class="t num" id="clock-t">−04:00</span><span class="u" id="clock-u">to air</span></div>
+              <div class="clock-phase"><span class="n" id="clock-name">Cold</span><span class="w" id="clock-window">more than 4 hours out</span></div>
+              <div class="clock-state">
+                <div class="cell"><div class="label">Notifications</div><div class="v" id="clock-notif">all</div></div>
+                <div class="cell"><div class="label">Interface sound</div><div class="v" id="clock-sound">full</div></div>
+                <div class="cell"><div class="label">Modals</div><div class="v" id="clock-modal">permitted</div></div>
+              </div>
+            </div>
+            <div class="clock-track mat-well" id="clock-track"></div>
+            <input type="range" class="clock-range" id="clock-range" min="0" max="300" value="10" step="1" aria-label="Time relative to air">
+            <div class="clock-legend" id="clock-legend"></div>
+            <div class="clock-grid">
+              <div class="clock-cell"><div class="label">Running in the background</div><div id="clock-runs"></div></div>
+              <div class="clock-cell"><div class="label">Permitted</div><div id="clock-allow"></div></div>
+              <div class="clock-cell"><div class="label">Refused</div><div id="clock-deny"></div></div>
+            </div>
+            <div class="clock-why" id="clock-why"></div>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>The layout never changes.</b> Not once, across all six phases. Only posture changes — what runs, what is permitted, how loud.</span>
+        </div>
+      </div>
+
+      <div class="law">
+        <span class="label">The opt-in rule</span>
+        The clock constrains nothing until a person declares an air time.
+        <span class="body">A production with no scheduled air stays in <em>Prep</em> for ever and behaves exactly
+        as Volume Two describes. This matters more than it sounds: it means workspace intelligence is switched on
+        by an act every broadcaster already performs, and never by a setting nobody finds. It also means a
+        designer at 14:00 on a Tuesday with no show booked is never told what they may not do.</span>
+      </div>
+
+      <div class="law hot">
+        <span class="label">Lock is a fact, not a mode</span>
+        Volume Two's H1 forbids invisible modes. Lock is permitted because <em>the clock is the mode indicator</em>
+        — the largest, most prominent readout in the product, showing exactly why the machine is behaving as it is.
+        <span class="body">An operator may always override a Lock refusal. The override is one action, it is never
+        buried, and it is recorded in the Flight Recorder with the operator's identity — not as a reprimand, but
+        because the next person to ask “why did the package update six minutes before air?” deserves an answer.</span>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         03 PREPARATION
+         ============================================================ -->
+    <section id="preparation">
+      <div class="sec-head"><span class="sec-num">03</span><h2>Preparation</h2><span class="label">the ledger</span></div>
+
+      <div class="prose">
+        <p>What the machine is allowed to do on its own initiative, and the accounting that keeps it honest.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Preparation ledger</span><span class="s">always open · always emptiable by hand</span>
+          <span class="sp"></span><span class="label">1.8 GB of 4.0 GB budget</span></div>
+        <div class="bench-body flush">
+          <div class="ledger" id="ledger"></div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Why a ledger and not a setting</b> — an operator cannot trust a prediction engine they cannot inspect. This is the inspection.</span>
+        </div>
+      </div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">P1</div><div class="tx"><b>Preparation has a declared budget and never exceeds it.</b>
+          <span>A fixed share of GPU and system memory, set per machine, visible in the ledger. When full, preparation <em>refuses</em> rather than evicting something the show may need — the same rule the asset library already follows for exactly the same reason.</span></div></div>
+        <div class="rule"><div class="idx">P2</div><div class="tx"><b>Preparation never competes with the live path.</b>
+          <span>All speculative work runs at lower priority than anything feeding an output, and is suspended entirely while a frame is late. <em>Why:</em> an optimisation that can cause the failure it exists to prevent is not an optimisation.</span></div></div>
+        <div class="rule"><div class="idx">P3</div><div class="tx"><b>Eviction order is declared, not learned.</b>
+          <span>Speculative first, then cold caches, then previews, then thumbnails. Never the live scene, never an on-air asset, never anything in the next three rundown items. A learned eviction policy is unpredictable under pressure, which is precisely when it matters.</span></div></div>
+        <div class="rule"><div class="idx">P4</div><div class="tx"><b>A wrong prediction costs nothing but memory.</b>
+          <span>Preparing item 15 when the operator jumps to item 3 wastes some bandwidth and no correctness. This is the property that makes speculation safe here and unsafe almost everywhere else: <em>the speculative work has no side effects.</em> If a prediction could change the document, it would be forbidden.</span></div></div>
+        <div class="rule"><div class="idx">P5</div><div class="tx"><b>Readiness is a readout, not a promise.</b>
+          <span>The rundown shows what is ready, what is warming and what is cold. It never hides a cold item behind an optimistic state, and taking a cold item is always permitted — it is simply slower, and the product says by how much beforehand.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         04 ATTENTION
+         ============================================================ -->
+    <section id="attention">
+      <div class="sec-head"><span class="sec-num">04</span><h2>Attention</h2><span class="label">a budget, not a feed</span></div>
+
+      <div class="prose">
+        <p>The second scarce resource in a gallery, and the one software is worst at respecting. An operator can
+        hold roughly four things in working memory; under stress, fewer. Most software treats notifications as a
+        queue to be drained — if six things happen, six things are shown. That is a design that works
+        beautifully in a demo with two events and fails completely on the night when it matters.</p>
+      </div>
+
+      <div class="law">
+        <span class="label">The attention budget · W-II</span>
+        At most <em>three</em> demands may be presented at once. A fourth does not stack — it collapses the set
+        into a single aggregate that states the count and the worst severity.
+        <span class="body">This inverts the usual failure. Conventional software degrades from “manageable” to
+        “overwhelming” exactly as the situation gets worse. Streamatrix degrades from “three specific problems”
+        to “one problem that says there are six” — which is less information and far more usable, because the
+        operator's next action is the same either way: open the list.</span>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Six things go wrong at once</span><span class="s">the same six, two policies</span>
+          <span class="sp"></span>
+          <div style="display:flex; gap:2px; padding:2px; border-radius:var(--r-sm); box-shadow:inset 0 0 0 1px var(--line)" id="att-count">
+            <button class="btn quiet" data-n="1">1</button><button class="btn quiet" data-n="2">2</button>
+            <button class="btn quiet on" data-n="3">3</button><button class="btn quiet" data-n="4">4</button>
+            <button class="btn quiet" data-n="6">6</button>
+          </div>
+        </div>
+        <div class="bench-body flush">
+          <div class="att">
+            <div class="att-col">
+              <div class="cap"><span class="lamp live"></span><span class="label">A queue · what everyone else does</span></div>
+              <div class="att-stack mat-well" id="att-queue"></div>
+              <div class="att-verdict" id="att-queue-v"></div>
+            </div>
+            <div class="att-col">
+              <div class="cap"><span class="lamp ok"></span><span class="label">A budget · Streamatrix</span></div>
+              <div class="att-stack mat-well" id="att-budget"></div>
+              <div class="att-verdict good" id="att-budget-v"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Order is severity, then age.</b> Never recency alone — the newest event is rarely the most important one.</span>
+          <span><b>On air</b> the budget drops to one, and only show-affecting demands qualify.</span>
+        </div>
+      </div>
+
+      <div class="sub"><h3>Routing attention without moving anything</h3><span class="rule"></span></div>
+      <div class="prose">
+        <p>If the workspace may not rearrange itself, how does it point? The answer is the answer Volume One
+        already gave for state: <strong>light, not motion.</strong> Four mechanisms, in escalating order, and
+        none of them relocates a single pixel.</p>
+      </div>
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">The four routes</span><span class="s">escalating, and each is reversible by resolution alone</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Route</th><th>Mechanism</th><th>Used when</th></tr></thead>
+            <tbody>
+              <tr><td>1 · Object</td><td class="wrap">A lamp on the thing itself — the output row, the rundown item, the layer.</td><td class="wrap">Always. Every demand has an object, and the object always carries it.</td></tr>
+              <tr><td>2 · Container</td><td class="wrap">The panel's collapsed spine inherits the worst lamp inside it.</td><td class="wrap">When the object is not currently visible. This is why panels collapse to a spine rather than hiding.</td></tr>
+              <tr><td>3 · Rail</td><td class="wrap">The rail item for that section carries the worst lamp beneath it.</td><td class="wrap">When the panel is on another monitor or another section entirely.</td></tr>
+              <tr><td>4 · Spine</td><td class="wrap">The tally spine changes colour across the top of the room.</td><td class="wrap">Only when the show is affected. This is the one that is visible from two metres away, and it is spent sparingly for exactly that reason.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot"><span><b>Never</b> steal focus, scroll to the problem, open the panel, flash the taskbar, or play a sound that repeats. All four are motion, and motion is forbidden by H2.</span></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         05 THE LEARNED DESK
+         ============================================================ -->
+    <section id="desk">
+      <div class="sec-head"><span class="sec-num">05</span><h2>The Learned Desk</h2><span class="label">observation without adaptation</span></div>
+
+      <div class="prose">
+        <p>The product watches how you work. It never acts on what it sees. That sentence is the whole design,
+        and the temptation to soften it will be constant.</p>
+      </div>
+
+      <div class="law hot">
+        <span class="label">W-III</span>
+        Learned behaviour is offered in one place, at a moment of the operator's choosing, and is never applied.
+        <span class="body">Observations surface only inside <em>Desk</em> — a settings surface an operator opens
+        deliberately. They never appear as a popup, a banner, a nudge, a tip, an inline suggestion, or a
+        highlighted control. If the operator never opens Desk, the product's learning is invisible for ever, and
+        that is an acceptable outcome. A tool that adapts under you is a tool you have to re-learn every week.</span>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">What it may observe, and what it may offer</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Observation</th><th>Offer</th><th>Never</th></tr></thead>
+            <tbody>
+              <tr><td>Panel usage</td><td class="wrap">“You have not opened Diagnostics in 40 shows. Remove it from this preset?”</td><td class="wrap">Removing it. Collapsing it. Reordering it. Dimming it.</td></tr>
+              <tr><td>Command frequency</td><td class="wrap">“You run <em>Add to rundown</em> 30 times a show and always from the menu. It is bound to <code>R</code>.”</td><td class="wrap">Rebinding anything, or reordering the palette by frequency — a palette whose order changes is a palette you must read.</td></tr>
+              <tr><td>Rundown shape</td><td class="wrap">“Your last 12 match-day rundowns start with the same four graphics. Save as a template?”</td><td class="wrap">Pre-filling a new rundown. Suggesting the next item during a show.</td></tr>
+              <tr><td>Readiness misses</td><td class="wrap">“Item 9 was cold when you took it, in 3 of the last 5 shows. Raise its warm priority?”</td><td class="wrap">Raising it silently. This is the one that would be most defensible to automate, and it is still refused.</td></tr>
+              <tr><td>Recurring faults</td><td class="wrap">“Output 2 has dropped in 4 of the last 6 shows, always in the first ten minutes.”</td><td class="wrap">Disabling the output, switching away from it, or hiding it.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Retention</b> Observations are per-operator, held for 90 days, visible in full, and deletable in one action.</span>
+          <span><b>Never leaves the facility</b> — no telemetry of an individual's working patterns is transmitted anywhere, on any plan.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         06 IDLE WORK
+         ============================================================ -->
+    <section id="idle">
+      <div class="sec-head"><span class="sec-num">06</span><h2>Idle Work</h2><span class="label">while nobody is touching it</span></div>
+
+      <div class="prose">
+        <p>A production machine is idle for most of its life, and that idle time is the cheapest resource in the
+        building. Streamatrix spends it on the checks that would otherwise have to happen when someone is waiting
+        — which is the whole of Volume Four's earliness doctrine, applied to the machine's own spare capacity.</p>
+      </div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">I1</div><div class="tx"><b>Idle work stops the instant a person touches anything.</b>
+          <span>Not throttles — <em>stops</em>, at the next safe point, within one frame. The operator must never contend with the machine's own housekeeping, and a product that stutters when you touch it after an hour of quiet has taught you that it is busy with something more important than you.</span></div></div>
+        <div class="rule"><div class="idx">I2</div><div class="tx"><b>Idle work never changes the document.</b>
+          <span>It verifies, measures, renders and reports. It does not fix, tidy, migrate, re-encode or optimise. Anything that would alter what goes to air waits for a person, however obviously correct it is.</span></div></div>
+        <div class="rule"><div class="idx">I3</div><div class="tx"><b>Its results are silent until asked for, unless something failed.</b>
+          <span>A clean idle pass produces no notification, no badge and no toast — it simply means the standing verdict stays green. Reporting success that nobody requested is how a product teaches you to ignore it.</span></div></div>
+        <div class="rule"><div class="idx">I4</div><div class="tx"><b>It respects the machine, not just the operator.</b>
+          <span>Suspended on battery, on thermal throttle, and whenever another Streamatrix on the same machine is on air. A laptop that runs hot in a hotel room the night before a show is a real failure with a real cost.</span></div></div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">What idle time buys</span><span class="s">in the order it is spent</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Work</th><th>Answers, before anyone asks</th></tr></thead>
+            <tbody>
+              <tr><td>Asset integrity</td><td class="wrap">Every content hash re-verified. A silently changed logo is found the night before, not on air.</td></tr>
+              <tr><td>Contract sampling</td><td class="wrap">Every bound feed polled and checked against its Data Contract. A provider's type change surfaces within minutes of happening.</td></tr>
+              <tr><td>Dry Run</td><td class="wrap">The whole rundown executed. Missing fonts, null bindings, colliding graphics — all found while the studio is dark.</td></tr>
+              <tr><td>Worst Case</td><td class="wrap">Every graphic rendered against the adversarial extreme of its current data, not the data it was designed with.</td></tr>
+              <tr><td>Frame budget</td><td class="wrap">The heaviest frame in the rundown re-measured at the delivery resolution actually configured.</td></tr>
+              <tr><td>Legal check</td><td class="wrap">Gamut, luma, safe area, minimum type size and flash rate re-verified across every graphic.</td></tr>
+              <tr><td>Warm the first items</td><td class="wrap">The opening of the rundown decoded and uploaded, so the first take of the night is as fast as the fortieth.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot"><span><b>All of it is re-run on any change</b>, incrementally. The standing verdict is never stale, and never claims to be fresher than it is — it carries the time it was computed.</span></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         07 REFUSE
+         ============================================================ -->
+    <section id="refuse">
+      <div class="sec-head"><span class="sec-num">07</span><h2>What We Refuse</h2><span class="label">the popular version of this feature</span></div>
+
+      <div class="dd">
+        <div class="dd-col no">
+          <h4><span class="lamp live"></span>Never</h4>
+          <ul>
+            <li><b>An adaptive interface.</b> No panel that grows because you use it, no control that surfaces because you are near it, no menu ordered by frequency. Adaptation destroys muscle memory, which is the operator's most valuable asset.</li>
+            <li><b>Focus stealing.</b> Nothing takes the keyboard. Ever. Not for an error, not for a modal, not for a critical fault.</li>
+            <li><b>Auto-scroll to the problem.</b> The rundown does not jump. The lamp tells you where; you go there.</li>
+            <li><b>Predictive take.</b> The product will never pre-select, pre-arm, or pre-cue. Warming is invisible; arming is a decision.</li>
+            <li><b>Tips, tours, nudges, coach marks, “did you know”.</b> A professional tool teaches through consistency and printed bindings, not through interruption.</li>
+            <li><b>Cloud-side learning.</b> An individual's working patterns never leave the facility.</li>
+            <li><b>A confidence score shown to the operator.</b> “87 % likely you will take item 12” invites the operator to reason about the model instead of the show.</li>
+          </ul>
+        </div>
+        <div class="dd-col yes">
+          <h4><span class="lamp ok"></span>Instead</h4>
+          <ul>
+            <li>A layout that is identical on every machine, every day, for every operator in that role.</li>
+            <li>A machine that is quietly ready for what you are about to do, and says so as a readout you can check.</li>
+            <li>Escalating light that points without moving.</li>
+            <li>A clock that makes the product calmer as the stakes rise, rather than busier.</li>
+            <li>Learning that waits to be asked.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         08 FAILURE MODES
+         ============================================================ -->
+    <section id="failure">
+      <div class="sec-head"><span class="sec-num">08</span><h2>Failure Modes</h2><span class="label">how intelligence turns bad</span></div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Known failure modes</span><span class="s">named, with the specific defence</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Failure</th><th>How it happens</th><th>Defence</th></tr></thead>
+            <tbody>
+              <tr><td>Speculation storm</td><td class="wrap">The predictor warms everything because it is uncertain, and starves the live path.</td><td class="wrap">P1 and P2 — hard budget, lower priority, suspended while a frame is late.</td></tr>
+              <tr><td>Prediction lock-in</td><td class="wrap">Warmed items feel faster, so operators favour them, which reinforces the prediction. The model learns its own shadow.</td><td class="wrap">Readiness is a readout and never affects ordering or presentation. Nothing about a warm item is easier to reach than a cold one.</td></tr>
+              <tr><td>Clock creep</td><td class="wrap">Each release moves one more thing behind Lock, until the hour before air is unusable.</td><td class="wrap">The Lock list is fixed in this document and may only grow by amendment. C46 asserts its contents.</td></tr>
+              <tr><td>Override erosion</td><td class="wrap">Operators override Lock every night, so Lock means nothing and the record is noise.</td><td class="wrap">Override rate is reported to the facility, not to the operator. A high rate is evidence the <em>Lock policy is wrong</em>, not that operators are.</td></tr>
+              <tr><td>Aggregate blindness</td><td class="wrap">“6 items need you” becomes the permanent state, and nobody opens it.</td><td class="wrap">The aggregate always carries the worst severity as its lamp, and a show-affecting demand is never aggregated — it is always shown whole.</td></tr>
+              <tr><td>Idle work that is never idle</td><td class="wrap">On a busy shared machine the idle pass never runs, so the standing verdict is permanently stale.</td><td class="wrap">The verdict shows its age. A verdict older than the last rundown change is displayed as unknown, never as green.</td></tr>
+              <tr><td>The helpful machine</td><td class="wrap">A well-meaning release adds a nudge, then a tip, then a suggestion chip, and the tool becomes a colleague who talks.</td><td class="wrap">W-III, and §07. This is a culture failure, not a technical one, and the only defence is that it is written down.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         09 RISKS
+         ============================================================ -->
+    <section id="risk">
+      <div class="sec-head"><span class="sec-num">09</span><h2>Risks</h2><span class="label">honest</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">R1</div><div class="tx"><b>The show clock is the most invasive idea in the whole Design OS.</b>
+          <span>It gives the product an opinion about what you may do and when. If the phase boundaries are wrong — and I have chosen them from reasoning, not evidence — it will feel like an obstruction rather than a colleague. This is the single decision here most likely to need changing after real shows.</span></div></div>
+        <div class="rule"><div class="idx">R2</div><div class="tx"><b>Lock will be experienced as the product blaming the operator.</b>
+          <span>“You cannot install this, it is six minutes to air” is correct and slightly humiliating. The wording carries the entire outcome, and wording is the thing most likely to be got wrong by whoever implements it.</span></div></div>
+        <div class="rule"><div class="idx">R3</div><div class="tx"><b>The attention budget can hide a real emergency.</b>
+          <span>Three shown, three collapsed — and the fourth was the one that mattered. The severity ordering mitigates it, but only if severity is classified correctly, which pushes the risk into Volume Two's failure classes rather than removing it.</span></div></div>
+        <div class="rule"><div class="idx">R4</div><div class="tx"><b>“Prepares but never rearranges” is easy to state and hard to police.</b>
+          <span>A readiness lamp <em>is</em> a presentation change. I have permitted it because it reports rather than relocates, but that is a judgement, and the line will be pushed at every review by someone with a reasonable case.</span></div></div>
+        <div class="rule"><div class="idx">R5</div><div class="tx"><b>Refusing adaptation is a competitive liability in a demo.</b>
+          <span>“It learns how you work” sells. “It refuses to change under you” has to be explained. This volume will lose an evaluation to a product that adapts visibly, and be preferred by the same evaluator six months later.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         10 AMENDMENTS
+         ============================================================ -->
+    <section id="amend">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Amendments</h2><span class="label">correcting earlier volumes</span></div>
+
+      <div class="law amend">
+        <span class="label">Amendment 1 · Volume Two, H2</span>
+        <b>Was:</b> “Nothing moves unless a person moved it.”<br>
+        <b>Now:</b> “Nothing the operator can see changes unless a person changed it. What the machine has made ready may change freely, and is always listed.”
+        <span class="body">The original was written about scrolling and re-sorting and is right about those. It was
+        also, read literally, a ban on caching — which nobody intended and which would have made the product
+        slower for no benefit. The amendment draws the line where it always should have been: at the boundary
+        between presentation and preparation, not at the boundary between still and moving.</span>
+      </div>
+
+      <div class="law amend">
+        <span class="label">Amendment 2 · Volume Four, invention 07</span>
+        <b>Was:</b> Critical Path “predicts where the operator is going”.<br>
+        <b>Now:</b> Critical Path <em>measures readiness</em> and warms along the declared rundown order. It does not model the operator.
+        <span class="body">I was careless. “Predicting the operator” invites a behavioural model of a person, which
+        is both unnecessary and the beginning of every adaptive-interface failure in §07. The rundown is an
+        explicit, human-authored declaration of what comes next — warming along it needs no prediction at all,
+        and is correct by construction rather than correct on average. The only genuine prediction left is
+        <em>how far ahead</em> to warm, which is a function of pace and memory, not of personality.</span>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         11 CONFORMANCE
+         ============================================================ -->
+    <section id="conformance">
+      <div class="sec-head"><span class="sec-num">11</span><h2>Conformance</h2><span class="label">C41 – C50</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">C41</div><div class="tx"><b>Switching intelligence off changes no pixel.</b><span>Screenshot every surface with preparation enabled and disabled. The images must be identical.</span></div></div>
+        <div class="rule"><div class="idx">C42</div><div class="tx"><b>The layout is identical in all six phases.</b><span>Screenshot each phase. Only readouts and lamps may differ.</span></div></div>
+        <div class="rule"><div class="idx">C43</div><div class="tx"><b>Everything prepared is listed.</b><span>Warm a rundown, open the ledger, and reconcile against actual GPU residency. No unlisted allocation.</span></div></div>
+        <div class="rule"><div class="idx">C44</div><div class="tx"><b>Preparation yields to the live path.</b><span>Warm aggressively while on air under load. Frame timing must be unaffected.</span></div></div>
+        <div class="rule"><div class="idx">C45</div><div class="tx"><b>No more than three demands are presented.</b><span>Force ten simultaneous faults. Count what is shown.</span></div></div>
+        <div class="rule"><div class="idx">C46</div><div class="tx"><b>The Lock list matches this document.</b><span>Enumerate what is refused at T−10m. Anything not listed here is a defect.</span></div></div>
+        <div class="rule"><div class="idx">C47</div><div class="tx"><b>Every Lock refusal is overridable and recorded.</b><span>Override each one. Each must appear in the Flight Recorder with an identity.</span></div></div>
+        <div class="rule"><div class="idx">C48</div><div class="tx"><b>Idle work stops on input.</b><span>Start a full idle pass, then move the pointer. Measure the time to first paint — it must be within one frame.</span></div></div>
+        <div class="rule"><div class="idx">C49</div><div class="tx"><b>No observation leaves the machine.</b><span>Capture all outbound traffic during a week of use. No per-operator behavioural data.</span></div></div>
+        <div class="rule"><div class="idx">C50</div><div class="tx"><b>A stale verdict is never green.</b><span>Change the rundown, block idle work, and check the pre-air verdict. It must read unknown.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         12 OPEN
+         ============================================================ -->
+    <section id="open">
+      <div class="sec-head"><span class="sec-num">12</span><h2>Open Questions</h2><span class="label">needs shows, not thinking</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">Q1</div><div class="tx"><b>Are the six phases the right six?</b><span>Four hours, one hour, ten minutes. I chose these from how production days are described, not from measurement. A news operation and a stadium sports operation may need different boundaries, which would make the phase table a per-facility policy rather than a product constant.</span></div></div>
+        <div class="rule"><div class="idx">Q2</div><div class="tx"><b>Is three the right attention budget?</b><span>The working-memory research supports about four items; three is a deliberate margin. Whether an experienced director under pressure can hold more, or fewer, is measurable and unmeasured.</span></div></div>
+        <div class="rule"><div class="idx">Q3</div><div class="tx"><b>What happens when the show runs late?</b><span>The whole model assumes air time is known and roughly accurate. Live sport routinely runs 40 minutes over. Whether the clock should follow the schedule or the actual state of the output is genuinely unresolved, and the two disagree exactly when it matters.</span></div></div>
+        <div class="rule"><div class="idx">Q4</div><div class="tx"><b>Should a rehearsal have its own clock?</b><span>Rehearsals are shows without an audience. They probably deserve Lock without the sterile phase — but that is a fourth kind of “live”, and Volume Two's state model already distinguishes three.</span></div></div>
+        <div class="rule"><div class="idx">Q5</div><div class="tx"><b>Does the ledger get looked at?</b><span>I have argued that an inspectable prediction is trustworthy and an opaque one is not. It is equally possible that nobody opens it once, and that the honest conclusion would then be to remove the speculation rather than keep an unread audit trail.</span></div></div>
+      </div>
+
+      <div class="law" style="margin-top:var(--s7)">
+        <span class="label">Volume Five ends here</span>
+        The hardest question in this volume was not what the workspace should know. It was what it should be
+        allowed to do with what it knows — and the answer, consistently, is <em>less than it could</em>.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+"use strict";
+
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  const r = document.documentElement;
+  const dark = !(r.getAttribute("data-theme") === "light" ||
+    (!r.hasAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: light)").matches));
+  r.setAttribute("data-theme", dark ? "light" : "dark");
+});
+
+const links = [...document.querySelectorAll(".ix")];
+const spy = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.getAttribute("href") === "#" + e.target.id)); });
+}, { rootMargin: "-12% 0px -74% 0px" });
+links.map(a => document.querySelector(a.getAttribute("href"))).filter(Boolean).forEach(s => spy.observe(s));
+
+/* ==========================================================================
+   THE SHOW CLOCK
+   ==========================================================================
+   The slider runs from T−300 min to T+30 min. Phase boundaries are the ones
+   the document specifies; nothing here is decorative.
+   ========================================================================== */
+const PHASES = [
+  { id:"cold", nm:"Cold", from:-Infinity, to:-240, w:"more than 4 hours out", spine:"", tint:"",
+    notif:"all", sound:"full", modal:"permitted",
+    runs:["Asset integrity, continuously","Package updates fetched and offered"],
+    allow:["Everything"],
+    deny:[],
+    why:"<b>Nothing is imminent, so nothing is constrained.</b> This is an ordinary authoring tool with an ordinary posture. The clock exists but says nothing, which is the correct behaviour for a Tuesday afternoon three days before a show." },
+
+  { id:"prep", nm:"Prep", from:-240, to:-60, w:"T−4h to T−1h", spine:"", tint:"",
+    notif:"all", sound:"full", modal:"permitted",
+    runs:["Asset integrity","Contract sampling on every bound feed","Frame budget re-measured at delivery resolution","Legal check across every graphic"],
+    allow:["Everything, including package installs and updates"],
+    deny:[],
+    why:"<b>The machine starts earning its keep.</b> Every check that would otherwise happen with someone waiting runs now, while the studio is dark. Nothing is refused — the point of Prep is that there is still time to fix whatever it finds, which is the entire earliness doctrine in one phase." },
+
+  { id:"rehearsal", nm:"Rehearsal", from:-60, to:-10, w:"T−1h to T−10m", spine:"ok", tint:"",
+    notif:"all", sound:"full", modal:"permitted",
+    runs:["Dry Run, automatically, on every rundown change","Worst Case against current feed data","The opening of the rundown warmed"],
+    allow:["Authoring","Package installs, with the standing verdict re-run after"],
+    deny:[],
+    why:"<b>The standing verdict becomes the point.</b> From here on the product holds a continuously-updated answer to “would this show survive?” and re-computes it whenever anything changes. Updates are still permitted, but each one invalidates the verdict and visibly re-runs it — which is usually enough to make someone think twice without the product having to refuse." },
+
+  { id:"lock", nm:"Lock", from:-10, to:0, w:"T−10m to air", spine:"warn", tint:"var(--warn)",
+    notif:"show-affecting and unresolved only", sound:"reduced", modal:"permitted, off air",
+    runs:["Standing verdict frozen at its last complete result","Warming continues through the whole rundown"],
+    allow:["Authoring, flagged in the record","Overriding any refusal below, in one action"],
+    deny:["Package installs","Package updates","Applying a workspace preset","Changing delivery resolution","Deleting anything referenced by the rundown"],
+    why:"<b>The last ten minutes belong to the show, not to the toolchain.</b> Everything refused here shares one property: it changes something the verified rundown depends on, and there is no longer time to re-verify it. Every refusal is overridable in one action and recorded — Lock is a speed bump with a memory, not a wall." },
+
+  { id:"air", nm:"On air", from:0, to:1e9, w:"programme is reaching an audience", spine:"live", tint:"var(--live)",
+    notif:"show-affecting only · never modal", sound:"ducked · Take and Critical only", modal:"impossible",
+    runs:["Warming, at strictly lower priority than the live path","Flight Recorder"],
+    allow:["Live operation","Authoring off the critical path, flagged"],
+    deny:["Every modal dialog","Package installs and updates","Layout presets","Deleting on-air content","Idle work of every kind"],
+    why:"<b>Sterile cockpit.</b> Borrowed from aviation below ten thousand feet: no conversation that is not about flying. The attention budget drops from three to one, interface sound ducks to Take and Critical alone, and the product says nothing at all unless the show is affected. This is the quietest the product is ever permitted to be, and it is quietest precisely when it knows the most." },
+
+  { id:"recovery", nm:"Recovery", from:1e9, to:1e9, w:"first 5 minutes after off air", spine:"ok", tint:"",
+    notif:"all, released in one batch", sound:"full", modal:"permitted",
+    runs:["Incident report assembled from the Flight Recorder","Reconciliation: assets used, graphics aired, dropped frames"],
+    allow:["Everything"],
+    deny:["Automatic deletion or archiving of anything from the show"],
+    why:"<b>Everything the product held back is released at once, in order of severity.</b> The show is over, so a queue of eleven notifications is no longer dangerous — it is a briefing. Nothing from the show is deleted or archived during this window, because the five minutes after coming off air is exactly when someone realises they need it." }
+];
+
+const T_MIN = -300, T_MAX = 30;
+
+// The band strip. Widths are proportional to real time, so Lock is visibly
+// the sliver it actually is — which is part of the argument.
+const BANDS = [
+  { nm:"Cold",      w:"beyond T−4h",   a:T_MIN, b:-240, p:0 },
+  { nm:"Prep",      w:"T−4h to T−1h",  a:-240,  b:-60,  p:1 },
+  { nm:"Rehearsal", w:"T−1h to T−10m", a:-60,   b:-10,  p:2 },
+  { nm:"Lock",      w:"T−10m to air",  a:-10,   b:0,    p:3 },
+  { nm:"On air",    w:"programme out", a:0,     b:25,   p:4 },
+  { nm:"Recovery",  w:"5m after",      a:25,    b:T_MAX, p:5 }
+];
+// One source of truth for which phase a minute belongs to — the strip and the
+// readout are both derived from it, so they cannot disagree.
+const bandAt = m => BANDS.find(b => m >= b.a && m < b.b) || BANDS[BANDS.length - 1];
+const phaseAt = m => PHASES[bandAt(m).p];
+
+const pct = m => ((m - T_MIN) / (T_MAX - T_MIN)) * 100;
+document.getElementById("clock-track").innerHTML =
+  BANDS.map((b, i) => {
+    const w = pct(b.b) - pct(b.a);
+    // Below ~7% the label cannot fit; the legend beneath carries it instead.
+    return `<div class="clock-band${w < 7 ? " narrow" : ""}" data-band="${i}"
+      style="left:${pct(b.a)}%; width:${w}%">${w < 7 ? "" : b.nm}</div>`;
+  }).join("") +
+  `<div class="clock-head-mark" id="clock-mark" style="left:0"></div>`;
+
+document.getElementById("clock-legend").innerHTML = BANDS.map((b, i) =>
+  `<span class="lg" data-lg="${i}"><span class="d"></span>${b.nm}<span class="w">${b.w}</span></span>`).join("");
+
+const list = (arr, cls) => arr.length
+  ? `<ul>${arr.map(x => `<li${cls ? ` class="${cls}"` : ""}>${x}</li>`).join("")}</ul>`
+  : `<div class="none">Nothing</div>`;
+
+function showClock(v) {
+  // Slider 0..300 maps to T−300..T+30 minutes.
+  const m = T_MIN + (v / 300) * (T_MAX - T_MIN);
+  const p = phaseAt(m);
+  const el = id => document.getElementById(id);
+
+  const abs = Math.abs(m);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(Math.floor(abs % 60)).padStart(2, "0");
+  el("clock-t").textContent = (m < 0 ? "−" : "+") + hh + ":" + mm;
+  el("clock-t").style.color = p.tint || "";
+  el("clock-u").textContent = m < 0 ? "to air" : "since air";
+
+  el("clock-name").textContent = p.nm;
+  el("clock-name").style.color = p.tint || "";
+  el("clock-window").textContent = p.w;
+  el("clock-notif").textContent = p.notif;
+  el("clock-sound").textContent = p.sound;
+  el("clock-modal").textContent = p.modal;
+  el("clock-modal").style.color = p.modal === "impossible" ? "var(--live)" : "";
+
+  el("clock-spine").className = "clock-spine " + (p.spine || "");
+  el("clock-mark").style.left = pct(m) + "%";
+  const active = BANDS.indexOf(bandAt(m));
+  [...document.querySelectorAll("[data-band]")].forEach((b, i) => b.classList.toggle("on", i === active));
+  [...document.querySelectorAll("[data-lg]")].forEach((b, i) => b.classList.toggle("on", i === active));
+
+  el("clock-runs").innerHTML = list(p.runs);
+  el("clock-allow").innerHTML = list(p.allow);
+  el("clock-deny").innerHTML = list(p.deny, "no");
+  el("clock-why").innerHTML = p.why;
+}
+const range = document.getElementById("clock-range");
+range.addEventListener("input", () => showClock(Number(range.value)));
+showClock(Number(range.value));
+
+/* ==========================================================================
+   PREPARATION LEDGER
+   ========================================================================== */
+const LEDGER = [
+  { n:"Rundown 1–3 · Team sheet, Scoreboard, Ticker", s:"warm · rundown order", pct:100, mb:412 },
+  { n:"Rundown 4–7 · Goal cards", s:"warming", pct:64, mb:288 },
+  { n:"Sponsor marks · Match Day pack", s:"warm · used every show", pct:100, mb:96 },
+  { n:"Glyph atlas · Founders Grotesk 14–72", s:"warm · resident", pct:100, mb:38 },
+  { n:"Rundown 8–14", s:"cold · beyond warm horizon", pct:0, mb:0 },
+  { n:"Half-time package", s:"cold · scheduled T−45m", pct:0, mb:0 }
+];
+document.getElementById("ledger").innerHTML = LEDGER.map(r => `
+  <div class="ledger-row mat-sub">
+    <span class="lamp ${r.pct === 100 ? "ok" : r.pct > 0 ? "idn" : ""}"></span>
+    <span>
+      <span class="n">${r.n}</span><br>
+      <span class="s">${r.s}</span>
+    </span>
+    <span class="b">${r.mb ? r.mb + " MB" : "—"}</span>
+    <span class="ledger-bar"><i style="width:${r.pct}%"></i></span>
+  </div>`).join("");
+
+/* ==========================================================================
+   ATTENTION BUDGET
+   ========================================================================== */
+const DEMANDS = [
+  { t:"Output 2 lost its connection", m:"Reconnecting · Output 1 unaffected", sev:2, lamp:"warn" },
+  { t:"Storage low on the record volume", m:"41 minutes of recording remaining", sev:2, lamp:"warn" },
+  { t:"Match Day Pack 2.4 available", m:"Adds two graphics, changes none you have edited", sev:0, lamp:"" },
+  { t:"Scores feed returned a string", m:"Contract violated · understudy engaged", sev:3, lamp:"live" },
+  { t:"Licence renews in 6 days", m:"No action needed now", sev:0, lamp:"" },
+  { t:"“Founders Grotesk” missing on 1 graphic", m:"Substitute in use · will look wrong on air", sev:2, lamp:"warn" }
+];
+const SEVN = { 3:"live", 2:"warn", 0:"" };
+
+function renderAttention(n) {
+  const shown = DEMANDS.slice(0, n);
+  // A queue shows everything, in arrival order.
+  document.getElementById("att-queue").innerHTML = shown.map(d => `
+    <div class="note"><span class="lamp ${d.lamp}"></span>
+      <span><span class="t">${d.t}</span><span class="m">${d.m}</span></span></div>`).join("");
+  const qv = document.getElementById("att-queue-v");
+  qv.className = "att-verdict" + (n > 3 ? " bad" : "");
+  qv.textContent = n > 3
+    ? `${n} demands, all shown. Past three, the operator is reading rather than working — and the important one is no easier to find than the licence reminder.`
+    : `${n} demand${n > 1 ? "s" : ""}. Within budget, so the two policies agree.`;
+
+  // A budget shows three, ordered by severity, and collapses the rest.
+  const ranked = [...shown].sort((a, b) => b.sev - a.sev);
+  const head = ranked.slice(0, 3), tail = ranked.slice(3);
+  const worst = tail.reduce((a, d) => Math.max(a, d.sev), 0);
+  document.getElementById("att-budget").innerHTML =
+    head.map(d => `
+      <div class="note"><span class="lamp ${d.lamp}"></span>
+        <span><span class="t">${d.t}</span><span class="m">${d.m}</span></span></div>`).join("") +
+    (tail.length ? `
+      <div class="note agg"><span class="lamp ${SEVN[worst]}"></span>
+        <span><span class="t">${tail.length} more need you</span>
+        <span class="m">Worst is ${worst >= 2 ? "attention" : "informational"} · open the list</span></span></div>` : "");
+  document.getElementById("att-budget-v").textContent = tail.length
+    ? `Three shown, ordered by severity — the contract violation is first because it affects air. The other ${tail.length} collapse into one object that states the count and the worst severity.`
+    : `${n} demand${n > 1 ? "s" : ""}, severity-ordered. Nothing to collapse yet.`;
+}
+document.getElementById("att-count").addEventListener("click", e => {
+  const b = e.target.closest("[data-n]"); if (!b) return;
+  [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
+  renderAttention(Number(b.dataset.n));
+});
+renderAttention(3);
+</script>
+
+</body></html>
