@@ -1395,6 +1395,25 @@ export function SceneView({
         ) : null}
       </svg>
 
+      {/* THE FRAME STATES WHAT IT IS.
+          Two overlays on the picture itself: its format top-left, and the
+          selection's size bottom-right. A designer should never have to open
+          a panel to learn what they are working in — and the size readout is
+          what turns "about right" into a number you can repeat. */}
+      <span className="ov tl" data-testid="ov-format">
+        {size.width} × {size.height} · {document_.world.output.fps}p
+      </span>
+      {(() => {
+        const box = selectionBounds(bounds, selection.ids);
+        if (box === null) return null;
+        const scale = pixelsPerUnit(document_);
+        return (
+          <span className="ov br" data-testid="ov-size">
+            {Math.round(box.width * scale)} × {Math.round(box.height * scale)}
+          </span>
+        );
+      })()}
+
       {/* Rulers read in flat canvas units. Under a turned camera those units
           no longer run along the screen, so the numbers would be confidently
           wrong rather than merely unhelpful. */}

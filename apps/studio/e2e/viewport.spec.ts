@@ -139,3 +139,38 @@ test("a template opens when clicked the moment the page is usable", async ({ pag
     "the graphic must open on the first click, not the second",
   ).toBeVisible({ timeout: 30_000 });
 });
+
+/**
+ * The frame states what it is.
+ *
+ * Two overlays on the picture itself — its format, and the selection's size.
+ * A designer should never open a panel to learn what they are working in, and
+ * the size readout is what turns "about right" into a number you can repeat.
+ */
+test("the frame names its format, and the selection its size", async ({ page }) => {
+  await openLowerThird(page);
+
+  const format = page.getByTestId("ov-format");
+  await expect(format).toBeVisible();
+  // Format and cadence, from the document's own output — not a constant.
+  await expect(format).toHaveText(/^\d+ × \d+ · \d+p$/);
+
+  // Nothing selected, nothing to measure.
+  await expect(page.getByTestId("ov-size")).toHaveCount(0);
+
+  await page.getByTestId("outline").getByText("Accent Bar", { exact: true }).click();
+  const size = page.getByTestId("ov-size");
+  await expect(size).toBeVisible();
+  await expect(size).toHaveText(/^\d+ × \d+$/);
+
+  // It MEASURES: a wider selection reads wider. The union of two layers must
+  // be at least as wide as either alone, or the readout is decorative.
+  const widthOf = async () => Number((await size.innerText()).split("×")[0]!.trim());
+  const one = await widthOf();
+  await page.getByTestId("outline").getByText("Background", { exact: true }).click();
+  const other = await widthOf();
+  await page.keyboard.down("Shift");
+  await page.getByTestId("outline").getByText("Accent Bar", { exact: true }).click();
+  await page.keyboard.up("Shift");
+  expect(await widthOf()).toBeGreaterThanOrEqual(Math.max(one, other));
+});

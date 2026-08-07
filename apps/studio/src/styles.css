@@ -829,3 +829,14 @@ kbd {
   0% { transform: scaleY(4); filter: brightness(2.4); }
   100% { transform: scaleY(1); filter: brightness(1); }
 }
+
+/* THE FRAME'S OWN LABELS. Small, monospaced, low-contrast: they are there to
+   be read when looked for and to disappear when not. */
+.ov {
+  position: absolute; z-index: 6; pointer-events: none;
+  font-family: var(--meta); font-size: 9px; letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.4);
+}
+.ov.tl { top: 8px; left: 10px; }
+.ov.br { bottom: 8px; right: 10px; }
+:root[data-theme="light"] .ov { color: rgba(0, 0, 0, 0.42); }
