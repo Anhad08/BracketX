@@ -5,8 +5,18 @@
 
    1. THE SCENE IS THE BRIGHTEST THING. Every panel sits below the canvas in
       contrast so the eye lands on the work, not on the chrome.
-   2. CHROME DOES NOT MOVE. No transitions except the panel dividers. Motion in
-      the interface competes with motion in the graphic being authored.
+   2. CHROME MOVES, AND IT MOVES FOR A REASON. This rule used to read "chrome
+      does not move", and the result was an interface where nothing ever
+      acknowledged anything: sections cut, panels appeared, values jumped.
+      That is not restraint, it is absence, and absence is what makes software
+      feel unfinished.
+
+      The rule that replaces it is narrower and harder: NOTHING ANIMATES ON ITS
+      OWN. No loops, no pulses, no attention-seeking. Every movement here is a
+      RESPONSE to something a person did, it is short, and it says what
+      happened — a section rises as it arrives, a panel slides in from the edge
+      it belongs to, a selection springs onto its layer. The graphic being
+      authored is still the only thing allowed to move by itself.
    3. NUMBERS ARE TABULAR. A column of coordinates that shifts as digits change
       cannot be compared, which is the only thing coordinates are for.
    4. ONE ACCENT, and it means selection. Colour otherwise means state.
@@ -109,6 +119,27 @@
 
   /* `press` for a control acknowledging a click, `glide` for something
      arriving, `weight` for something that has mass. */
+  /* ------------------------------------------------------------------
+     MOTION
+
+     Three durations and three curves, and everything in the product uses
+     one of them. More than three of either and the interface stops
+     reading as one machine.
+
+       --tap     a control acknowledging a press. Faster than you can
+                 watch, which is the point: it must feel like contact,
+                 not like an animation.
+       --react   a state changing under the pointer.
+       --arrive  something coming into existence, or leaving.
+
+     `--press` decelerates hard, so things arrive and settle. `--spring`
+     overshoots very slightly and is reserved for the ONE case where an
+     object should feel physical: a selection landing on a layer.
+     ------------------------------------------------------------------ */
+  --tap: 70ms;
+  --react: 150ms;
+  --arrive: 260ms;
+  --spring: cubic-bezier(0.2, 1.5, 0.5, 1);
   --press: cubic-bezier(0.3, 0.7, 0.4, 1);
   --glide: cubic-bezier(0.16, 1, 0.3, 1);
   --weight: cubic-bezier(0.45, 0.05, 0.15, 1);
@@ -1146,3 +1177,128 @@ kbd {
 .ov.tl { top: 8px; left: 10px; }
 .ov.br { bottom: 8px; right: 10px; }
 :root[data-theme="light"] .ov { color: rgba(0, 0, 0, 0.42); }
+
+/* ==========================================================================
+   MOTION — every movement in the interface, in one place
+
+   Grouped here rather than scattered through the components, so the whole
+   behaviour of the product can be read — and refused — in one go. The
+   reduced-motion block at the end is not a courtesy: vestibular disorders are
+   real and a gallery is a workplace.
+   ========================================================================== */
+
+/* ---- A section arriving --------------------------------------------------
+   Sections used to CUT. Home to Design to Production was three hard swaps, and
+   a hard swap gives the eye nothing to follow: you arrive somewhere with no
+   sense of having travelled. Eight pixels and a fade is enough to say "this is
+   new" and short enough that nobody waits for it. */
+.section-host { animation: section-in var(--arrive) var(--press) both; }
+@keyframes section-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- Cards arriving ------------------------------------------------------
+   Staggered by position, so a grid assembles across rather than appearing at
+   once. Five steps and then it stops: past about 125ms a person has started
+   reading the first card, and the rest arriving late reads as slowness rather
+   than as choreography. */
+.start-card, .pack-card, .scene-tile {
+  animation: tile-in var(--arrive) var(--press) both;
+}
+.start-card:nth-child(2), .pack-card:nth-child(2), .scene-tile:nth-child(2) { animation-delay: 25ms; }
+.start-card:nth-child(3), .pack-card:nth-child(3), .scene-tile:nth-child(3) { animation-delay: 50ms; }
+.start-card:nth-child(4), .pack-card:nth-child(4), .scene-tile:nth-child(4) { animation-delay: 75ms; }
+.start-card:nth-child(5), .pack-card:nth-child(5), .scene-tile:nth-child(5) { animation-delay: 100ms; }
+.start-card:nth-child(n+6), .pack-card:nth-child(n+6), .scene-tile:nth-child(n+6) { animation-delay: 125ms; }
+@keyframes tile-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- A panel arriving ----------------------------------------------------
+   From the edge it belongs to. A dock that faded in could have come from
+   anywhere; one that slides from the right is understood as having been there
+   all along, just off screen. */
+.dock.right .panel { animation: panel-in var(--arrive) var(--press) both; }
+.dock.right .panel:nth-child(2) { animation-delay: 40ms; }
+.dock.right .panel:nth-child(3) { animation-delay: 80ms; }
+@keyframes panel-in {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- Controls ------------------------------------------------------------
+   One transition for everything that can be pressed. `--tap` on the transform
+   so contact is immediate; `--react` on colour so a lit state fades up rather
+   than snapping, which is most of the difference between a control that feels
+   machined and one that feels like a checkbox. */
+.chip, .tool, .finish, .motion-pick, .rail-item, .handle,
+.viewport-toolbar .toggle, .depth-toggle-3d, .conf-tile, .scene-chip {
+  transition:
+    transform var(--tap) var(--press),
+    background var(--react) var(--press),
+    color var(--react) var(--press),
+    box-shadow var(--react) var(--press),
+    opacity var(--react) var(--press);
+}
+.chip:active, .tool:active, .finish:active, .motion-pick:active,
+.viewport-toolbar .toggle:active, .depth-toggle-3d:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+/* ---- The rail ------------------------------------------------------------
+   The ICON leads, not the background. Pressing a section should feel like
+   arriving at it rather than like tinting a row. */
+.rail-icon {
+  display: grid; place-items: center; width: 22px; height: 22px;
+  transition: transform var(--react) var(--spring);
+}
+.rail-icon svg { width: 22px; height: 22px; display: block; }
+.rail-item:hover .rail-icon { transform: translateY(-1px); }
+.rail-item.on .rail-icon { transform: scale(1.09); }
+/* Production's icon IS a tally lamp, so it lights when you are on it. */
+.rail-item .glyph-fill { fill: none; transition: fill var(--react) var(--press); }
+.rail-item.on .glyph-fill { fill: currentColor; }
+
+/* ---- A selection landing -------------------------------------------------
+   The one spring in the product. Clicking a layer should feel like the mark
+   snapped onto it, and a spring is the only motion that reads as physical.
+   It runs on the corner ticks alone and never on the picture. */
+.selection-box .sel-tick {
+  stroke-dasharray: 44;
+  animation: tick-in 220ms var(--spring) both;
+}
+@keyframes tick-in {
+  from { opacity: 0; stroke-dashoffset: 16; }
+  to   { opacity: 1; stroke-dashoffset: 0; }
+}
+
+/* ---- Hover on the stage --------------------------------------------------
+   The outline fades rather than blinking. A hover that snaps on and off as the
+   pointer crosses a boundary is why interfaces feel twitchy. */
+.hover-outline { transition: stroke-opacity var(--react) var(--press); }
+
+/* ---- Air -----------------------------------------------------------------
+   The one piece of motion allowed to be assertive, because it marks the one
+   act that cannot be undone by pressing something else. Ninety milliseconds,
+   which is the number in the specification. */
+.monitors, .mon, .mon-strip, .air-state, .rail-tally {
+  transition:
+    background 90ms var(--weight),
+    box-shadow 90ms var(--weight),
+    color 90ms var(--weight);
+}
+
+/* ---- Refusing all of it -------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .section-host, .start-card, .pack-card, .scene-tile,
+  .dock.right .panel, .selection-box .sel-tick, .arrange-bar {
+    animation: none !important;
+  }
+  .chip, .tool, .finish, .motion-pick, .rail-item, .rail-icon, .handle,
+  .viewport-toolbar .toggle, .depth-toggle-3d, .hover-outline,
+  .monitors, .mon, .mon-strip {
+    transition-duration: 1ms !important;
+  }
+}

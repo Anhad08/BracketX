@@ -1922,7 +1922,13 @@ export function App() {
       </header>
 
       {!designing ? (
-        <div className="section-host" data-testid="section-host">
+        // KEYED BY SECTION, so the arrival animation actually runs.
+        // React keeps one div and swaps its children, which means a CSS
+        // entrance plays exactly once — on first paint — and every navigation
+        // afterwards is a hard cut. Re-keying remounts the wrapper, so moving
+        // between Home, Marketplace and Production is a movement rather than
+        // a swap.
+        <div className="section-host" data-testid="section-host" key={section}>
           {renderSection()}
         </div>
       ) : session === null || store === null || document_ === null || canvasRef.current === null ? (
