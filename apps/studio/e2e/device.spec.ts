@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ensureDepth } from "./depth";
+import { ensureDepth, goLive } from "./depth";
 
 /**
  * What each kind of machine offers.
@@ -38,9 +38,9 @@ test("a phone gets the operating product, not a shrunken editor", async ({ page 
   await expect(page.getByTestId("content")).toBeVisible();
   await expect(page.getByTestId("go-live")).toBeVisible();
 
-  // And it really goes to air.
-  await page.getByTestId("go-live").click();
-  await expect(page.getByTestId("rail-tally")).toHaveText("ON AIR");
+  // And it really goes to air — through Production, which is where
+  // transmission lives on every screen size.
+  await goLive(page);
 });
 
 test("a phone does not offer authoring it cannot deliver", async ({ page }) => {

@@ -422,3 +422,17 @@
 .views .seg .chip:first-child { border-radius: var(--r-xs) 0 0 var(--r-xs); }
 .views .seg .chip:last-child { border-radius: 0 var(--r-xs) var(--r-xs) 0; }
 .views .modes { display: inline-flex; gap: 2px; margin-left: var(--s3); }
+
+/* PRODUCTION. The state of the transmission is stated at the top of the page
+   that controls it — a tally an operator has to hunt for is a tally that gets
+   misread. */
+.air-state {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  border: 1px solid var(--line); border-radius: var(--r-xs); color: var(--ink-3);
+}
+.air-state.live { color: #fff; background: var(--live); border-color: var(--live); }
+.checks { margin: 0; padding-left: var(--s4); display: flex; flex-direction: column; gap: 4px; }
+.checks li { font-size: 12px; }
+.note.ok { color: var(--ok); }
+.production .program-row { margin-top: var(--s4); }

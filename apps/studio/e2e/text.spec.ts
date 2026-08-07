@@ -114,14 +114,17 @@ test("text goes to air through the ordinary Take path", async ({ page }) => {
   await boot(page);
   await page.getByTestId("tool-text").click();
 
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await page.getByTestId("nav-production").click();
   await expect(page.getByTestId("tally")).toHaveText("OFF");
   await page.getByTestId("cut").click();
   await expect(page.getByTestId("tally")).toHaveText("ON AIR");
 
   // Editing Preview afterwards still does not reach air — text changed nothing
-  // about the guarantee, which is the point.
+  // about the guarantee, which is the point. Editing happens in Design now;
+  // transmission happens in Production, and the split is the guarantee.
+  await page.getByTestId("nav-design").click();
   await page.getByTestId("tool-rect").click();
+  await page.getByTestId("nav-production").click();
   await expect(page.getByTestId("program-row")).toContainText(
     "Preview differs from what is on air",
   );

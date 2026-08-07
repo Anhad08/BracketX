@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureDepth, openPanel } from "./depth";
+import { ensureDepth, openPanel, goLive } from "./depth";
 
 /**
  * THE PRIMARY JOURNEY.
@@ -75,10 +75,7 @@ test("a producer installs a scene, drags it onto the stage, and takes it to air"
   // From the BEGINNER surface, with no depth change and no dock opened. The
   // product is a broadcast product: if going to air needs a settings change
   // first, the journey is broken for the default user.
-  await page.getByTestId("go-live").click();
-  await expect(page.getByTestId("tally")).toHaveText("ON AIR");
-  await expect(page.getByTestId("rail-tally")).toHaveText("ON AIR");
-  await expect(page.getByTestId("program-row")).toBeVisible();
+  await goLive(page);
 
   expect(errors, `console errors during the primary journey:\n${errors.join("\n")}`).toEqual([]);
 });

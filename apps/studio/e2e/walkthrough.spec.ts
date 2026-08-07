@@ -174,7 +174,7 @@ test("a designer builds a lower third and takes it to air", async ({ page }) => 
   await shot(page, "playing");
 
   // ------------------------------------------ 6 & 7. Preview → Program
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await page.getByTestId("nav-production").click();
   await expect(page.getByTestId("program-row")).toBeVisible();
   await shot(page, "program-row");
 

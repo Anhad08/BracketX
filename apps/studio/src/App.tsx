@@ -80,6 +80,7 @@ import { Nav } from "./ui/nav";
 import { Home } from "./ui/home";
 import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections";
 import { DeveloperPanel } from "./ui/developer";
+import { Production } from "./ui/production";
 import { placeScene } from "./studio/place";
 import { readDevice, profileFor, type DeviceInput } from "./studio/device";
 import { SoundEngine, type VoiceName } from "./studio/sound";
@@ -1474,6 +1475,18 @@ export function App() {
             document={document_}
           />
         );
+      case "production":
+        return (
+          <Production
+            session={session}
+            bus={bus}
+            programCanvas={programCanvasRef.current}
+            revision={revision}
+            installed={installed}
+            onOpenScene={openTemplate}
+            onOffAir={() => say("offair")}
+          />
+        );
       case "marketplace":
         return (
           <Marketplace
@@ -1914,14 +1927,9 @@ export function App() {
             }}
           />
 
-          {workspace.programOpen && bus !== null && programCanvasRef.current !== null ? (
-            <ProgramRow
-              bus={bus}
-              canvas={programCanvasRef.current}
-              revision={revision}
-              onOffAir={() => say("offair")}
-            />
-          ) : null}
+          {/* The Program row lives in Production now. Going to air is not a
+              design act, and a control that starts a transmission has no
+              business beside one that nudges a rectangle. */}
 
           {workspace.bottomOpen && shows.bottom ? (
             <>
@@ -1964,11 +1972,11 @@ export function App() {
                   <span className="spacer" />
                   <button
                     type="button"
-                    className={`chip ${workspace.programOpen ? "on" : ""}`}
-                    onClick={() => update({ programOpen: !workspace.programOpen })}
-                    title="Preview / Program is a row, not a panel — on-air state is never behind something else"
+                    className="chip"
+                    onClick={() => update({ section: "production" })}
+                    title="Cue and take are in Production"
                   >
-                    Program
+                    Production
                   </button>
                 </nav>
 
@@ -2026,20 +2034,10 @@ export function App() {
               assets={assets}
               onAir={bus?.onAir ?? false}
               onGoLive={() => {
-                if (bus === null) return;
-                // One button, both directions. Opening the Program row is part
-                // of going live: an operator must SEE what is on air, and a
-                // beginner who is broadcasting has earned that row.
-                if (bus.onAir) {
-                  bus.clear();
-                  // Ducking lifts with the broadcast, so this is the first
-                  // voice heard again — which is why it is the descending one.
-                  say("offair");
-                } else {
-                  bus.take();
-                  say("take");
-                  update({ programOpen: true });
-                }
+                // Design does not put anything on air. It hands you to the
+                // surface that does — one place is in charge of transmission,
+                // and it is not the place where rectangles get nudged.
+                update({ section: "production" });
               }}
               ids={ids}
               depth={workspace.depth}

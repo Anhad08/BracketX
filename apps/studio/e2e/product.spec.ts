@@ -76,7 +76,7 @@ test("a first-time user gets a lower third on air", async ({ page }) => {
   await expect(field).toHaveValue("MO SALAH");
 
   // 4. PREVIEW, and 5. TAKE IT LIVE.
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await page.getByTestId("nav-production").click();
   await expect(page.getByTestId("tally")).toHaveText("OFF");
   await page.getByTestId("take").click();
   await expect(page.getByTestId("tally")).toHaveText("ON AIR");

@@ -30,6 +30,7 @@ export interface NavProps {
 const ICONS: Record<Section, string> = {
   home: "◆",
   design: "✎",
+  production: "◉",
   templates: "▦",
   marketplace: "◈",
   assets: "◍",

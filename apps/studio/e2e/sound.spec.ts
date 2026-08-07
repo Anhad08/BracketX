@@ -1,3 +1,4 @@
+import { goLive } from "./depth";
 import { expect, test } from "@playwright/test";
 
 /**
@@ -60,8 +61,7 @@ test("the interface ducks while on air, and says so", async ({ page }) => {
   await expect(page.getByTestId("ducked")).toHaveCount(0);
 
   await page.getByTestId("nav-design").click();
-  await page.getByTestId("go-live").click();
-  await expect(page.getByTestId("rail-tally")).toHaveText("ON AIR");
+  await goLive(page);
 
   await page.getByTestId("nav-settings").click();
   await expect(
@@ -82,8 +82,7 @@ test("there is an off-air control, and it says off air", async ({ page }) => {
   await page.getByTestId("start-tpl_lower_third").click();
   await expect(page.getByTestId("content")).toBeVisible();
 
-  await page.getByTestId("go-live").click();
-  await expect(page.getByTestId("rail-tally")).toHaveText("ON AIR");
+  await goLive(page);
   await expect(page.getByTestId("program-row")).toBeVisible();
 
   const offAir = page.getByTestId("off-air");

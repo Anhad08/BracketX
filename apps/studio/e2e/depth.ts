@@ -37,3 +37,16 @@ export async function openPanel(page: Page, name: string): Promise<void> {
   const head = page.locator(".dock-heads").getByRole("button", { name, exact: true });
   if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
 }
+
+/**
+ * Puts what is open on air, the way the product now works.
+ *
+ * Transmission lives in Production. Design builds a graphic and hands over;
+ * it does not take. Anything asserting "on air" goes through here so the
+ * route exists in exactly one place.
+ */
+export async function goLive(page: Page): Promise<void> {
+  await page.getByTestId("nav-production").click();
+  await page.getByTestId("take").click();
+  await expect(page.getByTestId("rail-tally")).toHaveText("ON AIR");
+}

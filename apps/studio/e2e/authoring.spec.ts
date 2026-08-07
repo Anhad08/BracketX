@@ -238,7 +238,7 @@ test("Take puts a graphic on air, and editing Preview afterwards does not", asyn
   await boot(page);
   await addNode(page, "rect");
 
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await page.getByTestId("nav-production").click();
   const row = page.getByTestId("program-row");
   await expect(row).toBeVisible();
   await expect(page.getByTestId("tally")).toHaveText("OFF");
@@ -249,7 +249,12 @@ test("Take puts a graphic on air, and editing Preview afterwards does not", asyn
 
   // The claim the whole split exists for: a Preview edit changes what is
   // PENDING and nothing else. The tally stays on air, unchanged.
+  //
+  // Editing is in Design and transmission is in Production, which is the
+  // same separation stated in navigation rather than only in the bus.
+  await page.getByTestId("nav-design").click();
   await addNode(page, "ellipse");
+  await page.getByTestId("nav-production").click();
   await expect(row).toContainText("Preview differs from what is on air");
   await expect(page.getByTestId("tally")).toHaveText("ON AIR");
 });

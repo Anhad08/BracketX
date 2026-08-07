@@ -426,22 +426,23 @@ test("switching dimension flies the camera rather than teleporting it", async ({
   const stage = page.getByTestId("scene-view");
   const flat = await stage.screenshot();
 
-  // Sample DURING the transition — deliberately NOT settled. A jump would
-  // already be finished by now.
+  // Sample REPEATEDLY during the transition rather than at one chosen
+  // instant. A single timed sample is a race with the machine's load — mine
+  // passed alone and failed in a full suite, which is a flaky test and not a
+  // finding. Counting distinct pictures proves motion regardless of how fast
+  // the sampling happens to run.
   await page.getByTestId("dim-3d").click();
-  await page.waitForTimeout(120);
-  const midway = await stage.screenshot();
+  const frames = new Set<string>();
+  for (let i = 0; i < 6; i += 1) {
+    frames.add((await stage.screenshot()).toString("base64").slice(0, 512));
+    await page.waitForTimeout(40);
+  }
   expect(
-    Buffer.compare(flat, midway),
-    "the camera must have started moving",
-  ).not.toBe(0);
+    frames.size,
+    "a flight passes through intermediate positions; a jump has exactly one",
+  ).toBeGreaterThan(1);
 
-  await page.waitForTimeout(700);
-  const settled = await stage.screenshot();
-  expect(
-    Buffer.compare(midway, settled),
-    "and must still have been moving when sampled — a jump would have landed",
-  ).not.toBe(0);
+  await settle(page);
 
   // It lands EXACTLY, not approximately: easing that merely approaches its
   // target leaves the camera a fraction off, and "2D" stops meaning

@@ -1247,9 +1247,9 @@ export function Content({
           className={`air ${onAir ? "on" : ""}`}
           data-testid="go-live"
           onClick={onGoLive}
-          title={onAir ? "Stop sending this graphic to air" : "Send this graphic to air"}
+          title="Cue and take happen in Production"
         >
-          {onAir ? "On air — stop" : "Go live"}
+          {onAir ? "On air — open Production" : "Go live"}
         </button>
         {report.clear ? null : (
           <span className="dim tiny">Checks above are worth reading first.</span>

@@ -30,6 +30,7 @@
 export type Section =
   | "home"
   | "design"
+  | "production"
   | "templates"
   | "marketplace"
   | "assets"
@@ -56,6 +57,10 @@ export interface SectionSpec {
 export const SECTIONS: readonly SectionSpec[] = [
   { id: "home", label: "Home", hint: "Recent work, and somewhere to start" },
   { id: "design", label: "Design", hint: "Build and animate a graphic" },
+  // PRODUCTION is where scenes go to air. Design is where they are MADE.
+  // Mixing the two put a control that starts a transmission next to a control
+  // that nudges a rectangle, which is the wrong neighbourhood for it.
+  { id: "production", label: "Production", hint: "Cue your scenes and put them on air" },
   { id: "templates", label: "Templates", hint: "Reusable graphics you have saved" },
   { id: "marketplace", label: "Marketplace", hint: "Themes, motion and graphics packs" },
   { id: "assets", label: "Assets", hint: "Fonts, colours and motion you can reuse" },
