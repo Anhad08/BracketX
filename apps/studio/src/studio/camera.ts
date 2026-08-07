@@ -359,6 +359,50 @@ export function dolly(orbit: Orbit, factor: number, minimum = 0.2): Orbit {
  * hand mean the same thing. Roll is always zero: a broadcast camera that
  * rolled while being orbited would be a bug, never a feature.
  */
+/**
+ * A world matrix from a position and a YXZ rotation in degrees.
+ *
+ * The inverse of `lookAtRotation`, and the composition the renderer performs
+ * when it places a camera node. It lives here rather than in a test helper
+ * because the editor needs it to reason about a camera it has just aimed —
+ * and because a test that borrowed the renderer's matrix maths to check the
+ * editor's would be tying the editor to a renderer, which is the one thing
+ * this architecture spends effort preventing.
+ *
+ * YXZ intrinsic, matching SCENE_FORMAT §4: yaw, then pitch, then roll.
+ */
+export function worldFromEuler(
+  position: Vec3,
+  rotationDegrees: readonly [number, number, number],
+): Mat4 {
+  const d = Math.PI / 180;
+  const x = rotationDegrees[0] * d;
+  const y = rotationDegrees[1] * d;
+  const z = rotationDegrees[2] * d;
+
+  const cx = Math.cos(x), sx = Math.sin(x);
+  const cy = Math.cos(y), sy = Math.sin(y);
+  const cz = Math.cos(z), sz = Math.sin(z);
+
+  // R = Ry · Rx · Rz, expanded. Column-major, as everything here is.
+  const m11 = cy * cz + sy * sx * sz;
+  const m12 = -cy * sz + sy * sx * cz;
+  const m13 = sy * cx;
+  const m21 = cx * sz;
+  const m22 = cx * cz;
+  const m23 = -sx;
+  const m31 = -sy * cz + cy * sx * sz;
+  const m32 = sy * sz + cy * sx * cz;
+  const m33 = cy * cx;
+
+  return [
+    m11, m21, m31, 0,
+    m12, m22, m32, 0,
+    m13, m23, m33, 0,
+    position.x, position.y, position.z, 1,
+  ];
+}
+
 export function lookAtRotation(position: Vec3, pivot: Vec3): readonly [number, number, number] {
   const dx = position.x - pivot.x;
   const dy = position.y - pivot.y;

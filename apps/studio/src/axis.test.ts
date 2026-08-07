@@ -6,7 +6,6 @@
  * the camera that you cannot aim at, and a gizmo that changes size with zoom.
  */
 import { describe, expect, it } from "vitest";
-import { Euler, Matrix4 } from "three";
 import type { CameraDescriptor } from "@bracketx/engine-reconciler";
 import {
   armLength,
@@ -19,7 +18,15 @@ import {
   projectAxes,
   tipOf,
 } from "./studio/axis";
-import { lookAtRotation, orbitBy, orbitOf, positionFor, project, type CameraView } from "./studio/camera";
+import {
+  lookAtRotation,
+  orbitBy,
+  orbitOf,
+  positionFor,
+  project,
+  worldFromEuler,
+  type CameraView,
+} from "./studio/camera";
 
 const PERSPECTIVE: CameraDescriptor = {
   kind: "perspective",
@@ -31,18 +38,21 @@ const PERSPECTIVE: CameraDescriptor = {
 const CANVAS = { width: 1920, height: 1080 };
 const ORIGIN = { x: 0, y: 0, z: 0 };
 
+/**
+ * A camera at `position`, aimed at the origin.
+ *
+ * Built with the editor's own `worldFromEuler` rather than by borrowing the
+ * renderer's matrix maths. A test that reached into three to check the editor
+ * would tie the editor to a renderer — which is exactly what
+ * `check-boundaries.mjs` exists to stop, and exactly what this file used to
+ * do.
+ */
 function at(position: { x: number; y: number; z: number }): CameraView {
-  const rotation = lookAtRotation(position, ORIGIN);
-  const world = new Matrix4().makeRotationFromEuler(
-    new Euler(
-      (rotation[0] * Math.PI) / 180,
-      (rotation[1] * Math.PI) / 180,
-      (rotation[2] * Math.PI) / 180,
-      "YXZ",
-    ),
-  );
-  world.setPosition(position.x, position.y, position.z);
-  return { descriptor: PERSPECTIVE, world: [...world.elements], canvas: CANVAS };
+  return {
+    descriptor: PERSPECTIVE,
+    world: worldFromEuler(position, lookAtRotation(position, ORIGIN)),
+    canvas: CANVAS,
+  };
 }
 
 const FRONT = at({ x: 0, y: 0, z: 10 });

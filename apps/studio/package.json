@@ -34,8 +34,6 @@
     "typescript": "5.9.2",
     "vite": "^7.3.6",
     "vitest": "^3.2.4",
-    "@playwright/test": "^1.62.1",
-    "three": "^0.185.1",
-    "@types/three": "^0.185.3"
+    "@playwright/test": "^1.62.1"
   }
 }

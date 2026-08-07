@@ -288,6 +288,40 @@ you visit, not the working set of somebody making a graphic.
 
 ---
 
+## The Babylon adapter — how it is to be built
+
+A second `MirrorBackend`, one active per session. **Not** thirty methods
+because the interface has thirty.
+
+> Every Babylon commit must unlock a visible user capability.
+
+The first slice is one complete 3D workflow, end to end:
+
+1. Create a 3D scene
+2. Place a cube
+3. Orbit the camera
+4. Move, rotate and scale it
+5. Apply a material
+6. Add a light
+7. Preview it
+8. Put it on air
+
+Only once that works does backend coverage expand. Anything the slice does not
+need — render targets, texture updates, layer masks beyond the default — waits
+for the workflow that needs it.
+
+The bugs the three adapter already paid for must not be repaid:
+
+- a camera's `matrixWorldInverse` when its node moves
+- an attachment mesh inheriting its node's layer mask
+- resource retain/release balance (`isBalanced()`)
+- `snapshot()`, which is what found the checkerboard bug
+
+Both adapters should run the same conformance suite, so Babylon cannot repeat
+them.
+
+---
+
 ## What Studio must change
 
 1. **Four columns, one dock.** Collapse left/right/bottom into a single right

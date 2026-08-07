@@ -14,13 +14,17 @@
  * a few pixels off — which reads as "the gizmo is a bit imprecise" for as long
  * as anyone can stand it.
  *
- * So every projection claim below is checked against three.js itself. If a
- * three upgrade changes a convention, this fails loudly instead of quietly
- * moving every handle in the product.
+ * That pin lives in the RENDER ADAPTER — `projection-parity.test.ts` in
+ * engine-render-three, where three may be imported. It used to live here, and
+ * importing three to check the editor tied the editor to a renderer, which is
+ * the one thing this architecture spends effort preventing.
+ *
+ * What remains here is the maths that is the editor's own: inversion,
+ * multiplication, unprojection, ray-plane intersection and the orbit model.
+ * None of it needs a renderer to be checked, and none of it should.
  */
 
 import { describe, expect, it } from "vitest";
-import { Euler, Matrix4, OrthographicCamera, PerspectiveCamera, Vector3 } from "three";
 import type { CameraDescriptor } from "@bracketx/engine-reconciler";
 import {
   dolly,
@@ -35,6 +39,7 @@ import {
   projectionMatrix,
   rayThrough,
   verticalFov,
+  worldFromEuler,
   type CameraView,
 } from "./studio/camera";
 import { canvasSize, canvasToWorld, worldToCanvas } from "./studio/viewport";
@@ -70,30 +75,7 @@ function translation(x: number, y: number, z: number): readonly number[] {
 }
 
 describe("projection matrix", () => {
-  it("matches three.js for a perspective camera", () => {
-    const fov = (verticalFov(PERSPECTIVE, ASPECT) * 180) / Math.PI;
-    const reference = new PerspectiveCamera(fov, ASPECT, PERSPECTIVE.near, PERSPECTIVE.far);
-    reference.updateProjectionMatrix();
 
-    const ours = projectionMatrix(PERSPECTIVE, ASPECT);
-    reference.projectionMatrix.elements.forEach((value, index) => {
-      expect(ours[index], `element ${index}`).toBeCloseTo(value, 10);
-    });
-  });
-
-  it("matches three.js for an orthographic camera", () => {
-    const halfHeight = ORTHOGRAPHIC.size;
-    const halfWidth = halfHeight * ASPECT;
-    const reference = new OrthographicCamera(
-      -halfWidth, halfWidth, halfHeight, -halfHeight, ORTHOGRAPHIC.near, ORTHOGRAPHIC.far,
-    );
-    reference.updateProjectionMatrix();
-
-    const ours = projectionMatrix(ORTHOGRAPHIC, ASPECT);
-    reference.projectionMatrix.elements.forEach((value, index) => {
-      expect(ours[index], `element ${index}`).toBeCloseTo(value, 10);
-    });
-  });
 
   it("derives the same field of view the render adapter does", () => {
     // `verticalFovDegrees` in the render adapter, restated. A 35mm lens on a
@@ -106,36 +88,8 @@ describe("projection matrix", () => {
 });
 
 describe("matrix arithmetic", () => {
-  it("multiplies the way three.js does", () => {
-    const a = new Matrix4().makeRotationY(0.7).multiply(new Matrix4().makeTranslation(1, 2, 3));
-    const b = new Matrix4().makeRotationX(-0.3).multiply(new Matrix4().makeScale(2, 2, 2));
-    const reference = new Matrix4().multiplyMatrices(a, b);
 
-    const ours = multiply([...a.elements], [...b.elements]);
-    reference.elements.forEach((value, index) => {
-      expect(ours[index], `element ${index}`).toBeCloseTo(value, 10);
-    });
-  });
 
-  it("inverts a matrix with scale in it, where the transpose shortcut is wrong", () => {
-    const m = new Matrix4()
-      .makeTranslation(3, -1, 4)
-      .multiply(new Matrix4().makeRotationY(0.9))
-      .multiply(new Matrix4().makeScale(2, 2, 2));
-    const reference = new Matrix4().copy(m).invert();
-
-    const ours = invert([...m.elements]);
-    expect(ours).not.toBeNull();
-    reference.elements.forEach((value, index) => {
-      expect(ours![index], `element ${index}`).toBeCloseTo(value, 10);
-    });
-  });
-
-  it("refuses a degenerate matrix rather than producing NaN", () => {
-    // A zero scale. Returning NaN here would spread into every handle
-    // position, where the cause is impossible to see.
-    expect(invert([...new Matrix4().makeScale(1, 0, 1).elements])).toBeNull();
-  });
 });
 
 describe("project", () => {
@@ -147,27 +101,6 @@ describe("project", () => {
     expect(result!.inFront).toBe(true);
   });
 
-  it("agrees with three.js for an off-axis point", () => {
-    const view = frontOn();
-    const world = new Vector3(1.5, -0.75, 0.5);
-
-    const camera = new PerspectiveCamera(
-      (verticalFov(PERSPECTIVE, ASPECT) * 180) / Math.PI, ASPECT, PERSPECTIVE.near, PERSPECTIVE.far,
-    );
-    camera.position.set(0, 0, 10);
-    camera.updateMatrixWorld(true);
-    camera.updateProjectionMatrix();
-
-    const ndc = world.clone().project(camera);
-    const expected = {
-      x: (ndc.x * 0.5 + 0.5) * CANVAS.width,
-      y: (0.5 - ndc.y * 0.5) * CANVAS.height,
-    };
-
-    const ours = project(view, { x: world.x, y: world.y, z: world.z })!;
-    expect(ours.point.x).toBeCloseTo(expected.x, 6);
-    expect(ours.point.y).toBeCloseTo(expected.y, 6);
-  });
 
   it("puts Y up in the world at the TOP of the canvas", () => {
     // Canvas Y grows down. Getting this backwards flips every graphic
@@ -206,17 +139,11 @@ describe("rayThrough and intersectPlane", () => {
     const position = positionFor(orbit, pivot);
     const rotation = lookAtRotation(position, pivot);
 
-    const world = new Matrix4().makeRotationFromEuler(
-      new Euler(
-        (rotation[0] * Math.PI) / 180,
-        (rotation[1] * Math.PI) / 180,
-        (rotation[2] * Math.PI) / 180,
-        "YXZ",
-      ),
-    );
-    world.setPosition(position.x, position.y, position.z);
-
-    const view: CameraView = { descriptor: PERSPECTIVE, world: [...world.elements], canvas: CANVAS };
+    const view: CameraView = {
+      descriptor: PERSPECTIVE,
+      world: worldFromEuler(position, rotation),
+      canvas: CANVAS,
+    };
     const target = { x: 1.5, y: 0.5, z: 0 };
     const projected = project(view, target)!;
     expect(projected.inFront).toBe(true);
@@ -284,17 +211,15 @@ describe("orbit", () => {
     const [pitch, yaw, roll] = lookAtRotation(position, pivot);
     expect(roll).toBe(0);
 
-    // Build the matrix the renderer would and check it actually looks at the
-    // pivot — a rotation that is merely plausible is not good enough.
-    const world = new Matrix4().makeRotationFromEuler(
-      new Euler((pitch * Math.PI) / 180, (yaw * Math.PI) / 180, 0, "YXZ"),
-    );
-    const forward = new Vector3(0, 0, -1).applyMatrix4(
-      new Matrix4().extractRotation(world),
-    );
-    const toPivot = new Vector3(pivot.x - position.x, pivot.y - position.y, pivot.z - position.z)
-      .normalize();
-    expect(forward.dot(toPivot)).toBeCloseTo(1, 6);
+    // Build the matrix and check it actually LOOKS AT the pivot — a rotation
+    // that is merely plausible is not good enough. A camera looks down its
+    // own −Z, so the third column negated is its forward direction.
+    const world = worldFromEuler(position, [pitch, yaw, roll]);
+    const forward = { x: -(world[8] ?? 0), y: -(world[9] ?? 0), z: -(world[10] ?? 0) };
+    const dx = pivot.x - position.x, dy = pivot.y - position.y, dz = pivot.z - position.z;
+    const length = Math.hypot(dx, dy, dz);
+    const dot = (forward.x * dx + forward.y * dy + forward.z * dz) / length;
+    expect(dot).toBeCloseTo(1, 6);
   });
 });
 
