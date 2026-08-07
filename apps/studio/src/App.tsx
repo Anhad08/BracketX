@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MenuBar } from "./ui/menubar";
+import { createStorage, type StoredScene } from "./studio/storage";
 import { createBackend } from "./studio/renderer";
 import { PreviewPlayer, renderTemplatePreviews } from "./studio/previews";
 import type { ImageProvider, TextProvider } from "@bracketx/engine-reconciler";
@@ -793,6 +794,54 @@ export function App() {
 
   // -- File -----------------------------------------------------------------
 
+  /**
+   * WHERE A SCENE LIVES.
+   *
+   * A scene is a SCENE_FORMAT document and nothing else, so anywhere that can
+   * hold a text file can hold one — which is why this is a seam with several
+   * providers rather than a Drive branch and a Dropbox branch inside `save`.
+   *
+   * The disk provider gives something downloading never could: a HANDLE. Save
+   * once, choose the folder, and every save after it returns to the same file
+   * instead of leaving `lower-third (7).json` behind. And because Drive and
+   * Dropbox both mount a folder, saving into one IS saving to the cloud.
+   */
+  const places = useMemo(
+    () =>
+      createStorage({
+        drive: workspace.driveClientId ? { clientId: workspace.driveClientId } : null,
+        dropbox: workspace.dropboxAppKey ? { clientId: workspace.dropboxAppKey } : null,
+      }),
+    [workspace.driveClientId, workspace.dropboxAppKey],
+  );
+
+  /** The file this document came from, when it came from one. */
+  const [bound, setBound] = useState<StoredScene | null>(null);
+
+  const saveToDisk = useCallback(
+    async (askWhere: boolean) => {
+      if (session === null) return;
+      const stamped = touch(session.document, new Date().toISOString());
+      const json = serializeDocument(stamped);
+      try {
+        const target = await places.disk.write(
+          fileNameFor(stamped),
+          json,
+          askWhere ? undefined : (bound ?? undefined),
+        );
+        setBound(target);
+        session.store.markSaved();
+        setNotice(`Saved to ${target.name}`);
+      } catch (cause) {
+        // A cancelled picker is not a failure and must not report one.
+        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        setNotice(cause instanceof Error ? cause.message : "Could not save.");
+      }
+    },
+    [session, places, bound],
+  );
+
+
   const save = useCallback(
     (download: boolean) => {
       if (session === null) return;
@@ -1027,7 +1076,9 @@ export function App() {
         title: "Open scene…",
         section: "File",
         shortcut: shortcutFor("file.open"),
-        run: () => openInput.current?.click(),
+        run: () => {
+          void openFromDisk();
+        },
       },
       {
         id: "file.save",
@@ -1035,11 +1086,16 @@ export function App() {
         section: "File",
         hint: store.dirty ? "unsaved changes" : "up to date",
         shortcut: shortcutFor("file.save"),
-        run: () => save(false),
+        // Back to the same file when there is one. Only the first save asks
+        // where, which is the difference between a document and a download.
+        run: () => {
+          save(false);
+          void saveToDisk(bound === null);
+        },
       },
       {
         id: "file.saveAs",
-        title: "Save as file…",
+        title: "Save as…",
         section: "File",
         shortcut: shortcutFor("file.saveAs"),
         keywords: ["download", "export"],
@@ -1644,6 +1700,24 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [bus, ignite, say, revision]);
 
+  const openFromDisk = useCallback(async () => {
+    try {
+      const picked = await places.disk.pick();
+      if (picked === null) {
+        // No picker in this browser. The file input still works, so the
+        // command falls back rather than doing nothing.
+        openInput.current?.click();
+        return;
+      }
+      openJson(picked.json);
+      setBound(picked.scene);
+      update({ section: "design" });
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      setNotice(cause instanceof Error ? cause.message : "Could not open that file.");
+    }
+  }, [places, openJson, update]);
+
   const menuCommands = useMemo<readonly StudioCommand[]>(() => {
     const wanted = [
       "edit.duplicate",
@@ -1892,6 +1966,21 @@ export function App() {
       case "settings":
         return (
           <Settings
+            places={places.providers.map((provider) => provider.status)}
+            driveClientId={workspace.driveClientId}
+            dropboxAppKey={workspace.dropboxAppKey}
+            onCloudKeys={(keys) => update(keys)}
+            onConnect={(id) => {
+              const provider = places.providers.find((entry) => entry.status.id === id);
+              void provider?.connect?.().then(
+                (status) =>
+                  setNotice(
+                    status.connected ? `Connected to ${status.label}` : (status.blocker ?? ""),
+                  ),
+                (cause: unknown) =>
+                  setNotice(cause instanceof Error ? cause.message : "Could not connect."),
+              );
+            }}
             theme={workspace.theme}
             onTheme={(theme) => update({ theme })}
             developerMode={workspace.developerMode}

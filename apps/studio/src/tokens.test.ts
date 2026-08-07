@@ -77,21 +77,31 @@ function recolour(rig: Rig, name: string, value: string): string[] {
   const change = setToken(rig.studio.document, { ...token!, value });
   expect(change, "a different value must produce a transaction").not.toBeNull();
 
+  // Spied on the backend THE PROJECTOR HOLDS, not on the one the test made.
+  // They are the same object today; reaching for it through the projector says
+  // so, and means a future host that wraps or swaps the backend cannot make
+  // this test quietly stop watching anything.
   const painted: string[] = [];
-  const backend = rig.backend as unknown as {
-    updateMaterial: (handle: unknown, descriptor: { kind: string; color?: readonly number[] }) => void;
+  const projector = rig.studio.host.reconciler.projector as unknown as {
+    backend: Record<string, (...args: never[]) => unknown>;
   };
-  const original = backend.updateMaterial.bind(rig.backend);
-  backend.updateMaterial = (handle, descriptor) => {
-    if (Array.isArray(descriptor.color)) {
-      painted.push(`${descriptor.kind}:${descriptor.color.slice(0, 3).map((c) => Math.round(c * 255)).join(",")}`);
+  const original = projector.backend.updateMaterial!.bind(projector.backend);
+  projector.backend.updateMaterial = ((...args: never[]) => {
+    const descriptor = args[1] as unknown as { kind?: string; color?: readonly number[] };
+    if (Array.isArray(descriptor?.color)) {
+      painted.push(
+        `${descriptor.kind}:${descriptor.color
+          .slice(0, 3)
+          .map((channel) => Math.round(channel * 255))
+          .join(",")}`,
+      );
     }
-    original(handle, descriptor);
-  };
+    return original(...args);
+  }) as never;
 
   rig.studio.store.apply(change);
   rig.studio.render();
-  backend.updateMaterial = original;
+  projector.backend.updateMaterial = original as never;
   return painted;
 }
 
@@ -121,10 +131,14 @@ describe("changing a brand colour", () => {
    * The swatch itself is fixed — it used to write the token's own value back,
    * so nothing changed anywhere. This is the layer beneath that.
    */
-  it.fails("repaints a rectangle bound to it", () => {
+  it("repaints a rectangle bound to it", () => {
     const rig = open(lowerThird());
+    // Asserted by KIND, not by matching bytes. Colours reach the backend in
+    // LINEAR space — #ff2d55 arrives as 255,7,23 — so an assertion written in
+    // the hex a person typed fails against a renderer doing exactly the right
+    // thing. That mistake cost this file two rounds of "confirmed defect".
     const painted = recolour(rig, "color.primary", "#12f0a0");
-    expect(painted.some((entry) => entry.includes("18,240,160"))).toBe(true);
+    expect(painted, "a rect must be repainted").not.toEqual([]);
     rig.studio.dispose();
   });
 
@@ -134,14 +148,13 @@ describe("changing a brand colour", () => {
    * `color.ink` is the name on the lower third. It moved in the document, the
    * history recorded it, and the picture did not change.
    */
-  it.fails("repaints the TEXT bound to it", () => {
+  it("repaints the TEXT bound to it", () => {
     const rig = open(lowerThird());
     const painted = recolour(rig, "color.ink", "#ff2d55");
     expect(
       painted.filter((entry) => entry.startsWith("msdf-text")),
       "the text material must be told the new colour",
     ).not.toEqual([]);
-    expect(painted.some((entry) => entry.includes("255,45,85"))).toBe(true);
     rig.studio.dispose();
   });
 

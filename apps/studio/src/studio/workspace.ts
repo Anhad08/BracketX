@@ -244,6 +244,17 @@ export interface Workspace {
    * and neither wants the choice reset by clicking a different object.
    */
   readonly gizmoMode: GizmoMode;
+
+  /**
+   * OAuth ids for the cloud providers.
+   *
+   * Kept in the workspace rather than in the source because registering the
+   * application is the OWNER'S act, not the product's — a client id cannot be
+   * invented in a file, and shipping a Connect button for an application that
+   * does not exist would be a control that lies.
+   */
+  readonly driveClientId: string;
+  readonly dropboxAppKey: string;
 }
 
 export const DEFAULT_WORKSPACE: Workspace = {
@@ -277,6 +288,8 @@ export const DEFAULT_WORKSPACE: Workspace = {
   snapEnabled: true,
   gridStep: 0.5,
   gizmoMode: "move",
+  driveClientId: "",
+  dropboxAppKey: "",
 };
 
 export type WorkspaceStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -368,6 +381,8 @@ function sanitize(value: unknown): Workspace {
     // any other mode could have done.
     gizmoMode:
       raw.gizmoMode === "rotate" || raw.gizmoMode === "scale" ? raw.gizmoMode : "move",
+    driveClientId: typeof raw.driveClientId === "string" ? raw.driveClientId : "",
+    dropboxAppKey: typeof raw.dropboxAppKey === "string" ? raw.dropboxAppKey : "",
   };
 }
 

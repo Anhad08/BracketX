@@ -29,6 +29,21 @@ async function open(page: Page): Promise<void> {
   await page.getByTestId("start-tpl_lower_third").click();
   await expect(page.getByTestId("scene-view")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("content-colour")).toBeVisible();
+
+  // PLAY IT IN FIRST.
+  //
+  // A template is authored at its arrived state and animates from an offset
+  // back to that, so at frame zero the stage is empty — and two empty frames
+  // compare equal however the colours change. The first version of this test
+  // compared nothing to nothing and reported a repaint bug that did not exist.
+  // Space is the transport, and it is a binding rather than a button lookup:
+  // the play control is a glyph with no accessible name, so asking for a
+  // button called "Play" waits for something that does not exist.
+  await page.getByTestId("scene-view").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press(" ");
+  await page.waitForTimeout(1_400);
+  await page.keyboard.press(" ");
+  await page.waitForTimeout(400);
 }
 
 /**
@@ -90,14 +105,17 @@ async function picture(page: Page): Promise<string> {
  * repaint is fixed it will start failing, which is the signal to delete this
  * marker and let the test stand.
  */
-test.fail("changing a brand colour restyles the graphic", async ({ page }) => {
+test("changing a brand colour restyles the graphic", async ({ page }) => {
   await open(page);
   await page.waitForTimeout(600);
   const before = await picture(page);
   expect(before).not.toBe("none");
 
   // The first token, driven to a colour nothing in the template already is.
-  const swatch = page.getByTestId("content-colour").locator("input[type=color]").first();
+  // A colour a RECT wears. Text is checked separately — see `text.spec.ts` —
+  // because a text node that fails to draw would make this test report a
+  // colour bug that is really a font bug.
+  const swatch = page.getByTestId("token-color.primary");
   await expect(swatch).toBeVisible();
   await setColour(swatch, "#ff2d55");
 
@@ -115,12 +133,12 @@ test("a colour is named, so it is a role rather than a hex", async ({ page }) =>
   await expect(names.first()).not.toHaveText("");
 });
 
-test.fail("it is one undo step, and undo puts the colour back", async ({ page }) => {
+test("it is one undo step, and undo puts the colour back", async ({ page }) => {
   await open(page);
   await page.waitForTimeout(600);
   const before = await picture(page);
 
-  const swatch = page.getByTestId("content-colour").locator("input[type=color]").first();
+  const swatch = page.getByTestId("token-color.primary");
   await setColour(swatch, "#12f0a0");
   await expect.poll(async () => picture(page), { timeout: 6_000 }).not.toBe(before);
 

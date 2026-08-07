@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import type { ProviderStatus } from "../studio/storage";
 import type { SceneDocument, Transaction } from "@bracketx/engine-scene";
 import type { AssetRecord } from "@bracketx/engine-assets";
 
@@ -782,6 +783,13 @@ export function Outputs({ session }: { session: StudioSession | null }) {
 // ===========================================================================
 
 export interface SettingsProps {
+  /** Every place a scene can live. */
+  readonly places: readonly ProviderStatus[];
+  readonly driveClientId: string;
+  readonly dropboxAppKey: string;
+  readonly onCloudKeys: (keys: { driveClientId?: string; dropboxAppKey?: string }) => void;
+  /** Asks a provider for access. */
+  readonly onConnect: (id: string) => void;
   readonly theme: "dark" | "light";
   readonly onTheme: (theme: "dark" | "light") => void;
   readonly developerMode: boolean;
@@ -805,6 +813,11 @@ export interface SettingsProps {
 }
 
 export function Settings({
+  places,
+  driveClientId,
+  dropboxAppKey,
+  onCloudKeys,
+  onConnect,
   theme,
   onTheme,
   developerMode,
@@ -1032,6 +1045,77 @@ export function Settings({
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ==================================================================
+          WHERE SCENES LIVE
+          ==================================================================
+          A scene is a SCENE_FORMAT document and nothing else, so anywhere
+          that holds a text file can hold one. This lists the places, and it
+          is honest about the ones that are not ready: a provider that needs
+          an app registration SAYS so rather than offering a button that
+          fails after the click. */}
+      <section className="home-block" aria-label="Storage">
+        <div className="block-head">
+          <h2>Storage</h2>
+        </div>
+        {places.map((place) => (
+          <div className="setting-row" key={place.id} data-testid={`place-${place.id}`}>
+            <span>
+              <strong>{place.label}</strong>
+              <span className="dim">
+                {place.blocker ?? place.hint}
+              </span>
+            </span>
+            {place.blocker !== undefined ? (
+              <span className="dim tiny" data-testid={`place-blocked-${place.id}`}>
+                needs setting up
+              </span>
+            ) : place.connected ? (
+              <span className="ok tiny" data-testid={`place-ready-${place.id}`}>
+                ready
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="chip"
+                data-testid={`place-connect-${place.id}`}
+                onClick={() => onConnect(place.id)}
+              >
+                Connect
+              </button>
+            )}
+          </div>
+        ))}
+
+        {/* The keys, in the open. Registering the application is the owner's
+            act — a client id cannot be invented in a source file — so the
+            product asks for it plainly rather than shipping a dead button. */}
+        <label className="setting-row">
+          <span>
+            <strong>Google client id</strong>
+            <span className="dim">From the Google Cloud console, for Drive.</span>
+          </span>
+          <input
+            className="field"
+            defaultValue={driveClientId}
+            data-testid="drive-client-id"
+            placeholder="…apps.googleusercontent.com"
+            onBlur={(event) => onCloudKeys({ driveClientId: event.target.value.trim() })}
+          />
+        </label>
+        <label className="setting-row">
+          <span>
+            <strong>Dropbox app key</strong>
+            <span className="dim">From the Dropbox app console.</span>
+          </span>
+          <input
+            className="field"
+            defaultValue={dropboxAppKey}
+            data-testid="dropbox-app-key"
+            onBlur={(event) => onCloudKeys({ dropboxAppKey: event.target.value.trim() })}
+          />
+        </label>
       </section>
 
       <section className="home-block">

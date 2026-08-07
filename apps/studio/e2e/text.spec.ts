@@ -130,3 +130,50 @@ test("text goes to air through the ordinary Take path", async ({ page }) => {
   );
   await expect(page.getByTestId("monitors")).toHaveAttribute("data-air", "live");
 });
+
+/**
+ * THE GLYPHS REACH THE SCREEN.
+ *
+ * Every other test in this file proves the pipeline is wired: a node exists,
+ * the inspector agrees, a preset compiles, the take path works. None of them
+ * looks at a pixel, and a text engine that is correct and draws nothing
+ * satisfies all of them.
+ *
+ * This one reads the rendered surface and asks whether anything BRIGHT is in
+ * it. A lower third is a dark plate with light words on it, so bright pixels
+ * are the words — and their absence is the exact failure the file's own
+ * header warns about: "a working editor showing no words".
+ */
+test("the words are actually on the screen", async ({ page }) => {
+  await boot(page);
+  await page.getByTestId("nav-home").click();
+  await page.getByTestId("start-tpl_lower_third").click();
+  await expect(page.getByTestId("scene-view")).toBeVisible({ timeout: 30_000 });
+
+  // Played in, because a template is authored at its arrived state and starts
+  // off screen — at frame zero there is nothing to look at.
+  await page.getByTestId("scene-view").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press(" ");
+  await page.waitForTimeout(1_400);
+  await page.keyboard.press(" ");
+  await page.waitForTimeout(400);
+
+  const bright = await page.evaluate(() => {
+    const canvas = document.querySelector(".scene-surface canvas") as HTMLCanvasElement | null;
+    if (canvas === null) return -1;
+    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    if (gl === null) return -1;
+    const pixels = new Uint8Array(canvas.width * canvas.height * 4);
+    gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    let count = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (pixels[index + 3]! === 0) continue;
+      // Light ink on a dark plate. The plate is around 20 per channel; the
+      // words are near white.
+      if (pixels[index]! > 150 && pixels[index + 1]! > 150) count += 1;
+    }
+    return count;
+  });
+
+  expect(bright, "a lower third with no light pixels has no words in it").toBeGreaterThan(200);
+});
