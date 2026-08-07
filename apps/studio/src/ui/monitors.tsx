@@ -165,26 +165,34 @@ export function Monitors({
       {/* THE STRIP. One row across both monitors, so the two states are read
           in a single glance rather than hunted for in two places. It takes the
           live colour along its whole length — the same tally the spine
-          carries, at the place the operator is already looking. */}
+          carries, at the place the operator is already looking.
+
+          EACH HALF BELONGS TO ITS OWN MONITOR. They shared one line to begin
+          with — "PREVIEW READY PROGRAM 00:00:00" ran together as a single
+          sentence, and an operator glancing at it had to work out which word
+          described which picture. Now the label sits at the left of its
+          monitor and the state at the right of the same monitor, so the
+          reading is unambiguous at a glance from across a gallery. */}
       <header className="mon-strip">
         {closed ? null : (
-          <span className="mon-label" data-testid="preview-label">
-            <span className={`lamp ${cued ? "pvw" : ""}`} aria-hidden />
-            PREVIEW
+          <span className="mon-head">
+            <span className="mon-label" data-testid="preview-label">
+              <span className={`lamp ${cued ? "pvw" : ""}`} aria-hidden />
+              PREVIEW
+            </span>
+            <span className="mon-state" data-testid="preview-state">
+              {cued ? "CUED" : "READY"}
+            </span>
           </span>
         )}
-        {closed ? null : (
-          <span className="mon-state" data-testid="preview-state">
-            {cued ? "CUED" : "READY"}
+        <span className="mon-head">
+          <span className="mon-label program" data-testid="program-label">
+            <span className={`lamp ${live ? "live" : ""}`} aria-hidden />
+            PROGRAM
           </span>
-        )}
-        <span className="mon-label program" data-testid="program-label">
-          <span className={`lamp ${live ? "live" : ""}`} aria-hidden />
-          PROGRAM
-        </span>
-        <span className="sp" />
-        <span className="mon-clock" data-testid="program-state">
-          {live || closed ? timecode(bus.elapsed()) : "CLEAN"}
+          <span className="mon-clock" data-testid="program-state">
+            {live || closed ? timecode(bus.elapsed()) : "CLEAN"}
+          </span>
         </span>
       </header>
 

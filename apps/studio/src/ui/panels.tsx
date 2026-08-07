@@ -1,5 +1,11 @@
 import { useRef, useState } from "react";
-import { findNode, type SceneDocument, type Transaction } from "@bracketx/engine-scene";
+import {
+  childrenOf,
+  findNode,
+  type SceneDocument,
+  type SceneNode,
+  type Transaction,
+} from "@bracketx/engine-scene";
 
 import type { StudioSession } from "../studio/session";
 import type { Selection } from "../studio/selection";
@@ -1202,6 +1208,8 @@ export function Content({
   const current = graphicFinish(document_);
   const currentLook = lookOf(document_);
   const lights = lightsOf(document_);
+  /** Is there anything in this scene that a light would change? */
+  const needsLight = solid || hasSolids(document_);
   const exposure = exposureOf(document_);
   const shadows = shadowsOn(document_);
 
@@ -1219,7 +1227,9 @@ export function Content({
           editable here.
         </p>
       ) : (
-        <div className="content-fields">
+        <div className="fgrp">
+          <div className="lbl">Fields<span className="ln" /></div>
+          <div className="content-fields">
           {fields.map((field) => (
             <label className="content-row" key={field.key}>
               <span className="content-label">
@@ -1249,6 +1259,7 @@ export function Content({
               />
             </label>
           ))}
+          </div>
         </div>
       )}
 
@@ -1377,7 +1388,7 @@ export function Content({
         </div>
 
         <label className="prop inline">
-          <span>exposure</span>
+          <span>Exposure</span>
           <input
             className="field number tiny"
             type="number"
@@ -1397,7 +1408,7 @@ export function Content({
         </label>
 
         <label className="prop check">
-          <span>shadows</span>
+          <span>Shadows</span>
           <input
             type="checkbox"
             data-testid="shadows"
@@ -1410,10 +1421,18 @@ export function Content({
         {/* Said on screen, because the absence is a decision. A designer who
             looks for an HDRI should know why there is none rather than assume
             they have failed to find it. */}
-        <p className="note">
+        {/* SAID ONLY WHEN IT MATTERS.
+            "Nothing is lit. A solid object with no light renders black" was
+            printed under every flat lower third — a warning about a situation
+            that could not arise, in a panel where everything else is calm. A
+            product that raises its voice about nothing is one you stop
+            listening to. */}
+        <p className={`note${lights.length === 0 && needsLight ? " warn" : ""}`}>
           {lights.length === 0
-            ? "Nothing is lit. A solid object with no light renders black — choose a look."
-            : `${lights.length} ${lights.length === 1 ? "light" : "lights"} in this scene. Move or re-aim any of them in the layer tree.`}
+            ? needsLight
+              ? "Nothing is lit, and this scene has solid objects in it. Choose a look."
+              : "Flat graphics need no lighting. Choose a look if you add depth."
+            : `${lights.length} ${lights.length === 1 ? "light" : "lights"}. Move or re-aim any of them in the layer tree.`}
         </p>
       </div>
 
@@ -1546,4 +1565,23 @@ export function LevelFoot({
       </button>
     </div>
   );
+}
+
+/**
+ * Does this scene contain anything a light would change?
+ *
+ * A mesh is lit; a flat rect is not, unless somebody gave it depth. The
+ * Lighting panel uses this to decide whether "nothing is lit" is a warning or
+ * simply a fact — a lower third needs no lighting and should not be told off
+ * for lacking it.
+ */
+function hasSolids(document_: SceneDocument): boolean {
+  const visit = (node: SceneNode): boolean => {
+    for (const component of node.components ?? []) {
+      if (component.type === "meshRenderer") return true;
+    }
+    for (const child of childrenOf(node)) if (visit(child)) return true;
+    return false;
+  };
+  return visit(document_.root);
 }

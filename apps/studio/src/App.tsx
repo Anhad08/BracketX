@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBackend } from "./studio/renderer";
+import { renderTemplatePreviews } from "./studio/previews";
 import type { ImageProvider, TextProvider } from "@bracketx/engine-reconciler";
 import { findNode, type SceneDocument, type SceneNode, type Transaction } from "@bracketx/engine-scene";
 
@@ -113,6 +114,7 @@ import {
   PACKS,
   installTheme,
   instantiateTemplate,
+  templatesOf,
   type Pack,
   type PackTemplate,
 } from "./studio/packs";
@@ -415,6 +417,49 @@ export function App() {
   const [thumbnails, setThumbnails] = useState<ReadonlyMap<string, string>>(
     new Map(),
   );
+
+  /**
+   * WHAT THE CARDS ACTUALLY SHOW.
+   *
+   * Six of the eight template cards carried the same drawn glyph, so the screen
+   * that decides what somebody makes asked them to choose between six identical
+   * pictures. These are the real graphics, rendered by the real engine with the
+   * real fonts — install a theme and every card restyles, because every card IS
+   * the graphic.
+   *
+   * Rendered once fonts have parsed, one at a time, arriving as they land.
+   * Cancelled if the user leaves before they finish: nobody is owed a thumbnail
+   * for a screen they are no longer looking at.
+   */
+  const [templateArt, setTemplateArt] = useState<ReadonlyMap<string, string>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    if (!fontsReady) return;
+    let cancelled = false;
+    void renderTemplatePreviews(
+      templatesOf(),
+      ids,
+      {
+        renderer: rendererRef.current,
+        ...(textRef.current === null ? {} : { text: textRef.current }),
+        ...(imagesRef.current === null ? {} : { images: imagesRef.current }),
+        // 400 rather than 520: a card is 238px wide at its narrowest and the
+        // grid never shows one larger than about 330. Encoding a PNG is the
+        // slow half of a preview, and it is quadratic in width.
+        width: 400,
+      },
+      (templateId, url) => {
+        if (cancelled) return;
+        setTemplateArt((current) => new Map(current).set(templateId, url));
+      },
+      () => cancelled,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [fontsReady]);
 
   /**
    * Publishes the registry's state to the UI and to disk.
@@ -1627,6 +1672,7 @@ export function App() {
             library={library}
             installedPacks={installed}
             onCreate={openTemplate}
+            art={templateArt}
             onBlank={() => {
               openJson(serializeDocument(newDocument("Untitled", ids, new Date().toISOString())));
               update({ section: "design" });
@@ -1658,6 +1704,7 @@ export function App() {
           <Production
             session={session}
             bus={bus}
+            art={templateArt}
             programCanvas={programCanvasRef.current}
             previewCanvas={canvasRef.current}
             revision={revision}

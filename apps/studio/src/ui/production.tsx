@@ -42,11 +42,14 @@ export interface ProductionProps {
   /** Loads a scene ready to cue. */
   readonly onOpenScene: (template: PackTemplate) => void;
   readonly onOffAir: () => void;
+  /** Rendered stills of each scene, by template id. */
+  readonly art: ReadonlyMap<string, string>;
 }
 
 export function Production({
   session,
   bus,
+  art,
   programCanvas,
   previewCanvas,
   revision,
@@ -149,13 +152,25 @@ export function Production({
                 onClick={() => onOpenScene(template)}
                 title={`Load ${template.name} ready to take`}
               >
+                {/* THE SCENE, not a swatch of its pack's colours. Five tiles
+                    wearing five gradients told an operator which PACK a scene
+                    came from and nothing at all about what would go to air —
+                    which is the only question being asked at this moment. */}
                 <span
                   className="scene-art"
                   aria-hidden
-                  style={{
-                    background: `linear-gradient(135deg, ${pack.swatch[0]}, ${pack.swatch[1]})`,
-                  }}
-                />
+                  style={
+                    art.get(template.id) === undefined
+                      ? {
+                          background: `linear-gradient(135deg, ${pack.swatch[0]}, ${pack.swatch[1]})`,
+                        }
+                      : undefined
+                  }
+                >
+                  {art.get(template.id) === undefined ? null : (
+                    <img src={art.get(template.id)} alt="" />
+                  )}
+                </span>
                 <strong>{template.name}</strong>
                 <span className="dim tiny">{template.description}</span>
               </button>

@@ -32,7 +32,54 @@
      applications stitched together. */
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --fast: 120ms;
+  /* The second duration, and the only one. `--fast` acknowledges a press;
+     `--settle` is for something arriving or leaving, which needs long enough
+     to be read as a movement rather than a flicker. */
+  --settle: 220ms;
+
+  /* ------------------------------------------------------------------------
+     ELEVATION
+
+     Four steps, and a thing may only ever be one of them. Depth in this
+     product means "closer to you", never "prettier" — so a card at rest is
+     flat, a card under the pointer lifts, a menu floats and a dialog owns the
+     screen. A shadow used for decoration is a shadow that stops meaning
+     anything.
+
+     Every one is a pair: a tight contact shadow that says the edge is real,
+     and a wide soft one that says how far off the surface it is. A single
+     blur gives the muddy grey halo that makes dark interfaces look cheap.
+     ------------------------------------------------------------------------ */
+  --lift-0: none;
+  --lift-1: 0 1px 2px rgb(0 0 0 / 0.32), 0 2px 8px rgb(0 0 0 / 0.22);
+  --lift-2: 0 2px 4px rgb(0 0 0 / 0.36), 0 10px 26px rgb(0 0 0 / 0.34);
+  --lift-3: 0 4px 8px rgb(0 0 0 / 0.4), 0 24px 60px rgb(0 0 0 / 0.46);
+
+  /* The hairline that sits on top of a raised surface. A dark card on a dark
+     ground has no silhouette without it, and reads as a hole rather than an
+     object. */
+  --edge: inset 0 1px 0 rgb(255 255 255 / 0.05);
+
+  /* The accent, at the weights a focus ring and a glow want. Derived here so
+     one hue change moves everything. */
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 55%, transparent);
 }
+
+/* --------------------------------------------------------------------------
+   FOCUS
+
+   One ring, everywhere, and only for the keyboard. A mouse user who sees a
+   focus ring on every click thinks something is stuck; a keyboard user who
+   cannot see one is lost. `:focus-visible` is the browser telling us which
+   of the two it is, and it is worth trusting.
+   -------------------------------------------------------------------------- */
+.studio :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.studio :focus:not(:focus-visible) { outline: none; }
 
 /* --- Shell ---------------------------------------------------------------- */
 
@@ -68,8 +115,23 @@
 }
 .rail-item:hover { background: var(--panel-2); color: var(--text); }
 .rail-item.on { background: var(--accent-bg); color: var(--accent); }
-.rail-icon { font-size: 16px; line-height: 1; }
-.rail-label { font-size: 10px; letter-spacing: 0.01em; }
+/* THE MARKER RAIL.
+   A tinted background alone is a weak "you are here" on a dark interface —
+   at a glance the lit item and its neighbours are the same shape. A bar
+   against the outer edge is unambiguous from the corner of the eye, which is
+   how a navigation rail is actually read.
+
+   It grows from the centre out rather than fading in: motion along the rail
+   draws the eye to where it has arrived. */
+.rail-item::before {
+  content: ""; position: absolute; left: -8px; top: 50%;
+  width: 3px; height: 0; border-radius: 0 2px 2px 0;
+  background: var(--accent); transform: translateY(-50%);
+  transition: height var(--settle) var(--ease);
+}
+.rail-item.on::before { height: 22px; }
+.rail-icon { font-size: 18px; line-height: 1; }
+.rail-label { font-size: 10px; letter-spacing: 0.02em; font-weight: 500; }
 .rail-dev {
   margin-top: var(--s3); padding-top: var(--s3);
   border-top: 1px solid var(--line); border-radius: 0;
@@ -113,23 +175,73 @@
 
 /* --- Start cards ---------------------------------------------------------- */
 
-.start-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: var(--s4); }
+.start-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: var(--s4); }
 .start-card {
   display: flex; flex-direction: column; gap: var(--s1); text-align: left;
   padding: 0 0 var(--s4); border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--panel); color: var(--text); cursor: pointer; overflow: hidden;
-  transition: border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+  box-shadow: var(--lift-1), var(--edge);
+  transition:
+    border-color var(--fast) var(--ease),
+    transform var(--settle) var(--ease),
+    box-shadow var(--settle) var(--ease);
 }
-.start-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+/* Lifts, and the lift is what casts the shadow — the two have to move together
+   or the card looks like it is sliding rather than rising. */
+.start-card:hover {
+  border-color: var(--accent-line);
+  transform: translateY(-3px);
+  box-shadow: var(--lift-2), var(--edge);
+}
+/* Pressed travels ONE pixel and gets there in half the time it took to rise.
+   A press is a physical event; anything slower reads as lag. */
+.start-card:active { transform: translateY(-1px); transition-duration: 60ms; }
 .start-card strong { padding: var(--s3) var(--s4) 0; font-size: 14px; color: var(--text-strong); }
 .start-card .dim { padding: 0 var(--s4); font-size: 12px; line-height: 1.45; }
-.start-art { display: block; aspect-ratio: 16 / 9; background: var(--canvas-void); }
+/* The art sits in a WELL, not on the card. A broadcast graphic is transparent,
+   and a still of one has to read against something — this is the same void the
+   stage uses, so a card and the editor agree about what "nothing" looks like. */
+.start-art {
+  display: block; aspect-ratio: 16 / 9; position: relative;
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgb(255 255 255 / 0.045), transparent 62%),
+    var(--canvas-void);
+  border-bottom: 1px solid var(--line);
+}
+.start-art::after {
+  /* A hairline inside the well. Without it the art bleeds into the card and
+     the tile loses its edge at the exact moment the card lifts. */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.035);
+}
 .start-art .preview { width: 100%; height: 100%; display: block; }
+/* The engine's own pixels. `contain`, never `cover`: a lower third cropped to
+   fill a tile is a lower third with its name cut off. */
+.start-frame {
+  width: 100%; height: 100%; display: block; object-fit: contain;
+  animation: art-in var(--settle) var(--ease) both;
+}
+@keyframes art-in { from { opacity: 0; } to { opacity: 1; } }
 .preview .p-surface { fill: var(--panel-2); }
 .preview .p-accent { fill: var(--accent); }
 .preview .p-ink { fill: var(--text-strong); }
 .preview .p-muted { fill: var(--dim); }
-.blank-art { display: grid; place-items: center; font-size: 28px; color: var(--dim); font-weight: 300; }
+/* START FROM NOTHING reads differently from START FROM SOMETHING.
+   These two cards sat in the same grid wearing the same treatment as eight
+   finished graphics, so they looked like templates whose picture had failed to
+   load. A dashed well says "empty on purpose". */
+.blank-art {
+  display: grid; place-items: center; font-size: 30px; color: var(--dim); font-weight: 300;
+  background: none;
+  border-bottom: 0;
+}
+.blank-art::after { box-shadow: none; }
+.start-card.blank .start-art {
+  margin: var(--s3) var(--s3) 0; border-radius: var(--radius-sm);
+  border: 1px dashed var(--line-strong, var(--line));
+  background: none;
+}
+.start-card.blank:hover .start-art { border-color: var(--accent-line); color: var(--text); }
 
 /* --- Row lists ------------------------------------------------------------ */
 
@@ -195,7 +307,19 @@
 }
 .scene-tile:hover { border-color: var(--accent); transform: translateY(-1px); }
 .scene-tile:active { cursor: grabbing; transform: none; }
-.scene-tile .scene-art { height: 58px; border-radius: var(--radius-sm); margin-bottom: 4px; }
+/* The scene, in the shape it goes to air in. 16:9 rather than a 58px band,
+   because an operator picking a graphic under time pressure is matching a
+   remembered picture, and a letterbox is what they remember. */
+.scene-tile .scene-art {
+  display: block; aspect-ratio: 16 / 9; overflow: hidden;
+  border-radius: var(--radius-sm); margin-bottom: 6px;
+  background: var(--canvas-void);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+.scene-tile .scene-art img {
+  width: 100%; height: 100%; display: block; object-fit: contain;
+  animation: art-in var(--settle) var(--ease) both;
+}
 .scene-tile strong { font-size: 13px; color: var(--text-strong); }
 
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: var(--s3); margin: 0; }
@@ -464,8 +588,11 @@
    colour along its whole length — the same tally the spine carries, at the
    place the operator is already looking. */
 .mon-strip {
-  display: flex; align-items: center; gap: var(--s3);
-  padding: 0 var(--s4); height: 26px; flex: none;
+  /* TWO COLUMNS, aligned with the two monitors below — and a 1px gutter, the
+     same seam the pictures share, so the label sits over its own picture and
+     nothing has to be worked out. */
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  padding: 0; height: 28px; flex: none;
   font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
   color: var(--dim);
   box-shadow: inset 0 -1px 0 var(--seam);
@@ -476,6 +603,16 @@
   box-shadow: inset 0 1px 0 var(--live), inset 0 -1px 0 var(--seam);
   color: color-mix(in oklab, var(--live) 70%, var(--text-strong));
 }
+/* One monitor's worth of header: its name at the left, its state at the right.
+   Justified to the two ends because an operator reads the left column for
+   "which" and the right for "what", and a centred pair makes both a search. */
+.mon-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--s3); min-width: 0;
+}
+/* When only Program remains — after a show has ended — it keeps its own half
+   rather than stretching across a monitor that is no longer there. */
+.mon-strip .mon-head:only-child { grid-column: 1 / -1; }
 .mon-label { display: inline-flex; align-items: center; gap: 6px; }
 .mon-state { color: var(--preview); }
 .mon-strip .sp { flex: 1; }
@@ -497,7 +634,18 @@
   box-shadow: inset 0 0 0 1px transparent;
   transition: box-shadow 0.28s var(--press), opacity 0.28s var(--press);
 }
+/* THE PICTURE SITS IN A WELL.
+   A broadcast monitor is a screen in a housing, and the housing is what makes
+   the picture read as a feed rather than as a region of the page. The inner
+   shading is the housing; it is subtle enough that nobody notices it and
+   absent enough, without it, that the monitor looks like a hole. */
 .mon-face { position: absolute; inset: 0; display: grid; place-items: center; }
+.mon-face::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    inset 0 22px 44px rgb(0 0 0 / 0.45);
+}
 .mon-face canvas { display: block; max-width: 100%; max-height: 100%; }
 
 /* CUED: the preview monitor gains a teal edge. Nothing else moves — cue is

@@ -401,6 +401,10 @@ kbd {
 .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .panel-head h2 { margin: 0; flex: none; }
 .note { font-size: 10px; color: var(--dim); line-height: 1.45; margin: 8px 0 0; }
+/* The ONLY note that raises its voice, and it has to earn it. Everything else
+   states a fact quietly — a panel that colours every sentence is a panel whose
+   colours mean nothing. */
+.note.warn { color: var(--warn, #ffb020); }
 
 .field {
   background: var(--bg); border: 1px solid var(--line); border-radius: 5px;
@@ -447,7 +451,10 @@ kbd {
 /* Inspector */
 .prop-group { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; }
 .prop { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-.prop > span:first-child { width: 82px; color: var(--dim); flex: none; }
+.prop > span:first-child {
+  width: 82px; color: var(--dim); flex: none;
+  font-size: 11px; letter-spacing: 0.01em;
+}
 .prop.check { justify-content: flex-start; }
 
 /* Grid tables */
@@ -463,7 +470,29 @@ kbd {
   display: flex; align-items: center; gap: 6px; padding: 5px 10px;
   border-bottom: 1px solid var(--line); background: var(--panel); flex: none; flex-wrap: wrap;
 }
-.viewport-toolbar .toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--dim); cursor: pointer; }
+/* THE VIEW SWITCHES ARE CHIPS, NOT A FORM.
+   Five checkboxes in a row read as a preferences dialog that had wandered into
+   an instrument. They are the same kind of thing as the view buttons beside
+   them — a state you turn on and off — so they wear the same clothes, and the
+   tick disappears because the lit state IS the tick. */
+.viewport-toolbar .toggle {
+  display: inline-flex; align-items: center; gap: 0;
+  height: 22px; padding: 0 8px; border-radius: var(--r-xs);
+  font-size: 11px; color: var(--dim); cursor: pointer; user-select: none;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition:
+    color 0.16s var(--press), background 0.16s var(--press),
+    box-shadow 0.16s var(--press);
+}
+.viewport-toolbar .toggle:hover { color: var(--text-strong); background: rgba(255, 255, 255, 0.07); }
+.viewport-toolbar .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.viewport-toolbar .toggle:has(input:checked) {
+  color: var(--text-strong);
+  background: var(--accent-bg, rgba(47, 111, 235, 0.16));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.viewport-toolbar .toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .frame, .zoom {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
   padding: 2px 7px; font-variant-numeric: tabular-nums; color: var(--text-strong);
@@ -545,7 +574,12 @@ kbd {
 
 /* Named by outcome. A person picks "Chrome"; the numbers it generated are in
    Properties, for somebody who wants them. */
-.finishes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.finishes { display: flex; flex-wrap: wrap; gap: 4px; }
+.finish, .motion-pick, .chip, .tool {
+  transition:
+    color 0.16s var(--press), background 0.16s var(--press),
+    box-shadow 0.16s var(--press), transform 0.16s var(--press);
+}
 .finish {
   height: 26px; padding: 0 9px; border: 0; border-radius: var(--r-xs);
   font: inherit; font-size: 11px; color: var(--dim); cursor: pointer;
@@ -553,9 +587,23 @@ kbd {
   box-shadow: inset 0 0 0 1px var(--line);
   transition: color 0.16s var(--press), box-shadow 0.16s var(--press);
 }
-.finish:hover { color: var(--text-strong); background: rgba(255, 255, 255, 0.06); }
-.finish.on { color: var(--text-strong); box-shadow: inset 0 0 0 1px var(--accent); }
-.finish:disabled { opacity: 0.4; pointer-events: none; }
+.finish:hover {
+  color: var(--text-strong); background: rgba(255, 255, 255, 0.07);
+  transform: translateY(-1px);
+}
+/* A press travels one pixel and arrives in half the time it took to lift. A
+   control that rises further than it sinks feels sticky. */
+.finish:active { transform: translateY(0); transition-duration: 60ms; }
+/* SELECTED IS FILLED, not outlined. An outline reads as focus, and a panel
+   where the chosen finish and the hovered finish look alike is one you have
+   to re-read every time you glance at it. */
+.finish.on {
+  color: var(--text-strong);
+  background: var(--accent-bg, rgba(47, 111, 235, 0.16));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.finish.on:hover { transform: none; }
+.finish:disabled { opacity: 0.35; pointer-events: none; }
 
 /* --- The confidence strip ------------------------------------------------ */
 
@@ -592,12 +640,20 @@ kbd {
    imperatively, so it cannot rely on DOM order to stay on top — and when it
    did, a remounted sibling silently covered the scene. */
 .scene-surface canvas { display: block; width: 100%; height: 100%; position: relative; z-index: 1; }
+/* TRANSPARENCY, SAID QUIETLY.
+   The checker was 24px squares at full strength, and it was the loudest thing
+   on the screen — a designer judging the weight of a plate against live video
+   was judging it against a chequerboard instead. It is still a checker,
+   because that is the one pattern everybody reads as "nothing here", but it
+   is now half the size and a fifth of the contrast: present when you look for
+   it, invisible when you are looking at the graphic. */
 .scene-checker {
   position: absolute; inset: 0;
   background-image:
     linear-gradient(45deg, var(--checker) 25%, transparent 25% 75%, var(--checker) 75%),
     linear-gradient(45deg, var(--checker) 25%, transparent 25% 75%, var(--checker) 75%);
-  background-size: 24px 24px; background-position: 0 0, 12px 12px;
+  background-size: 14px 14px; background-position: 0 0, 7px 7px;
+  opacity: 0.34;
   z-index: 0;
 }
 .scene-checker.off { display: none; }
@@ -607,7 +663,23 @@ kbd {
 .safe-area.title { stroke: #f0c16488; }
 .safe-area.action { stroke: #62a8ff66; }
 .grid-line { stroke: var(--line); stroke-width: 1; opacity: 0.6; }
-.selection-box rect { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+/* SELECTION IS A FRAME, NOT A BOX.
+   The faint field says how far the layer extends; the corner ticks say "this
+   one". A continuous outline around a rectangle IS a rectangle, and on a lower
+   third — which is a rectangle — the selection and the plate were the same
+   shape and took two looks to tell apart. */
+.selection-box .sel-field {
+  fill: none; stroke: var(--accent); stroke-width: 1;
+  stroke-opacity: 0.28; stroke-dasharray: 2 4;
+}
+.selection-box .sel-tick {
+  fill: none; stroke: var(--accent); stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+  /* The glow is what makes a selection feel like it is lit rather than drawn.
+     One pixel of accent-coloured bloom, no more — anything heavier and the
+     mark starts competing with the picture it is marking. */
+  filter: drop-shadow(0 0 3px color-mix(in oklab, var(--accent) 60%, transparent));
+}
 .selection-box .handle { fill: var(--accent); stroke: none; }
 .snap-guide { stroke: var(--bad); stroke-width: 1; stroke-dasharray: 3 3; }
 .marquee { fill: #62a8ff22; stroke: var(--accent); stroke-width: 1; }
@@ -799,6 +871,31 @@ kbd {
    dock scrolls as a whole. Capping it hid the depth control below the fold,
    which is how a beginner got stranded with no way to reveal anything. */
 .panel.content { flex: none; }
+/* ==========================================================================
+   THE PANEL'S RHYTHM
+
+   `.fgrp` and `.lbl` were in the markup and in NO stylesheet. Every section
+   header in the dock — Colour, 3D, Lighting, Animation — rendered as bare
+   text at body size with a `<span class="ln">` that drew nothing, so the panel
+   a designer looks at for eight hours had no grouping, no hierarchy and no
+   rhythm: eleven controls in a column, all shouting equally.
+
+   One group treatment, used by every section. The rule is what does the work —
+   it terminates the label and draws the eye down the panel, so the eye can
+   skip a whole group instead of reading every control in it.
+   ========================================================================== */
+
+.fgrp { display: flex; flex-direction: column; gap: 8px; padding: 14px 0 0; }
+.fgrp + .fgrp { margin-top: 2px; }
+.lbl {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--dim);
+}
+/* The rule runs to the edge of the panel. A fixed width would leave a ragged
+   right margin that moves with every label's length. */
+.lbl .ln { flex: 1; height: 1px; background: var(--line); }
+
 .content-fields { display: flex; flex-direction: column; gap: 8px; }
 .content-row { display: flex; flex-direction: column; gap: 3px; }
 .content-label {

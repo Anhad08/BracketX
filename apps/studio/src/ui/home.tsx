@@ -31,6 +31,8 @@ export interface HomeProps {
   readonly onCreate: (template: PackTemplate) => void;
   readonly onBlank: () => void;
   readonly onHybrid: () => void;
+  /** Rendered template stills, by template id. Absent until they arrive. */
+  readonly art: ReadonlyMap<string, string>;
   readonly onOpenRecent: (project: RecentProject) => void;
   readonly onOpenLibrary: (entry: LibraryEntry) => void;
   readonly onBrowse: () => void;
@@ -44,6 +46,7 @@ export function Home({
   onCreate,
   onBlank,
   onHybrid,
+  art,
   onOpenRecent,
   onOpenLibrary,
   onBrowse,
@@ -82,7 +85,16 @@ export function Home({
               data-testid={`start-${template.id}`}
             >
               <span className="start-art" aria-hidden>
-                <TemplatePreview id={template.id} />
+                {/* THE REAL GRAPHIC, not a drawing of one. Rendered by the
+                    engine that will put it on air — so a card restyles when a
+                    theme is installed, because the card IS the graphic. The
+                    drawn placeholder holds the space until the pixels land, so
+                    the grid never reflows. */}
+                {art.get(template.id) === undefined ? (
+                  <TemplatePreview id={template.id} />
+                ) : (
+                  <img className="start-frame" src={art.get(template.id)} alt="" />
+                )}
               </span>
               <strong>{template.name}</strong>
               <span className="dim">{template.description}</span>

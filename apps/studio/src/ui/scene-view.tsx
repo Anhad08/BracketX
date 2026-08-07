@@ -1739,8 +1739,25 @@ export function SceneView({
             <g key={entry.nodeId} className="selection-box" data-testid="selection-box">
               {/* Outline per node so a multi-selection shows what is in it.
                   The HANDLES are drawn once, on the union, below — they must
-                  match what `handleAt` hit-tests or the grab misses. */}
-              <rect x={topLeft.x} y={topLeft.y} width={width} height={height} />
+                  match what `handleAt` hit-tests or the grab misses.
+
+                  CORNERS, not a box. A continuous rectangle around a graphic
+                  competes with the graphic's own edges — on a lower third,
+                  which IS a rectangle, the selection and the plate were the
+                  same shape and you had to look twice to tell which was which.
+                  Corner ticks are the framing mark every camera viewfinder and
+                  every edit suite uses, and they read as "this one" without
+                  drawing a second rectangle over the first. */}
+              <rect
+                className="sel-field"
+                x={topLeft.x}
+                y={topLeft.y}
+                width={width}
+                height={height}
+              />
+              {cornerTicks(topLeft.x, topLeft.y, width, height).map((tick, index) => (
+                <polyline key={index} className="sel-tick" points={tick} />
+              ))}
             </g>
           );
         })}
@@ -2290,4 +2307,24 @@ function Rulers({
       </div>
     </div>
   );
+}
+
+/**
+ * The eight strokes that mark a selection's corners.
+ *
+ * Length is a fraction of the shorter side, clamped: a tick a quarter of the
+ * way down a tall thin layer reads as a bracket, and the same tick on a
+ * full-width strap reads as a full box again. Clamping is what keeps it
+ * looking like the same mark on every shape.
+ */
+function cornerTicks(x: number, y: number, width: number, height: number): string[] {
+  const arm = Math.max(6, Math.min(18, Math.min(width, height) * 0.22));
+  const right = x + width;
+  const bottom = y + height;
+  return [
+    `${x},${y + arm} ${x},${y} ${x + arm},${y}`,
+    `${right - arm},${y} ${right},${y} ${right},${y + arm}`,
+    `${right},${bottom - arm} ${right},${bottom} ${right - arm},${bottom}`,
+    `${x + arm},${bottom} ${x},${bottom} ${x},${bottom - arm}`,
+  ];
 }
