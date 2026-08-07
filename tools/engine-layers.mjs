@@ -12,7 +12,7 @@
  * Listing a package here does not require it to depend on everything allowed.
  */
 
-/** @typedef {{ layer: string, allow: string[], mayImportThree?: boolean }} PackageRule */
+/** @typedef {{ layer: string, allow: string[], mayImportThree?: boolean, mayImportBabylon?: boolean }} PackageRule */
 
 /** @type {Record<string, PackageRule>} */
 export const ENGINE_PACKAGES = {
@@ -98,6 +98,24 @@ export const ENGINE_PACKAGES = {
     ],
     mayImportThree: true,
   },
+
+  "@bracketx/engine-render-babylon": {
+    layer: "render-adapter",
+    // The ONLY package permitted to import Babylon. Implements the SAME
+    // MirrorBackend as the three adapter.
+    //
+    // Two adapters, one active per session. That is a second implementation
+    // of an interface, which the seam exists for — not a parallel system.
+    // Nothing above `render-adapter` may know which one it is talking to, and
+    // the layering check is what keeps that true: a Babylon import anywhere
+    // else fails the build.
+    allow: [
+      "@bracketx/engine-scene",
+      "@bracketx/engine-runtime",
+      "@bracketx/engine-reconciler",
+    ],
+    mayImportBabylon: true,
+  },
 };
 
 /**
@@ -119,7 +137,19 @@ export const NON_ENGINE_PACKAGES = [
   "studio",
 ];
 
-/** Bare specifier that may appear in exactly one engine package. */
+/**
+ * Bare specifiers that may each appear in exactly one engine package.
+ *
+ * Two render adapters now exist — three and Babylon — and each is the sole
+ * importer of its own library. The rule did not weaken: it is still "one
+ * package per renderer", checked per renderer, rather than "one renderer".
+ */
+export const RENDER_BACKEND_MODULES = {
+  three: "@bracketx/engine-render-three",
+  "@babylonjs/core": "@bracketx/engine-render-babylon",
+};
+
+/** Retained for callers that predate the second adapter. */
 export const RENDER_BACKEND_MODULE = "three";
 
 /**
@@ -131,6 +161,13 @@ export const RENDER_BACKEND_MODULE = "three";
  * pure import check. Phase 2.5n.
  */
 export const RENDER_BACKEND_TYPES = [
+  // Babylon's, which must not escape its adapter either. Listed first
+  // because they are the ones nobody has muscle memory for yet.
+  "AbstractMesh",
+  "TransformNode",
+  "ShaderMaterial",
+  "PBRMaterial",
+  // Three's.
   "WebGLRenderer",
   "Object3D",
   "Matrix4",
