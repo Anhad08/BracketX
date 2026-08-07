@@ -55,6 +55,16 @@ export interface Finish {
   readonly roughness: number;
   /** Below 1 makes the surface see-through. Only Glass uses it. */
   readonly opacity?: number;
+  /**
+   * Self-lit: the surface ignores the scene's lighting entirely.
+   *
+   * Not a PBR trick. `materialDescriptorOf` produces a LIT material only when
+   * a metallic or roughness value is present, so a finish that omits both is
+   * unlit — colour straight through, no shading, no dependence on where the
+   * lights are. That is precisely what "emissive" means on a broadcast
+   * graphic: a strap that reads the same whether the set is lit or not.
+   */
+  readonly selfLit?: boolean;
 }
 
 /**
@@ -113,6 +123,17 @@ export const FINISHES: readonly Finish[] = [
     hint: "Mirror finish",
     metallic: 1,
     roughness: 0.07,
+  },
+  {
+    id: "emissive",
+    label: "Emissive",
+    hint: "Glows on its own, ignores the lighting",
+    // Zeroes are never written for this finish — see `applyFinish`. They exist
+    // so the type stays uniform and so `finishOf` has something to compare
+    // that no lit finish can accidentally match.
+    metallic: 0,
+    roughness: 0,
+    selfLit: true,
   },
   {
     /**
@@ -207,9 +228,19 @@ export function finishOf(document: SceneDocument, nodeId: string): Finish | null
   for (const component of node.components ?? []) {
     if (component.type !== "rect") continue;
     const props = component.props as Record<string, unknown>;
+    // Self-lit is identified by absence, which is also how the engine reads
+    // it — so a graphic someone stripped the PBR values from reports as
+    // Emissive, because that is genuinely what it now renders as.
+    if (props.metallic === undefined && props.roughness === undefined) {
+      return props.finish === "emissive"
+        ? (FINISHES.find((finish) => finish.selfLit === true) ?? null)
+        : null;
+    }
     const match = FINISHES.find(
       (finish) =>
-        props.metallic === finish.metallic && props.roughness === finish.roughness,
+        finish.selfLit !== true &&
+        props.metallic === finish.metallic &&
+        props.roughness === finish.roughness,
     );
     return match ?? null;
   }
@@ -232,8 +263,18 @@ export function applyFinish(
 
   const values = new Map<string, unknown>();
   for (const index of indexes) {
-    values.set(`components.${index}.props.metallic`, finish.metallic);
-    values.set(`components.${index}.props.roughness`, finish.roughness);
+    // A SELF-LIT surface has no PBR values at all. Writing zeroes would make
+    // it a black lit material rather than an unlit one — the engine decides
+    // lit-or-unlit on whether these are present, so absent is the whole
+    // mechanism.
+    values.set(
+      `components.${index}.props.metallic`,
+      finish.selfLit === true ? undefined : finish.metallic,
+    );
+    values.set(
+      `components.${index}.props.roughness`,
+      finish.selfLit === true ? undefined : finish.roughness,
+    );
     values.set(`components.${index}.props.finish`, finish.id);
     // Written every time, including back to 1, so switching away from Glass
     // restores an opaque surface rather than leaving it ghosted.

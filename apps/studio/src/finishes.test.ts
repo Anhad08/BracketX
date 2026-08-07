@@ -230,8 +230,22 @@ describe("back to flat", () => {
 });
 
 describe("finishes are named by outcome", () => {
-  it("offers the eight the founder named, and no PBR words", () => {
-    expect(FINISHES.map((finish) => finish.label)).toEqual([
+  it("offers every finish the founder named, and no PBR words", () => {
+    // The founder's list: Matte, Plastic, Chrome, Glass, Emissive, Broadcast —
+    // plus Soft, Bold and Premium from the Design OS material section. Every
+    // one of them is here, and the test names them so a quiet removal fails.
+    const labels = FINISHES.map((finish) => finish.label);
+    for (const required of [
+      "Matte",
+      "Plastic",
+      "Chrome",
+      "Glass",
+      "Emissive",
+      "Broadcast",
+    ]) {
+      expect(labels, `"${required}" is a founder-approved finish`).toContain(required);
+    }
+    expect(labels).toEqual([
       "Broadcast",
       "Matte",
       "Soft",
@@ -239,6 +253,7 @@ describe("finishes are named by outcome", () => {
       "Bold",
       "Premium",
       "Chrome",
+      "Emissive",
       "Glass",
     ]);
     for (const finish of FINISHES) {
@@ -338,5 +353,45 @@ describe("single node", () => {
 
   it("finds every rect in the graphic, at any depth in the tree", () => {
     expect([...rectNodeIds(lowerThird())]).toEqual(["node_plate", "node_bar"]);
+  });
+});
+
+describe("emissive is unlit, and that is the mechanism", () => {
+  it("writes NO metallic or roughness, so the surface ignores the lighting", () => {
+    // The engine decides lit-or-unlit on whether these props are present.
+    // Writing zeroes would produce a BLACK lit material rather than a glowing
+    // unlit one — the absence is the whole feature.
+    const base = lowerThird();
+    const solid = applyTransaction(base, enableDepthEverywhere(base, testIdFactory())!);
+    const emissive = FINISHES.find((finish) => finish.id === "emissive")!;
+    const after = applyTransaction(solid, applyFinishEverywhere(solid, emissive)!);
+
+    const props = (findNode(after.root, "node_plate")!.components ?? [])[0]!.props as Record<
+      string,
+      unknown
+    >;
+    expect(props.metallic).toBeUndefined();
+    expect(props.roughness).toBeUndefined();
+    // Still a solid: depth is untouched by a finish.
+    expect(props.depth).toBe(DEFAULT_DEPTH);
+    expect(finishOf(after, "node_plate")?.id).toBe("emissive");
+  });
+
+  it("goes back to a lit finish without leaving the surface unlit", () => {
+    const base = lowerThird();
+    const solid = applyTransaction(base, enableDepthEverywhere(base, testIdFactory())!);
+    const emissive = FINISHES.find((finish) => finish.id === "emissive")!;
+    const chrome = FINISHES.find((finish) => finish.id === "chrome")!;
+
+    const glowing = applyTransaction(solid, applyFinishEverywhere(solid, emissive)!);
+    const lit = applyTransaction(glowing, applyFinishEverywhere(glowing, chrome)!);
+
+    const props = (findNode(lit.root, "node_plate")!.components ?? [])[0]!.props as Record<
+      string,
+      unknown
+    >;
+    expect(props.metallic).toBe(chrome.metallic);
+    expect(props.roughness).toBe(chrome.roughness);
+    expect(finishOf(lit, "node_plate")?.id).toBe("chrome");
   });
 });

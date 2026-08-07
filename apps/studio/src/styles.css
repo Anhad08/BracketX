@@ -483,6 +483,42 @@ kbd {
    cover the graphic it is reporting on. */
 .well { flex: 1; min-height: 0; display: flex; }
 
+/* --- Viewport helpers: cameras and lights -------------------------------- */
+
+/* CHROME, NOT CONTENT. These describe the scene; they are never in it. Quiet
+   by default and legible on selection — a viewport where the helpers shout is
+   a viewport where the graphic does not. */
+.helper { pointer-events: none; }
+.helper-line { fill: none; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.helper-icon { fill: rgba(0, 0, 0, 0.55); stroke-width: 1; }
+.helper-glyph { stroke: none; }
+
+/* A camera is the instrument the show is shot through, so it takes the
+   identity accent rather than a status colour. */
+.helper.camera .helper-line { stroke: color-mix(in oklab, var(--accent) 55%, transparent); }
+.helper.camera .helper-icon { stroke: var(--accent); }
+.helper.camera .helper-glyph { fill: var(--accent); }
+
+/* Lights are warm because light is. Amber is reserved for system attention,
+   so this is deliberately a softer, unsaturated warm rather than --warn. */
+.helper.directional .helper-line,
+.helper.spot .helper-line,
+.helper.point .helper-line { stroke: rgba(255, 214, 138, 0.42); }
+.helper.directional .helper-icon,
+.helper.spot .helper-icon,
+.helper.point .helper-icon { stroke: rgba(255, 214, 138, 0.85); }
+.helper.directional .helper-glyph,
+.helper.spot .helper-glyph,
+.helper.point .helper-glyph { fill: rgba(255, 214, 138, 0.95); }
+
+/* An ambient light has no direction and no position that matters, so it draws
+   no wireframe — only a mark, so it can still be found and selected. */
+.helper.ambient .helper-icon { stroke: rgba(255, 214, 138, 0.55); }
+.helper.ambient .helper-glyph { fill: rgba(255, 214, 138, 0.7); }
+
+.helper.on .helper-line { stroke: var(--accent); stroke-width: 1.5; }
+.helper.on .helper-icon { stroke: var(--accent); fill: var(--accent-bg); }
+
 /* --- 3D, and the finishes it unlocks ------------------------------------- */
 
 /* THE ONE BUTTON. Full width and primary, because it is the single most

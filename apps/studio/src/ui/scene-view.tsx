@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { childrenOf } from "@bracketx/engine-scene";
 import type { SceneDocument, SceneNode } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "../studio/session";
@@ -48,6 +49,14 @@ import {
 } from "../studio/viewport";
 import { SCENE_DRAG } from "../studio/place";
 import { cameraPosition, groundGrid, navigationGizmo } from "../studio/grid";
+import {
+  ICON_RADIUS,
+  helpers as helperGeometry,
+  pickHelper,
+  type Helper,
+  type HelperKind,
+  type HelperSource,
+} from "../studio/helpers";
 import {
   armLength,
   axisParameterAt,
@@ -418,6 +427,86 @@ export function SceneView({
   const ground = useMemo(
     () => (view === null || !dimensional ? [] : groundGrid(view, { extent: 24, spacing: 1 })),
     [view, dimensional],
+  );
+
+  /**
+   * The cameras and lights in the scene, ready to draw.
+   *
+   * Read from the PROJECTOR and the MIRROR — the descriptor the renderer was
+   * actually given, and the world matrix it was actually placed at — rather
+   * than re-derived from the document. A helper drawn from the document would
+   * be correct right up until layout or an animation moved the thing it
+   * describes, and would then quietly point at where the light used to be.
+   */
+  const helperSources = useMemo<readonly HelperSource[]>(() => {
+    if (view === null || !dimensional) return [];
+    const out: HelperSource[] = [];
+
+    for (const [nodeId, descriptor] of session.host.reconciler.projector.cameraFacts()) {
+      const world = session.worldMatrixOf(nodeId);
+      if (world === undefined) continue;
+      out.push({ nodeId, kind: "camera", world, descriptor });
+    }
+
+    // Lights have no `lightFacts()` reader, so their kind comes from the
+    // document — but their PLACEMENT still comes from the mirror, which is
+    // the half that moves.
+    const visit = (node: SceneNode): void => {
+      const light = (node.components ?? []).find(
+        (component) => component.type === "light",
+      );
+      if (light !== undefined) {
+        const world = session.worldMatrixOf(node.id);
+        const props = light.props as { kind?: unknown; angle?: unknown };
+        const kind: HelperKind =
+          props.kind === "ambient" ||
+          props.kind === "point" ||
+          props.kind === "spot"
+            ? props.kind
+            : "directional";
+        if (world !== undefined) {
+          out.push({
+            nodeId: node.id,
+            kind,
+            world,
+            ...(typeof props.angle === "number" ? { angle: props.angle } : {}),
+          });
+        }
+      }
+      for (const child of childrenOf(node)) visit(child);
+    };
+    visit(document_.root);
+    return out;
+    // `revision` is read so helpers follow an edit; `view` so they follow the
+    // camera.
+  }, [session, view, dimensional, document_, revision]);
+
+  /**
+   * The camera the viewport is currently looking THROUGH.
+   *
+   * Studio orbits the scene's own camera, so the editor view and the broadcast
+   * camera are one object. `cameraView` picks the first camera with a world
+   * matrix; this reads the same list the same way so the two cannot disagree
+   * about which one that is.
+   */
+  const activeCameraId = useMemo<string | null>(() => {
+    for (const [nodeId] of session.host.reconciler.projector.cameraFacts()) {
+      if (session.worldMatrixOf(nodeId) !== undefined) return nodeId;
+    }
+    return null;
+  }, [session, revision]);
+
+  const sceneHelpers = useMemo<readonly Helper[]>(
+    () =>
+      view === null || !dimensional
+        ? []
+        : helperGeometry(
+            view,
+            helperSources,
+            size.width / Math.max(1, size.height),
+            activeCameraId,
+          ),
+    [view, dimensional, helperSources, size.width, size.height, activeCameraId],
   );
 
   const compass = useMemo(
@@ -804,6 +893,25 @@ export function SceneView({
       }
     }
 
+    // A CAMERA OR A LIGHT, before anything with a surface.
+    //
+    // They have no bounds — nothing in `nodeBounds` describes them — so
+    // without this they are drawn, visibly, and cannot be selected. Checked
+    // FIRST because a light icon sitting over a plate must select the light:
+    // the plate can be reached anywhere else along its face, and the icon is
+    // the only place the light exists on screen.
+    if (dimensional) {
+      const helperHit = pickHelper(sceneHelpers, screenToCanvas(viewport, screen));
+      if (helperHit !== null && !lockedIds.has(helperHit)) {
+        onSelection(
+          event.shiftKey || event.metaKey || event.ctrlKey
+            ? toggle(selection, helperHit)
+            : selectOnly(helperHit),
+        );
+        return;
+      }
+    }
+
     const hit = pick(bounds, world);
     const pickable = hit !== null && !lockedIds.has(hit) ? hit : null;
 
@@ -1184,6 +1292,69 @@ export function SceneView({
           width={canvasExtent.x - canvasOrigin.x}
           height={canvasExtent.y - canvasOrigin.y}
         />
+
+        {/* ==============================================================
+            CAMERAS AND LIGHTS, VISIBLE AND SELECTABLE
+            ==============================================================
+            A 3D scene whose camera and lights cannot be seen is a 2D editor
+            with a renderer attached. These are the objects most often needed
+            and least often reachable — and an object you cannot see is one
+            you cannot click.
+
+            Chrome, never scene content: a frustum is not a mesh, a light icon
+            is not a graphic, and neither may ever reach air. Hidden in the
+            flat view, where the framing IS the canvas and a frustum would be
+            a box drawn around the thing it describes. */}
+        {sceneHelpers.map((helper) => {
+          const chosen = selection.ids.includes(helper.nodeId);
+          const screen = canvasToScreen(viewport, helper.at);
+          return (
+            <g
+              key={`helper-${helper.nodeId}`}
+              className={`helper ${helper.kind} ${chosen ? "on" : ""}`}
+              data-testid={`helper-${helper.kind}`}
+              data-node={helper.nodeId}
+            >
+              {helper.lines.map((line, index) => {
+                const a = canvasToScreen(viewport, line.a);
+                const b = canvasToScreen(viewport, line.b);
+                return (
+                  <line
+                    key={index}
+                    className="helper-line"
+                    x1={a.x}
+                    y1={a.y}
+                    x2={b.x}
+                    y2={b.y}
+                  />
+                );
+              })}
+              {/* The icon is the HIT TARGET as well as the mark. A frustum is
+                  mostly empty space; requiring a click on one of its lines
+                  would make the camera the hardest thing in the scene to
+                  select. */}
+              <circle
+                className="helper-icon"
+                cx={screen.x}
+                cy={screen.y}
+                r={ICON_RADIUS * 0.55}
+              />
+              {helper.kind === "camera" ? (
+                <polygon
+                  className="helper-glyph"
+                  points={`${screen.x - 3},${screen.y - 3} ${screen.x + 4},${screen.y} ${screen.x - 3},${screen.y + 3}`}
+                />
+              ) : (
+                <circle
+                  className="helper-glyph"
+                  cx={screen.x}
+                  cy={screen.y}
+                  r={2.6}
+                />
+              )}
+            </g>
+          );
+        })}
 
         {/* The flat grid and the safe areas are measured in CANVAS space, so
             in 3D they are not merely unwanted — they are drawn somewhere the
