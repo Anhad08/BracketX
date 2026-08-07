@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { StudioSession } from "../studio/session";
 import { nodeBounds } from "../studio/viewport";
@@ -66,80 +66,93 @@ export function ConfidenceStrip({
   const document_ = session.document;
   const tiles = useRef(new Map<string, HTMLCanvasElement>());
 
-  // Re-checked when the engine steps as well as when the document changes: a
-  // graphic whose entrance animates a name off the edge is only wrong for part
-  // of its timeline, and a strip that read the document alone would be green
-  // throughout.
-  //
-  // THROTTLED to the repaint rate rather than subscribed frame by frame. The
-  // engine steps sixty times a second; re-deriving world bounds for every node
-  // and re-checking five formats that often would cost more than the graphic.
-  // A check is as fresh as its picture, and no fresher.
+  /**
+   * Repainting is DEMAND-DRIVEN, not a loop.
+   *
+   * ========================================================================
+   * A LOOP HERE NEVER LETS THE EDITOR REACH A STILL FRAME
+   * ========================================================================
+   * The first version ran `requestAnimationFrame` forever and copied the
+   * scene canvas every 200ms. That is wrong twice over. Reading back a WebGL
+   * canvas forces the compositor to re-present it, so an idle editor — paused
+   * clock, untouched document, nothing moving — repainted five times a second
+   * for ever and never produced two identical frames. It cost GPU time on a
+   * still picture, and it meant no part of the product could ever say "the
+   * view has settled".
+   *
+   * It was found by a test that compares the stage to itself, which sat there
+   * taking twenty-five consecutive screenshots and finding all of them
+   * different. That test exists because of a bug the strip did not cause; it
+   * caught this one for free.
+   *
+   * So the strip repaints when the ENGINE SAYS SOMETHING CHANGED, throttled,
+   * and then stops. A paused scene reaches a still frame and stays there.
+   */
   const [, bump] = useState(0);
-  useEffect(() => {
-    let last = 0;
-    return session.subscribe(() => {
-      const now = performance.now();
-      if (now - last < REPAINT_MS) return;
-      last = now;
-      bump((value) => value + 1);
-    });
-  }, [session]);
-
   const bounds = nodeBounds(document_, (id) => session.worldMatrixOf(id));
   const facts = session.host.reconciler.projector.textFacts();
   const checks = checkFormats(document_, bounds, facts);
-  void revision;
 
-  // The paint loop reads the CURRENT checks without being torn down and rebuilt
-  // whenever they change identity — which is every render, and every render is
-  // every repaint.
+  // The painter reads the CURRENT checks without being rebuilt whenever they
+  // change identity — which is every render.
   const current = useRef(checks);
   current.current = checks;
 
-  // -- The picture ----------------------------------------------------------
-  useEffect(() => {
-    if (canvas === null) return;
-    let handle = 0;
-    let last = -Infinity;
+  const paint = useCallback(() => {
+    if (canvas === null || canvas.width === 0 || canvas.height === 0) return;
+    for (const check of current.current) {
+      const tile = tiles.current.get(check.format.id);
+      if (tile === undefined) continue;
+      const context = tile.getContext("2d");
+      if (context === null) continue;
 
-    const paint = (now: number) => {
-      handle = requestAnimationFrame(paint);
-      if (now - last < REPAINT_MS) return;
-      last = now;
-      if (canvas.width === 0 || canvas.height === 0) return;
-
-      for (const check of current.current) {
-        const tile = tiles.current.get(check.format.id);
-        if (tile === undefined) continue;
-        const context = tile.getContext("2d");
-        if (context === null) continue;
-
-        const { source, covers } = check.crop;
-        context.clearRect(0, 0, tile.width, tile.height);
-        const destinationWidth = tile.width * covers;
-        try {
-          context.drawImage(
-            canvas,
-            (canvas.width * (1 - source)) / 2,
-            0,
-            canvas.width * source,
-            canvas.height,
-            (tile.width - destinationWidth) / 2,
-            0,
-            destinationWidth,
-            tile.height,
-          );
-        } catch {
-          // A canvas that has not produced a frame yet throws rather than
-          // drawing nothing. The tile stays empty, which is the truth.
-        }
+      const { source, covers } = check.crop;
+      context.clearRect(0, 0, tile.width, tile.height);
+      const destinationWidth = tile.width * covers;
+      try {
+        context.drawImage(
+          canvas,
+          (canvas.width * (1 - source)) / 2,
+          0,
+          canvas.width * source,
+          canvas.height,
+          (tile.width - destinationWidth) / 2,
+          0,
+          destinationWidth,
+          tile.height,
+        );
+      } catch {
+        // A canvas that has not produced a frame yet throws rather than
+        // drawing nothing. The tile stays empty, which is the truth.
       }
+    }
+  }, [canvas]);
+
+  // The engine stepped, or the document changed. Coalesced onto one timer, so
+  // sixty notifications a second become one repaint every `REPAINT_MS` — and
+  // then silence, until something else happens.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const request = (): void => {
+      if (timer !== null) return;
+      timer = setTimeout(() => {
+        timer = null;
+        paint();
+        // Re-check on the same beat as the repaint. A graphic whose entrance
+        // animates a name off the edge is only wrong for part of its
+        // timeline, and a strip that read the document alone would be green
+        // throughout.
+        bump((value) => value + 1);
+      }, REPAINT_MS);
     };
 
-    handle = requestAnimationFrame(paint);
-    return () => cancelAnimationFrame(handle);
-  }, [canvas]);
+    request();
+    const stop = session.subscribe(request);
+    return () => {
+      stop();
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, [session, paint, revision]);
 
   const primary = primaryFormat(document_);
 

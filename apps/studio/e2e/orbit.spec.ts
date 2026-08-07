@@ -1,5 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ensureDepth } from "./depth";
+import { VIEW_TRANSITION_MS } from "../src/studio/views";
 
 /**
  * Orbit — the product's defining gesture, in the real application.
@@ -43,7 +44,7 @@ async function enterSpatial(page: Page, mode: string): Promise<void> {
   const button = page.getByTestId(`view-${mode}`);
   if ((await button.count()) === 0) {
     await page.getByTestId("dim-3d").click();
-    await settle(page);
+     await settle(page);
   }
   await page.getByTestId(`view-${mode}`).click();
   await settle(page);
@@ -57,7 +58,40 @@ async function enterSpatial(page: Page, mode: string): Promise<void> {
  * reading the camera has to let it arrive first.
  */
 async function settle(page: Page): Promise<void> {
-  await page.waitForTimeout(600);
+  // WAITS FOR THE CAMERA TO LAND, rather than for a number of milliseconds.
+  // The flight is 420ms of wall clock; a fixed 600ms wait passed alone and
+  // failed under a loaded suite, and the failure looked exactly like a
+  // product bug. `data-flying` says when it is moving, so this is a condition.
+  await expect(page.locator(".studio")).toHaveAttribute("data-flying", "no");
+  // One frame after landing, so the last `place` has painted.
+  await page.waitForTimeout(80);
+}
+
+/**
+ * A picture that has stopped changing.
+ *
+ * ==========================================================================
+ * A BASELINE HAS TO BE STABLE BEFORE IT CAN BE A BASELINE
+ * ==========================================================================
+ * The byte-exact comparison below is the assertion that found the
+ * checkerboard bug, and it is worth keeping exactly as strict as it is. What
+ * was wrong was the BASELINE: it was captured at first paint, while the
+ * browser was still compositing, so the test compared a settled picture
+ * against a half-settled one and reported a product bug that did not exist.
+ *
+ * Polling until two consecutive captures agree is the condition that "wait
+ * 600ms and hope" was standing in for. It does not relax the comparison — the
+ * caller still requires zero difference — it just makes both sides mean the
+ * same thing.
+ */
+async function stablePicture(locator: Locator): Promise<Buffer> {
+  let previous = await locator.screenshot();
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const next = await locator.screenshot();
+    if (Buffer.compare(previous, next) === 0) return next;
+    previous = next;
+  }
+  throw new Error("the picture never stopped changing");
 }
 
 test("orbiting turns the scene camera, and does not touch the history", async ({ page }) => {
@@ -215,8 +249,7 @@ test("a 3D object is really 3D: turning the camera changes what it looks like", 
     page.getByTestId("scene-view").screenshot();
 
   await page.getByTestId("dim-2d").click();
- await settle(page);
-  await page.waitForTimeout(400);
+     await settle(page);
   const front = await shot();
 
   await enterSpatial(page, "three-quarter");
@@ -338,18 +371,16 @@ test("the flat design chrome does not appear in the 3D viewport", async ({ page 
  */
 test("a trip to 3D and back leaves the picture unchanged", async ({ page }) => {
   await open3D(page);
-  await page.waitForTimeout(600);
+  await settle(page);
 
   const stage = page.getByTestId("scene-view");
-  const before = await stage.screenshot();
+  const before = await stablePicture(stage);
 
   await enterSpatial(page, "three-quarter");
-  await page.waitForTimeout(500);
   await page.getByTestId("dim-2d").click();
- await settle(page);
-  await page.waitForTimeout(700);
+  await settle(page);
 
-  const after = await stage.screenshot();
+  const after = await stablePicture(stage);
   expect(
     Buffer.compare(before, after),
     "returning to Front must restore the picture exactly, not approximately",
@@ -422,25 +453,49 @@ test("the dimension switch comes first, and the modes live inside 3D", async ({ 
  */
 test("switching dimension flies the camera rather than teleporting it", async ({ page }) => {
   await open3D(page);
+  await settle(page);
 
   const stage = page.getByTestId("scene-view");
-  const flat = await stage.screenshot();
+  // WHERE the camera starts, not what the picture looks like. The byte-exact
+  // picture claim belongs to the round-trip test above and is asserted there;
+  // this test's own claim — that the flight LANDS rather than approaches — is
+  // a claim about the camera, and reading the camera is how to make it.
+  //
+  // It was a screenshot taken at first paint, which is a race with whatever
+  // the browser is still compositing, and it failed as a picture bug when
+  // nothing about the picture was wrong.
+  const startedAt = await cameraPosition(page);
 
-  // Sample REPEATEDLY during the transition rather than at one chosen
-  // instant. A single timed sample is a race with the machine's load — mine
-  // passed alone and failed in a full suite, which is a flaky test and not a
-  // finding. Counting distinct pictures proves motion regardless of how fast
-  // the sampling happens to run.
+  // ==========================================================================
+  // MEASURED AS DURATION, NOT AS PIXELS, AND HERE IS WHY
+  // ==========================================================================
+  // Three versions of this tried to prove the flight by catching the picture
+  // mid-air. All three were races. A single element screenshot in this
+  // environment costs more wall clock than the whole 420ms flight, so however
+  // the sampling is arranged, at most one frame lands inside the window — and
+  // "one distinct picture" is exactly what a teleport looks like.
+  //
+  // So the claim is made where it can be made honestly: a flight OPENS a
+  // window, that window stays open for a substantial fraction of the
+  // transition, and then it closes. A teleport has no window at all. The
+  // picture claim is not dropped — the round-trip test above still requires
+  // byte-identical frames, which is what caught the checkerboard bug.
+  const clickedAt = Date.now();
   await page.getByTestId("dim-3d").click();
-  const frames = new Set<string>();
-  for (let i = 0; i < 6; i += 1) {
-    frames.add((await stage.screenshot()).toString("base64").slice(0, 512));
-    await page.waitForTimeout(40);
-  }
+  await expect(
+    page.locator(".studio"),
+    "a flight announces itself; a teleport never does",
+  ).toHaveAttribute("data-flying", "yes");
+  await expect(page.locator(".studio")).toHaveAttribute("data-flying", "no");
+  const elapsed = Date.now() - clickedAt;
+
+  // Half the nominal transition. Generous on purpose: the point is to fail on
+  // a JUMP — which would be a handful of milliseconds — not to police the
+  // easing curve, which `views.test.ts` owns.
   expect(
-    frames.size,
-    "a flight passes through intermediate positions; a jump has exactly one",
-  ).toBeGreaterThan(1);
+    elapsed,
+    "the camera arrived too fast to have travelled; that is a teleport",
+  ).toBeGreaterThan(VIEW_TRANSITION_MS / 2);
 
   await settle(page);
 
@@ -449,11 +504,11 @@ test("switching dimension flies the camera rather than teleporting it", async ({
   // square-on after a few switches.
   await page.getByTestId("dim-2d").click();
   await settle(page);
-  const back = await stage.screenshot();
+  const landedAt = await cameraPosition(page);
   expect(
-    Buffer.compare(flat, back),
-    "returning to 2D must restore the picture exactly",
-  ).toBe(0);
+    landedAt,
+    "easing that merely approaches its target leaves the camera a fraction off",
+  ).toEqual(startedAt);
 });
 
 test("the scene survives switching, whatever is in it", async ({ page }) => {
@@ -466,11 +521,9 @@ test("the scene survives switching, whatever is in it", async ({ page }) => {
 
   for (let i = 0; i < 3; i += 1) {
     await page.getByTestId("dim-3d").click();
-   await settle(page);
-    await page.waitForTimeout(550);
+     await settle(page);
     await page.getByTestId("dim-2d").click();
-   await settle(page);
-    await page.waitForTimeout(550);
+     await settle(page);
   }
 
   // Everything came with it, and nothing was recorded as work.

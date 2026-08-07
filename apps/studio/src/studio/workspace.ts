@@ -78,38 +78,70 @@ export const BOTTOM_PANELS = ["timeline", "presets", "variables", "library"] as 
 export type BottomPanel = (typeof BOTTOM_PANELS)[number];
 
 /**
- * The three depths. A panel belongs to exactly one.
+ * TWO LEVELS. Not three depths.
  *
- * Advanced is deliberately NOT "developer mode" — that reveals the engine's
- * diagnostics, which is a different axis. A colourist working on materials is
- * an advanced user, not a developer.
+ * ==========================================================================
+ * WHY THIS WENT FROM THREE TO TWO
+ * ==========================================================================
+ * Studio had beginner / designer / advanced, and the control CYCLED through
+ * them. Three states on a toggle means a person pressing it cannot predict
+ * where they will land, and the middle one had no honest description — every
+ * attempt to write the footer for "designer" came out as "some of the things".
+ *
+ * The prototype has one class on the root and two states:
+ *
+ *     .expert-only   { display: none; }
+ *     .app.expert .expert-only { display: block; }
+ *
+ * Beginner sees the content of the graphic. Expert sees how it is built. One
+ * key moves between them, in both directions, and the footer can state the
+ * bargain in a sentence because there are only two sides to it.
+ *
+ * `Depth` keeps its name so nothing has to be renamed to be understood, but
+ * it is a LEVEL now and there are two of them.
  */
-export type Depth = "beginner" | "designer" | "advanced";
+export type Depth = "beginner" | "expert";
 
-export const DEPTHS: readonly Depth[] = ["beginner", "designer", "advanced"];
+export const DEPTHS: readonly Depth[] = ["beginner", "expert"];
 
-/** Which docks a depth may show. Volume Two W9. */
+/**
+ * What a level reveals.
+ *
+ * ==========================================================================
+ * ONE DOCK, AND A TIMELINE THAT IS SUMMONED
+ * ==========================================================================
+ * There were three docks — construction on the left, content on the right,
+ * timeline underneath — which is the shape of an IDE, not of the specimen.
+ * The prototype is `.spine │ .rail │ .stage │ .dock`: ONE dock, on the right,
+ * with Layers and Content stacked inside it and Content always first.
+ *
+ * The timeline is the exception, and it is the one Volume Two W9 already
+ * names: a Designer gets "the navigator, the inspector and the SUMMONED
+ * timeline". Summoned, not resident. It needs width that a 320px column does
+ * not have, and it is only wanted while somebody is timing something — so it
+ * opens across the bottom when asked for and is closed the rest of the time.
+ */
 export function docksAt(depth: Depth): {
-  readonly left: boolean;
-  readonly bottom: boolean;
-  readonly right: boolean;
+  /** The one dock. Always present: a graphic with no properties is not one. */
+  readonly dock: boolean;
+  /** Layers, Properties and the create tools, inside that dock. */
+  readonly construction: boolean;
+  /** The timeline may be summoned. */
+  readonly timeline: boolean;
 } {
   return {
-    // The toolbox and the layer tree are construction. A beginner edits
-    // content, and the component surface is the whole of their interface.
-    left: depth !== "beginner",
-    // The timeline is a view of what a motion preset generated — nobody needs
-    // it to CHOOSE one, which is why a beginner never sees it. A Designer does:
-    // Volume Two W9 gives them "the navigator, the inspector and the summoned
-    // timeline", and the bottom dock is also where Data and Templates live.
-    bottom: depth !== "beginner",
-    right: true,
+    dock: true,
+    // The layer tree and the create tools are construction. A beginner edits
+    // the content of a graphic somebody else built, and the content surface
+    // is the whole of their interface.
+    construction: depth === "expert",
+    timeline: depth === "expert",
   };
 }
 
 /** True when a control that names an engine concept may be shown. */
 export function revealsEngine(depth: Depth): boolean {
-  return depth === "advanced";
+  return depth === "expert";
 }
 
 export interface Workspace {
@@ -211,7 +243,8 @@ export const DEFAULT_WORKSPACE: Workspace = {
   bottomHeight: 220,
   leftOpen: true,
   rightOpen: true,
-  bottomOpen: true,
+  // SUMMONED, not resident. Closed until somebody asks for it (⌥T).
+  bottomOpen: false,
   bottomExpanded: ["timeline"],
   programOpen: false,
   timelineZoom: 1,
@@ -273,8 +306,10 @@ function sanitize(value: unknown): Workspace {
         ? (raw.section as Section)
         : "home",
     developerMode: bool("developerMode"),
-    // An unknown depth falls back to beginner rather than to the deepest one:
-    // a corrupt preference must never reveal more than the user chose.
+    // An unknown level falls back to beginner rather than to the deeper one:
+    // a corrupt preference must never reveal more than the user chose. This
+    // also catches the retired three-depth values — a stored "designer" or
+    // "advanced" lands on beginner, and one ⌥E puts it back.
     depth: DEPTHS.includes(raw.depth as Depth) ? (raw.depth as Depth) : "beginner",
     // The free tier is always present, even if a stored list dropped it: a
     // corrupt preference must not take a user's starter content away.

@@ -133,8 +133,7 @@ test("no engine terminology is visible with Developer Mode off", async ({ page }
   // tabs — Volume Two refuses tabbing — so each is expanded and then
   // collapsed again, which also proves opening one does not conceal another.
   for (const name of ["Timeline", "Motion", "Data", "Templates"]) {
-    const head = page.locator(".dock-heads").getByRole("button", { name, exact: true });
-    if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+    await openPanel(page, name);
     const editor = (await page.locator(".body").innerText()).toLowerCase();
     for (const term of forbidden) {
       expect(editor, `the editor (${name}) leaked "${term}"`).not.toContain(term);

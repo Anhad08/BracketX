@@ -307,7 +307,25 @@ button, input, select { font: inherit; color: inherit; }
    chance while the dock was happy to grow. */
 .dock.left { border-right: 1px solid var(--line); overflow: hidden; flex: none; }
 .panel.toolbox { max-height: 46%; overflow-y: auto; }
-.dock.right { border-left: 1px solid var(--line); overflow-y: auto; flex: none; }
+/* THE ONE DOCK. A column that CONSTRAINS: the body scrolls, the foot does
+   not, and each panel inside owns its own overflow. When the dock itself
+   scrolled, a tall panel pushed the ones under it off the bottom — and a
+   panel you cannot reach is a panel you did not know you had. */
+.dock.right {
+  border-left: 1px solid var(--line); flex: none;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.dock-body { flex: 1; min-height: 0; overflow-y: auto; }
+/* The layer tree gets a share of the dock and scrolls inside it, rather than
+   growing to its content and pushing Properties and Create out of sight. */
+.dock.right .panel.hierarchy { flex: none; }
+.dock.right .panel.hierarchy .outline { max-height: 34vh; }
+.dock.right .panel.inspector { flex: none; overflow: visible; }
+.dock-foot {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 8px 10px; border-top: 1px solid var(--line);
+  background: var(--panel-hi); font-size: 11px; color: var(--dim);
+}
 .dock.bottom { border-top: 1px solid var(--line); overflow: hidden; flex: none; }
 .stage { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 

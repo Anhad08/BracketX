@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureDepth } from "./depth";
+import { ensureDepth, openPanel } from "./depth";
 
 /**
  * Studio authoring, in a browser.
@@ -55,10 +55,8 @@ async function depth(page: Page): Promise<number> {
  * caller wanting to USE the panel means.
  */
 async function tab(page: Page, name: string): Promise<void> {
-  // Scoped to the dock: "Templates" is also a rail destination, and an
-  // unscoped lookup matches both.
-  const head = page.locator(".dock-heads").getByRole("button", { name, exact: true });
-  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+  // The shared helper, which also SUMMONS the dock — it is no longer resident.
+  await openPanel(page, name);
 }
 
 // ---------------------------------------------------------------------------

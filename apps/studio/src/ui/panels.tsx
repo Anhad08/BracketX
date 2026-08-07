@@ -1256,25 +1256,11 @@ export function Content({
         )}
       </div>
 
-      <div className="depth-foot" data-testid="depth">
-        <span className="depth-label">
-          {depth === "beginner" ? "Content only" : depth === "designer" ? "Layers and properties" : "Everything"}
-        </span>
-        <button
-          type="button"
-          className="depth-toggle"
-          data-testid="depth-toggle"
-          onClick={() => onDepth(depth === "beginner" ? "designer" : depth === "designer" ? "advanced" : "beginner")}
-        >
-          {depth === "beginner" ? "Show the design" : depth === "designer" ? "Show everything" : "Back to content"}
-          <span className="kbd-inline">⌥E</span>
-        </button>
-      </div>
     </section>
   );
 }
 
-/** The entrances a beginner chooses from. Exits and emphasis are Designer-depth. */
+/** The entrances a beginner chooses from. Exits and emphasis are expert. */
 const ENTRANCES: readonly AnimationPreset[] = PRESETS.filter(
   (p) => p.kind === "entrance",
 ).slice(0, 5);
@@ -1287,4 +1273,52 @@ const ENTRANCES: readonly AnimationPreset[] = PRESETS.filter(
  */
 function topLevelIds(document_: SceneDocument): readonly string[] {
   return (document_.root.children ?? []).map((child) => child.id);
+}
+
+/**
+ * The dock's foot.
+ *
+ * ==========================================================================
+ * IT BELONGS TO THE DOCK, NOT TO A PANEL INSIDE IT
+ * ==========================================================================
+ * This lived at the bottom of the Content panel, which was fine while Content
+ * was the whole dock and absurd the moment Layers and Properties appeared
+ * under it: the sentence that describes the WHOLE dock sat halfway down it,
+ * with two more panels below saying nothing.
+ *
+ * The prototype puts a rule and a hint at the foot of the dock, once, and it
+ * states the bargain in one line that differs by side. A toggle with two
+ * states can do that; the three-state version could not, because every
+ * attempt to write the middle one came out as "some of the things".
+ */
+export function LevelFoot({
+  depth,
+  onDepth,
+}: {
+  readonly depth: Depth;
+  readonly onDepth: (depth: Depth) => void;
+}) {
+  return (
+    <div className="dock-foot" data-testid="depth">
+      <span className="depth-label">
+        {depth === "beginner"
+          ? "Everything else is decided for you."
+          : "Layers, properties and frames."}
+      </span>
+      <button
+        type="button"
+        className="depth-toggle"
+        data-testid="depth-toggle"
+        title={
+          depth === "beginner"
+            ? "Show how this graphic is built"
+            : "Hide everything but the content"
+        }
+        onClick={() => onDepth(depth === "beginner" ? "expert" : "beginner")}
+      >
+        {depth === "beginner" ? "See how" : "Hide"}
+        <span className="kbd-inline">⌥E</span>
+      </button>
+    </div>
+  );
 }

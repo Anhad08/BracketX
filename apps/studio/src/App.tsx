@@ -72,7 +72,7 @@ import {
 } from "./studio/library";
 import { SceneView } from "./ui/scene-view";
 import { ConfidenceStrip } from "./ui/confidence";
-import { Content, Hierarchy, Inspector, Toolbox, Variables } from "./ui/panels";
+import { Content, Hierarchy, Inspector, LevelFoot, Toolbox, Variables } from "./ui/panels";
 import { TimelineEditor } from "./ui/timeline";
 import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
 import { ProgramRow } from "./ui/program";
@@ -297,9 +297,12 @@ export function App() {
   const profile = profileFor(device);
   const docks = docksAt(workspace.depth);
   const shows = {
-    left: docks.left && profile.canDock,
-    bottom: docks.bottom && profile.canDock,
-    right: docks.right,
+    // Construction — layers, properties, the create tools — lives INSIDE the
+    // one dock now. There is no left dock; the prototype has one column and
+    // Studio had three, which is the shape of an IDE rather than of a product.
+    construction: docks.construction && profile.canDock,
+    timeline: docks.timeline && profile.canDock,
+    dock: docks.dock,
   };
 
   /**
@@ -1249,6 +1252,37 @@ export function App() {
         shortcut: shortcutFor(id),
         run: () => update({ [key]: !workspace[key] } as Partial<Workspace>),
       })),
+
+      // THE ONE KEY THAT MOVES BETWEEN THE TWO LEVELS, both directions.
+      {
+        id: "view.expert",
+        title: workspace.depth === "beginner" ? "See how it is built" : "Hide the design",
+        section: "View" as const,
+        hint:
+          workspace.depth === "beginner"
+            ? "Layers, properties and the create tools"
+            : "Back to the content of the graphic",
+        keywords: ["expert", "beginner", "level", "advanced", "reveal"],
+        shortcut: shortcutFor("view.expert"),
+        run: () =>
+          update({ depth: workspace.depth === "beginner" ? "expert" : "beginner" }),
+      },
+      {
+        id: "view.timeline",
+        title: workspace.bottomOpen ? "Hide the timeline" : "Show the timeline",
+        section: "View" as const,
+        hint: "Keyframes and timing, across the bottom",
+        keywords: ["keyframes", "timing", "animate"],
+        shortcut: shortcutFor("view.timeline"),
+        // Summoning the timeline from beginner reveals the level that HAS one,
+        // rather than silently doing nothing. A shortcut that no-ops is a
+        // shortcut people stop trusting.
+        run: () =>
+          update({
+            bottomOpen: !workspace.bottomOpen,
+            ...(workspace.bottomOpen ? {} : { depth: "expert" as const }),
+          }),
+      },
       {
         id: "transport.toggle",
         title: session.playing ? "Pause" : "Play",
@@ -1340,6 +1374,8 @@ export function App() {
    * without also re-framing.
    */
   const flight = useRef(0);
+  /** True while the camera is in flight between two views. */
+  const [flying, setFlying] = useState(false);
   const setView = useCallback(
     (view: NamedView) => {
       if (session === null || cameraOrbit === null) return;
@@ -1376,9 +1412,18 @@ export function App() {
         Math.abs(from.elevation - to.elevation) < 1e-4
       ) {
         place(to);
+        setFlying(false);
         return;
       }
 
+      // ANNOUNCED, so nothing has to guess how long it took.
+      //
+      // The flight is 420ms of wall clock, and a test that waited "600ms and
+      // probably fine" passed alone and failed in a loaded suite — which is
+      // the worst kind of test, because the failure looks like a product bug.
+      // Saying when the camera is moving costs one boolean and turns a race
+      // into a condition.
+      setFlying(true);
       const started = performance.now();
       const step = (now: number): void => {
         const t = Math.min(1, (now - started) / VIEW_TRANSITION_MS);
@@ -1386,8 +1431,12 @@ export function App() {
         // The LAST frame lands on the target exactly. Easing that merely
         // approaches it leaves the camera a fraction off, so "2D" would stop
         // meaning square-on after a few switches.
-        if (t < 1) flight.current = requestAnimationFrame(step);
-        else place(to);
+        if (t < 1) {
+          flight.current = requestAnimationFrame(step);
+        } else {
+          place(to);
+          setFlying(false);
+        }
       };
       flight.current = requestAnimationFrame(step);
     },
@@ -1704,6 +1753,7 @@ export function App() {
       className="studio"
       data-section={section}
       data-depth={workspace.depth}
+      data-flying={flying ? "yes" : "no"}
       data-device={profile.deviceClass}
       data-authoring={profile.canAuthor ? "yes" : "no"}
       data-touch={profile.touchTargets ? "yes" : "no"}
@@ -1805,51 +1855,6 @@ export function App() {
       ) : (
       <>
       <div className="body">
-        {workspace.leftOpen && shows.left ? (
-          <aside className="dock left" style={{ width: workspace.leftWidth }}>
-            <Toolbox
-              onCreate={create}
-              installed={installed}
-              onPlaceScene={(templateId) => placeTemplate(templateId)}
-            />
-            <Hierarchy
-              session={session}
-              selection={selection}
-              onSelection={setSelection}
-              expanded={expanded}
-              onExpanded={setExpanded}
-              locked={locked}
-              onToggleLock={(nodeId) =>
-                setLocked((current) => {
-                  const next = new Set(current);
-                  if (next.has(nodeId)) next.delete(nodeId);
-                  else next.add(nodeId);
-                  return next;
-                })
-              }
-              onMove={(nodeId, parentId, index) =>
-                edit(moveNode(document_, nodeId, parentId, index))
-              }
-              onRename={(nodeId, name) => edit(renameNode(document_, nodeId, name))}
-              onToggleVisible={(nodeId) =>
-                edit(
-                  setProp(
-                    document_,
-                    nodeId,
-                    "visible",
-                    findNode(document_.root, nodeId)?.visible === false,
-                    "Toggle visibility",
-                  ),
-                )
-              }
-            />
-            <Divider
-              axis="x"
-              onDelta={(delta) => update({ leftWidth: workspace.leftWidth + delta })}
-            />
-          </aside>
-        ) : null}
-
         <main className="stage">
           <div className="viewport-toolbar" data-testid="viewport-toolbar">
             {/* THE TRANSPORT, at the depth that needs it.
@@ -1968,8 +1973,10 @@ export function App() {
                   ["showGuides", "Guides"],
                   ["showRulers", "Rulers"],
                   ["snapEnabled", "Snap"],
-                  // Debug names the engine. Advanced only.
-                  ...(workspace.depth === "advanced"
+                  // Debug names the engine, so it needs Developer Mode as
+                  // well as expert — the two are different axes and a
+                  // colourist working on materials is neither.
+                  ...(workspace.developerMode
                     ? ([["showDebug", "Debug"]] as const)
                     : []),
                 ] as const)
@@ -1989,7 +1996,7 @@ export function App() {
 
           {/* Align, distribute, group. All operate on a selection, and a
               beginner has no selection because they have no layer tree. */}
-          {shows.left ? (
+          {shows.construction ? (
             <ArrangeBar
               session={session}
               selection={selection}
@@ -2051,7 +2058,7 @@ export function App() {
               design act, and a control that starts a transmission has no
               business beside one that nudges a rectangle. */}
 
-          {workspace.bottomOpen && shows.bottom ? (
+          {workspace.bottomOpen && shows.timeline ? (
             <>
               <Divider
                 axis="y"
@@ -2149,6 +2156,25 @@ export function App() {
               axis="x"
               onDelta={(delta) => update({ rightWidth: workspace.rightWidth - delta })}
             />
+            {/* The BODY scrolls; the foot does not. A hint that describes the
+                whole dock has to stay visible while the dock is scrolled, or
+                it is a hint about whatever happens to be above it. */}
+            <div className="dock-body">
+            {/* ==============================================================
+                ONE DOCK, IN THE ORDER THE PROTOTYPE PUTS IT
+                ==============================================================
+                  [expert]  Layers
+                            Content       Name · Role · Logo
+                            Look          Colour · Entrance
+                  [expert]  Properties
+                  [expert]  Create
+                            ----------------------------------------
+                            the foot, which states the bargain
+
+                Content is ALWAYS FIRST, above the layer tree, because the
+                thing a person came to change is the thing in the graphic —
+                not the structure that holds it. Studio had that backwards
+                for as long as it had a left dock. */}
             <Content
               session={session}
               assets={assets}
@@ -2164,19 +2190,59 @@ export function App() {
               onDepth={(depth) => update({ depth })}
               onEdit={edit}
             />
-            {/* Properties is a Designer panel. Showing it at beginner depth
-                put `nod_iyt0000v`, position z and scale x in front of someone
-                whose panel footer said "Content only" — the interface
-                contradicting itself, and every engine term in it a bug. */}
-            {workspace.depth === "beginner" ? null : (
-              <Inspector
-                session={session}
-                selection={selection}
-                onEdit={edit}
-                ids={ids}
-                developerMode={workspace.developerMode}
-              />
-            )}
+            {shows.construction ? (
+              <>
+                <Hierarchy
+                  session={session}
+                  selection={selection}
+                  onSelection={setSelection}
+                  expanded={expanded}
+                  onExpanded={setExpanded}
+                  locked={locked}
+                  onToggleLock={(nodeId) =>
+                    setLocked((current) => {
+                      const next = new Set(current);
+                      if (next.has(nodeId)) next.delete(nodeId);
+                      else next.add(nodeId);
+                      return next;
+                    })
+                  }
+                  onMove={(nodeId, parentId, index) =>
+                    edit(moveNode(document_, nodeId, parentId, index))
+                  }
+                  onRename={(nodeId, name) => edit(renameNode(document_, nodeId, name))}
+                  onToggleVisible={(nodeId) =>
+                    edit(
+                      setProp(
+                        document_,
+                        nodeId,
+                        "visible",
+                        findNode(document_.root, nodeId)?.visible === false,
+                        "Toggle visibility",
+                      ),
+                    )
+                  }
+                />
+                {/* Properties is expert. Showing it at beginner put a node id,
+                    position z and scale x in front of somebody whose panel
+                    footer said "Content only" — the interface contradicting
+                    itself, and every engine term in it a bug. */}
+                <Inspector
+                  session={session}
+                  selection={selection}
+                  onEdit={edit}
+                  ids={ids}
+                  developerMode={workspace.developerMode}
+                />
+                <Toolbox
+                  onCreate={create}
+                  installed={installed}
+                  onPlaceScene={(templateId) => placeTemplate(templateId)}
+                />
+              </>
+            ) : null}
+            </div>
+            <LevelFoot depth={workspace.depth} onDepth={(depth) => update({ depth })} />
           </aside>
         ) : null}
       </div>

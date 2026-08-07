@@ -1,40 +1,48 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
- * Reveals Studio to at least the depth a test needs.
+ * Reveals Studio to at least the level a test needs.
  *
- * Studio opens at BEGINNER depth (Volume One L9) and the control CYCLES —
- * beginner → designer → advanced → beginner. Tests that clicked it a fixed
- * number of times therefore cycled back to beginner and lost the panels they
- * had just revealed, which is exactly what happened to the walkthrough.
+ * TWO LEVELS now, not three depths, and the toggle no longer cycles — so this
+ * is a single conditional click rather than a guarded loop. It still READS the
+ * level rather than counting clicks, because a test that assumes where a
+ * toggle starts is a test that breaks the day the default changes.
  *
- * Reading the depth instead of counting clicks is also the honest thing: this
- * is the user asking for their tools, not a test poking a toggle.
+ * `"designer"` and `"advanced"` are accepted and both mean `expert`. Keeping
+ * the old words working was the difference between this change and a rewrite
+ * of fourteen spec files, and every one of them means "reveal the tools".
  */
 export async function ensureDepth(
   page: Page,
-  wanted: "designer" | "advanced",
+  wanted: "designer" | "advanced" | "expert",
 ): Promise<void> {
-  const order = ["beginner", "designer", "advanced"];
-  for (let guard = 0; guard < 4; guard += 1) {
-    const current = (await page.locator(".studio").getAttribute("data-depth")) ?? "beginner";
-    if (order.indexOf(current) >= order.indexOf(wanted)) return;
-    await page.getByTestId("depth-toggle").click();
-    await page.waitForTimeout(150);
-  }
-  await expect(page.locator(".studio")).toHaveAttribute("data-depth", wanted);
+  void wanted;
+  const current = (await page.locator(".studio").getAttribute("data-depth")) ?? "beginner";
+  if (current === "expert") return;
+  await page.getByTestId("depth-toggle").click();
+  await expect(page.locator(".studio")).toHaveAttribute("data-depth", "expert");
 }
 
 /**
- * Opens a bottom-dock panel by its visible name.
+ * Opens a panel in the summoned timeline dock, by its visible name.
  *
  * They are headers, not tabs — Volume Two refuses tabbing — so this expands a
  * collapsed panel and leaves an open one alone, which is what a caller wanting
  * to USE the panel means. Scoped to the dock because "Templates" is also a
  * rail destination and an unscoped lookup matches both.
+ *
+ * The dock itself is SUMMONED now rather than resident: it needs width a 320px
+ * column does not have, and it is only wanted while somebody is timing
+ * something. So this summons it first, the same way a person would (⌥T), which
+ * also reveals the expert level that has one.
  */
 export async function openPanel(page: Page, name: string): Promise<void> {
-  const head = page.locator(".dock-heads").getByRole("button", { name, exact: true });
+  const heads = page.locator(".dock-heads");
+  if ((await heads.count()) === 0) {
+    await page.keyboard.press("Alt+t");
+    await expect(heads).toBeVisible();
+  }
+  const head = heads.getByRole("button", { name, exact: true });
   if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
 }
 

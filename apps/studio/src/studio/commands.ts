@@ -130,6 +130,15 @@ export const KEYMAP: readonly KeyBinding[] = [
   // This is flagged rather than buried, so that the day the prototype resolves
   // its own contradiction, the code is found.
   { id: "air.cue", key: "c", label: "C", description: "Cue — arm for the next take" },
+  // ==========================================================================
+  // THE TWO LEVELS
+  // ==========================================================================
+  // One key, BOTH directions. A toggle you can only travel one way along is
+  // how somebody ends up at a depth they did not choose and cannot leave.
+  // `whileTyping`, because the prototype allows it and it is safe: changing
+  // what is revealed cannot lose a keystroke.
+  { id: "view.expert", key: "e", alt: true, label: "⌥E", description: "Show how it is built", whileTyping: true },
+  { id: "view.timeline", key: "t", alt: true, label: "⌥T", description: "Summon the timeline" },
   { id: "help.keys", key: "?", shift: true, label: "?", description: "Keyboard reference" },
 ];
 

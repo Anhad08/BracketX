@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ensureDepth, goLive } from "./depth";
+import { ensureDepth, openPanel, goLive } from "./depth";
 
 /**
  * What each kind of machine offers.
@@ -104,6 +104,10 @@ test("the bottom dock has no tabs, and panels do not hide each other", async ({ 
   // No tab role anywhere in the product.
   await expect(page.getByRole("tab")).toHaveCount(0);
   await expect(page.getByRole("tablist")).toHaveCount(0);
+
+  // The timeline dock is SUMMONED rather than resident — it needs width the
+  // one dock does not have. Once summoned, the rule below still holds.
+  await openPanel(page, "Timeline");
 
   // Every panel is PRESENT, and says whether it is open.
   for (const panel of ["timeline", "presets", "variables", "library"]) {
