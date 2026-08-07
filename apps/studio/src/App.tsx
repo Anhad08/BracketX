@@ -4,6 +4,7 @@ import type { ImageProvider, TextProvider } from "@bracketx/engine-reconciler";
 import { findNode, type SceneDocument, type SceneNode, type Transaction } from "@bracketx/engine-scene";
 
 import { StudioSession } from "./studio/session";
+import { GIZMO_MODES } from "./studio/spin";
 import {
   EMPTY_SELECTION,
   primaryOf,
@@ -846,6 +847,35 @@ export function App() {
     [session],
   );
 
+  /**
+   * Where the camera is standing, in the terms the view control speaks.
+   *
+   * Recovered from the camera's position each render rather than remembered,
+   * so orbiting away from a view un-highlights it. A remembered "current
+   * view" would keep claiming Front long after the camera had left it, which
+   * is the state where a graphic quietly stops being pixel-accurate.
+   */
+  const cameraOrbit = useMemo(() => {
+    if (session === null) return null;
+    const camera = findCameraNode(session.document);
+    if (camera === null) return null;
+    const [x, y, z] = camera.transform?.position ?? [0, 0, 10];
+    return { node: camera, orbit: orbitOf({ x, y, z }, ORIGIN) };
+  }, [session, revision]);
+
+  const currentView = cameraOrbit === null ? null : viewOf(cameraOrbit.orbit);
+  /**
+   * Is the scene being worked in space?
+   *
+   * Derived from where the camera IS, never remembered — so orbiting away
+   * from Front puts the product in 3D without anybody pressing anything, and
+   * returning to Front puts it back. The switch reports the truth rather than
+   * asserting it.
+   */
+  const spatial =
+    cameraOrbit !== null &&
+    (Math.abs(cameraOrbit.orbit.azimuth) > 0.01 || Math.abs(cameraOrbit.orbit.elevation) > 0.01);
+
   // -- Commands -------------------------------------------------------------
 
   const commands = useMemo<readonly StudioCommand[]>(() => {
@@ -1266,6 +1296,25 @@ export function App() {
         run: () => update({ [key]: !workspace[key] } as Partial<Workspace>),
       })),
 
+      // THE THREE TRANSFORMS. Declared here like everything else, so G, R and
+      // S are searchable in the palette and appear in the keyboard reference
+      // rather than being folklore a 3D person happens to try.
+      //
+      // `enabled` follows the viewport: in the flat view there is one plane and
+      // the box handles already offer all three, so a mode switch there would
+      // change nothing visible — a control that appears to do nothing is worse
+      // than one that says it does not apply.
+      ...GIZMO_MODES.map((mode) => ({
+        id: `gizmo.${mode.id}`,
+        title: mode.label,
+        section: "Arrange" as const,
+        hint: mode.hint,
+        shortcut: shortcutFor(`gizmo.${mode.id}`),
+        enabled: spatial,
+        keywords: ["gizmo", "transform", "tool"],
+        run: () => update({ gizmoMode: mode.id }),
+      })),
+
       // THE ONE KEY THAT MOVES BETWEEN THE TWO LEVELS, both directions.
       {
         id: "view.expert",
@@ -1350,35 +1399,6 @@ export function App() {
    * system, and the first place the two disagreed would be a bug report
    * nobody could reproduce.
    */
-  /**
-   * Where the camera is standing, in the terms the view control speaks.
-   *
-   * Recovered from the camera's position each render rather than remembered,
-   * so orbiting away from a view un-highlights it. A remembered "current
-   * view" would keep claiming Front long after the camera had left it, which
-   * is the state where a graphic quietly stops being pixel-accurate.
-   */
-  const cameraOrbit = useMemo(() => {
-    if (session === null) return null;
-    const camera = findCameraNode(session.document);
-    if (camera === null) return null;
-    const [x, y, z] = camera.transform?.position ?? [0, 0, 10];
-    return { node: camera, orbit: orbitOf({ x, y, z }, ORIGIN) };
-  }, [session, revision]);
-
-  const currentView = cameraOrbit === null ? null : viewOf(cameraOrbit.orbit);
-  /**
-   * Is the scene being worked in space?
-   *
-   * Derived from where the camera IS, never remembered — so orbiting away
-   * from Front puts the product in 3D without anybody pressing anything, and
-   * returning to Front puts it back. The switch reports the truth rather than
-   * asserting it.
-   */
-  const spatial =
-    cameraOrbit !== null &&
-    (Math.abs(cameraOrbit.orbit.azimuth) > 0.01 || Math.abs(cameraOrbit.orbit.elevation) > 0.01);
-
   /**
    * Moves the scene camera to a named view.
    *
@@ -1971,6 +1991,31 @@ export function App() {
                 </span>
               ) : null}
             </span>
+
+            {/* MOVE, ROTATE, SCALE. In space there are three transforms and a
+                pointer with two dimensions, so the tool has to say which one
+                a drag means before the drag starts.
+
+                Only in 3D. Square-on there is one plane and the box handles
+                already offer all three, so a switcher there would be three
+                buttons that change nothing. */}
+            {spatial ? (
+              <span className="seg" role="group" aria-label="Transform" data-testid="gizmo-modes">
+                {GIZMO_MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    className={`chip ${workspace.gizmoMode === mode.id ? "on" : ""}`}
+                    data-testid={`gizmo-${mode.id}`}
+                    aria-pressed={workspace.gizmoMode === mode.id}
+                    title={`${mode.hint} (${mode.key})`}
+                    onClick={() => update({ gizmoMode: mode.id })}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </span>
+            ) : null}
 
             <button type="button" className="chip" onClick={() => setFitToken((v) => v + 1)}>
               Fit

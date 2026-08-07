@@ -439,15 +439,28 @@ export function Inspector({ session, selection, onEdit, developerMode }: Inspect
             }
           />
         ))}
-        <NumberField
-          label="rotation z"
-          value={rotation[2] ?? 0}
-          step={1}
-          onCommit={(next) =>
-            set("transform.rotation", [rotation[0] ?? 0, rotation[1] ?? 0, next], "Rotate")
-          }
-        />
-        {(["x", "y"] as const).map((axis, index) => (
+        {/* ALL THREE, for rotation and for scale.
+            It was rotation Z and scale X and Y — the two the flat editor's box
+            handles could reach. The gizmo now turns about any axis and
+            stretches along any axis, and a value a designer can change with the
+            pointer but cannot read or type is a value they cannot check
+            against a brand sheet. */}
+        {(["x", "y", "z"] as const).map((axis, index) => (
+          <NumberField
+            key={`r${axis}`}
+            label={`rotation ${axis}`}
+            value={rotation[index] ?? 0}
+            step={1}
+            onCommit={(next) =>
+              set(
+                "transform.rotation",
+                rotation.map((value, i) => (i === index ? next : value)),
+                "Rotate",
+              )
+            }
+          />
+        ))}
+        {(["x", "y", "z"] as const).map((axis, index) => (
           <NumberField
             key={`s${axis}`}
             label={`scale ${axis}`}

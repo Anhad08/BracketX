@@ -14,6 +14,7 @@
 import { SECTIONS, type Section } from "./shell";
 import type { QualityChoice } from "./quality";
 import type { RendererChoice } from "./renderer";
+import type { GizmoMode } from "./spin";
 
 /**
  * Bumped to v2 in Phase 4: the shape gained a section, a mode and installed
@@ -234,6 +235,15 @@ export interface Workspace {
   readonly snapEnabled: boolean;
   /** World units between grid lines. */
   readonly gridStep: number;
+  /**
+   * Which transform the spatial gizmo is offering: move, rotate or scale.
+   *
+   * A preference rather than a per-selection state, because it is a TOOL — the
+   * same distinction a paintbrush has from a canvas. Somebody positioning a set
+   * spends an hour in Move and a designer angling a plinth spends it in Rotate,
+   * and neither wants the choice reset by clicking a different object.
+   */
+  readonly gizmoMode: GizmoMode;
 }
 
 export const DEFAULT_WORKSPACE: Workspace = {
@@ -266,6 +276,7 @@ export const DEFAULT_WORKSPACE: Workspace = {
   showDebug: false,
   snapEnabled: true,
   gridStep: 0.5,
+  gizmoMode: "move",
 };
 
 export type WorkspaceStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -353,6 +364,10 @@ function sanitize(value: unknown): Workspace {
     showDebug: bool("showDebug"),
     snapEnabled: bool("snapEnabled"),
     gridStep: clamp(raw.gridStep, 0.05, 5, DEFAULT_WORKSPACE.gridStep),
+    // An unknown mode lands on Move, which is the one that can undo the damage
+    // any other mode could have done.
+    gizmoMode:
+      raw.gizmoMode === "rotate" || raw.gizmoMode === "scale" ? raw.gizmoMode : "move",
   };
 }
 

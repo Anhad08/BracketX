@@ -90,6 +90,16 @@ export const KEYMAP: readonly KeyBinding[] = [
   { id: "arrange.forward", key: "]", mod: true, label: "Ctrl/⌘ ]", description: "Bring forward" },
   { id: "arrange.backward", key: "[", mod: true, label: "Ctrl/⌘ [", description: "Send backward" },
   { id: "arrange.back", key: "[", mod: true, shift: true, label: "Ctrl/⌘ ⇧ [", description: "Send to back" },
+  // ==========================================================================
+  // THE THREE TRANSFORMS
+  // ==========================================================================
+  // G, R, S — unmodified, and taken from Blender because a 3D product's first
+  // three keys are the three a 3D person's hand already knows. All three were
+  // free: only the modified variants were spoken for (⌘G groups, ⇧G is the
+  // debug overlay, ⌘S saves), which is why no existing binding moves.
+  { id: "gizmo.move", key: "g", label: "G", description: "Move — slide along an axis" },
+  { id: "gizmo.rotate", key: "r", label: "R", description: "Rotate — turn about an axis" },
+  { id: "gizmo.scale", key: "s", label: "S", description: "Scale — stretch along an axis" },
   { id: "select.all", key: "a", mod: true, label: "Ctrl/⌘ A", description: "Select all" },
   // AHEAD of `select.none`, and only available while something is armed. Esc
   // means "back out of where I am", and being armed to transmit outranks

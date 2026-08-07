@@ -74,6 +74,22 @@ import {
   type Orbit,
   type Vec3,
 } from "../studio/camera";
+import {
+  angleAt,
+  distanceAlongAxis,
+  frameOf,
+  pickRing,
+  pickScaleHandle,
+  projectRings,
+  projectScaleHandles,
+  scaleFactor,
+  turnBetween,
+  turnedAbout,
+  turnedEuler,
+  WORLD_FRAME,
+  type AxisFrame,
+  type GizmoMode,
+} from "../studio/spin";
 import type { StudioCommand } from "../studio/commands";
 import type { Workspace } from "../studio/workspace";
 
@@ -177,7 +193,9 @@ function cursorFor(
 ): string {
   if (drag?.kind === "pan") return "grabbing";
   if (drag?.kind === "move") return "move";
-  if (drag?.kind === "axis") return "grabbing";
+  if (drag?.kind === "axis" || drag?.kind === "ring" || drag?.kind === "stretch") {
+    return "grabbing";
+  }
   if (drag !== null) return "default";
   if (hover.axis !== null) return "grab";
   if (hover.handle !== null) {
@@ -189,7 +207,16 @@ function cursorFor(
 }
 
 interface DragState {
-  readonly kind: "pan" | "move" | "marquee" | "resize" | "rotate" | "orbit" | "axis";
+  readonly kind:
+    | "pan"
+    | "move"
+    | "marquee"
+    | "resize"
+    | "rotate"
+    | "orbit"
+    | "axis"
+    | "ring"
+    | "stretch";
   readonly startScreen: Point;
   readonly startWorld: Point;
   /** World positions of the nodes being moved, at drag start. */
@@ -200,8 +227,8 @@ interface DragState {
   readonly startRect?: { x: number; y: number; width: number; height: number };
   /** Authored scale of each node at drag start, so resize is a multiplier. */
   readonly startScales?: ReadonlyMap<string, readonly [number, number, number]>;
-  /** Authored Z rotation at drag start, so rotation composes. */
-  readonly startRotations?: ReadonlyMap<string, number>;
+  /** Authored rotation at drag start, all three axes, so rotation composes. */
+  readonly startEulers?: ReadonlyMap<string, readonly [number, number, number]>;
   /** Orbit only: the camera node, where it started, and what it turns about. */
   readonly cameraId?: string;
   readonly startOrbit?: Orbit;
@@ -210,6 +237,17 @@ interface DragState {
   readonly axis?: Axis;
   readonly startParam?: number;
   readonly axisOrigin?: Vec3;
+  /**
+   * Rotate and scale in space: which ring or handle, and the frame it was
+   * drawn in.
+   *
+   * The frame is CAPTURED at grab time rather than recomputed each move,
+   * because a rotate changes the very matrix the frame is read from — a live
+   * frame would turn under the pointer and the drag would chase itself.
+   */
+  readonly frame?: AxisFrame;
+  readonly startAngle?: number;
+  readonly startDistance?: number;
 }
 
 export function SceneView({
@@ -237,6 +275,15 @@ export function SceneView({
   // never creates a backend, so it can only report a failure, not cause one.
   const [error] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
+  /**
+   * How far a ring drag has turned so far, and where the pointer last was.
+   *
+   * Refs, not state: these change several times per frame and none of those
+   * changes should re-render anything — the gizmo is drawn from the DOCUMENT,
+   * which the drag is already writing.
+   */
+  const turned = useRef(0);
+  const lastAngle = useRef(0);
   const [marqueeRect, setMarqueeRect] = useState<{ a: Point; b: Point } | null>(null);
   /** A scene is hovering over the stage. Volume Two: a target must say so. */
   const [dropping, setDropping] = useState(false);
@@ -514,15 +561,64 @@ export function SceneView({
     [view, dimensional],
   );
 
+  /**
+   * WHICH TRANSFORM THE GIZMO IS OFFERING.
+   *
+   * Only in space. Square-on there is one plane, the box handles already
+   * offer all three transforms in it, and a second set of controls saying the
+   * same thing differently is how a viewport gets confusing. So the flat view
+   * is left exactly as it was and the mode governs the spatial gizmo alone.
+   */
+  const mode: GizmoMode = dimensional ? workspace.gizmoMode : "move";
+
+  /**
+   * The frame the rotate and scale gizmos work in — the SELECTION'S OWN.
+   *
+   * A handle drawn along world X that stretches a turned node's local X is a
+   * control that lies: the red handle points one way and the object grows
+   * another. Read off the world matrix, so the gizmo describes the object
+   * rather than the room it is standing in.
+   *
+   * A multi-selection falls back to the world frame, because several nodes
+   * turned differently have no shared frame and inventing one from the first
+   * of them would make the other objects behave inexplicably.
+   */
+  const axisFrame = useMemo<AxisFrame>(() => {
+    const primary = primaryOf(selection);
+    if (primary === null || selection.ids.length !== 1) return WORLD_FRAME;
+    return frameOf(session.worldMatrixOf(primary));
+  }, [session, selection, revision]);
+
   const ARM_PIXELS = 74;
   const arms = useMemo(() => {
-    if (view === null || axisOrigin === null) return [];
+    if (view === null || axisOrigin === null || mode !== "move") return [];
     // Divided by zoom because the arms are projected into CANVAS space and
     // then scaled by the viewport, so a constant canvas length would still
     // change size on screen as the designer zooms.
     const length = armLength(view, axisOrigin, ARM_PIXELS / viewport.zoom);
     return projectAxes(view, axisOrigin, length);
-  }, [view, axisOrigin, viewport.zoom]);
+  }, [view, axisOrigin, viewport.zoom, mode]);
+
+  /**
+   * The rotate gizmo's three rings, and the scale gizmo's three handles.
+   *
+   * Both sized from `radiusFor`, which is derived from the same `armLength`
+   * the move arms use — so switching mode changes the SHAPE of the gizmo and
+   * not its size, and a designer's eye stays where it was.
+   */
+  const rings = useMemo(() => {
+    if (view === null || axisOrigin === null || mode !== "rotate") return [];
+    // The same length the move arms use, so a ring passes through where the
+    // arrowheads were and switching mode moves nothing on screen.
+    const radius = armLength(view, axisOrigin, ARM_PIXELS / viewport.zoom);
+    return projectRings(view, axisOrigin, radius, axisFrame);
+  }, [view, axisOrigin, viewport.zoom, mode, axisFrame]);
+
+  const stretchers = useMemo(() => {
+    if (view === null || axisOrigin === null || mode !== "scale") return [];
+    const length = armLength(view, axisOrigin, (ARM_PIXELS * 0.8) / viewport.zoom);
+    return projectScaleHandles(view, axisOrigin, length, axisFrame);
+  }, [view, axisOrigin, viewport.zoom, mode, axisFrame]);
 
 
   const pointOf = useCallback((event: { clientX: number; clientY: number }): Point => {
@@ -605,18 +701,169 @@ export function SceneView({
     if (moved !== null) session.store.applySilently(moved);
   };
 
+  /**
+   * Turns the selection about one ring.
+   *
+   * ==========================================================================
+   * WHY THE TURN IS ACCUMULATED RATHER THAN MEASURED FROM THE START
+   * ==========================================================================
+   * The angle around a ring only exists modulo a full turn, so the shortest
+   * path from the grab to the pointer is all a single measurement can give.
+   * Drag past half a turn and that shortest path flips sign — the object
+   * suddenly spins the other way, and there is no way to reach 200°.
+   *
+   * So each move contributes its own small delta and they are summed. Refs
+   * rather than state because this changes many times per frame and none of
+   * those changes should re-render anything: the drawing follows the DOCUMENT,
+   * which the drag is already writing.
+   */
+  const applyRingDrag = (state: DragState, screen: Point, snap: boolean) => {
+    if (state.axis === undefined || view === null) return;
+    if (state.axisOrigin === undefined) return;
+    const gizmoFrame = state.frame ?? WORLD_FRAME;
+    const now = angleAt(
+      view,
+      screenToCanvas(viewport, screen),
+      state.axisOrigin,
+      state.axis.id,
+      gizmoFrame,
+    );
+    if (now === null) return;
+
+    turned.current += turnBetween(lastAngle.current, now);
+    lastAngle.current = now;
+
+    // 15° with Shift — the angles a broadcast set is actually built on.
+    const degrees = (turned.current * 180) / Math.PI;
+    const radians = snap
+      ? (Math.round(degrees / 15) * 15 * Math.PI) / 180
+      : turned.current;
+
+    const ids = [...state.origins.keys()];
+    const direction = state.axis.direction;
+    const pivot = state.axisOrigin;
+
+    const rotated = setPropOnMany(
+      session.document,
+      ids,
+      "transform.rotation",
+      (id) => {
+        const start = state.startEulers?.get(id) ?? [0, 0, 0];
+        const next = turnedEuler(start, direction, radians);
+        return [round(next[0]), round(next[1]), round(next[2])];
+      },
+      "Rotate",
+    );
+    if (rotated !== null) session.store.applySilently(rotated);
+
+    // A multi-selection ORBITS the pivot as well as turning, exactly as the
+    // flat rotate handle does. A single node's offset is zero, so it turns
+    // where it stands and this costs it nothing.
+    if (ids.length > 1) {
+      const moved = setPropOnMany(
+        session.document,
+        ids,
+        "transform.position",
+        (id) => {
+          const origin = state.origins.get(id)!;
+          const next = turnedAbout(origin, pivot, direction, radians);
+          return [round(next[0]), round(next[1]), round(next[2])];
+        },
+        "Rotate",
+      );
+      if (moved !== null) session.store.applySilently(moved);
+    }
+  };
+
+  /**
+   * Stretches the selection along one axis of its own frame.
+   *
+   * A RATIO of distances from the pivot, not a delta, so dragging twice as far
+   * doubles the object whichever way the axis happens to point on screen — and
+   * so that letting go where you grabbed leaves the object exactly as it was.
+   */
+  const applyStretch = (state: DragState, screen: Point, uniform: boolean) => {
+    if (state.axis === undefined || view === null) return;
+    if (state.axisOrigin === undefined || state.startDistance === undefined) return;
+    const gizmoFrame = state.frame ?? WORLD_FRAME;
+    const now = distanceAlongAxis(
+      view,
+      screenToCanvas(viewport, screen),
+      state.axisOrigin,
+      state.axis.id,
+      gizmoFrame,
+    );
+    if (now === null) return;
+
+    const factor = scaleFactor(state.startDistance, now);
+    const index = state.axis.id === "x" ? 0 : state.axis.id === "y" ? 1 : 2;
+    const ids = [...state.origins.keys()];
+
+    const scaled = setPropOnMany(
+      session.document,
+      ids,
+      "transform.scale",
+      (id) => {
+        const base = state.startScales?.get(id) ?? [1, 1, 1];
+        // Shift stretches every axis at once. One handle that can also do the
+        // uniform case is one control fewer to find.
+        if (uniform) {
+          return [round(base[0] * factor), round(base[1] * factor), round(base[2] * factor)];
+        }
+        const next: [number, number, number] = [base[0], base[1], base[2]];
+        next[index] = round(base[index]! * factor);
+        return next;
+      },
+      "Scale",
+    );
+    if (scaled !== null) session.store.applySilently(scaled);
+
+    // A group spreads. Each node's offset from the pivot grows by the same
+    // factor ALONG THE AXIS only, which is what makes this a scale of the
+    // group rather than every member growing in place and overlapping.
+    if (ids.length > 1) {
+      const pivot = state.axisOrigin;
+      const direction = state.axis.direction;
+      const moved = setPropOnMany(
+        session.document,
+        ids,
+        "transform.position",
+        (id) => {
+          const origin = state.origins.get(id)!;
+          const ox = origin[0] - pivot.x;
+          const oy = origin[1] - pivot.y;
+          const oz = origin[2] - pivot.z;
+          const along = uniform
+            ? 0
+            : (ox * direction.x + oy * direction.y + oz * direction.z) * (factor - 1);
+          const spread = uniform ? factor : 1;
+          return [
+            round(pivot.x + ox * spread + direction.x * along),
+            round(pivot.y + oy * spread + direction.y * along),
+            round(pivot.z + oz * spread + direction.z * along),
+          ];
+        },
+        "Scale",
+      );
+      if (moved !== null) session.store.applySilently(moved);
+    }
+  };
+
   const commitGesture = (state: DragState) => {
     const ids = [...state.origins.keys()];
-    const label =
-      state.kind === "rotate"
-        ? ids.length === 1 ? "Rotate node" : `Rotate ${ids.length} nodes`
-        : ids.length === 1 ? "Resize node" : `Resize ${ids.length} nodes`;
+    const turning = state.kind === "rotate" || state.kind === "ring";
+    const label = turning
+      ? ids.length === 1 ? "Rotate node" : `Rotate ${ids.length} nodes`
+      : ids.length === 1 ? "Resize node" : `Resize ${ids.length} nodes`;
 
     // Capture where the gesture ended, BEFORE rewinding.
     const finalPositions = new Map<string, readonly [number, number, number]>();
     const finalTransforms = new Map<
       string,
-      { scale: readonly [number, number, number]; rotation: number }
+      {
+        scale: readonly [number, number, number];
+        rotation: readonly [number, number, number];
+      }
     >();
     for (const id of ids) {
       const position = findAuthored(session, id);
@@ -630,9 +877,7 @@ export function SceneView({
     ], "rewind");
     if (rewindScale !== null) session.store.applySilently(rewindScale);
     const rewindRotation = setPropOnMany(session.document, ids, "transform.rotation", (id) => [
-      0,
-      0,
-      state.startRotations?.get(id) ?? 0,
+      ...(state.startEulers?.get(id) ?? [0, 0, 0]),
     ], "rewind");
     if (rewindRotation !== null) session.store.applySilently(rewindRotation);
     const rewindPosition = setPropOnMany(session.document, ids, "transform.position", (id) => [
@@ -646,9 +891,7 @@ export function SceneView({
         ...(finalTransforms.get(id)?.scale ?? [1, 1, 1]),
       ], label),
       setPropOnMany(session.document, ids, "transform.rotation", (id) => [
-        0,
-        0,
-        finalTransforms.get(id)?.rotation ?? 0,
+        ...(finalTransforms.get(id)?.rotation ?? state.startEulers?.get(id) ?? [0, 0, 0]),
       ], label),
       setPropOnMany(session.document, ids, "transform.position", (id) => [
         ...(finalPositions.get(id) ?? state.origins.get(id)!),
@@ -721,11 +964,15 @@ export function SceneView({
       ids,
       "transform.rotation",
       (id) => {
-        const start = state.startRotations?.get(id) ?? 0;
-        const next = rotateBox(pivot, state.startWorld, world, start, {
+        const start = state.startEulers?.get(id) ?? [0, 0, 0];
+        const next = rotateBox(pivot, state.startWorld, world, start[2], {
           snap: snapAngle,
         });
-        return [0, 0, normaliseDegrees(next)];
+        // X and Y are CARRIED, not zeroed. The flat handle turns about the
+        // screen only, and a node angled in space that was then resized
+        // square-on used to come back flat — the two rotations lived in the
+        // same property and only one of them was being written.
+        return [start[0], start[1], normaliseDegrees(next)];
       },
       "rotate",
     );
@@ -825,7 +1072,13 @@ export function SceneView({
 
     // A handle is checked BEFORE picking, because handles sit on the box edge
     // and would otherwise be swallowed by the node underneath them.
-    const selectionRect = canAuthor ? selectionBounds(bounds, selection.ids) : null;
+    //
+    // FLAT VIEW ONLY. The box handles are computed from a screen-space
+    // rectangle and solved against the z = 0 plane, so in space they rotate
+    // about Z alone and scale in X and Y alone — a control that appears to
+    // offer three dimensions and delivers two. In space the mode gizmo below
+    // replaces them, and does the whole job.
+    const selectionRect = canAuthor && !dimensional ? selectionBounds(bounds, selection.ids) : null;
     if (selectionRect !== null) {
       // 10 screen px, converted — a handle must be equally grabbable at 10 %
       // and at 800 %, which a fixed world tolerance is not. Shared with the
@@ -835,14 +1088,14 @@ export function SceneView({
       if (grabbed !== null) {
         const origins = new Map<string, readonly [number, number, number]>();
         const startScales = new Map<string, readonly [number, number, number]>();
-        const startRotations = new Map<string, number>();
+        const startEulers = new Map<string, readonly [number, number, number]>();
         for (const id of selection.ids) {
           const position = findAuthored(session, id);
           const transform = findTransform(session, id);
           if (position !== null) origins.set(id, position);
           if (transform !== null) {
             startScales.set(id, transform.scale);
-            startRotations.set(id, transform.rotation);
+            startEulers.set(id, transform.rotation);
           }
         }
         setDrag({
@@ -854,9 +1107,80 @@ export function SceneView({
           handle: grabbed,
           startRect: selectionRect,
           startScales,
-          startRotations,
+          startEulers,
         });
         return;
+      }
+    }
+
+    // ROTATE RINGS AND SCALE HANDLES.
+    //
+    // Checked before the arms and before picking, for the same reason the arms
+    // are: they start at the selection's centre, where a free drag would
+    // otherwise begin. Only one of the three is ever on screen, so the three
+    // hit tests can never contend.
+    if (canAuthor && view !== null && axisOrigin !== null && (rings.length > 0 || stretchers.length > 0)) {
+      const canvas = screenToCanvas(viewport, screen);
+      const startOf = (): {
+        origins: Map<string, readonly [number, number, number]>;
+        startScales: Map<string, readonly [number, number, number]>;
+        startEulers: Map<string, readonly [number, number, number]>;
+      } => {
+        const origins = new Map<string, readonly [number, number, number]>();
+        const startScales = new Map<string, readonly [number, number, number]>();
+        const startEulers = new Map<string, readonly [number, number, number]>();
+        for (const id of selection.ids) {
+          const position = findAuthored(session, id);
+          const transform = findTransform(session, id);
+          if (position !== null) origins.set(id, position);
+          if (transform !== null) {
+            startScales.set(id, transform.scale);
+            startEulers.set(id, transform.rotation);
+          }
+        }
+        return { origins, startScales, startEulers };
+      };
+
+      const grabbedRing = rings.length === 0 ? null : pickRing(rings, canvas);
+      if (grabbedRing !== null) {
+        const startAngle = angleAt(view, canvas, axisOrigin, grabbedRing, axisFrame);
+        const axis = axisFrame.find((entry) => entry.id === grabbedRing);
+        if (startAngle !== null && axis !== undefined) {
+          turned.current = 0;
+          lastAngle.current = startAngle;
+          setDrag({
+            kind: "ring",
+            startScreen: screen,
+            startWorld: world,
+            startViewport: viewport,
+            axis,
+            axisOrigin,
+            frame: axisFrame,
+            startAngle,
+            ...startOf(),
+          });
+          return;
+        }
+      }
+
+      const grabbedHandle = stretchers.length === 0 ? null : pickScaleHandle(stretchers, canvas);
+      if (grabbedHandle !== null) {
+        const startDistance = distanceAlongAxis(view, canvas, axisOrigin, grabbedHandle, axisFrame);
+        const axis = axisFrame.find((entry) => entry.id === grabbedHandle);
+        if (startDistance !== null && axis !== undefined) {
+          setDrag({
+            kind: "stretch",
+            startScreen: screen,
+            startWorld: world,
+            startViewport: viewport,
+            axis,
+            axisOrigin,
+            frame: axisFrame,
+            startDistance,
+            ...startOf(),
+          });
+          return;
+        }
       }
     }
 
@@ -961,23 +1285,31 @@ export function SceneView({
       // be worse than none.
       const screen = pointOf(event);
       const world = screenToWorld(document_, viewport, screen, view ?? undefined);
-      const rect = selectionBounds(bounds, selection.ids);
+      const rect = dimensional ? null : selectionBounds(bounds, selection.ids);
       const tolerance = HANDLE_TOLERANCE / (viewport.zoom * pixelsPerUnit(document_));
       const handle = rect === null ? null : handleAt(rect, world, tolerance);
-      // Arms are tested in the same order a press tests them, so the thing
-      // that lights up is the thing that would be grabbed.
+      // The gizmo is tested in the same order a press tests it, so the thing
+      // that lights up is the thing that would be grabbed. Only one of the
+      // three shapes is ever on screen, so they cannot contend.
+      const canvas = screenToCanvas(viewport, screen);
       const axis =
-        handle !== null || arms.length === 0
+        handle !== null
           ? null
-          : pickAxis(arms, screenToCanvas(viewport, screen), HANDLE_TOLERANCE);
+          : arms.length > 0
+            ? (pickAxis(arms, canvas, HANDLE_TOLERANCE)?.id ?? null)
+            : rings.length > 0
+              ? pickRing(rings, canvas)
+              : stretchers.length > 0
+                ? pickScaleHandle(stretchers, canvas)
+                : null;
       const hit = handle === null && axis === null ? pick(bounds, world) : null;
       const node = hit !== null && !lockedIds.has(hit) ? hit : null;
       if (
         node !== hover.node ||
         (handle?.id ?? null) !== (hover.handle?.id ?? null) ||
-        (axis?.id ?? null) !== hover.axis
+        axis !== hover.axis
       ) {
-        setHover({ node, handle, axis: axis?.id ?? null });
+        setHover({ node, handle, axis });
       }
       return;
     }
@@ -1000,6 +1332,14 @@ export function SceneView({
     }
     if (drag.kind === "axis") {
       applyAxisDrag(drag, screen);
+      return;
+    }
+    if (drag.kind === "ring") {
+      applyRingDrag(drag, screen, event.shiftKey);
+      return;
+    }
+    if (drag.kind === "stretch") {
+      applyStretch(drag, screen, event.shiftKey);
       return;
     }
     if (drag.kind === "marquee") {
@@ -1171,7 +1511,13 @@ export function SceneView({
       void endPosition;
     }
 
-    if ((drag.kind === "resize" || drag.kind === "rotate") && drag.origins.size > 0) {
+    if (
+      (drag.kind === "resize" ||
+        drag.kind === "rotate" ||
+        drag.kind === "ring" ||
+        drag.kind === "stretch") &&
+      drag.origins.size > 0
+    ) {
       commitGesture(drag);
     }
 
@@ -1493,12 +1839,92 @@ export function SceneView({
           </g>
         )}
 
+        {/* THE ROTATE GIZMO. Three rings, one per axis of the selection's own
+            frame, each turning about the axis it encircles. Drawn as a
+            polyline rather than an ellipse because a ring in perspective is
+            not an ellipse — and because the polyline IS what the hit test
+            measures against, so what is drawn is exactly what is grabbable. */}
+        {rings.length === 0 || !canAuthor ? null : (
+          <g className="rings" data-testid="rings">
+            {rings.map((ring) => {
+              const dragging = drag?.kind === "ring" && drag.axis?.id === ring.axis.id;
+              const hovered = hover.axis === ring.axis.id;
+              // Refused, and so not drawn, when the ring is too edge-on to aim
+              // at — the same threshold the move arms use, so both gizmos
+              // behave the same way in the same situation.
+              if (ring.openness < MIN_FORESHORTENING && !dragging) return null;
+              const points = ring.points
+                .map((point) => {
+                  const at = canvasToScreen(viewport, point);
+                  return `${at.x},${at.y}`;
+                })
+                .join(" ");
+              return (
+                <polyline
+                  key={ring.axis.id}
+                  className={`ring ${dragging ? "dragging" : ""} ${hovered ? "hot" : ""}`}
+                  data-testid={`ring-${ring.axis.id}`}
+                  points={points}
+                  fill="none"
+                  stroke={ring.axis.colour}
+                  strokeWidth={dragging || hovered ? 3 : 2}
+                  opacity={dragging || hovered ? 1 : 0.35 + ring.openness * 0.45}
+                />
+              );
+            })}
+          </g>
+        )}
+
+        {/* THE SCALE GIZMO. A stem and a square cap per axis. Square caps
+            rather than the move gizmo's arrowheads, because an arrow means a
+            direction and a scale handle means an extent. */}
+        {stretchers.length === 0 || !canAuthor ? null : (
+          <g className="stretchers" data-testid="stretchers">
+            {stretchers.map((handle) => {
+              const dragging = drag?.kind === "stretch" && drag.axis?.id === handle.axis.id;
+              const hovered = hover.axis === handle.axis.id;
+              if (handle.foreshortening < MIN_FORESHORTENING && !dragging) return null;
+              const from = canvasToScreen(viewport, handle.from);
+              const at = canvasToScreen(viewport, handle.at);
+              return (
+                <g
+                  key={handle.axis.id}
+                  className={`stretcher ${dragging ? "dragging" : ""} ${hovered ? "hot" : ""}`}
+                  data-testid={`stretch-${handle.axis.id}`}
+                  opacity={dragging || hovered ? 1 : 0.35 + handle.foreshortening * 0.45}
+                >
+                  <line
+                    x1={from.x}
+                    y1={from.y}
+                    x2={at.x}
+                    y2={at.y}
+                    stroke={handle.axis.colour}
+                    strokeWidth={dragging || hovered ? 3 : 2}
+                    strokeLinecap="round"
+                  />
+                  <rect
+                    x={at.x - 4.5}
+                    y={at.y - 4.5}
+                    width={9}
+                    height={9}
+                    fill={handle.axis.colour}
+                  />
+                </g>
+              );
+            })}
+          </g>
+        )}
+
         {/* The transform gizmo: eight resize handles and a rotation grip, on
             the union of the selection. Positions come from the same
             `handlesFor` the hit test uses, so what is drawn is what is
-            grabbable. */}
+            grabbable.
+
+            FLAT VIEW ONLY, and it is drawn exactly where it is hit tested —
+            the press path stops offering these in space, so drawing them
+            there would be nine controls that do nothing. */}
         {(() => {
-          const union = selectionBounds(bounds, selection.ids);
+          const union = dimensional ? null : selectionBounds(bounds, selection.ids);
           if (union === null || !canAuthor) return null;
           return (
             <g className="gizmo" data-testid="gizmo">
@@ -1712,7 +2138,18 @@ function selectionBounds(
 function findTransform(
   session: StudioSession,
   nodeId: string,
-): { scale: readonly [number, number, number]; rotation: number } | null {
+): {
+  scale: readonly [number, number, number];
+  /**
+   * The FULL euler, not just the Z the flat editor turns.
+   *
+   * It was `rotation: number` while Z was the only axis anything could write.
+   * The rotate gizmo writes all three, and a gesture that read one component
+   * and wrote back three would zero the other two the first time somebody
+   * resized a plinth they had angled.
+   */
+  rotation: readonly [number, number, number];
+} | null {
   const stack = [session.document.root];
   while (stack.length > 0) {
     const node = stack.pop()!;
@@ -1721,7 +2158,7 @@ function findTransform(
       const rotation = node.transform?.rotation ?? [0, 0, 0];
       return {
         scale: [scale[0] ?? 1, scale[1] ?? 1, scale[2] ?? 1],
-        rotation: rotation[2] ?? 0,
+        rotation: [rotation[0] ?? 0, rotation[1] ?? 0, rotation[2] ?? 0],
       };
     }
     for (const child of node.children ?? []) stack.push(child);

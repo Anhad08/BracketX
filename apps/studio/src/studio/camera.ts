@@ -403,6 +403,58 @@ export function worldFromEuler(
   ];
 }
 
+/**
+ * The YXZ euler a rotation matrix represents, in degrees.
+ *
+ * The exact inverse of `worldFromEuler`, and it lives here for that reason:
+ * two functions that must round-trip through each other belong where a change
+ * to one is read beside the other. The extraction is read straight off the
+ * expansion above — m23 is −sin(x), so x falls out first and the remaining two
+ * are ratios of terms that share a cos(x).
+ *
+ * The degenerate case is real and has to be handled: at a pitch of ±90° the
+ * yaw and the roll turn about the same world axis and only their sum is
+ * recoverable. Roll is given up rather than yaw, because a broadcast object
+ * pointed straight up or straight down is one somebody aimed, and aim is what
+ * yaw carries.
+ */
+export function eulerFromMatrix(m: Mat4): readonly [number, number, number] {
+  const d = 180 / Math.PI;
+  const m11 = m[0] ?? 1, m21 = m[1] ?? 0, m31 = m[2] ?? 0;
+  const m22 = m[5] ?? 1;
+  const m13 = m[8] ?? 0, m23 = m[9] ?? 0, m33 = m[10] ?? 1;
+
+  const x = Math.asin(Math.max(-1, Math.min(1, -m23)));
+  // Below this the shared cos(x) is small enough that the two ratios are noise.
+  if (Math.abs(m23) < 0.9999) {
+    return [x * d, Math.atan2(m13, m33) * d, Math.atan2(m21, m22) * d];
+  }
+  return [x * d, Math.atan2(-m31, m11) * d, 0];
+}
+
+/**
+ * A rotation of `radians` about an arbitrary unit axis, as a world matrix.
+ *
+ * Rodrigues, written out. Needed because the rotate gizmo turns about a WORLD
+ * axis while a node stores a LOCAL euler, and the only honest way across that
+ * gap is to compose the two as matrices and read the euler back.
+ */
+export function rotationAbout(axis: Vec3, radians: number): Mat4 {
+  const length = Math.hypot(axis.x, axis.y, axis.z);
+  if (length < 1e-9) return IDENTITY;
+  const x = axis.x / length, y = axis.y / length, z = axis.z / length;
+  const c = Math.cos(radians), s = Math.sin(radians), t = 1 - c;
+
+  return [
+    t * x * x + c, t * x * y + s * z, t * x * z - s * y, 0,
+    t * x * y - s * z, t * y * y + c, t * y * z + s * x, 0,
+    t * x * z + s * y, t * y * z - s * x, t * z * z + c, 0,
+    0, 0, 0, 1,
+  ];
+}
+
+const IDENTITY: Mat4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
 export function lookAtRotation(position: Vec3, pivot: Vec3): readonly [number, number, number] {
   const dx = position.x - pivot.x;
   const dy = position.y - pivot.y;

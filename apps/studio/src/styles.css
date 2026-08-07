@@ -911,9 +911,14 @@ kbd {
 
 /* THE MOVE GIZMO. Colour carries the meaning — X red, Y green, Z blue is the
    one convention every 3D tool shares, so it needs no legend. */
-.axes { pointer-events: none; }
+.axes, .rings, .stretchers { pointer-events: none; }
 .axis line, .axis polygon { transition: opacity 90ms ease; }
 .axis.hot line, .axis.dragging line { filter: brightness(1.25); }
+/* The rotate and scale gizmos answer the same way the move arms do — the
+   three are one control with three shapes, so they must not feel different. */
+.ring, .stretcher line, .stretcher rect { transition: opacity 90ms ease; }
+.ring.hot, .ring.dragging,
+.stretcher.hot line, .stretcher.dragging line { filter: brightness(1.25); }
 
 /* THE AXIS WIDGET. Top-right, out of the way of the graphic, which is
    centred — the one corner a lower third never reaches. */
