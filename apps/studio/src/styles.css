@@ -811,3 +811,21 @@ kbd {
 }
 .program-controls .offair:active:not(:disabled) { transform: translateY(1px); }
 .program-controls .offair:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+
+/* THE SPINE — the tally, as three pixels across the whole application.
+   Off air it is a hairline you do not notice. Live, it is the brightest thing
+   on the screen and the only red. */
+.spine {
+  position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 500;
+  pointer-events: none; background: rgba(255, 255, 255, 0.05);
+  transition: background 0.5s var(--weight), box-shadow 0.5s var(--weight);
+}
+.spine.live {
+  background: linear-gradient(180deg, #ff8078, var(--live) 50%, #a81d16);
+  box-shadow: 0 0 16px rgba(255, 59, 48, 0.85), 0 0 48px rgba(255, 59, 48, 0.3);
+}
+.spine.live.igniting { animation: ignite 0.09s var(--weight); }
+@keyframes ignite {
+  0% { transform: scaleY(4); filter: brightness(2.4); }
+  100% { transform: scaleY(1); filter: brightness(1); }
+}

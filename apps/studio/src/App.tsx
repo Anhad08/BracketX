@@ -228,6 +228,9 @@ export function App() {
   if (soundRef.current === null) soundRef.current = new SoundEngine();
   const sound = soundRef.current;
 
+  /** The spine's ignite flash, for the instant of a take. */
+  const [igniting, setIgniting] = useState(false);
+
   const [frames, setFrames] = useState<FrameReport | null>(null);
   const meterRef = useRef(new FrameMeter());
   /**
@@ -268,6 +271,19 @@ export function App() {
    * result, and removing the sound would lose nothing but the confirmation.
    */
   const say = useCallback((voice: VoiceName) => sound.play(voice), [sound]);
+
+  /**
+   * The moment of the take.
+   *
+   * Fires the spine's ignite and the take voice together. They are the same
+   * event reported twice — once to the eye and once to the ear — and neither
+   * is the only way to know, which is the law the voices are written under.
+   */
+  const ignite = useCallback(() => {
+    setIgniting(true);
+    window.setTimeout(() => setIgniting(false), 120);
+    say("take");
+  }, [say]);
 
   /**
    * What this machine can offer.
@@ -1357,6 +1373,47 @@ export function App() {
 
   useEffect(() => () => cancelAnimationFrame(flight.current), []);
 
+  /**
+   * The broadcast keys.
+   *
+   * ⏎ TAKES, EVEN FROM A FOCUSED FIELD. That is the prototype's rule and its
+   * words: "a show outranks a form". Every other shortcut in the product
+   * stands down while somebody is typing; this one does not, because the
+   * alternative is an operator pressing Enter at the moment that matters and
+   * being told they were in a text box.
+   *
+   * Space cues and Escape un-cues, both only when not typing — they are
+   * ordinary characters and stealing them mid-word would be a fault.
+   */
+  useEffect(() => {
+    if (bus === null) return;
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target !== null &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        bus.take();
+        ignite();
+        return;
+      }
+      // Space = Cue and Escape = un-cue are NOT here yet, and deliberately
+      // not faked. `ProgramBus` has off-air, on-air and holding; the
+      // prototype has off, CUED and live. Binding Space to something that is
+      // not a cue would be worse than leaving it unbound, because an operator
+      // would learn a key that does the wrong thing.
+      //
+      // PROTOTYPE.md item 7 adds the cued state. These two keys land with it.
+      void typing;
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bus, ignite, say, revision]);
+
   const menuCommands = useMemo<readonly StudioCommand[]>(() => {
     const wanted = [
       "edit.duplicate",
@@ -1623,6 +1680,21 @@ export function App() {
       data-authoring={profile.canAuthor ? "yes" : "no"}
       data-touch={profile.touchTargets ? "yes" : "no"}
     >
+      {/* THE SPINE. Three pixels across the top of the entire application:
+          nearly invisible off air, a glowing red bar when live, with a short
+          ignite at the moment of the take.
+
+          It is the most important thing on the screen and it costs three
+          pixels. You cannot be on air and not know it, from any distance,
+          without reading anything — which a text tally in a corner cannot
+          claim. */}
+      <div
+        className={`spine ${bus?.onAir ? "live" : ""} ${igniting ? "igniting" : ""}`}
+        data-testid="spine"
+        data-air={bus?.onAir ? "live" : "off"}
+        aria-hidden
+      />
+
       <Nav
         section={section}
         onSection={goTo}

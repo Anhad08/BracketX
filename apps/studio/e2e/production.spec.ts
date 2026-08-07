@@ -57,3 +57,64 @@ test("a scene is cued and taken from Production alone", async ({ page }) => {
   await page.getByTestId("off-air").click();
   await expect(page.getByTestId("air-state")).toHaveText(/Off air/);
 });
+
+/**
+ * The spine — the tally, as three pixels across the whole application.
+ *
+ * Off air it is a hairline nobody notices. Live, it is the brightest thing on
+ * the screen and the only red. You cannot be on air and not know it, from any
+ * distance, without reading anything — which a text tally in a corner cannot
+ * claim.
+ */
+test("the spine reports air across the whole application", async ({ page }) => {
+  await page.goto("/");
+  const spine = page.getByTestId("spine");
+  await expect(spine).toHaveAttribute("data-air", "off");
+
+  // It spans the window, not a panel.
+  const box = (await spine.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(box.width).toBeCloseTo(viewport.width, 0);
+  expect(box.y).toBeCloseTo(0, 0);
+  expect(box.height).toBeLessThanOrEqual(4);
+
+  await page.getByTestId("nav-production").click();
+  await page.locator('[data-testid^="cue-"]').first().click();
+  await page.getByTestId("nav-production").click();
+  await page.getByTestId("take").click();
+
+  await expect(spine).toHaveAttribute("data-air", "live");
+  await expect(spine).toHaveClass(/live/);
+
+  await page.getByTestId("off-air").click();
+  await expect(spine).toHaveAttribute("data-air", "off");
+});
+
+/**
+ * "⏎ takes, unconditionally, even from a focused field. A show outranks a
+ * form." — the prototype's rule, in its words.
+ *
+ * Every other shortcut stands down while somebody is typing. This one does
+ * not, because the alternative is an operator pressing Enter at the moment
+ * that matters and being told they were in a text box.
+ */
+test("Enter takes, even from inside a text field", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("start-tpl_lower_third").click();
+  await expect(page.getByTestId("content")).toBeVisible();
+
+  // Focus a content field and type into it, as an operator fixing a name
+  // seconds before air would.
+  const field = page.getByTestId("content").locator("input.field").first();
+  await field.click();
+  await field.fill("MO SALAH");
+
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByTestId("spine"),
+    "a show outranks a form",
+  ).toHaveAttribute("data-air", "live");
+
+  // And the field kept the edit — taking does not discard what was typed.
+  await expect(field).toHaveValue("MO SALAH");
+});
