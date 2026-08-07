@@ -49,8 +49,17 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
     <section className="program-row" aria-label="Preview and Program" data-testid="program-row">
       <div className="program-monitor">
         <header>
-          <span className={`tally ${bus.onAir ? "on-air" : ""}`} data-testid="tally">
-            {bus.state === "on-air" ? "ON AIR" : bus.state === "holding" ? "HOLD" : "OFF"}
+          <span
+            className={`tally ${bus.onAir ? "on-air" : ""} ${bus.cued ? "cued" : ""}`}
+            data-testid="tally"
+          >
+            {bus.state === "on-air"
+              ? "ON AIR"
+              : bus.state === "holding"
+                ? "HOLD"
+                : bus.state === "cued"
+                  ? "CUED"
+                  : "OFF"}
           </span>
           <strong>Program</strong>
           <span className="dim mono">
@@ -62,6 +71,27 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
       </div>
 
       <div className="program-controls">
+        {/* CUE, before Take, because that is the order of the act: arm it,
+            look at it, send it. Rendered `.armed` when it is armed — the one
+            control on this row whose appearance states a state rather than
+            offering an action. */}
+        <button
+          type="button"
+          className={`chip cue ${bus.cued ? "armed" : ""}`}
+          disabled={bus.onAir}
+          onClick={() => (bus.cued ? bus.uncue() : bus.cue())}
+          data-testid="cue"
+          data-armed={bus.cued ? "yes" : "no"}
+          title={
+            bus.onAir
+              ? "Already on air. Go off air before cueing something else."
+              : bus.cued
+                ? "Disarm (Esc)"
+                : "Arm this for the next Take (C)"
+          }
+        >
+          {bus.cued ? "CUED" : "Cue"}
+        </button>
         <button
           type="button"
           className={`take ${pending ? "pending" : ""}`}

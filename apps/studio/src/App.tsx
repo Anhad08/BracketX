@@ -1059,6 +1059,28 @@ export function App() {
         ? []
         : [
             {
+              id: "air.cue",
+              title: "Cue",
+              section: "Program" as const,
+              hint: "Arm this for the next Take. Nothing goes out.",
+              keywords: ["arm", "ready", "preview"],
+              shortcut: shortcutFor("air.cue"),
+              enabled: !bus.onAir,
+              run: () => {
+                bus.cue();
+                say("cue");
+              },
+            },
+            {
+              id: "air.uncue",
+              title: "Un-cue",
+              section: "Program" as const,
+              hint: "Disarm. Nothing was on air.",
+              shortcut: shortcutFor("air.uncue"),
+              enabled: bus.cued,
+              run: () => bus.uncue(),
+            },
+            {
               id: "program.take",
               title: "Take to Program",
               section: "Program" as const,
@@ -1442,7 +1464,12 @@ export function App() {
           target.tagName === "SELECT" ||
           target.isContentEditable);
 
-      const binding = matchBinding(event, typing);
+      // Escape is claimed twice — un-cue and deselect — and which one it means
+      // depends on whether anything is armed. Resolved here, where the state
+      // is, rather than in the keymap, which cannot know.
+      const binding = matchBinding(event, typing, (id) =>
+        id === "air.uncue" ? bus?.cued === true : true,
+      );
       if (binding === null) return;
 
       if (binding.id === "select.none" && (paletteOpen || keysOpen)) {
@@ -1690,9 +1717,14 @@ export function App() {
           without reading anything — which a text tally in a corner cannot
           claim. */}
       <div
-        className={`spine ${bus?.onAir ? "live" : ""} ${igniting ? "igniting" : ""}`}
+        className={`spine ${bus?.onAir ? "live" : ""} ${bus?.cued === true ? "cued" : ""} ${
+          igniting ? "igniting" : ""
+        }`}
         data-testid="spine"
-        data-air={bus?.onAir ? "live" : "off"}
+        /* Three states, and only ONE of them is red. A cued graphic tints the
+           spine teal — the preview colour — because red must never mean
+           anything except "this is going out right now". */
+        data-air={bus?.onAir === true ? "live" : bus?.cued === true ? "cued" : "off"}
         aria-hidden
       />
 
@@ -1702,6 +1734,7 @@ export function App() {
         developerMode={workspace.developerMode}
         dirty={store?.dirty ?? false}
         onAir={bus?.onAir ?? false}
+        cued={bus?.cued ?? false}
       />
       <div className="workspace">
       {/* The titlebar is CONTEXTUAL.

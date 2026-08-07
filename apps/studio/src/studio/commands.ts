@@ -48,6 +48,19 @@ export interface KeyBinding {
   readonly description: string;
   /** Allowed while a text field has focus. Almost nothing should be. */
   readonly whileTyping?: boolean;
+  /**
+   * This binding SHARES its chord with a later one and is resolved by state.
+   *
+   * Declared rather than inferred, because a duplicate chord is normally a bug
+   * — one of the two shortcuts silently never fires — and the test suite
+   * refuses them. This marks the one case where two bindings legitimately want
+   * the same key and only one can apply at a time, and it obliges the pair: a
+   * contested binding must sit ABOVE an uncontested fallback on the same
+   * chord, so the key always does something.
+   *
+   * `matchBinding`'s `available` callback is what picks between them.
+   */
+  readonly contested?: boolean;
 }
 
 /**
@@ -78,6 +91,10 @@ export const KEYMAP: readonly KeyBinding[] = [
   { id: "arrange.backward", key: "[", mod: true, label: "Ctrl/⌘ [", description: "Send backward" },
   { id: "arrange.back", key: "[", mod: true, shift: true, label: "Ctrl/⌘ ⇧ [", description: "Send to back" },
   { id: "select.all", key: "a", mod: true, label: "Ctrl/⌘ A", description: "Select all" },
+  // AHEAD of `select.none`, and only available while something is armed. Esc
+  // means "back out of where I am", and being armed to transmit outranks
+  // having a layer selected. See `matchBinding`.
+  { id: "air.uncue", key: "escape", label: "Esc", description: "Un-cue", contested: true },
   { id: "select.none", key: "escape", label: "Esc", description: "Deselect", whileTyping: true },
   { id: "select.up", key: "arrowup", label: "↑", description: "Select previous node" },
   { id: "select.down", key: "arrowdown", label: "↓", description: "Select next node" },
@@ -97,12 +114,47 @@ export const KEYMAP: readonly KeyBinding[] = [
   { id: "transport.stepForward", key: ".", label: ".", description: "Step one frame" },
   { id: "transport.stepBack", key: ",", label: ",", description: "Step back one frame" },
   { id: "transport.stop", key: "home", label: "Home", description: "Stop and rewind" },
+  // ==========================================================================
+  // AIR
+  // ==========================================================================
+  // The prototype binds Cue to SPACE — and, in the same transport, labels the
+  // Play control "SPC". Its key handler cues; its button says play. Both are
+  // the specimen, and they disagree, exactly as Volume One §4 disagrees with
+  // itself about `offair`'s length.
+  //
+  // Space stays PLAY here. It is the universal editor binding, it is already
+  // approved in the keymap above, and Studio — unlike a three-field prototype
+  // — has a timeline that somebody scrubs all day. Cue takes `C`, which is
+  // free, is the letter of the word, and is what a gallery panel is labelled.
+  //
+  // This is flagged rather than buried, so that the day the prototype resolves
+  // its own contradiction, the code is found.
+  { id: "air.cue", key: "c", label: "C", description: "Cue — arm for the next take" },
   { id: "help.keys", key: "?", shift: true, label: "?", description: "Keyboard reference" },
 ];
 
+/**
+ * The binding a keystroke fires.
+ *
+ * ============================================================================
+ * ONE KEY, TWO CLAIMS
+ * ============================================================================
+ * Escape means "back out of where I am", and there is more than one place to
+ * back out of: a selection, and an armed cue. Both are correct uses of the key
+ * and only one can win at a time — which one depends on the state, not on the
+ * keystroke.
+ *
+ * `available` is how a caller says which. It is asked ONLY for bindings whose
+ * key already matched, so it is not a filter over the keymap; it is the tie
+ * break between two bindings that both want the same key, resolved in KEYMAP
+ * order. Without it, `air.uncue` sits behind `select.none` in the list and
+ * never fires at all — the shortcut would exist, be documented, and do
+ * nothing, which is worse than not having it.
+ */
 export function matchBinding(
   event: { key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean },
   typing: boolean,
+  available?: (id: string) => boolean,
 ): KeyBinding | null {
   const key = event.key.toLowerCase();
   const mod = event.ctrlKey || event.metaKey;
@@ -113,6 +165,7 @@ export function matchBinding(
     if ((binding.shift ?? false) !== event.shiftKey) continue;
     if ((binding.alt ?? false) !== event.altKey) continue;
     if (typing && binding.whileTyping !== true) continue;
+    if (available !== undefined && !available(binding.id)) continue;
     return binding;
   }
   return null;

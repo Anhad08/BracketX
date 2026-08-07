@@ -58,6 +58,11 @@ export function Production({
   const report = session === null ? null : preflight(session.host);
   const fields = session === null ? [] : contentSurface(session.host);
   const onAir = bus?.onAir ?? false;
+  const cued = bus?.cued ?? false;
+  // THREE states, not two. Off, armed, out. The middle one is what the Cue key
+  // is for, and Studio had no way to say it.
+  const air = onAir ? "live" : cued ? "cued" : "off";
+  const airWords = onAir ? "ON AIR" : cued ? "CUED" : "Off air";
 
   return (
     <div className="section-page production" data-testid="production">
@@ -69,9 +74,17 @@ export function Production({
         {/* The state of the transmission, in words, at the top of the page
             that controls it. A tally the operator has to hunt for is a tally
             that gets misread. */}
-        <span className={`air-state ${onAir ? "live" : ""}`} data-testid="air-state">
-          <span className={`lamp ${onAir ? "live" : ""}`} aria-hidden />
-          {onAir ? "ON AIR" : "Off air"}
+        <span className={`air-state ${air}`} data-testid="air-state" data-air={air}>
+          <span className={`lamp ${onAir ? "live" : cued ? "pvw" : ""}`} aria-hidden />
+          {airWords}
+          {/* An operator who cued a graphic and then had somebody edit it is
+              about to air something they did not check. Silence here is the
+              expensive option. */}
+          {bus?.cueStale === true ? (
+            <span className="stale" data-testid="cue-stale">
+              changed since you cued it
+            </span>
+          ) : null}
         </span>
       </header>
 

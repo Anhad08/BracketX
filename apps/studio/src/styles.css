@@ -604,6 +604,9 @@ kbd {
   border: 1px solid var(--line); color: var(--dim);
 }
 .tally.on-air { background: var(--onair); border-color: var(--onair); color: #fff; }
+.tally.cued { border-color: var(--preview); color: var(--preview); }
+/* The Cue key states a state, not an action, so it is lit rather than raised. */
+.chip.cue.armed { border-color: var(--preview); color: var(--preview); box-shadow: 0 0 0 1px var(--preview) inset; }
 .asset-tile.on { border-color: var(--accent); }
 .asset-tile { text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .asset-thumb {
@@ -858,6 +861,14 @@ kbd {
 .spine.live {
   background: linear-gradient(180deg, #ff8078, var(--live) 50%, #a81d16);
   box-shadow: 0 0 16px rgba(255, 59, 48, 0.85), 0 0 48px rgba(255, 59, 48, 0.3);
+}
+/* CUED IS NOT RED. Red across the top of the application means one thing and
+   must go on meaning only that thing: frames are going out now. An armed
+   graphic is the preview colour, dimmer and without the bloom — present enough
+   to notice from across a gallery, quiet enough that nobody reads it as air. */
+.spine.cued {
+  background: linear-gradient(180deg, #9df5e6, var(--preview) 60%, #1b8f7d);
+  box-shadow: 0 0 10px rgba(46, 230, 200, 0.4);
 }
 .spine.live.igniting { animation: ignite 0.09s var(--weight); }
 @keyframes ignite {

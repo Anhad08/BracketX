@@ -976,12 +976,48 @@ describe("viewport", () => {
 // ===========================================================================
 
 describe("commands and keys", () => {
-  it("has no duplicate chords", () => {
-    const chords = KEYMAP.map(
-      (binding) =>
-        `${binding.mod ? "mod+" : ""}${binding.shift ? "shift+" : ""}${binding.alt ? "alt+" : ""}${binding.key}`,
+  it("has no duplicate chords except the one that is declared and resolved", () => {
+    // A duplicate chord is normally a bug: one of the two shortcuts silently
+    // never fires, and it is documented in the keyboard sheet the whole time.
+    //
+    // Escape is the one legitimate exception — it means "back out of where I
+    // am", and being armed to transmit outranks having a layer selected — so
+    // the exception is DECLARED with `contested` and this test holds it to the
+    // terms that make it safe rather than just permitting it.
+    const chordOf = (binding: (typeof KEYMAP)[number]) =>
+      `${binding.mod ? "mod+" : ""}${binding.shift ? "shift+" : ""}${binding.alt ? "alt+" : ""}${binding.key}`;
+
+    const uncontested = KEYMAP.filter((binding) => binding.contested !== true);
+    const chords = uncontested.map(chordOf);
+    expect(new Set(chords).size, "two shortcuts on one key, and neither declared it").toBe(
+      chords.length,
     );
-    expect(new Set(chords).size).toBe(chords.length);
+
+    for (const binding of KEYMAP.filter((entry) => entry.contested === true)) {
+      const chord = chordOf(binding);
+      // It must sit ABOVE its fallback, or `matchBinding` reaches the fallback
+      // first and the contested binding is unreachable — the exact failure
+      // `contested` exists to prevent.
+      const index = KEYMAP.indexOf(binding);
+      const fallback = KEYMAP.findIndex(
+        (entry) => entry.contested !== true && chordOf(entry) === chord,
+      );
+      expect(fallback, `${binding.id} contests a chord nothing else claims`).toBeGreaterThan(-1);
+      expect(index, `${binding.id} sits below its own fallback and can never fire`).toBeLessThan(
+        fallback,
+      );
+    }
+  });
+
+  it("gives a contested key back to its fallback when the contender is unavailable", () => {
+    // The behaviour, not the declaration: Escape un-cues while armed and
+    // deselects otherwise, and it must never do nothing.
+    const escape = { key: "Escape", ctrlKey: false, metaKey: false, shiftKey: false, altKey: false };
+    expect(matchBinding(escape, false, (id) => id !== "air.uncue")?.id).toBe("select.none");
+    expect(matchBinding(escape, false, () => true)?.id).toBe("air.uncue");
+    // And with no callback at all, the first claimant wins — which is why the
+    // ordering assertion above matters.
+    expect(matchBinding(escape, false)?.id).toBe("air.uncue");
   });
 
   it("labels and describes every binding, so the generated sheet cannot be blank", () => {

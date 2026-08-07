@@ -330,10 +330,15 @@ them.
 3. **Two levels, not three.** Beginner and Expert.
 4. **Cue and Take return to the stage transport**, with Space and Enter, an air
    lamp, and the millisecond cost readout.
-5. **Build the confidence strip.** `OutputSet` already carries width, height,
-   cadence, layerMask and alpha; `preflight()` already reports overflow per
-   node. Both halves exist and have never been joined.
-6. **Canvas overlays** for format and selection size.
+5. ~~**Build the confidence strip.**~~ **Done** — `185a088`. One tile per
+   delivery format, the primary among them, showing the engine's own pixels
+   (a secondary format is a window on the frame already drawn) with a lamp per
+   format. It found a real bug on its first run: the engine anchors a rect on
+   its centre and a text block on its top-left corner, and Studio assumed
+   centred for both — so every text layer's handles, hit area and snap edges
+   sat half a box-width from the words. `boxAnchorOf` now states the
+   convention where it is established.
+6. ~~**Canvas overlays** for format and selection size.~~ **Done** — `08bf236`.
 7. **Air is three states** — off, cued, live — with Cue on Space and Take on
    Enter, and the Cue key rendered armed.
 8. **The dock is four groups in a fixed order**: Layers (expert), Content,

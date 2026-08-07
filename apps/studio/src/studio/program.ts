@@ -37,7 +37,29 @@ import type { StudioSession } from "./session";
  */
 export type TakeMode = "cut" | "take" | "auto";
 
-export type ProgramState = "off-air" | "on-air" | "holding";
+/**
+ * Where the transmission is.
+ *
+ * ============================================================================
+ * `cued` IS A STATE, NOT A DECORATION
+ * ============================================================================
+ * A gallery does not go from nothing to air. It CUES — arms the next thing —
+ * and then takes it. The prototype has three states for that reason
+ * (`off · cued · live`) and Studio had two, which meant the only way to
+ * indicate "this is what is going out next" was to already be going out.
+ *
+ * Cueing here records the canonical bytes of Preview at the moment it was
+ * armed. That is what makes the state carry something rather than being a
+ * lamp: `cueStale` can then answer "somebody edited the graphic after I cued
+ * it", which is a real thing that happens to operators and which nothing could
+ * previously ask.
+ *
+ * `holding` is a state of BEING on air, not a fourth colour. `onAir` is true
+ * for `on-air` and `holding` and false for `cued` — a cued graphic is not on
+ * air, and treating it as if it were would light the spine red for something
+ * nobody can see.
+ */
+export type ProgramState = "off-air" | "cued" | "on-air" | "holding";
 
 export interface TakeResult {
   readonly mode: TakeMode;
@@ -92,6 +114,8 @@ export class ProgramBus {
 
   #state: ProgramState = "off-air";
   #airedHash: string | null = null;
+  /** The canonical bytes armed by `cue`, so `cueStale` can compare. */
+  #cuedHash: string | null = null;
   #playing: string | null = null;
   #listeners = new Set<BusListener>();
 
@@ -120,8 +144,59 @@ export class ProgramBus {
     return this.#state;
   }
 
+  /**
+   * True only when frames are actually going out.
+   *
+   * NOT `state !== "off-air"`. A cued graphic is armed and invisible, and
+   * counting it as on air would put the red spine across the top of the
+   * application for something nobody is watching — and would duck the
+   * interface sound of an operator who is still preparing.
+   */
   get onAir(): boolean {
-    return this.#state !== "off-air";
+    return this.#state === "on-air" || this.#state === "holding";
+  }
+
+  get cued(): boolean {
+    return this.#state === "cued";
+  }
+
+  /**
+   * True when Preview has changed since it was cued.
+   *
+   * The question an operator cannot otherwise ask: "is the thing I armed still
+   * the thing I armed?" Somebody retyping a name after the cue is normal and
+   * fine — but it must be VISIBLE, because the alternative is taking a graphic
+   * you checked and airing one you did not.
+   */
+  get cueStale(): boolean {
+    return this.#state === "cued" && this.#hash(this.preview.document) !== this.#cuedHash;
+  }
+
+  /**
+   * Arms Preview. Nothing reaches air.
+   *
+   * Refused while on air, deliberately: an operator cannot cue over a live
+   * transmission with one keystroke, because the state that would produce —
+   * "on air AND armed" — has no honest single indicator, and a tally that
+   * cannot be read at a glance is worse than no tally.
+   */
+  cue(): TakeResult {
+    if (this.onAir) {
+      return { mode: "take", state: this.#state, played: this.#playing };
+    }
+    this.#cuedHash = this.#hash(this.preview.document);
+    this.#state = "cued";
+    return this.#emit({ mode: "take", state: this.#state, played: null });
+  }
+
+  /** Disarms. Only ever from `cued`, so it cannot take anything off air. */
+  uncue(): TakeResult {
+    if (this.#state !== "cued") {
+      return { mode: "take", state: this.#state, played: this.#playing };
+    }
+    this.#cuedHash = null;
+    this.#state = "off-air";
+    return this.#emit({ mode: "cut", state: this.#state, played: null });
   }
 
   /** The timeline Program is currently running, if any. */
@@ -165,6 +240,10 @@ export class ProgramBus {
     // with something the designer is still editing.
     this.program.open(JSON.parse(bytes) as SceneDocument);
     this.#airedHash = bytes;
+    // The cue is CONSUMED, not kept. What was armed is now what is out, and a
+    // cue that survived its own take would leave the strip armed for a graphic
+    // that has already gone.
+    this.#cuedHash = null;
     this.#state = "on-air";
     this.#playing = null;
 
@@ -202,7 +281,10 @@ export class ProgramBus {
    * worst possible response to "wait".
    */
   hold(): void {
-    if (this.#state === "off-air") return;
+    // `!onAir` rather than `=== "off-air"`: holding a CUED graphic would put
+    // the bus in `holding` — which reads as on air everywhere — for something
+    // that has never been transmitted.
+    if (!this.onAir) return;
     this.program.pause();
     this.#state = "holding";
     this.#emit({ mode: "take", state: this.#state, played: this.#playing });
@@ -235,6 +317,7 @@ export class ProgramBus {
   clear(): void {
     this.program.stop();
     this.#state = "off-air";
+    this.#cuedHash = null;
     this.#playing = null;
     // The aired hash is NOT cleared: what was last on air is still what was
     // last on air, and `pending` should not become true merely because the

@@ -176,6 +176,106 @@ describe("Preview never reaches Program without a Take", () => {
     program.program.dispose();
   });
 
+  it("cues without airing anything", () => {
+    // A gallery does not go from nothing to air. `off -> cued -> live`, and
+    // the middle state must be genuinely invisible: nothing transmitted, the
+    // red spine dark, and the interface sound un-ducked for an operator who
+    // is still preparing.
+    const { bus: program, preview } = bus();
+    program.program.render();
+    const hash = program.program.host.sessionHash();
+
+    const result = program.cue();
+    expect(result.state).toBe("cued");
+    expect(program.state).toBe("cued");
+    expect(program.cued).toBe(true);
+    expect(program.onAir, "a cued graphic is armed, not transmitted").toBe(false);
+    expect(program.program.host.sessionHash()).toBe(hash);
+
+    preview.dispose();
+    program.program.dispose();
+  });
+
+  it("notices when the graphic changed after it was cued", () => {
+    // The question an operator cannot otherwise ask: is the thing I armed
+    // still the thing I armed? Taking a graphic you checked and airing one
+    // you did not is the failure this exists to make visible.
+    const { bus: program, preview } = bus();
+    program.cue();
+    expect(program.cueStale).toBe(false);
+
+    const created = createNode(preview.document, "rect", preview.document.root.id, ids);
+    preview.store.apply(created.transaction);
+    expect(program.cueStale).toBe(true);
+
+    // Undoing back to the cued bytes clears it: this compares CONTENT, not
+    // "has anything been touched".
+    preview.store.undo();
+    expect(program.cueStale).toBe(false);
+
+    preview.dispose();
+    program.program.dispose();
+  });
+
+  it("un-cues back to off air, and can never take anything off air", () => {
+    const { bus: program, preview } = bus();
+    program.cue();
+    program.uncue();
+    expect(program.state).toBe("off-air");
+
+    // From ON AIR, un-cue is a no-op. Escape must not be a way to end a
+    // transmission — going off air is an explicit, named act.
+    program.take();
+    expect(program.onAir).toBe(true);
+    program.uncue();
+    expect(program.state).toBe("on-air");
+    expect(program.onAir).toBe(true);
+
+    preview.dispose();
+    program.program.dispose();
+  });
+
+  it("refuses to cue over a live transmission", () => {
+    // "On air AND armed" has no honest single indicator, and a tally that
+    // cannot be read at a glance is worse than no tally.
+    const { bus: program, preview } = bus();
+    program.take();
+    program.cue();
+    expect(program.state).toBe("on-air");
+    expect(program.cued).toBe(false);
+
+    preview.dispose();
+    program.program.dispose();
+  });
+
+  it("consumes the cue when it takes", () => {
+    // A cue that survived its own take would leave the transport armed for a
+    // graphic that has already gone out.
+    const { bus: program, preview } = bus();
+    program.cue();
+    program.take();
+    expect(program.cued).toBe(false);
+    expect(program.cueStale).toBe(false);
+
+    program.clear();
+    expect(program.state).toBe("off-air");
+    expect(program.cued).toBe(false);
+
+    preview.dispose();
+    program.program.dispose();
+  });
+
+  it("will not hold a cue, because holding reads as being on air", () => {
+    const { bus: program, preview } = bus();
+    program.cue();
+    program.hold();
+    expect(program.state).toBe("cued");
+    expect(program.onAir).toBe(false);
+
+    preview.dispose();
+    program.program.dispose();
+  });
+
   it("takes by value, so a later Preview edit does not leak on air", () => {
     const { bus: program, preview } = bus();
     const created = createNode(preview.document, "rect", preview.document.root.id, ids);

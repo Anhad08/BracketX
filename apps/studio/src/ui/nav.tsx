@@ -25,6 +25,8 @@ export interface NavProps {
   readonly dirty: boolean;
   /** Shown as a tally on the rail, because on-air state is never hidden. */
   readonly onAir: boolean;
+  /** Armed, but not out. The state between nothing and air. */
+  readonly cued: boolean;
 }
 
 const ICONS: Record<Section, string> = {
@@ -39,7 +41,7 @@ const ICONS: Record<Section, string> = {
   developer: "⌥",
 };
 
-export function Nav({ section, onSection, developerMode, dirty, onAir }: NavProps) {
+export function Nav({ section, onSection, developerMode, dirty, onAir, cued }: NavProps) {
   const sections = visibleSections(developerMode);
 
   return (
@@ -75,11 +77,18 @@ export function Nav({ section, onSection, developerMode, dirty, onAir }: NavProp
       {/* On air, on the rail. An operator must never have to navigate to find
           out whether something is live. */}
       <span
-        className={`rail-tally ${onAir ? "on-air" : ""}`}
+        className={`rail-tally ${onAir ? "on-air" : ""} ${cued ? "cued" : ""}`}
         data-testid="rail-tally"
-        title={onAir ? "A graphic is on air" : "Nothing is on air"}
+        data-air={onAir ? "live" : cued ? "cued" : "off"}
+        title={
+          onAir
+            ? "A graphic is on air"
+            : cued
+              ? "A graphic is armed for the next take. Nothing is on air."
+              : "Nothing is on air"
+        }
       >
-        {onAir ? "ON AIR" : "OFF"}
+        {onAir ? "ON AIR" : cued ? "CUED" : "OFF"}
       </span>
     </nav>
   );
