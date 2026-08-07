@@ -124,3 +124,55 @@ test("the bottom dock has no tabs, and panels do not hide each other", async ({ 
   }
   await expect(page.getByTestId("dock-empty")).toBeVisible();
 });
+
+/**
+ * The stage carries what the depth needs, and nothing else.
+ *
+ * The complaint was that the interface had become a hotchpotch. It had: the
+ * transport, a frame counter, a zoom percentage, the dimension switch, Fit
+ * and five view toggles all sat at the same weight regardless of who was
+ * looking.
+ */
+test("the beginner stage is not an engine console", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByTestId("start-tpl_lower_third").click();
+  await expect(page.locator(".studio")).toHaveAttribute("data-depth", "beginner");
+
+  // What a beginner previewing a graphic actually needs: watch it, stop it,
+  // frame it, and choose flat or in space.
+  await expect(page.getByTestId("transport-play")).toBeVisible();
+  await expect(page.getByTestId("dim-2d")).toBeVisible();
+
+  // What they do not: frame-stepping and a frame counter are for TIMING
+  // something, and a zoom percentage is for matching two views precisely.
+  await expect(page.getByTestId("frame")).toHaveCount(0);
+  await expect(page.getByTestId("zoom")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Step forward" })).toHaveCount(0);
+
+  // And none of the designer's overlays.
+  for (const label of ["Safe", "Grid", "Guides", "Rulers", "Snap"]) {
+    await expect(page.getByTestId("viewport-toolbar").getByText(label, { exact: true })).toHaveCount(0);
+  }
+
+  // Every one of them arrives at Designer depth. Nothing is removed from the
+  // product — it is revealed, which is the whole rule.
+  await ensureDepth(page, "designer");
+  await expect(page.getByTestId("frame")).toBeVisible();
+  await expect(page.getByTestId("zoom")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Step forward" })).toBeVisible();
+});
+
+test("one transport button, which reports what it will do", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByTestId("start-tpl_lower_third").click();
+  const play = page.getByTestId("transport-play");
+
+  // Play and Pause were two buttons, one of which was always wrong to press.
+  await expect(play).toHaveAttribute("aria-label", "Play");
+  await play.click();
+  await expect(play).toHaveAttribute("aria-label", "Pause");
+  await play.click();
+  await expect(play).toHaveAttribute("aria-label", "Play");
+});

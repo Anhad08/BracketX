@@ -1689,39 +1689,47 @@ export function App() {
 
         <main className="stage">
           <div className="viewport-toolbar" data-testid="viewport-toolbar">
-            <button type="button" className="chip" onClick={() => session.play()} aria-label="Play">
-              ▶
-            </button>
+            {/* THE TRANSPORT, at the depth that needs it.
+                A beginner previewing a lower third needs to watch it and stop
+                watching it. Frame-stepping and a frame counter are what you
+                reach for when you are TIMING something, which is designer
+                work — and putting them here regardless is how a stage ends up
+                looking like an engine rather than a product. */}
             <button
               type="button"
               className="chip"
-              onClick={() => session.pause()}
-              aria-label="Pause"
+              onClick={() => (session.playing ? session.pause() : session.play())}
+              aria-label={session.playing ? "Pause" : "Play"}
+              data-testid="transport-play"
             >
-              ❚❚
+              {session.playing ? "❙❙" : "▶"}
             </button>
             <button type="button" className="chip" onClick={() => session.stop()} aria-label="Stop">
               ■
             </button>
-            <button
-              type="button"
-              className="chip"
-              onClick={() => session.stepFrames(-1)}
-              aria-label="Step back"
-            >
-              ◀|
-            </button>
-            <button
-              type="button"
-              className="chip"
-              onClick={() => session.stepFrames(1)}
-              aria-label="Step forward"
-            >
-              |▶
-            </button>
-            <span className="frame mono" data-testid="frame">
-              f{session.frame}
-            </span>
+            {workspace.depth === "beginner" ? null : (
+              <>
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => session.stepFrames(-1)}
+                  aria-label="Step back"
+                >
+                  ◀|
+                </button>
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => session.stepFrames(1)}
+                  aria-label="Step forward"
+                >
+                  |▶
+                </button>
+                <span className="frame mono" data-testid="frame">
+                  f{session.frame}
+                </span>
+              </>
+            )}
             <span className="spacer" />
 
             {/* THE VIEW. Five named angles, because orbit alone is a gesture
@@ -1782,9 +1790,13 @@ export function App() {
             <button type="button" className="chip" onClick={() => setFitToken((v) => v + 1)}>
               Fit
             </button>
-            <span className="zoom mono" data-testid="zoom">
-              {(viewport.zoom * 100).toFixed(0)}%
-            </span>
+            {/* A percentage is for matching two views precisely. A beginner
+                has Fit, and a number they cannot act on is noise. */}
+            {workspace.depth === "beginner" ? null : (
+              <span className="zoom mono" data-testid="zoom">
+                {(viewport.zoom * 100).toFixed(0)}%
+              </span>
+            )}
             {(workspace.depth === "beginner"
               ? []
               : ([
