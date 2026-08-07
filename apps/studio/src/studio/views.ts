@@ -162,6 +162,58 @@ export function poseFor(view: NamedView, pivot: Vec3, radius: number): CameraPos
 }
 
 /**
+ * The pose part-way between two orbits.
+ *
+ * ==========================================================================
+ * WHY A TRANSITION AND NOT A JUMP
+ * ==========================================================================
+ * 2D and 3D are two PORTS ONTO ONE SCENE, not two scenes. Everything in the
+ * graphic is in both — the same nodes, the same materials, the same
+ * animation — and the only thing that differs is where you are standing.
+ *
+ * A camera that teleports hides exactly that. The picture changes completely
+ * between one frame and the next, so the eye has no way to carry the content
+ * across and reads it as a different view of a different thing. Moving the
+ * camera there instead makes the continuity self-evident: you watch your own
+ * lower third turn, so you know it is the same lower third.
+ *
+ * Interpolated in SPHERICAL coordinates, not by blending positions. Blending
+ * two positions moves the camera in a straight line through the middle of the
+ * scene, which passes through the graphic and looks like a collision.
+ * Interpolating the angles arcs around the pivot, which is the path the
+ * gesture would have taken by hand.
+ */
+export function between(from: Orbit, to: Orbit, t: number): Orbit {
+  const k = Math.max(0, Math.min(1, t));
+  // The short way round. Turning 350 degrees to arrive somewhere 10 degrees
+  // away is technically correct and reads as a fault.
+  const turn = Math.PI * 2;
+  let delta = (to.azimuth - from.azimuth) % turn;
+  if (delta > Math.PI) delta -= turn;
+  if (delta < -Math.PI) delta += turn;
+  return {
+    radius: from.radius + (to.radius - from.radius) * k,
+    azimuth: from.azimuth + delta * k,
+    elevation: from.elevation + (to.elevation - from.elevation) * k,
+  };
+}
+
+/**
+ * The Design OS `glide` curve, as a function.
+ *
+ * cubic-bezier(.16, 1, .3, 1) — fast to leave, long to settle. It is the
+ * curve the specification gives for something ARRIVING, which is what a view
+ * does.
+ */
+export function glide(t: number): number {
+  const k = Math.max(0, Math.min(1, t));
+  return 1 - Math.pow(1 - k, 3);
+}
+
+/** How long a view change takes. Volume One's `--d-slow`, near enough. */
+export const VIEW_TRANSITION_MS = 420;
+
+/**
  * Which named view a camera is currently in, if any.
  *
  * Used to light the control up. Without it a designer cannot tell "I am in the

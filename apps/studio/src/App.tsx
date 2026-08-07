@@ -91,11 +91,14 @@ import {
   type FrameReport,
   type QualityChoice,
 } from "./studio/quality";
-import { orbitOf, type Vec3 } from "./studio/camera";
+import { lookAtRotation, orbitOf, positionFor, type Vec3 } from "./studio/camera";
 import {
+  between,
   DEFAULT_SPATIAL,
   FLAT,
+  glide,
   poseFor,
+  VIEW_TRANSITION_MS,
   SPATIAL_MODES,
   viewOf,
   VIEWS,
@@ -152,6 +155,11 @@ const PANEL_LABEL: Record<BottomPanel, string> = {
  * and it has to be the same place every time.
  */
 const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
+
+/** Six decimals. Enough for a camera, and it keeps the document tidy. */
+function round6(value: number): number {
+  return Math.round(value * 1e6) / 1e6 + 0;
+}
 
 /** The first node carrying a camera — the one the scene is shot through. */
 function findCameraNode(document: SceneDocument): SceneNode | null {
@@ -1291,26 +1299,62 @@ export function App() {
    * what the output frames. The distance is kept, so choosing a view re-aims
    * without also re-framing.
    */
+  const flight = useRef(0);
   const setView = useCallback(
     (view: NamedView) => {
       if (session === null || cameraOrbit === null) return;
-      const pose = poseFor(view, ORIGIN, cameraOrbit.orbit.radius || 10);
-      const turn = setProps(
-        session.document,
-        cameraOrbit.node.id,
-        new Map<string, unknown>([
-          ["transform.position", [...pose.position]],
-          ["transform.rotation", [...pose.rotation]],
-        ]),
-        `${view.label} view`,
-      );
-      // Silently: a named view is a change of VIEW, not of work. Undo must
-      // give back the last thing the designer did, not the last place they
-      // looked from.
-      if (turn !== null) session.store.applySilently(turn);
+      const radius = cameraOrbit.orbit.radius || 10;
+      const from = cameraOrbit.orbit;
+      const to = { radius, azimuth: view.azimuth, elevation: view.elevation };
+      const node = cameraOrbit.node.id;
+
+      // Cancel any flight already in progress. Two overlapping transitions
+      // fight over the same camera and produce a wobble that reads as a bug.
+      cancelAnimationFrame(flight.current);
+
+      const place = (orbit: typeof to): void => {
+        const position = positionFor(orbit, ORIGIN);
+        const rotation = lookAtRotation(position, ORIGIN);
+        const turn = setProps(
+          session.document,
+          node,
+          new Map<string, unknown>([
+            ["transform.position", [round6(position.x), round6(position.y), round6(position.z)]],
+            ["transform.rotation", [round6(rotation[0]), round6(rotation[1]), round6(rotation[2])]],
+          ]),
+          `${view.label} view`,
+        );
+        // Silently: a view is a change of VIEW, not of work. Undo gives back
+        // the last thing the designer DID, not the last place they looked
+        // from — and a transition must not write sixty history entries.
+        if (turn !== null) session.store.applySilently(turn);
+      };
+
+      // Already there. Nothing to fly.
+      if (
+        Math.abs(from.azimuth - to.azimuth) < 1e-4 &&
+        Math.abs(from.elevation - to.elevation) < 1e-4
+      ) {
+        place(to);
+        return;
+      }
+
+      const started = performance.now();
+      const step = (now: number): void => {
+        const t = Math.min(1, (now - started) / VIEW_TRANSITION_MS);
+        place(between(from, to, glide(t)));
+        // The LAST frame lands on the target exactly. Easing that merely
+        // approaches it leaves the camera a fraction off, so "2D" would stop
+        // meaning square-on after a few switches.
+        if (t < 1) flight.current = requestAnimationFrame(step);
+        else place(to);
+      };
+      flight.current = requestAnimationFrame(step);
     },
     [session, cameraOrbit],
   );
+
+  useEffect(() => () => cancelAnimationFrame(flight.current), []);
 
   const menuCommands = useMemo<readonly StudioCommand[]>(() => {
     const wanted = [

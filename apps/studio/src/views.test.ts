@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { lookAtRotation, orbitOf, positionFor, type Vec3 } from "./studio/camera";
-import { poseFor, viewOf, VIEWS } from "./studio/views";
+import { between, glide, poseFor, viewOf, VIEWS } from "./studio/views";
 
 const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
 
@@ -73,5 +73,67 @@ describe("named views", () => {
   it("does not treat 359 degrees as far from 1 degree", () => {
     const front = orbitOf(positionFor({ radius: 10, azimuth: -0.005, elevation: 0 }, ORIGIN), ORIGIN);
     expect(viewOf(front)?.id).toBe("front");
+  });
+});
+
+// ===========================================================================
+// The transition
+// ===========================================================================
+
+describe("between", () => {
+  const at = (azimuth: number, elevation = 0, radius = 10) => ({ radius, azimuth, elevation });
+
+  it("starts where it starts and ends where it ends", () => {
+    const from = at(0);
+    const to = at(1.2, 0.4, 14);
+    expect(between(from, to, 0)).toEqual(from);
+    const end = between(from, to, 1);
+    expect(end.azimuth).toBeCloseTo(to.azimuth, 9);
+    expect(end.elevation).toBeCloseTo(to.elevation, 9);
+    expect(end.radius).toBeCloseTo(to.radius, 9);
+  });
+
+  it("takes the SHORT way round", () => {
+    // Turning 350 degrees to arrive somewhere 10 degrees away is technically
+    // correct and reads as a fault.
+    const from = at((350 * Math.PI) / 180);
+    const to = at((10 * Math.PI) / 180);
+    const mid = between(from, to, 0.5);
+    // Through 0, not back through 180.
+    const degrees = ((mid.azimuth * 180) / Math.PI + 360) % 360;
+    expect(degrees > 350 || degrees < 10).toBe(true);
+  });
+
+  it("keeps the camera on a sphere, never through the middle of the scene", () => {
+    // Blending two POSITIONS moves the camera in a straight line through the
+    // pivot, which passes through the graphic and looks like a collision.
+    const from = at(0, 0, 10);
+    const to = at(Math.PI, 0, 10);
+    for (let t = 0; t <= 1; t += 0.1) {
+      expect(between(from, to, t).radius).toBeCloseTo(10, 9);
+    }
+  });
+
+  it("clamps rather than extrapolating past either end", () => {
+    const from = at(0);
+    const to = at(1);
+    expect(between(from, to, -5).azimuth).toBeCloseTo(0, 9);
+    expect(between(from, to, 5).azimuth).toBeCloseTo(1, 9);
+  });
+});
+
+describe("glide", () => {
+  it("is fast to leave and long to settle", () => {
+    expect(glide(0)).toBe(0);
+    expect(glide(1)).toBe(1);
+    // Past halfway by the time a third of the duration has passed.
+    expect(glide(0.33)).toBeGreaterThan(0.5);
+    // Monotonic — a view that went backwards mid-flight would read as a bug.
+    let previous = -1;
+    for (let t = 0; t <= 1; t += 0.05) {
+      const value = glide(t);
+      expect(value).toBeGreaterThanOrEqual(previous);
+      previous = value;
+    }
   });
 });

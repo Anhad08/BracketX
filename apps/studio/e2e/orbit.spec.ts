@@ -41,8 +41,23 @@ async function cameraPosition(page: Page): Promise<[number, number, number]> {
  */
 async function enterSpatial(page: Page, mode: string): Promise<void> {
   const button = page.getByTestId(`view-${mode}`);
-  if ((await button.count()) === 0) await page.getByTestId("dim-3d").click();
+  if ((await button.count()) === 0) {
+    await page.getByTestId("dim-3d").click();
+    await settle(page);
+  }
   await page.getByTestId(`view-${mode}`).click();
+  await settle(page);
+}
+
+/**
+ * Waits for a view change to land.
+ *
+ * A view now FLIES rather than jumping — 2D and 3D are two ports onto one
+ * scene, and watching the camera move is what makes that legible. Anything
+ * reading the camera has to let it arrive first.
+ */
+async function settle(page: Page): Promise<void> {
+  await page.waitForTimeout(600);
 }
 
 test("orbiting turns the scene camera, and does not touch the history", async ({ page }) => {
@@ -200,6 +215,7 @@ test("a 3D object is really 3D: turning the camera changes what it looks like", 
     page.getByTestId("scene-view").screenshot();
 
   await page.getByTestId("dim-2d").click();
+ await settle(page);
   await page.waitForTimeout(400);
   const front = await shot();
 
@@ -224,6 +240,7 @@ test("the viewport becomes a 3D viewport when the camera turns, and not before",
   // project to a single horizontal line across the middle of a lower third,
   // which is worse than drawing nothing.
   await page.getByTestId("dim-2d").click();
+  await settle(page);
   await expect(page.getByTestId("ground")).toHaveCount(0);
   await expect(page.getByTestId("compass")).toHaveCount(0);
 
@@ -239,12 +256,15 @@ test("the viewport becomes a 3D viewport when the camera turns, and not before",
 
   // And back to Front removes it again.
   await page.getByTestId("dim-2d").click();
+  await settle(page);
   await expect(page.getByTestId("ground")).toHaveCount(0);
 });
 
 test("the flat view is fixed: the camera cannot be nudged off axis", async ({ page }) => {
   await open3D(page);
   await page.getByTestId("dim-2d").click();
+
+  await settle(page);
 
   const before = await cameraPosition(page);
   const box = (await page.getByTestId("scene-chrome").boundingBox())!;
@@ -280,6 +300,7 @@ test("the flat design chrome does not appear in the 3D viewport", async ({ page 
   // Flat: the checkerboard, the safe areas and the rulers are the tools of a
   // square-on design view.
   await page.getByTestId("dim-2d").click();
+  await settle(page);
   await expect(page.locator(".scene-checker")).not.toHaveClass(/off/);
   await expect(page.getByTestId("safe-title")).toBeVisible();
 
@@ -325,6 +346,7 @@ test("a trip to 3D and back leaves the picture unchanged", async ({ page }) => {
   await enterSpatial(page, "three-quarter");
   await page.waitForTimeout(500);
   await page.getByTestId("dim-2d").click();
+ await settle(page);
   await page.waitForTimeout(700);
 
   const after = await stage.screenshot();
@@ -360,6 +382,7 @@ test("the dimension switch comes first, and the modes live inside 3D", async ({ 
   await expect(page.getByTestId("view-side")).toHaveCount(0);
 
   await page.getByTestId("dim-3d").click();
+  await settle(page);
   await expect(page.getByTestId("dim-3d")).toHaveClass(/on/);
   await expect(page.getByTestId("modes")).toBeVisible();
   for (const mode of ["three-quarter", "side", "top", "low"]) {
@@ -369,10 +392,12 @@ test("the dimension switch comes first, and the modes live inside 3D", async ({ 
   // The switch REPORTS the camera rather than asserting it: orbiting away
   // from flat is entering 3D, whether or not anybody pressed 3D.
   await page.getByTestId("dim-2d").click();
+  await settle(page);
   await expect(page.getByTestId("modes")).toHaveCount(0);
 
   const box = (await page.getByTestId("scene-chrome").boundingBox())!;
   await page.getByTestId("dim-3d").click();
+  await settle(page);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down({ button: "middle" });
   await page.mouse.move(box.x + box.width / 2 + 140, box.y + box.height / 2, { steps: 8 });
@@ -381,6 +406,73 @@ test("the dimension switch comes first, and the modes live inside 3D", async ({ 
 
   // And 2D returns exactly, not approximately.
   await page.getByTestId("dim-2d").click();
+  await settle(page);
   await expect(page.getByTestId("dim-2d")).toHaveClass(/on/);
   await expect(page.getByTestId("modes")).toHaveCount(0);
+});
+
+/**
+ * 2D and 3D are two ports onto ONE scene.
+ *
+ * Everything in the graphic is in both — the same nodes, the same materials,
+ * the same animation — and the only thing that differs is where you are
+ * standing. A camera that teleports hides exactly that: the picture changes
+ * completely between one frame and the next, so the eye cannot carry the
+ * content across and reads it as a different view of a different thing.
+ */
+test("switching dimension flies the camera rather than teleporting it", async ({ page }) => {
+  await open3D(page);
+
+  const stage = page.getByTestId("scene-view");
+  const flat = await stage.screenshot();
+
+  // Sample DURING the transition — deliberately NOT settled. A jump would
+  // already be finished by now.
+  await page.getByTestId("dim-3d").click();
+  await page.waitForTimeout(120);
+  const midway = await stage.screenshot();
+  expect(
+    Buffer.compare(flat, midway),
+    "the camera must have started moving",
+  ).not.toBe(0);
+
+  await page.waitForTimeout(700);
+  const settled = await stage.screenshot();
+  expect(
+    Buffer.compare(midway, settled),
+    "and must still have been moving when sampled — a jump would have landed",
+  ).not.toBe(0);
+
+  // It lands EXACTLY, not approximately: easing that merely approaches its
+  // target leaves the camera a fraction off, and "2D" stops meaning
+  // square-on after a few switches.
+  await page.getByTestId("dim-2d").click();
+  await settle(page);
+  const back = await stage.screenshot();
+  expect(
+    Buffer.compare(flat, back),
+    "returning to 2D must restore the picture exactly",
+  ).toBe(0);
+});
+
+test("the scene survives switching, whatever is in it", async ({ page }) => {
+  await open3D(page);
+  await ensureDepth(page, "designer");
+
+  // A flat graphic and a 3D object in the same scene — the hybrid case.
+  await page.getByTestId("tool-box").click();
+  const layers = await page.getByTestId("outline").locator("li").count();
+
+  for (let i = 0; i < 3; i += 1) {
+    await page.getByTestId("dim-3d").click();
+   await settle(page);
+    await page.waitForTimeout(550);
+    await page.getByTestId("dim-2d").click();
+   await settle(page);
+    await page.waitForTimeout(550);
+  }
+
+  // Everything came with it, and nothing was recorded as work.
+  expect(await page.getByTestId("outline").locator("li").count()).toBe(layers);
+  await expect(page.getByTestId("history")).toContainText("history 1");
 });
