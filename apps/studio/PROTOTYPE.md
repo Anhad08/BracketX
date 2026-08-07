@@ -256,6 +256,38 @@ is on air.
 
 ---
 
+## Two decisions, settled by the founder
+
+The prototype and the briefs disagreed in two places. Both are now decided,
+and neither is my inference:
+
+**1. Air lives in BOTH places.** Cue and Take return to the stage transport
+exactly as the prototype has them — Space, Enter, the armed Cue key, the air
+lamp — *and* Production stays as the operator's surface: scene list, preview,
+checks, take, for the person who did NOT build the graphic.
+
+One bus, two surfaces. No duplicate logic — Production and the transport both
+drive `ProgramBus`, the way the command palette and the context menu both run
+the same `StudioCommand`.
+
+**2. The rail is the prototype's five, plus what the product needs.**
+
+```
+RAIL                    SECONDARY
+Design                  Marketplace
+Assets                  Settings
+Data
+Brand
+─────
+Outputs
+```
+
+Home stops being a destination and becomes the **"What are you making?"**
+start screen. Marketplace and Settings leave the main rail — they are places
+you visit, not the working set of somebody making a graphic.
+
+---
+
 ## What Studio must change
 
 1. **Four columns, one dock.** Collapse left/right/bottom into a single right
