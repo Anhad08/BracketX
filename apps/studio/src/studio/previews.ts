@@ -331,8 +331,7 @@ export async function renderTemplatePreviews(
  * A player per card would mean forty WebGL contexts on the Marketplace and a
  * browser that refuses the seventeenth. Only one card is ever under the
  * pointer, so there is one hidden renderer and its frames are BLITTED into
- * whichever tile is asking — the same trick the confidence strip uses, and it
- * costs one `drawImage` per frame.
+ * whichever tile is asking — one `drawImage` per frame.
  *
  * Starting is instant because the context already exists. Building one on
  * hover would take a couple of hundred milliseconds, which is exactly long

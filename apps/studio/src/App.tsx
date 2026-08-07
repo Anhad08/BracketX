@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MenuBar } from "./ui/menubar";
 import { createBackend } from "./studio/renderer";
 import { PreviewPlayer, renderTemplatePreviews } from "./studio/previews";
 import type { ImageProvider, TextProvider } from "@bracketx/engine-reconciler";
@@ -75,7 +76,6 @@ import {
   type LibraryEntry,
 } from "./studio/library";
 import { SceneView } from "./ui/scene-view";
-import { ConfidenceStrip } from "./ui/confidence";
 import { Content, Hierarchy, Inspector, LevelFoot, Toolbox, Variables } from "./ui/panels";
 import { TimelineEditor } from "./ui/timeline";
 import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
@@ -419,6 +419,26 @@ export function App() {
   );
 
   /**
+   * Rendered only where they are LOOKED AT.
+   *
+   * This used to run at boot regardless of where somebody was, so opening
+   * straight into the editor spent the first three seconds rendering
+   * thumbnails for a screen nobody had asked for — competing with the stage
+   * for the same GPU while a designer was already working on it.
+   *
+   * It showed up as the picture-stability test going flaky: the stage compares
+   * itself to itself after a trip into 3D, and a second renderer drawing
+   * eight graphics in the background is exactly the thing that stops a
+   * viewport ever reaching a still frame.
+   */
+  const showsArt =
+    workspace.section === "home" ||
+    workspace.section === "templates" ||
+    workspace.section === "marketplace" ||
+    workspace.section === "production";
+
+
+  /**
    * WHAT THE CARDS ACTUALLY SHOW.
    *
    * Six of the eight template cards carried the same drawn glyph, so the screen
@@ -451,7 +471,7 @@ export function App() {
   const [playerReady, setPlayerReady] = useState(false);
 
   useEffect(() => {
-    if (!fontsReady) return;
+    if (!fontsReady || !showsArt) return;
     const first = templatesOf()[0];
     if (first === undefined) return;
     const player = PreviewPlayer.create(
@@ -470,7 +490,7 @@ export function App() {
       playerRef.current = null;
       setPlayerReady(false);
     };
-  }, [fontsReady]);
+  }, [fontsReady, showsArt]);
 
   const playTemplate = useCallback((templateId: string, into: HTMLCanvasElement) => {
     const player = playerRef.current;
@@ -495,7 +515,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!fontsReady) return;
+    if (!fontsReady || !showsArt) return;
     let cancelled = false;
     void renderTemplatePreviews(
       templatesOf(),
@@ -518,7 +538,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [fontsReady]);
+  }, [fontsReady, showsArt]);
 
   /**
    * Publishes the registry's state to the UI and to disk.
@@ -1952,6 +1972,10 @@ export function App() {
           document name only means something while a document is open; the theme
           belongs to Settings, which owns appearance. */}
       <header className="titlebar">
+        {/* ALWAYS, ON EVERY SCREEN. A menu bar that appeared only in the
+            editor would be the opposite of what a menu bar is for: the one
+            place that is always in the same place. */}
+        <MenuBar commands={commands} />
         {designing ? (
           <>
             <span className="doc-name" data-testid="doc-name">
@@ -2236,17 +2260,6 @@ export function App() {
             }}
             />
 
-            {/* EVERY FORMAT YOU WILL DELIVER IN, AT ONCE. Beside the graphic
-                rather than behind a check button, because the failure it
-                catches — a name that fits in 16:9 and runs off the side in
-                9:16 — is otherwise discovered by whoever watches the 9:16
-                cut. It shows the engine's own pixels; see `confidence.tsx`. */}
-            <ConfidenceStrip
-              session={session}
-              canvas={canvasRef.current}
-              revision={revision}
-              onSelect={(nodeId) => setSelection(selectOnly(nodeId))}
-            />
           </div>
 
           {/* The Program row lives in Production now. Going to air is not a

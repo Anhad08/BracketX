@@ -300,6 +300,23 @@ export function SceneView({
     axis: AxisId | null;
   }>({ node: null, handle: null, axis: null });
   /** Where the context menu is open, in screen coordinates. */
+  /**
+   * True for one beat after the SELECTION changed.
+   *
+   * The corner ticks spring on when you pick a layer — and only then. Keyed
+   * off the element existing instead, the spring replayed on every re-render
+   * that happened to rebuild the box: going into 3D and back re-mounts it, so
+   * the ticks animated again on arrival and the stage was still moving after
+   * the camera had landed. The picture-stability test caught it.
+   */
+  const [picked, setPicked] = useState(false);
+  useEffect(() => {
+    if (selection.ids.length === 0) return;
+    setPicked(true);
+    const timer = setTimeout(() => setPicked(false), 260);
+    return () => clearTimeout(timer);
+  }, [selection]);
+
   const [menu, setMenu] = useState<Point | null>(null);
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({
     x: null,
@@ -1736,7 +1753,11 @@ export function SceneView({
           const width = entry.rect.width * ppu * viewport.zoom;
           const height = entry.rect.height * ppu * viewport.zoom;
           return (
-            <g key={entry.nodeId} className="selection-box" data-testid="selection-box">
+            <g
+              key={entry.nodeId}
+              className={`selection-box ${picked ? "picked" : ""}`}
+              data-testid="selection-box"
+            >
               {/* Outline per node so a multi-selection shows what is in it.
                   The HANDLES are drawn once, on the union, below — they must
                   match what `handleAt` hit-tests or the grab misses.

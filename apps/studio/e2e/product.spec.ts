@@ -202,10 +202,10 @@ test("browsing costs no rendering", async ({ page }) => {
   await boot(page);
   await page.getByTestId("start-tpl_lower_third").click();
   // Scoped to the scene surface, because that is the one the ENGINE draws
-  // into. The confidence strip mounts a small 2D canvas per delivery format
-  // beside it, and counting every canvas on the page made this assertion about
-  // how many pictures Studio shows rather than about how much it renders.
-  // The claim below — nothing at all while browsing — is what carries the cost.
+  // into. Scoped rather than counting every canvas on the page, so the
+  // assertion stays about how much Studio RENDERS rather than about how many
+  // pictures it happens to show. The claim below — nothing at all while
+  // browsing — is what carries the cost.
   await expect(page.locator(".scene-surface canvas")).toHaveCount(1);
 
   await page.getByTestId("nav-marketplace").click();

@@ -567,6 +567,8 @@ kbd {
 .well { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .well > .scene-view { flex: 1; min-height: 0; }
 
+
+
 /* --- Viewport helpers: cameras and lights -------------------------------- */
 
 /* CHROME, NOT CONTENT. These describe the scene; they are never in it. Quiet
@@ -675,72 +677,6 @@ kbd {
 
 /* --- The confidence strip ------------------------------------------------ */
 
-/* A CONTACT SHEET, NOT A COLUMN.
-
-   It was 92px wide and stood on end beside the stage: five 16:9 crops at
-   92x52, stacked vertically, with a ragged right edge where the labels ran
-   out. Nothing in them was legible, so the one thing it exists to catch — a
-   name that fits in 16:9 and runs off the side in 9:16 — could not be seen in
-   it, and it cost the picture a hundred pixels of width to say so.
-
-   Laid along the bottom of the stage instead, the tiles are twice the size and
-   the row reads the way a contact sheet reads: same frame, several crops,
-   compared left to right. It is also where the eye already goes after looking
-   at the picture. */
-/* The heading turns a row of unexplained pictures into a statement. It sits at
-   the left, on its own column, so the tiles keep reading as a set. */
-.conf-head {
-  flex: none; display: flex; flex-direction: column; gap: 4px;
-  align-self: center; width: 96px; padding-right: 4px;
-}
-.conf-title {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--dim);
-}
-.conf-verdict { font-size: 11px; }
-.conf-verdict.ok { color: var(--ok); }
-.conf-verdict.warn { color: var(--warn); }
-
-.conf-strip {
-  flex: none; display: flex; flex-direction: row; align-items: flex-start;
-  gap: 12px; padding: 12px 14px; overflow-x: auto; overflow-y: hidden;
-  border-top: 1px solid var(--line); background: var(--panel);
-  scrollbar-width: thin;
-}
-/* Below this the picture wins outright. The pre-flight in Production reports
-   the same findings in words, so nothing is only knowable here. */
-@media (max-height: 640px) { .conf-strip { display: none; } }
-
-/* SIZED BY HEIGHT, NOT WIDTH.
-
-   Sized by width, a 9:16 crop is three times as tall as a 16:9 one — the row
-   became a jagged skyline 250px deep, which is worse than the column it
-   replaced. A contact sheet works because every frame is the same height and
-   only the shape changes; that is exactly the comparison being asked for. */
-.conf-tile {
-  display: flex; flex-direction: column; flex: none; padding: 0; border: 0;
-  background: none; cursor: pointer; text-align: left; color: var(--dim);
-  transition: color 0.16s var(--press), transform 0.16s var(--press);
-}
-.conf-tile canvas {
-  display: block; height: 74px; width: auto; border-radius: 4px;
-  background: var(--canvas-void);
-  box-shadow: var(--recess), inset 0 0 0 1px var(--line);
-}
-.conf-tile:hover { transform: translateY(-2px); }
-.conf-tile.warn canvas { box-shadow: var(--recess), inset 0 0 0 1px var(--warn); }
-/* The document's own format reads as the one being edited, not as a fifth
-   deliverable of equal weight — while still being CHECKED as one. */
-.conf-tile.primary { color: var(--text-strong); }
-.conf-tile:hover { color: var(--text-strong); }
-.conf-foot { display: flex; align-items: center; gap: 4px; padding: 3px 1px 0; font-size: 10.5px; }
-.conf-name { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-
-.scene-surface { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
-/* The canvas is above anything else in the surface, always. It is appended
-   imperatively, so it cannot rely on DOM order to stay on top — and when it
-   did, a remounted sibling silently covered the scene. */
-.scene-surface canvas { display: block; width: 100%; height: 100%; position: relative; z-index: 1; }
 /* TRANSPARENCY, SAID QUIETLY.
    The checker was 24px squares at full strength, and it was the loudest thing
    on the screen — a designer judging the weight of a plate against live video
@@ -1271,8 +1207,17 @@ kbd {
    so contact is immediate; `--react` on colour so a lit state fades up rather
    than snapping, which is most of the difference between a control that feels
    machined and one that feels like a checkbox. */
-.chip, .tool, .finish, .motion-pick, .rail-item, .handle,
-.viewport-toolbar .toggle, .depth-toggle-3d, .conf-tile, .scene-chip {
+/* NOTHING OVER THE PICTURE.
+   `.handle` was in this list and the hover outline had a fade, and both put
+   moving chrome on top of the one thing in the product a person is judging by
+   eye. It also made the stage unable to reach a still frame — the round-trip
+   test, which compares the stage to itself, went from stable to flaky the
+   moment they were added.
+
+   The rule this restores is narrow and worth keeping: motion belongs to the
+   INTERFACE. The picture holds still. */
+.chip, .tool, .finish, .motion-pick, .rail-item,
+.viewport-toolbar .toggle, .depth-toggle-3d, .scene-chip {
   transition:
     transform var(--tap) var(--press),
     background var(--react) var(--press),
@@ -1303,19 +1248,22 @@ kbd {
    The one spring in the product. Clicking a layer should feel like the mark
    snapped onto it, and a spring is the only motion that reads as physical.
    It runs on the corner ticks alone and never on the picture. */
-.selection-box .sel-tick {
-  stroke-dasharray: 44;
-  animation: tick-in 220ms var(--spring) both;
-}
+/* THE SPRING RUNS ON A SELECTION, NOT ON A REDRAW.
+   Keyed off the element existing, it replayed every time the stage
+   re-rendered for a reason that had nothing to do with selecting — going into
+   3D and back re-mounts the box, so the ticks animated again on arrival and
+   the picture was still moving after the camera had landed. The round-trip
+   test caught it: it compares the stage to ITSELF and had been stable for
+   months.
+
+   `.picked` is set for one beat when the selection actually changes, so the
+   spring belongs to the act rather than to the element. */
+.selection-box .sel-tick { stroke-dasharray: 44; }
+.selection-box.picked .sel-tick { animation: tick-in 220ms var(--spring) both; }
 @keyframes tick-in {
   from { opacity: 0; stroke-dashoffset: 16; }
   to   { opacity: 1; stroke-dashoffset: 0; }
 }
-
-/* ---- Hover on the stage --------------------------------------------------
-   The outline fades rather than blinking. A hover that snaps on and off as the
-   pointer crosses a boundary is why interfaces feel twitchy. */
-.hover-outline { transition: stroke-opacity var(--react) var(--press); }
 
 /* ---- Air -----------------------------------------------------------------
    The one piece of motion allowed to be assertive, because it marks the one
@@ -1334,9 +1282,79 @@ kbd {
   .dock.right .panel, .selection-box .sel-tick, .arrange-bar {
     animation: none !important;
   }
-  .chip, .tool, .finish, .motion-pick, .rail-item, .rail-icon, .handle,
-  .viewport-toolbar .toggle, .depth-toggle-3d, .hover-outline,
+  .chip, .tool, .finish, .motion-pick, .rail-item, .rail-icon,
+  .viewport-toolbar .toggle, .depth-toggle-3d,
   .monitors, .mon, .mon-strip {
     transition-duration: 1ms !important;
   }
+}
+
+/* ==========================================================================
+   THE MENU BAR
+
+   The one index of what the product can do that is always in the same place.
+   It sits in the title bar rather than in a strip of its own, because a
+   broadcast editor cannot spare 32px for a row that is used a few times an
+   hour — and because the title bar is already the place the eye goes for
+   "what am I working on".
+   ========================================================================== */
+
+.menubar { display: flex; align-items: center; gap: 1px; margin-right: 12px; }
+.menu { position: relative; }
+
+.menu-title {
+  height: 26px; padding: 0 10px; border: 0; border-radius: var(--r-xs);
+  font: inherit; font-size: 12.5px; color: var(--text); background: none;
+  cursor: pointer; white-space: nowrap;
+  transition: background var(--react) var(--press), color var(--react) var(--press);
+}
+.menu-title:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-strong); }
+.menu-title.on { background: var(--control); color: var(--text-strong); }
+
+/* THE POPOVER.
+   Elevated properly — a menu is the clearest case in the product of something
+   that is genuinely ABOVE the interface rather than part of it, so it takes
+   the third step of the elevation scale and casts a real shadow. */
+.menu-pop {
+  position: absolute; top: calc(100% + 5px); left: 0; z-index: 60;
+  min-width: 232px; padding: 5px;
+  border-radius: 10px;
+  background: var(--panel-hi);
+  box-shadow:
+    inset 0 0 0 1px var(--line-strong),
+    0 4px 10px rgb(0 0 0 / 0.45),
+    0 24px 60px rgb(0 0 0 / 0.55);
+  animation: menu-in 130ms var(--press) both;
+  transform-origin: top left;
+}
+/* Falls from the title it belongs to, rather than fading in from nowhere. */
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-5px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.menu-item {
+  display: flex; align-items: center; gap: 20px; width: 100%;
+  height: 30px; padding: 0 10px; border: 0; border-radius: 6px;
+  font: inherit; font-size: 12.5px; color: var(--text); background: none;
+  cursor: pointer; text-align: left;
+  transition: background var(--tap) var(--press), color var(--tap) var(--press);
+}
+.menu-item:hover:not(:disabled) { background: var(--accent-bg); color: var(--text-strong); }
+/* Greyed, never hidden. A menu whose contents change shape as you work cannot
+   be learned, and half the value of a menu bar is that the third item is
+   always the third item. */
+.menu-item:disabled { opacity: 0.38; cursor: default; }
+.menu-label { flex: 1; }
+/* The shortcut is a FACT about the item, not a decoration — it is how somebody
+   stops needing the menu. Tabular so the column reads straight down. */
+.menu-key {
+  font-size: 11px; color: var(--dim);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.menu-item:hover:not(:disabled) .menu-key { color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-pop { animation: none; }
 }
