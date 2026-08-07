@@ -1,0 +1,1543 @@
+<!doctype html><html><head><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"capabilities":{"comments":"comments.BaoaqR_K.js","db":"db.CfOZ1CRq.js","downloads":"downloads.BXsoAvg9.js","mcp":"mcp.CYSdpjo0.js","permissions":"permissions.DdITF2Mk.js","self":"self.DtZoNC4q.js","user":"user.Cr_h1ETf.js"},"transforms":"_transforms.VaITkagF.js","comments":"_comments.zwwDucaS.js","translate":"_translate.BOzFH2D9.js"}</script><script>(function(){"use strict";var re=["light","dark","system"];function ne(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function Y(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function se(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const n=t.theme;return typeof n=="string"&&re.includes(n)}function oe(e){try{typeof reportError=="function"?reportError(e):setTimeout(()=>{throw e},0)}catch{}}var K=Object.freeze(Object.assign(Object.create(null),{user:Object.freeze(Object.assign(Object.create(null),{id:null,isOwner:!1,canEdit:!1,name:null,avatarUrl:null,email:null}))})),ie={};function x(e){if(window===top||e.type==="auxclick"&&e.button!==1)return;const t=e.composedPath?e.composedPath():[e.target];let n=null;for(let m=0;m<t.length;m++){const f=t[m];if(f&&f.matches&&f.matches("a[href],area[href]")){n=f;break}}if(!n&&e.target&&e.target.closest&&(n=e.target.closest("a[href],area[href]")),!n)return;const u=n.getAttribute("href");if(!u)return;let i,s;try{i=new URL(u,document.baseURI),s=new URL(document.baseURI).origin}catch{return}(i.protocol==="http:"||i.protocol==="https:")&&i.origin!==s&&(e.preventDefault(),parent.postMessage({__frame_nav:!0,url:i.href},"*"))}var J={};function I(e){if(window===top)return;const t=Date.now();t-(J[e]||0)<500||(J[e]=t,parent.postMessage({__frame_engaged:!0,kind:e},"*"))}var ae=2e3,G=["wheel","touchstart","touchmove","keydown","pointerdown"],X=0;function ce(e){e.isTrusted&&(X=Date.now())}function le(){addEventListener("click",x,!0),addEventListener("auxclick",x,!0)}function ue(){for(let e=0;e<G.length;e++)addEventListener(G[e],ce,{capture:!0,passive:!0});addEventListener("scroll",e=>{e.isTrusted&&Date.now()-X<ae&&I("scroll")},{capture:!0,passive:!0}),addEventListener("pointermove",e=>{e.isTrusted&&I("pointer")},{capture:!0,passive:!0}),addEventListener("click",e=>{e.isTrusted&&I("click")},{capture:!0,passive:!0})}var D="__frame_scroll",fe=150,de=310,pe=160,me=3e4;function he(){let e=0,t=!1,n=!1,u=!1,i=0,s=null;const m=l=>{try{sessionStorage.setItem(D,JSON.stringify({y:l}))}catch{}},f=()=>{if(clearTimeout(e),s===null)return;const l=s;s=null,m(l)},_=()=>{if(t){t=!1;return}n=!0,s=scrollY,clearTimeout(e),e=setTimeout(f,fe)};try{addEventListener("scroll",_,{passive:!0}),addEventListener("pagehide",f)}catch{}const y=()=>{let l;try{l=sessionStorage.getItem(D)}catch{return null}if(l===null)return null;let a;try{a=JSON.parse(l)}catch{a=null}const p=a?.y;if(!(typeof p=="number"&&Number.isFinite(p)&&p>=0)){try{sessionStorage.removeItem(D)}catch{}return null}return p};let o=!1;const c=l=>{try{const a=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),i=l,u=!0,clearTimeout(e),s=null,m(l);const p=scrollY;p!==a&&(t=!0),p!==l&&!o&&(o=!0,addEventListener("load",()=>{try{if(scrollY===p){const g=y();c(g!==null?g:i)}}catch{}},{once:!0}))}catch{}},d=()=>{try{return!!location.hash}catch{return!0}};let h=!1;const v=()=>{try{if(h||innerWidth>de||innerHeight>pe)return;h=!0;const l=Date.now(),a=()=>{try{removeEventListener("resize",a)}catch{}if(Date.now()-l>me||n||d())return;const p=y();c(p!==null?p:i)};addEventListener("resize",a)}catch{}};let w=!1,S=!1;return{restore(){if(w||(w=!0,d()))return;const l=y();l!==null&&(c(l),v())},promoted(){if(S||(S=!0,d()))return;const l=y();l!==null?(c(l),v()):u&&c(i)}}}function ge(e,t,n){const u=[...t.values()].filter(i=>i.targets.some(s=>s.startsWith(e+".")));return{wrap(i,s){const m=`${e}.${i}`,f=u.filter(_=>_.targets.includes(m));return f.length===0?(..._)=>{try{return s(..._)}catch(y){return Promise.reject(y)}}:(..._)=>{let y=_;for(const c of f){const d=c.module.parameters;if(d)try{y=d(y)}catch{return Promise.reject({code:"transform_error",id:c.id,scope:e,message:"parameters transform failed"})}}let o;try{o=s(...y)}catch(c){o=Promise.reject(c)}return o.then(c=>{for(let d=f.length-1;d>=0;d--){const h=f[d],v=h.module.returns;if(v)try{c=v(c)}catch{return n({id:h.id,scope:e,leg:"returns"}),c}}return c},c=>{for(let d=f.length-1;d>=0;d--){const h=f[d],v=h.module.throws;if(v)try{c=v(c)}catch{return n({id:h.id,scope:e,leg:"throws"}),Promise.reject(c)}}return Promise.reject(c)})}}}}function ve(e,t,n,u=()=>{}){const i=new Set(e.changes??[]),s=new Map;for(const m of i){const f=t[m];f&&s.set(m,f)}return{contract:e.contract,changes:i,flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:s,shellOrigin:n.shellOrigin,mount:n.mount,pipe:m=>ge(m,s,u)}}var Oe="modulepreload",Se=function(e){return"/"+e},Ae={},_e=function(t,n,u){let i=Promise.resolve();function s(m){const f=new Event("vite:preloadError",{cancelable:!0});if(f.payload=m,window.dispatchEvent(f),!f.defaultPrevented)throw m}return i.then(m=>{for(const f of m||[])f.status==="rejected"&&s(f.reason);return t().catch(s)})};(function(){const e=Object.defineProperty,t=globalThis,n=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let u=0;for(let i=0;i<n.length;i++){const s=n[i];try{e(t,s,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[s]}catch{}try{e(t,s,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[s]=="function"&&u++}if(u&&window!==top)try{parent.postMessage({__frame_rtc_lockdown_failed:u},"*")}catch{}})();var ye=1e4,be=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function Q(e){for(const t of be)if(t.endsWith(":*"))try{const n=new URL(e);if(`${n.protocol}//${n.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var k=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),q=window.__FRAME_PREAMBLE?.transforms,z=window.__FRAME_PREAMBLE?.comments,B=window.__FRAME_PREAMBLE?.translate,C=/^[\w.-]+\.js$/,Ee=/^[a-z][a-z0-9_-]{0,63}$/,V=null,R=null;function $(e,t,n){try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var F=!1;function Z(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,F=!0):F&&(delete t.dataset.theme,t.style.colorScheme="",F=!1)}var ee=256,L=Object.assign(Object.create(null),{mcp:Object.assign(Object.create(null),{watchTool:{handlerArg:3}})}),M=new Map;function te(e,t){const n=M.get(e);if(!n)return;const u=Object.assign(Object.create(null),t);Object.assign(n.impl,u),n.impl.__settled=()=>Promise.reject({code:"capability_removed",message:`${e}: method not in this runtime`});const i=n.queue;n.queue=[];for(const s of i){const m=u[s.method];if(m)if(L[e]?.[s.method])try{s.resolve(m(...s.args))}catch{T(s,L[e][s.method].handlerArg,{code:"transform_error",message:`${e}.${s.method} rejected its arguments`})}else m(...s.args).then(s.resolve,s.reject);else{const f={code:"capability_removed",message:`${e}.${s.method} is not in this runtime`},_=L[e]?.[s.method];if(_){T(s,_.handlerArg,f);continue}s.reject(f)}}}function we(e,t){const n=M.get(e);if(!n)return;n.impl.__settled=()=>Promise.reject(t);const u=n.queue;n.queue=[];for(const i of u){const s=L[e]?.[i.method];if(s){T(i,s.handlerArg,t);continue}i.reject(t)}}function N(e,t){const n=K[e];if(!n){we(e,t);return}te(e,Object.fromEntries(Object.entries(n).map(([u,i])=>[u,()=>Promise.resolve(i)])))}function T(e,t,n){if(e.syncState?.dead)return;const u=e.args[t];typeof u=="function"&&queueMicrotask(()=>{if(!e.syncState?.dead)try{u({type:"error",error:n})}catch(i){oe(i)}})}var H=Object.getOwnPropertyDescriptor(window,"claude");if(window!==top&&!(H&&H.writable===!1)){le(),ue();let e=null;try{e=he()}catch{}const t=H?.value??{};$(window,"claude",t);const n=o=>{const c={impl:Object.create(null),queue:[]};M.set(o,c);const d=c.impl,h=l=>({code:"queue_overflow",message:`${o}.${l}: pre-init call queue is full`}),v=(l,a)=>{if(c.queue.length>=ee){const p=K[o];return p&&l in p?Promise.resolve(p[l]):Promise.reject(h(l))}return new Promise((p,g)=>{c.queue.push({method:l,args:a,resolve:p,reject:g})})},w=ie[o],S=new Proxy(w===void 0?d:(()=>{}),{apply:(l,a,p)=>{const g=w,E=d[g]??d.__settled;return E?E(...p):v(g,p)},get:(l,a)=>{if(typeof a!="string"||a==="then"||a==="toJSON"||a==="valueOf")return;if(a==="toString")return Object.prototype.toString;if(w!==void 0&&(a==="call"||a==="apply"||a==="bind"))return Function.prototype[a];const p=L[o]?.[a];return p?(...g)=>{if(typeof g[p.handlerArg]!="function")throw new TypeError(`${o}.${a} requires a handler function`);const E=d[a];if(E)return E(...g);if(d.__settled){const b={dead:!1},U={args:[...g],syncState:b};return d.__settled().catch(r=>T(U,p.handlerArg,r)),()=>{b.dead=!0}}if(c.queue.length>=ee){const b={dead:!1};return T({args:[...g],syncState:b},p.handlerArg,h(a)),()=>{b.dead=!0}}let A=null;const j={dead:!1};return c.queue.push({method:a,args:g,resolve:b=>{A=typeof b=="function"?b:null,j.dead&&A?.()},reject:()=>{},syncState:j}),()=>{j.dead=!0,A?.()}}:(...g)=>{const E=d[a]??d.__settled;return E?E(...g):v(a,g)}},set:()=>!1});$(t,o,S)};for(const o of Object.keys(k)){if(t[o]!==void 0){$(t,o,t[o]);continue}n(o)}let u=null,i=null,s=0;const m=o=>{o.source!==parent||!Q(o.origin)||ne(o.data)&&(u=o.data.__frame_init,R=o.origin,removeEventListener("message",m),clearTimeout(s),i?.())};addEventListener("message",m),parent.postMessage({__frame_connect:!0},"*");const f=new Promise(o=>{i=o,s=setTimeout(()=>{removeEventListener("message",m),o()},ye)}),_=document.readyState==="loading"?new Promise(o=>document.addEventListener("DOMContentLoaded",()=>o(),{once:!0})):Promise.resolve();_.then(()=>{try{e?.restore()}catch{}});const y=o=>{if(!(o.source!==parent||!Q(o.origin))&&Y(o.data)){removeEventListener("message",y);try{e?.promoted()}catch{}}};addEventListener("message",y),f.then(async()=>{if(!u||!R){for(const r of M.keys())N(r,{code:"not_granted",message:"frame initialization did not arrive - capability unavailable"});return}Z(u.theme);const o=R;let c=!1,d=!1;addEventListener("message",r=>{if(r.source!==parent||r.origin!==o)return;se(r.data)&&Z(r.data.__frame_theme.theme);const O=r.data?.__fc_mode;O&&typeof O=="object"&&!c&&z&&C.test(z)&&(c=!0,h(z).then(W=>W.install?.(o,O.on===!0)).catch(()=>{}));const P=r.data?.__ft_cmd;P&&typeof P=="object"&&!d&&B&&C.test(B)&&(d=!0,h(B).then(W=>W.install?.(o,P)).catch(()=>{}))});const h=r=>_e(()=>import("/_runtime/"+r),void 0),v=Object.keys(u.capabilities??{});for(const r of v)Object.hasOwn(k,r)||Ee.test(r)&&t[r]===void 0&&(n(r),N(r,{code:"capability_disabled",message:"capability not in this runtime generation"}));const w=v.filter(r=>Object.hasOwn(k,r)).map(r=>[r,k[r]]).filter(r=>typeof r[1]=="string"&&C.test(r[1])),[S,...l]=await Promise.allSettled([q&&C.test(q)?h(q):Promise.resolve({}),...w.map(([,r])=>h(r))]),a=R;V=ve(u,S.status==="fulfilled"&&S.value?.TRANSFORMS||{},{shellOrigin:a,mount:te},r=>parent.postMessage({__frame_cap_telemetry:r},a));const p=r=>parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:r}},a),g=V;l.forEach((r,O)=>{const P=w[O][0];if(r.status!=="fulfilled"){p(P);return}try{r.value?.install?.(g)}catch{p(P)}});for(const[r,O]of M)if(!(O.queue.length===0&&Object.keys(O.impl).length>0)){if(v.includes(r)){N(r,{code:"capability_disabled",message:"capability not available in this session"});continue}N(r,{code:"not_granted",message:"capability not available in this session"})}await _,parent.postMessage({__frame_ready:!0},R);let E=-1,A=0;const j=()=>{A=0;const r=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);r!==E&&(E=r,parent.postMessage({__frame_size:!0,h:r},a))},b=()=>{A||(A=setTimeout(j,200))},U=new ResizeObserver(b);U.observe(document.documentElement),document.body&&U.observe(document.body),document.addEventListener("load",b,!0),document.fonts?.ready.then(b,()=>{}),addEventListener("beforeprint",()=>{E=-1,j()}),b(),addEventListener("message",r=>{if(!(r.source!==parent||r.origin!==a)&&Y(r.data)){try{e?.promoted()}catch{}E=-1,b()}})})}})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Streamatrix Studio — Specification</title>
+
+<style>
+/* ==========================================================================
+   STREAMATRIX DESIGN OS — SHARED CHASSIS
+   ==========================================================================
+   The token system and document furniture used by every volume and by the
+   Studio specification. Identical across all of them by design: a handbook
+   built in a different visual language would refute its own thesis.
+   ========================================================================== */
+:root {
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s8:40px; --s9:56px;
+  --t-display:30px; --tr-display:-.036em; --t-title:20px; --tr-title:-.028em;
+  --t-head:14px; --tr-head:-.018em; --t-body:13px; --tr-body:-.004em;
+  --t-small:11px; --tr-small:0em; --t-micro:9px; --tr-micro:.16em;
+  --chassis:#0a0a0c; --panel:#131417; --panel-hi:#181a1e;
+  --control:#20232a; --control-hi:#292d35; --well:#050506;
+  --line:rgba(255,255,255,.07); --hair:rgba(255,255,255,.055);
+  --hair-strong:rgba(255,255,255,.1); --seam:rgba(0,0,0,.55);
+  --ink:#f3f4f6; --ink-2:#a7aab2; --ink-3:#6e717a;
+  --live:#ff3b30; --warn:#ffb020; --preview:#2ee6c8; --ok:#3ddc97;
+  --accent:#c9d1da; --accent-2:#9aa5b1; --key:#eef0f3; --key-2:#c6cad1; --key-ink:#0c0d10;
+  --grain:.042; --sheen:.04; --brush:.012;
+  --edge: inset 0 1px 0 var(--hair), inset 0 -1px 0 var(--seam);
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0,0,0,.7);
+  --recess: inset 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(0,0,0,.92),
+            inset 0 0 0 1px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.045);
+  --cast: 0 1px 2px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.32);
+  --cast-lg: 0 2px 4px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.45), 0 28px 64px rgba(0,0,0,.35);
+  --ambient: 0 8px 30px rgba(0,0,0,.28);
+  --r-xl:18px; --r-lg:12px; --r-md:9px; --r-sm:7px; --r-xs:5px;
+  --display:ui-sans-serif,-apple-system,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --iface:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --meta:ui-monospace,"Cascadia Mono","SF Mono","Roboto Mono",Menlo,monospace;
+  --press:cubic-bezier(.3,.7,.4,1); --glide:cubic-bezier(.16,1,.3,1); --weight:cubic-bezier(.45,.05,.15,1);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --chassis:#dbd8d3; --panel:#eeece8; --panel-hi:#f6f5f2; --control:#fcfbfa; --control-hi:#fff; --well:#c3bfb9;
+    --line:rgba(0,0,0,.1); --hair:rgba(255,255,255,.95); --hair-strong:#fff; --seam:rgba(0,0,0,.1);
+    --ink:#16171a; --ink-2:#53555b; --ink-3:#83858c; --accent:#8a6a3a; --accent-2:#6d5129;
+    --key:#2a2b30; --key-2:#141519; --key-ink:#fff; --grain:.03; --sheen:.55; --brush:.028;
+    --edge-key: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.12);
+    --recess: inset 0 2px 6px rgba(0,0,0,.14), inset 0 1px 0 rgba(0,0,0,.1), inset 0 0 0 1px rgba(0,0,0,.06);
+    --cast: 0 1px 2px rgba(60,50,40,.09), 0 3px 8px rgba(60,50,40,.07);
+    --cast-lg: 0 2px 4px rgba(60,50,40,.1), 0 10px 26px rgba(60,50,40,.13), 0 28px 64px rgba(60,50,40,.1);
+    --ambient: 0 8px 30px rgba(60,50,40,.08); color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --chassis:#dbd8d3; --panel:#eeece8; --panel-hi:#f6f5f2; --control:#fcfbfa; --control-hi:#fff; --well:#c3bfb9;
+  --line:rgba(0,0,0,.1); --hair:rgba(255,255,255,.95); --hair-strong:#fff; --seam:rgba(0,0,0,.1);
+  --ink:#16171a; --ink-2:#53555b; --ink-3:#83858c; --accent:#8a6a3a; --accent-2:#6d5129;
+  --key:#2a2b30; --key-2:#141519; --key-ink:#fff; --grain:.03; --sheen:.55; --brush:.028;
+  --edge-key: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.12);
+  --recess: inset 0 2px 6px rgba(0,0,0,.14), inset 0 1px 0 rgba(0,0,0,.1), inset 0 0 0 1px rgba(0,0,0,.06);
+  --cast: 0 1px 2px rgba(60,50,40,.09), 0 3px 8px rgba(60,50,40,.07);
+  --cast-lg: 0 2px 4px rgba(60,50,40,.1), 0 10px 26px rgba(60,50,40,.13), 0 28px 64px rgba(60,50,40,.1);
+  --ambient: 0 8px 30px rgba(60,50,40,.08); color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --chassis:#0a0a0c; --panel:#131417; --panel-hi:#181a1e; --control:#20232a; --control-hi:#292d35; --well:#050506;
+  --line:rgba(255,255,255,.07); --hair:rgba(255,255,255,.055); --hair-strong:rgba(255,255,255,.1); --seam:rgba(0,0,0,.55);
+  --ink:#f3f4f6; --ink-2:#a7aab2; --ink-3:#6e717a; --accent:#c9d1da; --accent-2:#9aa5b1;
+  --key:#eef0f3; --key-2:#c6cad1; --key-ink:#0c0d10; --grain:.042; --sheen:.04; --brush:.012;
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0,0,0,.7);
+  --recess: inset 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(0,0,0,.92),
+            inset 0 0 0 1px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.045);
+  --cast: 0 1px 2px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.32);
+  --cast-lg: 0 2px 4px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.45), 0 28px 64px rgba(0,0,0,.35);
+  --ambient: 0 8px 30px rgba(0,0,0,.28); color-scheme: dark;
+}
+
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); font-family:var(--iface); font-size:var(--t-body); line-height:1.55;
+  letter-spacing:var(--tr-body); font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased;
+  background: radial-gradient(130% 66% at 50% -14%, rgba(255,255,255,.03), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,var(--brush)) 0 1px, transparent 1px 4px), var(--chassis); }
+.grain { position:fixed; inset:0; z-index:400; pointer-events:none; opacity:var(--grain); mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23a)'/%3E%3C/svg%3E"); }
+
+h1,h2,h3,h4 { margin:0; font-family:var(--display); font-weight:600; text-wrap:balance; }
+h1 { font-size:var(--t-display); letter-spacing:var(--tr-display); line-height:1.08; }
+h2 { font-size:var(--t-title); letter-spacing:var(--tr-title); line-height:1.15; }
+h3 { font-size:var(--t-head); letter-spacing:var(--tr-head); }
+h4 { font-size:var(--t-body); letter-spacing:var(--tr-body); }
+p { margin:0; }
+button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+code { font-family:var(--meta); font-size:11px; letter-spacing:-.02em; color:var(--ink); }
+.num { font-family:var(--meta); font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+.label { font-size:var(--t-micro); letter-spacing:var(--tr-micro); text-transform:uppercase; color:var(--ink-3); font-weight:700; }
+.small { font-size:var(--t-small); letter-spacing:var(--tr-small); }
+.dim { color:var(--ink-2); } .dim3 { color:var(--ink-3); }
+
+.mat-panel { background: radial-gradient(120% 90% at 10% -14%, rgba(255,255,255,var(--sheen)), transparent 58%),
+  repeating-linear-gradient(90deg, rgba(255,255,255,calc(var(--brush)*.6)) 0 1px, transparent 1px 4px),
+  linear-gradient(180deg, var(--panel-hi), var(--panel) 44%, color-mix(in oklab, var(--panel) 90%, #000));
+  box-shadow:var(--edge), var(--ambient); }
+.mat-well { background:linear-gradient(180deg, color-mix(in oklab, var(--well) 92%, #000), var(--well)); box-shadow:var(--recess); }
+.mat-sub { background:rgba(255,255,255,.022); box-shadow:inset 0 0 0 1px var(--line); }
+
+.lamp { width:7px; height:7px; border-radius:50%; flex:none; background:radial-gradient(circle at 35% 30%, #4a4d55, #1a1c21);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.6); transition:background .3s var(--press), box-shadow .3s var(--press); }
+.lamp.live { background:radial-gradient(circle at 35% 30%, #ff8a82, var(--live)); box-shadow:0 0 8px rgba(255,59,48,.9); }
+.lamp.pvw { background:radial-gradient(circle at 35% 30%, #9df5e6, var(--preview)); box-shadow:0 0 8px rgba(46,230,200,.75); }
+.lamp.ok { background:radial-gradient(circle at 35% 30%, #9df0c6, var(--ok)); box-shadow:0 0 7px rgba(61,220,151,.6); }
+.lamp.warn { background:radial-gradient(circle at 35% 30%, #ffd88a, var(--warn)); box-shadow:0 0 7px rgba(255,176,32,.65); }
+.lamp.idn { background:radial-gradient(circle at 35% 30%, #fff, var(--accent)); box-shadow:0 0 7px var(--accent); }
+
+.btn { display:inline-flex; align-items:center; gap:var(--s2); height:30px; padding:0 var(--s4); border-radius:var(--r-sm);
+  font-size:var(--t-small); font-weight:600; white-space:nowrap;
+  transition:transform .09s var(--press), box-shadow .16s var(--press), background .16s var(--press), color .16s var(--press); }
+.btn:active { transform:translateY(1px); }
+.btn.sec { color:var(--ink-2); background:linear-gradient(180deg, var(--control-hi), var(--control)); box-shadow:var(--edge-key), var(--cast); }
+.btn.sec:hover { color:var(--ink); }
+.btn.pri { color:var(--key-ink); background:linear-gradient(180deg, var(--key), var(--key-2)); box-shadow:inset 0 1px 0 rgba(255,255,255,.6), var(--cast); }
+.btn.quiet { color:var(--ink-3); box-shadow:inset 0 0 0 1px var(--line); }
+.btn.quiet:hover { color:var(--ink); box-shadow:inset 0 0 0 1px var(--hair-strong); }
+.btn.quiet.on { color:var(--ink); box-shadow:inset 0 0 0 1px var(--accent); }
+.btn.sm { height:24px; padding:0 var(--s3); font-size:var(--t-micro); letter-spacing:.06em; text-transform:uppercase; }
+.btn[disabled] { opacity:.32; pointer-events:none; }
+.kbd { display:inline-grid; place-items:center; min-width:17px; height:17px; padding:0 var(--s1); border-radius:4px;
+  font-family:var(--meta); font-size:9px; line-height:1; color:var(--ink-3);
+  background:linear-gradient(180deg, var(--control-hi), var(--control)); box-shadow:var(--edge-key), 0 1px 1px rgba(0,0,0,.4); }
+.pill { display:inline-flex; align-items:center; gap:var(--s2); height:20px; padding:0 var(--s3); border-radius:10px;
+  font-size:var(--t-micro); letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+  box-shadow:inset 0 0 0 1px var(--line); color:var(--ink-2); }
+.pill.live { color:var(--live); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 42%, transparent); }
+.pill.warn { color:var(--warn); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--warn) 42%, transparent); }
+.pill.ok { color:var(--ok); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 42%, transparent); }
+
+.doc { display:grid; grid-template-columns:250px minmax(0,1fr); min-height:100vh; }
+.index { position:sticky; top:0; align-self:start; height:100vh; display:flex; flex-direction:column;
+  border-right:1px solid var(--seam);
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,var(--brush)) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, color-mix(in oklab, var(--chassis) 88%, #fff), var(--chassis));
+  box-shadow:inset -1px 0 0 var(--hair); z-index:20; }
+.index-head { padding:var(--s6) var(--s5) var(--s4); border-bottom:1px solid var(--line); }
+.mark { display:flex; align-items:center; gap:var(--s3); }
+.mark-glyph { width:22px; height:22px; border-radius:var(--r-xs); flex:none; position:relative;
+  background:linear-gradient(150deg, var(--accent), var(--accent-2)); box-shadow:0 0 0 1px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4); }
+.mark-glyph::after { content:""; position:absolute; inset:6px 5px; border-radius:1px;
+  background:linear-gradient(180deg, rgba(0,0,0,.75) 0 2px, transparent 2px 4px, rgba(0,0,0,.75) 4px 6px, transparent 6px); }
+.mark-name { font-family:var(--display); font-weight:650; letter-spacing:-.03em; font-size:var(--t-head); }
+.index-scroll { flex:1; min-height:0; overflow-y:auto; padding:var(--s4) var(--s3) var(--s6); }
+.index-group { margin-top:var(--s5); } .index-group:first-child { margin-top:0; }
+.index-group > .label { padding:0 var(--s3) var(--s2); }
+.ix { display:flex; align-items:center; gap:var(--s3); width:100%; padding:var(--s2) var(--s3); border-radius:var(--r-sm);
+  color:var(--ink-2); text-align:left; text-decoration:none; transition:color .16s var(--press), background .16s var(--press); }
+.ix:hover { color:var(--ink); background:rgba(255,255,255,.03); }
+.ix-dot { width:3px; height:3px; border-radius:50%; flex:none; background:var(--ink-3); transition:all .2s var(--press); }
+.ix.on { color:var(--ink); } .ix.on .ix-dot { background:var(--accent); box-shadow:0 0 6px var(--accent); transform:scale(1.3); }
+.ix-n { margin-left:auto; font-size:var(--t-micro); letter-spacing:.08em; color:var(--ink-3); }
+.index-foot { padding:var(--s3); border-top:1px solid var(--line); display:flex; gap:var(--s2); }
+.column { min-width:0; padding:var(--s9) var(--s8) 120px; max-width:1240px; }
+
+.masthead { max-width:74ch; }
+.eyebrow { display:flex; align-items:center; gap:var(--s3); margin-bottom:var(--s5); }
+.eyebrow .rule { flex:1; height:1px; background:linear-gradient(90deg, var(--line), transparent); }
+.masthead h1 { font-size:clamp(34px,5vw,52px); letter-spacing:-.04em; }
+.lede { margin-top:var(--s5); font-size:16px; line-height:1.6; color:var(--ink-2); max-width:64ch; }
+.lede strong { color:var(--ink); font-weight:600; }
+
+section { padding-top:var(--s9); scroll-margin-top:72px; }
+.sec-head { display:flex; align-items:flex-end; gap:var(--s4); padding-bottom:var(--s5); border-bottom:1px solid var(--line); margin-bottom:var(--s7); }
+.sec-num { font-family:var(--meta); font-size:var(--t-small); color:var(--ink-3); letter-spacing:.04em; padding-bottom:3px; }
+.sec-head h2 { flex:1; }
+.prose { max-width:68ch; display:flex; flex-direction:column; gap:var(--s4); color:var(--ink-2); }
+.prose strong { color:var(--ink); font-weight:600; }
+.sub { margin-top:var(--s8); margin-bottom:var(--s4); display:flex; align-items:center; gap:var(--s3); }
+.sub h3 { white-space:nowrap; } .sub .rule { flex:1; height:1px; background:var(--line); }
+
+.law { position:relative; margin:var(--s6) 0; padding:var(--s5) var(--s6) var(--s5) var(--s7); border-radius:var(--r-md);
+  max-width:76ch; background:rgba(255,255,255,.025); box-shadow:inset 0 0 0 1px var(--line);
+  font-family:var(--display); font-size:15px; line-height:1.5; letter-spacing:-.015em; color:var(--ink); }
+.law::before { content:""; position:absolute; left:0; top:var(--s4); bottom:var(--s4); width:2px; border-radius:2px; background:var(--accent); }
+.law .label { display:block; margin-bottom:var(--s2); }
+.law.hot::before { background:var(--live); } .law.hot .label { color:var(--live); }
+.law.amend::before { background:var(--warn); } .law.amend .label { color:var(--warn); }
+.law .body { display:block; margin-top:10px; font-family:var(--iface); font-size:var(--t-small);
+  color:var(--ink-2); line-height:1.55; letter-spacing:0; font-weight:400; }
+
+.bench { margin-top:var(--s6); border-radius:var(--r-lg); overflow:hidden; }
+.bench-head { display:flex; align-items:center; gap:var(--s4); padding:var(--s3) var(--s4); border-bottom:1px solid var(--seam);
+  box-shadow:inset 0 -1px 0 var(--hair); flex-wrap:wrap; }
+.bench-head .t { font-weight:600; font-size:var(--t-small); }
+.bench-head .s { color:var(--ink-3); font-size:var(--t-small); }
+.bench-head .sp { flex:1; }
+.bench-body { padding:var(--s6); } .bench-body.flush { padding:0; }
+.bench-foot { padding:var(--s3) var(--s4); border-top:1px solid var(--seam); box-shadow:inset 0 1px 0 var(--hair);
+  font-size:var(--t-small); color:var(--ink-3); display:flex; gap:var(--s5); flex-wrap:wrap; }
+.bench-foot b { color:var(--ink-2); font-weight:600; }
+
+table.spec { width:100%; border-collapse:collapse; font-size:var(--t-small); }
+table.spec th { text-align:left; padding:var(--s2) var(--s3); color:var(--ink-3); font-size:var(--t-micro);
+  letter-spacing:var(--tr-micro); text-transform:uppercase; font-weight:700; border-bottom:1px solid var(--line); white-space:nowrap; }
+table.spec td { padding:var(--s3); border-bottom:1px solid var(--hair); vertical-align:top; color:var(--ink-2); line-height:1.5; }
+table.spec td:first-child { color:var(--ink); font-weight:600; white-space:nowrap; }
+table.spec td.n { font-family:var(--meta); color:var(--ink); letter-spacing:-.03em; white-space:nowrap; }
+table.spec td.wrap { white-space:normal; }
+table.spec tr:last-child td { border-bottom:0; }
+.table-scroll { overflow-x:auto; }
+
+.rules { display:flex; flex-direction:column; margin-top:var(--s5); }
+.rule { display:flex; gap:var(--s4); padding:var(--s4) 0; border-bottom:1px solid var(--hair); align-items:flex-start; }
+.rule:last-child { border-bottom:0; }
+.rule .idx { font-family:var(--meta); font-size:var(--t-small); color:var(--ink-3); width:38px; flex:none; padding-top:1px; }
+.rule .tx { flex:1; max-width:74ch; }
+.rule .tx b { display:block; font-weight:600; color:var(--ink); margin-bottom:3px; }
+.rule .tx span { color:var(--ink-2); font-size:var(--t-small); line-height:1.55; }
+.rule .tx em { color:var(--ink); font-style:normal; font-weight:600; }
+
+.dd { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:var(--s4); margin-top:var(--s5); }
+.dd-col { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.dd-col.yes { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 26%, transparent); }
+.dd-col.no { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 24%, transparent); }
+.dd-col h4 { display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3); }
+.dd-col.yes h4 { color:var(--ok); } .dd-col.no h4 { color:var(--live); }
+.dd-col ul { margin:0; padding-left:var(--s5); display:flex; flex-direction:column; gap:var(--s2); }
+.dd-col li { font-size:var(--t-small); color:var(--ink-2); line-height:1.5; }
+
+.toolbar { position:fixed; right:var(--s5); top:var(--s5); z-index:200; padding:var(--s2); border-radius:var(--r-md);
+  background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge), var(--cast); }
+
+@media (max-width:900px) {
+  .doc { grid-template-columns:1fr; }
+  .index { position:static; height:auto; border-right:0; border-bottom:1px solid var(--seam); }
+  .column { padding:var(--s6) var(--s5) 96px; }
+  .toolbar { position:static; margin:var(--s4) var(--s5) 0; display:inline-block; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+</style>
+
+
+<style>
+/* ==========================================================================
+   STUDIO SPECIFICATION · additions to the Design OS chassis
+   ========================================================================== */
+
+/* -- Severity marks -------------------------------------------------------- */
+.sev { display:inline-flex; align-items:center; gap:6px; font-size:var(--t-micro); letter-spacing:.1em;
+  text-transform:uppercase; font-weight:700; white-space:nowrap; }
+.sev .g { width:10px; height:10px; flex:none; }
+.sev.blocking { color:var(--live); } .sev.major { color:var(--warn); }
+.sev.minor { color:var(--ink-2); } .sev.done { color:var(--ok); }
+
+/* Shaped state marks, per Volume Eight A-II. */
+.slamp { width:11px; height:11px; flex:none; display:inline-block; }
+.slamp svg { display:block; width:100%; height:100%; }
+.slamp .f { fill:var(--tone,var(--ink-3)); }
+.slamp.live { --tone:var(--live); } .slamp.warn { --tone:var(--warn); }
+.slamp.pvw { --tone:var(--preview); } .slamp.ok { --tone:var(--ok); } .slamp.idle { --tone:var(--ink-3); }
+
+/* ==========================================================================
+   THE SCREEN — a real Studio, at scale
+   ========================================================================== */
+.screen-wrap { padding:var(--s5); }
+.screen {
+  border-radius:var(--r-md); overflow:hidden; user-select:none;
+  display:grid; gap:3px; padding:3px;
+  grid-template-columns:40px 208px minmax(0,1fr) 258px;
+  grid-template-rows:minmax(0,1fr) 152px 24px;
+  grid-template-areas:"rail left stage right" "rail bottom bottom bottom" "status status status status";
+  height:600px; font-size:11px;
+}
+@media (max-width:1080px) { .screen { grid-template-columns:40px 168px minmax(0,1fr) 200px; height:540px; } }
+
+.s-rail { grid-area:rail; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center;
+  gap:5px; padding:7px 0; background:linear-gradient(180deg, color-mix(in oklab, var(--chassis) 86%, #fff), var(--chassis));
+  box-shadow:inset 0 0 0 1px var(--line); }
+.s-railbtn { width:26px; height:22px; border-radius:5px; background:rgba(255,255,255,.045); position:relative; flex:none;
+  display:grid; place-items:center; color:var(--ink-3); transition:background .16s var(--press), color .16s var(--press); }
+.s-railbtn:hover { background:rgba(255,255,255,.08); color:var(--ink-2); }
+.s-railbtn.on { background:rgba(255,255,255,.1); color:var(--ink); }
+.s-railbtn.on::before { content:""; position:absolute; left:-5px; top:50%; margin-top:-5px; width:2px; height:10px;
+  border-radius:2px; background:var(--accent); box-shadow:0 0 7px var(--accent); }
+.s-railbtn svg { display:block; }
+.s-rail .sp { flex:1; }
+
+.s-panel { border-radius:var(--r-sm); overflow:hidden; display:flex; flex-direction:column; min-width:0; min-height:0;
+  background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge); }
+.s-left { grid-area:left; display:flex; flex-direction:column; gap:3px; min-height:0; }
+.s-right { grid-area:right; min-height:0; }
+.s-bottom { grid-area:bottom; min-height:0; }
+
+.s-hd { display:flex; align-items:center; gap:6px; padding:0 7px; height:22px; flex:none;
+  box-shadow:inset 0 -1px 0 var(--seam); }
+.s-hd .nm { font-size:8px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--ink-2); }
+.s-hd .sp { flex:1; }
+.s-hd .ct { font-family:var(--meta); font-size:8px; color:var(--ink-3); }
+.s-hd .g { width:13px; height:13px; border-radius:3px; display:grid; place-items:center; color:var(--ink-3); opacity:.6; }
+.s-hd .g:hover { opacity:1; background:rgba(255,255,255,.08); }
+.s-bd { flex:1; min-height:0; overflow:hidden; padding:5px; }
+
+/* -- Layers ---------------------------------------------------------------- */
+.lay { display:flex; align-items:center; gap:5px; padding:3px 5px; border-radius:4px; font-size:10px; color:var(--ink-2);
+  transition:background .14s var(--press); }
+.lay:hover { background:rgba(255,255,255,.04); color:var(--ink); }
+.lay.sel { background:color-mix(in oklab, var(--accent) 15%, transparent); color:var(--ink);
+  box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent); }
+.lay .ind { width:8px; flex:none; }
+.lay .ic { width:11px; height:11px; flex:none; color:var(--ink-3); }
+.lay .ic svg { display:block; }
+.lay.sel .ic { color:var(--accent); }
+.lay .nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lay .bind { font-family:var(--meta); font-size:7.5px; color:var(--accent); opacity:.85; }
+.lay .eye { width:11px; opacity:.45; flex:none; } .lay:hover .eye { opacity:.9; }
+
+/* -- Stage: one instrument ------------------------------------------------- */
+.s-stage { grid-area:stage; border-radius:var(--r-sm); display:flex; flex-direction:column; padding:4px; gap:4px;
+  min-width:0; background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge); }
+.s-transport { height:26px; flex:none; border-radius:5px; display:flex; align-items:center; gap:6px; padding:0 8px;
+  background:rgba(255,255,255,.025); box-shadow:inset 0 0 0 1px var(--line); }
+.s-transport .sp { flex:1; }
+.s-tbtn { height:17px; padding:0 8px; border-radius:4px; font-size:8px; letter-spacing:.1em; text-transform:uppercase;
+  font-weight:700; color:var(--ink-2); background:linear-gradient(180deg, var(--control-hi), var(--control));
+  box-shadow:var(--edge-key), var(--cast); display:inline-flex; align-items:center; gap:4px; }
+.s-tbtn.key { color:var(--key-ink); background:linear-gradient(180deg, var(--key), var(--key-2)); }
+.s-tbtn.pvw { color:var(--preview); box-shadow:var(--edge-key), var(--cast), inset 0 0 0 1px color-mix(in oklab, var(--preview) 40%, transparent); }
+.s-tbtn .k { font-family:var(--meta); font-size:7px; opacity:.6; }
+
+.s-well { flex:1; min-height:0; border-radius:5px; background:#05060a; box-shadow:var(--recess);
+  position:relative; overflow:hidden; display:grid; place-items:center; }
+.s-canvas { position:relative; aspect-ratio:16/9; max-height:100%; max-width:100%; height:100%;
+  background:linear-gradient(150deg,#0f1622,#04060b); box-shadow:0 0 0 1px rgba(255,255,255,.08); }
+.s-grid { position:absolute; inset:0; opacity:.5;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+                   linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size:8.333% 16.666%; }
+.s-safe { position:absolute; border:1px dashed rgba(255,255,255,.14); border-radius:1px; pointer-events:none; }
+.s-safe.action { inset:3.5%; }
+.s-safe.title { inset:5%; border-color:rgba(255,255,255,.2); }
+.s-safe .tag { position:absolute; top:2px; left:4px; font-family:var(--meta); font-size:6.5px; letter-spacing:.1em;
+  color:rgba(255,255,255,.3); }
+
+/* The graphic being authored */
+.g3 { position:absolute; left:8%; bottom:15%; width:46%; border-radius:2px; overflow:hidden; }
+.g3 .bar { height:3px; background:linear-gradient(90deg, var(--accent), transparent); }
+.g3 .bd { padding:7px 10px 8px; background:linear-gradient(100deg, rgba(9,11,15,.95), rgba(16,19,26,.82)); }
+.g3 .nm { font-family:var(--display); font-weight:650; font-size:13px; letter-spacing:-.02em; color:#fff; line-height:1.1; }
+.g3 .rl { font-size:7px; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.6); margin-top:3px; font-weight:700; }
+/* Selection: a bounding box with corner handles, not a glow */
+.g3.sel { outline:1px solid var(--accent); outline-offset:1px; }
+.g3 .h { position:absolute; width:5px; height:5px; background:var(--accent); border-radius:1px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.6); }
+.g3 .h.tl { left:-3px; top:-3px; } .g3 .h.tr { right:-3px; top:-3px; }
+.g3 .h.bl { left:-3px; bottom:-3px; } .g3 .h.br { right:-3px; bottom:-3px; }
+
+/* Corner readouts inside the well */
+.s-ov { position:absolute; font-family:var(--meta); font-size:7.5px; color:rgba(255,255,255,.42); letter-spacing:0; }
+.s-ov.tl { top:5px; left:6px; } .s-ov.tr { top:5px; right:6px; text-align:right; }
+.s-ov.bl { bottom:5px; left:6px; } .s-ov.br { bottom:5px; right:6px; text-align:right; }
+
+.s-scrub { height:20px; flex:none; border-radius:5px; background:rgba(255,255,255,.022);
+  box-shadow:inset 0 0 0 1px var(--line); position:relative; overflow:hidden; display:flex; align-items:center; padding:0 6px; }
+.s-scrub .band { position:absolute; top:0; bottom:0; }
+.s-scrub .band.in { background:color-mix(in oklab, var(--accent) 12%, transparent); }
+.s-scrub .band.hold { background:rgba(255,255,255,.03); }
+.s-scrub .band.out { background:color-mix(in oklab, var(--accent) 8%, transparent); }
+.s-scrub .head { position:absolute; top:0; bottom:0; width:1px; background:var(--accent); box-shadow:0 0 6px var(--accent); }
+.s-scrub .lbl { position:relative; font-family:var(--meta); font-size:7.5px; color:var(--ink-3); }
+
+/* -- Inspector ------------------------------------------------------------- */
+.insp-tabs { display:flex; gap:1px; padding:3px; flex:none; }
+.insp-tab { flex:1; height:17px; border-radius:4px; font-size:8px; letter-spacing:.1em; text-transform:uppercase;
+  font-weight:700; color:var(--ink-3); display:grid; place-items:center; }
+.insp-tab.on { color:var(--ink); background:rgba(255,255,255,.07); box-shadow:inset 0 0 0 1px var(--line); }
+.insp-grp { padding:5px 0 3px; }
+.insp-grp .t { font-size:7.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); font-weight:700;
+  padding:0 2px 4px; display:flex; align-items:center; gap:5px; }
+.insp-grp .t .ln { flex:1; height:1px; background:var(--line); }
+.prow { display:flex; align-items:center; gap:5px; padding:2px 0; font-size:10px; }
+.prow .k { width:52px; flex:none; color:var(--ink-3); font-size:9px; }
+.field { flex:1; min-width:0; height:18px; border-radius:4px; display:flex; align-items:center; padding:0 5px;
+  background:rgba(0,0,0,.28); box-shadow:inset 0 0 0 1px var(--line); font-family:var(--meta); font-size:9.5px;
+  color:var(--ink); cursor:ew-resize; transition:box-shadow .14s var(--press); }
+.field:hover { box-shadow:inset 0 0 0 1px var(--hair-strong); }
+.field.bound { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--accent) 50%, transparent);
+  background:color-mix(in oklab, var(--accent) 9%, rgba(0,0,0,.28)); }
+.field .u { margin-left:auto; color:var(--ink-3); font-size:8px; }
+.field .b { color:var(--accent); font-size:8.5px; }
+.swatch { width:18px; height:18px; border-radius:4px; flex:none; box-shadow:inset 0 0 0 1px var(--line); }
+.pkey { width:12px; height:12px; flex:none; display:grid; place-items:center; opacity:.35; }
+.pkey:hover { opacity:1; } .pkey.on { opacity:1; color:var(--accent); }
+.pkey svg { display:block; }
+
+/* -- Timeline -------------------------------------------------------------- */
+.tl { display:flex; flex-direction:column; height:100%; min-height:0; }
+.tl-ruler { height:20px; flex:none; position:relative; box-shadow:inset 0 -1px 0 var(--seam); display:flex; }
+.tl-names { width:132px; flex:none; box-shadow:inset -1px 0 0 var(--seam); }
+.tl-track { flex:1; position:relative; min-width:0; }
+.tl-band { position:absolute; top:0; bottom:0; display:grid; place-items:center;
+  font-size:7px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--ink-3);
+  box-shadow:inset -1px 0 0 var(--seam); }
+.tl-band.in { background:color-mix(in oklab, var(--accent) 13%, transparent); color:var(--ink-2); }
+.tl-band.hold { background:rgba(255,255,255,.028); }
+.tl-band.out { background:color-mix(in oklab, var(--accent) 9%, transparent); color:var(--ink-2); }
+.tl-lanes { flex:1; min-height:0; overflow-y:auto; display:flex; }
+.tl-lanes .tl-names { display:flex; flex-direction:column; }
+.tl-lanes .tl-track { display:flex; flex-direction:column; }
+.lane { height:22px; flex:none; display:flex; align-items:center; gap:5px; padding:0 6px; font-size:9px;
+  color:var(--ink-2); box-shadow:inset 0 -1px 0 var(--hair); }
+.lane.sub { padding-left:16px; color:var(--ink-3); font-size:8.5px; }
+.lane-t { height:22px; flex:none; position:relative; box-shadow:inset 0 -1px 0 var(--hair); }
+.lane-t .seg { position:absolute; top:4px; bottom:4px; border-radius:2px;
+  background:linear-gradient(180deg, color-mix(in oklab, var(--accent) 34%, transparent), color-mix(in oklab, var(--accent) 20%, transparent));
+  box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent); }
+/* The value curve — this is the invention: you see easing, not a diamond. */
+.lane-t svg.curve { position:absolute; inset:2px 0; width:100%; height:calc(100% - 4px); overflow:visible; }
+.kf { position:absolute; width:7px; height:7px; margin-left:-3.5px; top:50%; margin-top:-3.5px;
+  background:var(--accent); transform:rotate(45deg); border-radius:1px; box-shadow:0 0 0 1px rgba(0,0,0,.6); }
+.kf.hold { border-radius:50%; transform:none; }
+.tl-head { position:absolute; top:0; bottom:0; width:1px; background:var(--accent); box-shadow:0 0 7px var(--accent); z-index:6; }
+.tether { position:absolute; height:1px; background:color-mix(in oklab, var(--warn) 60%, transparent); z-index:5; }
+.tether::after { content:""; position:absolute; right:-1px; top:-2px; width:0; height:0;
+  border-left:4px solid color-mix(in oklab, var(--warn) 70%, transparent); border-top:2.5px solid transparent; border-bottom:2.5px solid transparent; }
+
+/* -- Status bar ------------------------------------------------------------ */
+.s-status { grid-area:status; border-radius:var(--r-sm); display:flex; align-items:center; gap:var(--s4); padding:0 8px;
+  background:linear-gradient(180deg, color-mix(in oklab, var(--chassis) 86%, #fff), var(--chassis));
+  box-shadow:inset 0 0 0 1px var(--line); font-family:var(--meta); font-size:8px; color:var(--ink-3); }
+.s-status .sp { flex:1; }
+.s-status .it { display:flex; align-items:center; gap:4px; }
+.s-status .it b { color:var(--ink-2); font-weight:400; }
+.s-status .it.good b { color:var(--ok); } .s-status .it.warn b { color:var(--warn); }
+
+/* -- Screen annotations ---------------------------------------------------- */
+.screen-legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:1px;
+  background:var(--line); border-radius:var(--r-md); overflow:hidden; margin-top:var(--s4); }
+.screen-legend .c { padding:var(--s3) var(--s4); background:var(--panel); }
+.screen-legend .c .label { margin-bottom:3px; }
+.screen-legend .c .v { font-size:var(--t-small); color:var(--ink-2); line-height:1.45; }
+.screen-legend .c .v b { color:var(--ink); font-weight:600; }
+
+/* -- Timeline demo controls ------------------------------------------------ */
+.tl-demo { padding:var(--s5) var(--s6); }
+.tl-shell { border-radius:var(--r-md); overflow:hidden; height:210px; display:flex; flex-direction:column;
+  background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge); font-size:11px; }
+.tl-verdict { margin-top:var(--s4); font-size:var(--t-small); color:var(--ink-2); line-height:1.55; }
+.tl-verdict b { color:var(--ink); font-weight:600; }
+
+/* -- Keyboard map ---------------------------------------------------------- */
+.kzone { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.kzones { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:var(--s4); margin-top:var(--s5); }
+.kzone h4 { display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s2); }
+.kzone .why { font-size:var(--t-small); color:var(--ink-3); line-height:1.5; margin-bottom:var(--s4); }
+.krow { display:flex; align-items:baseline; gap:var(--s3); font-size:var(--t-small); padding:3px 0; }
+.krow .kbd { flex:none; min-width:34px; }
+.krow .a { color:var(--ink); }
+.krow .b { color:var(--ink-3); margin-left:auto; text-align:right; font-size:var(--t-micro); letter-spacing:.04em; }
+
+/* -- Score ----------------------------------------------------------------- */
+.score { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line);
+  border-radius:var(--r-md); overflow:hidden; }
+.score .c { padding:var(--s4) var(--s5); background:var(--panel); }
+.score .c .label { margin-bottom:var(--s2); }
+.score .c .n { font-family:var(--meta); font-size:22px; letter-spacing:-.04em; }
+.score .c .n.good { color:var(--ok); } .score .c .n.mid { color:var(--warn); } .score .c .n.bad { color:var(--live); }
+.score .c .m { font-size:var(--t-micro); letter-spacing:.04em; color:var(--ink-3); margin-top:4px; line-height:1.5; }
+.scorebar { height:4px; border-radius:2px; background:rgba(0,0,0,.4); overflow:hidden; margin-top:var(--s2);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); }
+.scorebar > i { display:block; height:100%; }
+</style>
+
+<div class="grain"></div>
+<div class="toolbar"><button class="btn quiet sm" id="theme-toggle">Finish</button></div>
+
+<div class="doc">
+  <nav class="index">
+    <div class="index-head">
+      <div class="mark">
+        <div class="mark-glyph"></div>
+        <div><div class="mark-name">Streamatrix</div><div class="label" style="margin-top:4px">Studio · Specification</div></div>
+      </div>
+    </div>
+    <div class="index-scroll">
+      <div class="index-group">
+        <div class="label">The Thing</div>
+        <a class="ix" href="#screen"><span class="ix-dot"></span>The Screen</a>
+        <a class="ix" href="#audit"><span class="ix-dot"></span>Audit<span class="ix-n">24</span></a>
+      </div>
+      <div class="index-group">
+        <div class="label">Regions</div>
+        <a class="ix" href="#viewport"><span class="ix-dot"></span>Viewport</a>
+        <a class="ix" href="#timeline"><span class="ix-dot"></span>Timeline</a>
+        <a class="ix" href="#layers"><span class="ix-dot"></span>Layers</a>
+        <a class="ix" href="#inspector"><span class="ix-dot"></span>Inspector</a>
+        <a class="ix" href="#status"><span class="ix-dot"></span>Transport &amp; Status</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Input</div>
+        <a class="ix" href="#keyboard"><span class="ix-dot"></span>Keyboard<span class="ix-n">62</span></a>
+        <a class="ix" href="#pointer"><span class="ix-dot"></span>Pointer</a>
+        <a class="ix" href="#motion"><span class="ix-dot"></span>Motion</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Proof</div>
+        <a class="ix" href="#workflows"><span class="ix-dot"></span>Workflows<span class="ix-n">6</span></a>
+        <a class="ix" href="#perf"><span class="ix-dot"></span>Performance</a>
+        <a class="ix" href="#limits"><span class="ix-dot"></span>Limitations</a>
+        <a class="ix" href="#score"><span class="ix-dot"></span>Readiness</a>
+      </div>
+    </div>
+    <div class="index-foot"><span class="label" style="padding:var(--s2)">2 playable</span></div>
+  </nav>
+
+  <main class="column">
+
+    <header class="masthead">
+      <div class="eyebrow"><span class="label">Streamatrix Studio</span><span class="rule"></span><span class="label">Specification &amp; Audit</span></div>
+      <h1>The authoring environment</h1>
+      <p class="lede">
+        The Design OS decided how Streamatrix behaves. This decides what Studio <em>is</em> — every region, every
+        control, every binding, every duration — to the level where an engineer can build it without asking a
+        question.
+        <br><br>
+        It opens with the screen, because a specification that cannot be looked at is a specification nobody
+        checks. Then <strong>24 findings against the product as previously described</strong>, including three
+        that block the build and one rule in the Design OS itself that makes Studio unusable as written.
+      </p>
+    </header>
+
+    <!-- ============================================================
+         01 THE SCREEN
+         ============================================================ -->
+    <section id="screen">
+      <div class="sec-head"><span class="sec-num">01</span><h2>The Screen</h2><span class="label">reference geometry · operator desk</span></div>
+
+      <div class="prose">
+        <p>One screen, drawn at the reference density. Everything specified later in this document is visible
+        here, and every dimension below is a real value rather than an impression.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Studio</span><span class="s">Premier League — Match Day 14 · Lower Third · off air</span>
+          <span class="sp"></span><span class="label">2560 × 1440 · standard density</span></div>
+        <div class="bench-body flush">
+          <div class="screen-wrap">
+            <div class="screen mat-well" id="studio-screen"></div>
+            <div class="screen-legend" id="screen-legend"></div>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Viewport occupies 63 % of width, 71 % of height.</b> Below the 65 % target, and §02 finding F-04 is the reason.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         02 AUDIT
+         ============================================================ -->
+    <section id="audit">
+      <div class="sec-head"><span class="sec-num">02</span><h2>Audit</h2><span class="label">24 findings</span></div>
+
+      <div class="prose">
+        <p>Every weakness found in Studio as previously described, ranked by whether it stops the build.
+        <strong>Blocking</strong> means an engineer cannot proceed without a decision. <strong>Major</strong>
+        means the product ships worse. <strong>Minor</strong> means it is a defect worth fixing but not worth
+        arguing about. Each has its resolution in this document.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Findings</span><span class="s">against Volumes I–VIII and the v4 prototype</span>
+          <span class="sp"></span>
+          <div style="display:flex; gap:2px; padding:2px; border-radius:var(--r-sm); box-shadow:inset 0 0 0 1px var(--line)" id="audit-filter">
+            <button class="btn quiet on" data-f="all">All</button>
+            <button class="btn quiet" data-f="blocking">Blocking</button>
+            <button class="btn quiet" data-f="major">Major</button>
+            <button class="btn quiet" data-f="minor">Minor</button>
+          </div>
+        </div>
+        <div class="bench-body flush">
+          <div class="table-scroll"><table class="spec" id="audit-table"></table></div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Three blocking findings.</b> One of them is a Design OS rule that, taken literally, makes a professional authoring tool impossible — F-01.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         03 VIEWPORT
+         ============================================================ -->
+    <section id="viewport">
+      <div class="sec-head"><span class="sec-num">03</span><h2>Viewport</h2><span class="label">the heart</span></div>
+
+      <div class="prose">
+        <p>The viewport is not a canvas. A canvas is infinite and a broadcast frame is 1920 × 1080 exactly —
+        modelling it as a canvas is a lie about the medium that produces every downstream error, from graphics
+        placed outside the raster to designers who never learn where title safe is.</p>
+      </div>
+
+      <div class="law">
+        <span class="label">V-1 · the frame is the world</span>
+        The viewport shows a fixed raster at the production's delivery resolution. There is no space outside the
+        frame to place things in — objects may extend past the edge, but nothing can be <em>parked</em> there.
+        <span class="body">The pasteboard that every design tool provides is where forgotten objects go to be
+        rendered accidentally at 20:00. Streamatrix has none. An object dragged fully outside the frame snaps
+        back to the nearest edge with 25 % of its bounds inside, and the layer is flagged <em>off frame</em>.</span>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Zoom and camera</span><span class="s">every value fixed</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Behaviour</th><th>Specification</th><th>Reasoning</th></tr></thead>
+            <tbody>
+              <tr><td>Zoom steps</td><td class="n">10 · 25 · 50 · 66 · 100 · 200 · 400 · 800 %</td><td class="wrap">Discrete and named. Continuous zoom means you are never at a known scale, and "is this 1:1?" is the question that decides whether what you see is what airs.</td></tr>
+              <tr><td>Default</td><td class="n">Fit, then snap to nearest step</td><td class="wrap">Opening at an arbitrary 87 % teaches nothing. Fit computes, then lands on a step.</td></tr>
+              <tr><td>1:1 guarantee</td><td class="wrap">At 100 % one viewport pixel is one output pixel, on any display scale factor.</td><td class="wrap">The only zoom at which a designer can judge type legibility. It must be exact, not approximately exact.</td></tr>
+              <tr><td>Wheel</td><td class="wrap">Scrolls vertically. <code>⌘</code>+wheel zooms about the pointer.</td><td class="wrap">Bare-wheel zoom is the single most complained-about behaviour in design tools and it fires constantly on trackpads.</td></tr>
+              <tr><td>Pan</td><td class="wrap">Space-drag, middle-drag, or two-finger scroll. Never scrollbars.</td><td class="wrap">Three routes because hand position varies; scrollbars imply a document larger than the frame, which V-1 forbids.</td></tr>
+              <tr><td>Camera memory</td><td class="wrap">Per graphic, restored on open, including zoom step and centre.</td><td class="wrap">Returning to a graphic you were working on at 400 % on the left third and being shown Fit is a small theft of context, forty times a day.</td></tr>
+              <tr><td>Camera presets</td><td class="wrap">Six, bound <code>⌥1</code>–<code>⌥6</code>. Set with <code>⌥⇧1</code>–<code>⌥⇧6</code>.</td><td class="wrap">Six because a lower third has about that many regions worth returning to. Ten would never be filled.</td></tr>
+              <tr><td>Zoom animation</td><td class="n">120 ms · press</td><td class="wrap">Long enough to keep orientation, short enough not to be waited on. Disabled entirely under reduced motion, with no loss.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Overlays</span><span class="s">all off by default except safe areas</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Overlay</th><th>Key</th><th>Specification</th></tr></thead>
+            <tbody>
+              <tr><td>Safe areas</td><td class="n">⌥S</td><td class="wrap"><b>On by default.</b> Action safe 3.5 %, title safe 5 %, per EBU R95. Dashed, 1 px, never coloured — they are not a state. Labelled in the corner so a new designer learns the names.</td></tr>
+              <tr><td>Grid</td><td class="n">⌥G</td><td class="wrap">12 columns × 6 rows of the frame, not a pixel grid. Broadcast graphics are composed against thirds and twelfths, not against 8 px.</td></tr>
+              <tr><td>Rulers</td><td class="n">⌥R</td><td class="wrap">Percent of frame by default, pixels on <code>⌥</code> hold. Percent is resolution-independent, which is what a designer authoring for 1080 and 2160 needs.</td></tr>
+              <tr><td>Guides</td><td class="n">drag from ruler</td><td class="wrap">Stored per graphic, not per session. Snap at 4 px. A guide that vanishes when you close the file is a guide nobody makes.</td></tr>
+              <tr><td>Reference image</td><td class="n">⌥B</td><td class="wrap">A still under the graphic, at declared opacity, never exported and never rendered. For matching an existing look.</td></tr>
+              <tr><td>Live feed</td><td class="n">⌥L</td><td class="wrap">The actual programme input behind the graphic, at reduced rate. The only honest way to judge contrast against real pictures.</td></tr>
+              <tr><td>Legal warnings</td><td class="n">⌥W</td><td class="wrap">Illegal luma and out-of-gamut pixels marked with a hatched overlay, live. Volume Four §05 made continuous; this is where a designer sees it.</td></tr>
+              <tr><td>Worst case</td><td class="n">⌥X</td><td class="wrap">Renders bound text at the longest value in the feed. Volume Four §02, one key away, in the place where the fix happens.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Overlay state is per graphic and persisted.</b> Nothing resets on close.</span>
+          <span><b>No overlay is ever visible in Program.</b> Enforced at the projection boundary, not by the UI.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         04 TIMELINE
+         ============================================================ -->
+    <section id="timeline">
+      <div class="sec-head"><span class="sec-num">04</span><h2>Timeline</h2><span class="label">playable · rebuilt</span></div>
+
+      <div class="prose">
+        <p>The brief asked whether today's timeline is the best possible timeline for broadcast graphics. It is
+        not, and the reason is structural rather than cosmetic: <strong>every timeline in this industry is
+        borrowed from video editing, and a broadcast graphic is not a clip.</strong></p>
+        <p>A clip has a duration. A lower third does not — it has an entrance, an indefinite hold that lasts
+        exactly as long as the director wants, and an exit. Modelling that as a fixed-length strip forces every
+        designer to invent a convention, and every facility invents a different one.</p>
+      </div>
+
+      <div class="law hot">
+        <span class="label">T-1 · three bands, not one duration</span>
+        A graphic's timeline is <em>IN · HOLD · OUT</em>. IN and OUT have fixed frame counts. HOLD is elastic and
+        unbounded, and is the only band in which time does not advance during design.
+        <span class="body">This is the single most consequential decision in Studio. It makes the elastic middle
+        explicit instead of conventional, it makes OUT authorable without guessing where it starts, and it means
+        a designer can never accidentally place a keyframe in a region whose duration is unknown. Loops, data
+        reactions and idle motion live in HOLD; everything else cannot.</span>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Lower Third · timeline</span><span class="s">drag the playhead · toggle what you see</span>
+          <span class="sp"></span>
+          <div style="display:flex; gap:2px; padding:2px; border-radius:var(--r-sm); box-shadow:inset 0 0 0 1px var(--line)" id="tl-tools">
+            <button class="btn quiet on" data-t="curves">Value curves</button>
+            <button class="btn quiet on" data-t="tethers">Tethers</button>
+          </div>
+        </div>
+        <div class="bench-body flush">
+          <div class="tl-demo">
+            <div class="tl-shell mat-well" id="tl-shell"></div>
+            <input type="range" id="tl-range" min="0" max="100" value="22" step="1"
+                   style="width:100%; margin-top:var(--s3)" aria-label="Playhead">
+            <div class="tl-verdict" id="tl-verdict"></div>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Unit is frames at delivery rate.</b> Never seconds, never milliseconds. Sub-frame keyframes are impossible by construction.</span>
+        </div>
+      </div>
+
+      <div class="sub"><h3>Three inventions, and why each earns its place</h3><span class="rule"></span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">T-2</div><div class="tx"><b>The lane draws the value, not the keyframes.</b>
+          <span>Every property lane plots its actual curve across the band. Easing becomes something you <em>see</em> rather than something you open a graph editor to inspect. <em>Why it matters:</em> the commonest animation defect in broadcast graphics is an ease that looks wrong at speed, and it is invisible in every diamond-based timeline until you play it back. Keyframes remain as markers on the curve; the curve is the primary object.</span></div></div>
+        <div class="rule"><div class="idx">T-3</div><div class="tx"><b>Timing is relative and named, not absolute.</b>
+          <span>A layer starts <code>+3f after Bar</code>, not <code>at frame 9</code>. The tether is drawn. Moving Bar moves everything downstream and the stagger is preserved. <em>Why it matters:</em> broadcast graphics are almost entirely staggered reveals, and absolute timing means every timing change is a manual re-layout of the whole graphic. This converts the most common edit from twenty drags to one.</span></div></div>
+        <div class="rule"><div class="idx">T-4</div><div class="tx"><b>Easing is chosen from the Design OS curves, by name.</b>
+          <span>Press, glide, weight — the same three the product itself moves with, plus linear for data-driven values. No bezier handles by default. <em>Why it matters:</em> a graphics package whose animations share the interface's physics feels like one object, and unrestricted beziers are how a facility ends up with forty subtly different eases nobody can name. Custom beziers exist behind <code>⌥</code> on the ease control for the case that genuinely needs one.</span></div></div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Editing</span><span class="s">every gesture</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Gesture</th><th>Does</th><th>Precision</th></tr></thead>
+            <tbody>
+              <tr><td>Drag keyframe</td><td class="wrap">Moves in whole frames, snapping to band edges and to other keyframes within 3 px.</td><td class="wrap"><code>⌥</code> disables snapping. There is no sub-frame position to be precise about.</td></tr>
+              <tr><td>Drag segment</td><td class="wrap">Moves the whole animation, preserving internal timing and every downstream tether.</td><td class="wrap"><code>⇧</code> extends the selection to all lanes of the layer.</td></tr>
+              <tr><td>Drag segment edge</td><td class="wrap">Scales the animation, redistributing keyframes proportionally.</td><td class="wrap"><code>⌥</code> moves the edge without scaling — trims instead.</td></tr>
+              <tr><td>Double-click lane</td><td class="wrap">Adds a keyframe at the playhead with the current value.</td><td class="wrap">—</td></tr>
+              <tr><td>Click curve</td><td class="wrap">Selects the segment between two keyframes; the ease control shows its name.</td><td class="wrap">—</td></tr>
+              <tr><td>Scrub ruler</td><td class="wrap">Moves the playhead. Audio-free, frame-accurate, no inertia.</td><td class="wrap"><code>⇧</code> snaps to keyframes only.</td></tr>
+              <tr><td>Band edge</td><td class="wrap">Changes IN or OUT duration in frames; keyframes scale with it.</td><td class="wrap">HOLD has no draggable edge. It is unbounded by definition.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>No inertia, no momentum, no rubber-banding anywhere in the timeline.</b> A scrub that keeps moving after the hand stops is a frame you did not choose.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         05 LAYERS
+         ============================================================ -->
+    <section id="layers">
+      <div class="sec-head"><span class="sec-num">05</span><h2>Layers</h2><span class="label">the tree</span></div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Specification</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Aspect</th><th>Specification</th><th>Reasoning</th></tr></thead>
+            <tbody>
+              <tr><td>Order</td><td class="wrap">Top of list is top of frame. Fixed, not configurable.</td><td class="wrap">Half the industry does each. A configurable option means two operators reading the same tree differently.</td></tr>
+              <tr><td>Naming</td><td class="wrap">Auto-named from content — a text layer reading "Amara Okonkwo" is named <em>Amara Okonkwo</em> until renamed. Bound layers are named after the binding.</td><td class="wrap">"Text 14" is the reason nobody can find anything. The engine already knows what the layer contains.</td></tr>
+              <tr><td>Binding mark</td><td class="wrap">A bound layer shows its variable in the identity accent, inline, always.</td><td class="wrap">Which layers are data-driven is the single most important fact about a broadcast graphic and it is invisible in every tool.</td></tr>
+              <tr><td>Selection</td><td class="wrap">Click, <code>⇧</code>range, <code>⌘</code>toggle. Selection is shared with the viewport and the timeline, always.</td><td class="wrap">Three panels showing three different selections is the commonest source of "why did that move?"</td></tr>
+              <tr><td>Visibility</td><td class="wrap">Per layer, authoring-only, <b>never exported and never persisted to the document</b>.</td><td class="wrap">A hidden layer that stays hidden is how a graphic goes to air missing its sponsor bar.</td></tr>
+              <tr><td>Lock</td><td class="wrap">Per layer, persisted. A locked layer is selectable but not editable.</td><td class="wrap">Unselectable locks make it impossible to inspect what is locked.</td></tr>
+              <tr><td>Groups</td><td class="wrap">Transform-only. A group has position, scale, rotation, opacity — no styling, no effects.</td><td class="wrap">Groups that can carry appearance become a second, invisible styling layer.</td></tr>
+              <tr><td>Repeats</td><td class="wrap">A repeat shows <b>one</b> authored row plus a count. Instances never appear in the tree.</td><td class="wrap">Already true in the engine; stated here because a tree showing five rows would mean five rows were authored.</td></tr>
+              <tr><td>Depth</td><td class="wrap">Nesting capped at 4. The 5th is refused with a reason.</td><td class="wrap">Beyond four, nobody can hold the structure. A cap is kinder than a scroll.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         06 INSPECTOR
+         ============================================================ -->
+    <section id="inspector">
+      <div class="sec-head"><span class="sec-num">06</span><h2>Inspector</h2><span class="label">fewest clicks</span></div>
+
+      <div class="prose">
+        <p>The property panel is where a designer spends most of their day and where most tools waste most of
+        their time. Three decisions do the work.</p>
+      </div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">I-1</div><div class="tx"><b>Every numeric field is a scrubber, a stepper and a text field at once.</b>
+          <span>Drag horizontally to scrub. <code>⌥</code> for 0.1×, <code>⇧</code> for 10×. Arrow keys step; with <code>⇧</code>, ten. Click once to type; the value is selected on focus. Expressions are accepted — <code>+12</code>, <code>*1.5</code>, <code>1920/3</code>. <em>Why:</em> these are three different jobs on one number and every tool that separates them costs a click on each.</span></div></div>
+        <div class="rule"><div class="idx">I-2</div><div class="tx"><b>The inspector shows what is set, not everything that exists.</b>
+          <span>Bound, overridden and non-default properties are shown. Defaults collapse into a single <em>Show all</em> row per group. <em>Why:</em> a text layer has about 40 properties and a designer touches four. Scrolling past 36 defaults, forty times a day, is the tax.</span></div></div>
+        <div class="rule"><div class="idx">I-3</div><div class="tx"><b>Binding state is on the field, not in a separate panel.</b>
+          <span>A bound field carries the accent border and shows the variable name and its <em>live value</em>. Clicking the name jumps to the variable. <em>Why:</em> this makes the inspector a debugger. "Why is this blank?" is answered where the question is asked, rather than three panels away.</span></div></div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Panel rules</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Rule</th><th>Specification</th></tr></thead>
+            <tbody>
+              <tr><td>Multi-select</td><td class="wrap">Shows the intersection of properties. Differing values read <code>—</code> and typing sets all. Never blanks the panel.</td></tr>
+              <tr><td>No selection</td><td class="wrap">Shows the graphic's own properties: size, delivery resolution, background, band durations. Never an empty panel — Law 7.</td></tr>
+              <tr><td>Group order</td><td class="wrap">Transform, then Appearance, then Type, then Data, then Animation. Fixed, never reordered by usage.</td></tr>
+              <tr><td>Group state</td><td class="wrap">Collapse state persisted per layer <em>kind</em>, so every text layer opens the same way.</td></tr>
+              <tr><td>Keyframe control</td><td class="wrap">A stopwatch on every animatable property. Filled when animated, hollow when not, accent when the playhead is on a keyframe.</td></tr>
+              <tr><td>Units</td><td class="wrap">Position and size in percent of frame by default; pixels on <code>⌥</code> hold, per the viewport ruler rule.</td></tr>
+              <tr><td>Colour</td><td class="wrap">A swatch opens the picker inline, not in a dialog. Brand-kit roles are listed first and named; free colours are permitted and flagged if illegal.</td></tr>
+              <tr><td>Undo grouping</td><td class="wrap">A scrub is one undo entry, not two hundred. Coalesced from gesture start to release.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         07 TRANSPORT & STATUS
+         ============================================================ -->
+    <section id="status">
+      <div class="sec-head"><span class="sec-num">07</span><h2>Transport &amp; Status</h2><span class="label">two strips</span></div>
+
+      <div class="prose">
+        <p>Studio is an authoring tool inside a broadcast product, which means it must show the state of the show
+        without becoming a control room. The split: <strong>the transport head belongs to the graphic; the status
+        bar belongs to the machine.</strong></p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Transport head</span><span class="s">top of the stage instrument</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Element</th><th>Shows</th><th>Rule</th></tr></thead>
+            <tbody>
+              <tr><td>Air lamp</td><td class="wrap">Whether <em>this graphic</em> is on air, shaped per A-II.</td><td class="wrap">The graphic's state, not the show's. A designer must know if they are editing something live.</td></tr>
+              <tr><td>Play / band</td><td class="wrap">Preview IN, HOLD, OUT, or the whole sequence.</td><td class="wrap">Four separate previews because they are four separate things to judge.</td></tr>
+              <tr><td>Frame readout</td><td class="wrap">Current frame, band, and total frames of the band.</td><td class="wrap">Tabular, fixed width, never jitters.</td></tr>
+              <tr><td>Cue / Take</td><td class="wrap">Present only when the production is off air, or when this operator holds the token.</td><td class="wrap">Volume Seven — a Designer role never sees a Take control at all, rather than seeing it disabled.</td></tr>
+              <tr><td>Cost</td><td class="wrap">This graphic's measured frame cost and the show's headroom.</td><td class="wrap">Volume Four §03, at the point where the cost is being created.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>The transport head never contains a tool.</b> Tools are keyboard and pointer; the head is state and playback only.</span>
+        </div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Status bar</span><span class="s">24 px · always present · never interactive except two items</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Slot</th><th>Content</th><th>Why it is worth 24 px</th></tr></thead>
+            <tbody>
+              <tr><td>1 · Document</td><td class="wrap">Production name, and the moment last written.</td><td class="wrap">Volume Two: there is no save, so the honest indicator is a timestamp rather than a dirty dot.</td></tr>
+              <tr><td>2 · Selection</td><td class="wrap">What is selected, and its size in pixels at delivery resolution.</td><td class="wrap">Answers "how big is that actually?" without opening anything.</td></tr>
+              <tr><td>3 · Zoom</td><td class="wrap">Current step. <b>Click to reset to 100 %.</b></td><td class="wrap">One of two interactive items, because returning to 1:1 is the most frequent view action.</td></tr>
+              <tr><td>4 · Frame budget</td><td class="wrap">This graphic's cost against the show's headroom, coloured only when short.</td><td class="wrap">The number that decides whether this design is deliverable.</td></tr>
+              <tr><td>5 · Verdict</td><td class="wrap">Standing pre-air verdict and its age. <b>Click to open the report.</b></td><td class="wrap">Volume Five's standing verdict, permanently visible so it can never be stale-and-green.</td></tr>
+              <tr><td>6 · Crew</td><td class="wrap">Who else is in this production, and who holds the token.</td><td class="wrap">Volume Seven, at a glance, without opening the crew panel.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         08 KEYBOARD
+         ============================================================ -->
+    <section id="keyboard">
+      <div class="sec-head"><span class="sec-num">08</span><h2>Keyboard</h2><span class="label">62 bindings · no collisions</span></div>
+
+      <div class="prose">
+        <p>Studio's map, complete. It rests on finding <strong>F-01</strong> — that Volume Two's rule K1
+        ("unmodified keys belong to live operation; authoring always takes a modifier") makes a professional
+        authoring tool impossible, because tool selection by single letter is the deepest muscle memory in this
+        profession and putting it behind a modifier costs a keystroke on every single action of the day.</p>
+        <p>The narrowest correction is the one K2 already permits: <strong>a binding may change meaning across
+        the on-air boundary.</strong> So single letters are tools while the production is off air, and become
+        inert while it is on air — where the live transport set takes over. Nothing else changes, and the
+        original safety property is preserved exactly: <em>a stray keypress can never edit the document during a
+        show.</em></p>
+      </div>
+
+      <div class="kzones" id="keymap"></div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Collision audit</span><span class="s">every binding, checked against every other</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Check</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td>Duplicate bindings</td><td class="wrap"><span style="color:var(--ok)">None.</span> 62 bindings, 62 distinct chords.</td></tr>
+              <tr><td>OS reserved</td><td class="wrap"><span style="color:var(--ok)">None taken.</span> <code>⌃</code> is unbound throughout, per K3.</td></tr>
+              <tr><td>Single letters on air</td><td class="wrap"><span style="color:var(--ok)">Inert.</span> Only the transport set responds; everything else requires a modifier.</td></tr>
+              <tr><td>Destructive without modifier</td><td class="wrap"><span style="color:var(--ok)">One</span> — <code>⌫</code> deletes the selection, reversible for 30 s. Everything else destructive takes two modifiers.</td></tr>
+              <tr><td>Sequences or chords</td><td class="wrap"><span style="color:var(--ok)">None.</span> K4 holds for live; Studio uses none either.</td></tr>
+              <tr><td>Bindings not printed on a control</td><td class="wrap"><span style="color:var(--warn)">7</span> — the viewport overlays. They live in the View menu and the palette; there is no persistent control to print them on. Accepted, noted.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         09 POINTER
+         ============================================================ -->
+    <section id="pointer">
+      <div class="sec-head"><span class="sec-num">09</span><h2>Pointer</h2><span class="label">every state</span></div>
+
+      <div class="prose">
+        <p>Volume One drew eight cursors and Volume Two added five. Studio uses eleven of the thirteen and adds
+        no new ones — but the rules for <em>when</em> each appears have never been written down, and that is the
+        part an engineer cannot guess.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Cursor rules</span><span class="s">by region</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Region / condition</th><th>Cursor</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td>Viewport · empty area</td><td>Select</td><td class="wrap">Marquee on drag. Never a crosshair — nothing is being drawn.</td></tr>
+              <tr><td>Viewport · over an object</td><td>Select</td><td class="wrap">Unchanged. The cursor does not change on hover, only on capability.</td></tr>
+              <tr><td>Viewport · over a <em>selected</em> object</td><td>Move</td><td class="wrap">The capability changed — this object can now be dragged.</td></tr>
+              <tr><td>Viewport · over a handle</td><td>Resize</td><td class="wrap">Rotated to the handle's axis. Eight orientations, computed not drawn.</td></tr>
+              <tr><td>Viewport · outside a corner handle</td><td>Rotate</td><td class="wrap">A 12 px band beyond the handle.</td></tr>
+              <tr><td>Viewport · space held</td><td>Viewport</td><td class="wrap">Closed hand while dragging, open while held.</td></tr>
+              <tr><td>Viewport · over editable text, double-clicked</td><td>Text</td><td class="wrap">Single click selects the layer; only a second click enters the text.</td></tr>
+              <tr><td>Viewport · crop mode</td><td>Crop</td><td class="wrap">Media layers only. Exits on Escape.</td></tr>
+              <tr><td>Timeline · ruler</td><td>Scrub</td><td class="wrap">The only place it appears.</td></tr>
+              <tr><td>Timeline · segment edge</td><td>Resize</td><td class="wrap">Horizontal orientation only.</td></tr>
+              <tr><td>Any numeric field</td><td>Resize · horizontal</td><td class="wrap">Signals that the number is draggable, which is otherwise undiscoverable.</td></tr>
+              <tr><td>Dragging an asset</td><td>Carry</td><td class="wrap">Becomes Acquire over a valid drop target, per Volume Two.</td></tr>
+              <tr><td>Over Take, off air</td><td>Arm</td><td class="wrap">The only coloured cursor in the product.</td></tr>
+              <tr><td>Anything locked or on air</td><td>Select</td><td class="wrap"><b>Never a "forbidden" cursor.</b> The control states why it is unavailable; the pointer does not scold.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot"><span><b>Latency</b> Cursor changes are immediate — never debounced, never animated, never delayed by a hit test that waits for idle.</span></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         10 MOTION
+         ============================================================ -->
+    <section id="motion">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Motion</h2><span class="label">every animation in Studio</span></div>
+
+      <div class="prose">
+        <p>Complete inventory. Anything not on this list does not animate. Every duration comes from the Design
+        OS scale, and the column that matters is the last one: <strong>what is lost if it is removed.</strong>
+        Where the answer is "nothing", the animation should not exist.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Inventory</span><span class="s">21 animations · 3 removed by this audit</span></div>
+        <div class="bench-body flush">
+          <div class="table-scroll"><table class="spec" id="motion-table"></table></div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Three removed.</b> Panel collapse, inspector group expand and layer reorder all animated for no informational reason and cost latency on the most repeated gestures in the product.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         11 WORKFLOWS
+         ============================================================ -->
+    <section id="workflows">
+      <div class="sec-head"><span class="sec-num">11</span><h2>Workflows</h2><span class="label">six, counted</span></div>
+
+      <div class="prose">
+        <p>The six things a designer actually does, specified as keystroke sequences with a target count. These
+        are the acceptance criteria for the whole document — if an implementation cannot hit these numbers, the
+        interface is wrong regardless of how it looks.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Core workflows</span><span class="s">actions counted, mouse required or not</span></div>
+        <div class="bench-body flush">
+          <div class="table-scroll"><table class="spec" id="wf-table"></table></div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Four of six require no pointer at all.</b> The two that do are inherently spatial — placing an object and drawing a crop.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         12 PERFORMANCE
+         ============================================================ -->
+    <section id="perf">
+      <div class="sec-head"><span class="sec-num">12</span><h2>Performance</h2><span class="label">budgets, not aspirations</span></div>
+
+      <div class="prose">
+        <p>Studio runs on the same machine as the show. Every number below is a budget an implementation must
+        meet, measured on the slowest supported hardware with a production live on another output.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Interaction budgets</span><span class="s">worst case, not average</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Interaction</th><th>Budget</th><th>Why this number</th></tr></thead>
+            <tbody>
+              <tr><td>Keystroke to first paint</td><td class="n">≤ 16 ms</td><td class="wrap">One frame at 60 Hz. Beyond it, typing feels like it is being transmitted.</td></tr>
+              <tr><td>Pointer to cursor change</td><td class="n">≤ 16 ms</td><td class="wrap">The cursor is a promise; a late promise is a lie.</td></tr>
+              <tr><td>Scrub to viewport update</td><td class="n">≤ 33 ms</td><td class="wrap">Two frames. Scrubbing is a search, and a search with lag overshoots.</td></tr>
+              <tr><td>Selection to inspector</td><td class="n">≤ 50 ms</td><td class="wrap">Fast enough to feel simultaneous; the panel rebuild is real work.</td></tr>
+              <tr><td>Graphic open to first frame</td><td class="n">≤ 400 ms</td><td class="wrap">Warm. Cold is allowed 1200 ms and must show determinate progress.</td></tr>
+              <tr><td>Undo</td><td class="n">≤ 50 ms</td><td class="wrap">Undo is used in bursts. Anything slower and operators press it three times.</td></tr>
+              <tr><td>Timeline playback</td><td class="n">exact rate</td><td class="wrap">Never approximate. A preview at 48 fps for a 50 fps show teaches the wrong timing.</td></tr>
+              <tr><td>Studio's own frame cost</td><td class="n">≤ 4 ms</td><td class="wrap">Studio must never take more than a fifth of the frame budget it is measuring.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Studio yields to the live path absolutely.</b> On a machine with an output live, Studio renders at 30 Hz and its idle work is suspended — per Volume Five P2.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         13 LIMITATIONS
+         ============================================================ -->
+    <section id="limits">
+      <div class="sec-head"><span class="sec-num">13</span><h2>Honest Limitations</h2><span class="label">what this spec does not solve</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">L1</div><div class="tx"><b>The three-band timeline cannot express a graphic with two exits.</b>
+          <span>A scoreboard that leaves differently on a goal than at half time has one OUT. The honest answer today is two graphics; the dishonest one is a state machine bolted onto the bands. I have chosen the constraint, and it will be wrong for some real graphics.</span></div></div>
+        <div class="rule"><div class="idx">L2</div><div class="tx"><b>Tethers can form cycles and this spec does not say what happens.</b>
+          <span>A after B, B after A. Detection is easy; the <em>interface</em> for resolving it is not designed, and I would rather state that than draw a dialog I have not thought through.</span></div></div>
+        <div class="rule"><div class="idx">L3</div><div class="tx"><b>No 3D, and the viewport spec assumes there never will be.</b>
+          <span>Camera presets, zoom steps and the fixed raster are all 2D concepts. When virtual sets arrive this section needs rewriting rather than extending, and pretending otherwise now would produce a worse 2D tool.</span></div></div>
+        <div class="rule"><div class="idx">L4</div><div class="tx"><b>Text editing is specified thinly.</b>
+          <span>Enter, edit, exit — but not selection semantics, not bidirectional text, not vertical scripts, not ligature-aware caret movement. This is a genuine gap and it is a week of work by someone who knows typography systems.</span></div></div>
+        <div class="rule"><div class="idx">L5</div><div class="tx"><b>The workflow action counts are estimates.</b>
+          <span>They are derived from the specification, not measured with designers. They are stated as acceptance criteria because that makes them falsifiable — but nobody has yet failed to hit them, because nobody has tried.</span></div></div>
+        <div class="rule"><div class="idx">L6</div><div class="tx"><b>Nothing here has been built.</b>
+          <span>The standing limitation across every document in this project. This is a specification of an interface that does not exist, written by someone who has not watched anyone use it.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         14 SCORE
+         ============================================================ -->
+    <section id="score">
+      <div class="sec-head"><span class="sec-num">14</span><h2>Readiness</h2><span class="label">the score</span></div>
+
+      <div class="prose">
+        <p>Scored against one question: <em>could a competent engineering team build this without asking a
+        question that changes the design?</em> Not "is it good" — buildable without guessing.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">By area</span><span class="s">specification completeness, not quality</span></div>
+        <div class="bench-body"><div class="score" id="score-grid"></div></div>
+        <div class="bench-foot">
+          <span><b>Weighted by how much of a designer's day the area occupies</b>, not by how much of this document it takes up.</span>
+        </div>
+      </div>
+
+      <div class="law hot" id="verdict">
+        <span class="label">Final readiness · 82 / 100</span>
+        Studio is specified to the point where an engineering team could build it, and would need to make
+        roughly a dozen decisions of their own — all of them local, none of them architectural.
+        <span class="body">
+        What is genuinely finished: the layout, the viewport, the timeline model, the keyboard, the pointer, the
+        motion inventory and the performance budgets. An engineer opening any of those sections gets a value,
+        not an intention.
+        <br><br>
+        What is not: text editing (L4) is the one real hole and it is in the most-used tool in the product.
+        Asset browser and theme editor are specified only where they touch Studio. And every number in §11 is
+        an estimate presented as a criterion.
+        <br><br>
+        <b>The score is not higher because of L6, and it cannot be.</b> A specification that has never met a
+        designer is a hypothesis with good handwriting. 82 is what I believe a document like this is worth
+        before anyone has tried to build from it — and the fastest way to move it is not another pass, it is
+        one engineer implementing §04 and telling me every place they had to guess.</span>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+"use strict";
+
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  const r = document.documentElement;
+  const dark = !(r.getAttribute("data-theme") === "light" ||
+    (!r.hasAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: light)").matches));
+  r.setAttribute("data-theme", dark ? "light" : "dark");
+});
+const links = [...document.querySelectorAll(".ix")];
+const spy = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.getAttribute("href") === "#" + e.target.id)); });
+}, { rootMargin: "-12% 0px -74% 0px" });
+links.map(a => document.querySelector(a.getAttribute("href"))).filter(Boolean).forEach(s => spy.observe(s));
+
+/* Shaped state marks — Volume Eight A-II. */
+const SH = {
+  live: "M6 1.4 A4.6 4.6 0 1 1 5.99 1.4 Z",
+  warn: "M6 1 L11.1 10.4 L0.9 10.4 Z",
+  pvw:  "M6 0.9 L11.1 6 L6 11.1 L0.9 6 Z",
+  ok:   "M6 1.4 A4.6 4.6 0 1 1 5.99 1.4 Z M6 3.9 A2.1 2.1 0 1 0 6.01 3.9 Z",
+  idle: "M6 3.6 A2.4 2.4 0 1 1 5.99 3.6 Z"
+};
+const slamp = k => `<span class="slamp ${k}"><svg viewBox="0 0 12 12" aria-hidden="true"><path class="f" fill-rule="evenodd" d="${SH[k]}"/></svg></span>`;
+
+const ICON = {
+  layers:  '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 2 L12 5 L7 8 L2 5 Z M2 9 L7 12 L12 9" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>',
+  assets:  '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="2" y="3" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.1"/><path d="M2 9 L5 6.5 L8 9 L10 7.5 L12 9" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>',
+  data:    '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><ellipse cx="7" cy="4" rx="4.5" ry="1.8" stroke="currentColor" stroke-width="1.1"/><path d="M2.5 4 v6 a4.5 1.8 0 0 0 9 0 V4" stroke="currentColor" stroke-width="1.1"/></svg>',
+  brand:   '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.1"/><path d="M7 2.4 v9.2 M2.4 7 h9.2" stroke="currentColor" stroke-width="1.1"/></svg>',
+  out:     '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="2" y="3.5" width="10" height="7" rx="1.4" stroke="currentColor" stroke-width="1.1"/><path d="M5 12 h4" stroke="currentColor" stroke-width="1.1"/></svg>',
+  text:    '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 3 h7 M6 3 v6.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>',
+  shape:   '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="2.5" y="3" width="7" height="6" rx="1" stroke="currentColor" stroke-width="1.1"/></svg>',
+  image:   '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="2" y="2.5" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M2 8 L4.5 6 L6.5 8 L8 6.8 L10 8" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>',
+  group:   '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.1" stroke-dasharray="2 1.6"/></svg>',
+  eye:     '<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M1 6 C2.6 3.4 4.2 2.4 6 2.4 C7.8 2.4 9.4 3.4 11 6 C9.4 8.6 7.8 9.6 6 9.6 C4.2 9.6 2.6 8.6 1 6 Z" stroke="currentColor" stroke-width="1"/><circle cx="6" cy="6" r="1.5" stroke="currentColor" stroke-width="1"/></svg>',
+  key:     '<svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M5 1.2 L8.8 5 L5 8.8 L1.2 5 Z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>',
+  keyOn:   '<svg width="9" height="9" viewBox="0 0 10 10"><path d="M5 1.2 L8.8 5 L5 8.8 L1.2 5 Z" fill="currentColor"/></svg>'
+};
+
+/* ==========================================================================
+   THE SCREEN
+   ========================================================================== */
+const LAYERS = [
+  { d:0, ic:"group", nm:"Lower Third",      bind:"" },
+  { d:1, ic:"shape", nm:"Accent Bar",       bind:"" },
+  { d:1, ic:"shape", nm:"Panel",            bind:"" },
+  { d:1, ic:"text",  nm:"Amara Okonkwo",    bind:"talent.name", sel:true },
+  { d:1, ic:"text",  nm:"Chief Correspondent", bind:"talent.role" },
+  { d:1, ic:"image", nm:"Competition Mark", bind:"" },
+  { d:0, ic:"shape", nm:"Drop Shadow Plate", bind:"" }
+];
+
+document.getElementById("studio-screen").innerHTML = `
+  <div class="s-rail">
+    <div class="s-railbtn on" title="Design">${ICON.layers}</div>
+    <div class="s-railbtn" title="Assets">${ICON.assets}</div>
+    <div class="s-railbtn" title="Data">${ICON.data}</div>
+    <div class="s-railbtn" title="Brand">${ICON.brand}</div>
+    <div class="sp"></div>
+    <div class="s-railbtn" title="Outputs">${ICON.out}</div>
+  </div>
+
+  <div class="s-left">
+    <div class="s-panel" style="flex:1.6">
+      <div class="s-hd"><span class="nm">Layers</span><span class="sp"></span><span class="ct">7</span></div>
+      <div class="s-bd" style="display:flex; flex-direction:column; gap:1px">
+        ${LAYERS.map(l => `
+          <div class="lay${l.sel ? " sel" : ""}">
+            <span class="ind" style="padding-left:${l.d * 8}px"></span>
+            <span class="ic">${ICON[l.ic]}</span>
+            <span class="nm">${l.nm}</span>
+            ${l.bind ? `<span class="bind">${l.bind}</span>` : ""}
+            <span class="eye ic">${ICON.eye}</span>
+          </div>`).join("")}
+      </div>
+    </div>
+    <div class="s-panel" style="flex:1">
+      <div class="s-hd"><span class="nm">Assets</span><span class="sp"></span><span class="ct">24</span></div>
+      <div class="s-bd" style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; align-content:start">
+        ${[0,1,2,3,4,5].map(i => `<div style="aspect-ratio:1; border-radius:3px;
+           background:linear-gradient(${140 + i * 24}deg, rgba(255,255,255,${.09 - i * .008}), rgba(255,255,255,.02));
+           box-shadow:inset 0 0 0 1px var(--line)"></div>`).join("")}
+      </div>
+    </div>
+  </div>
+
+  <div class="s-stage">
+    <div class="s-transport">
+      ${slamp("idle")}
+      <span class="s-tbtn">◀◀</span>
+      <span class="s-tbtn key">▶ <span class="k">SPC</span></span>
+      <span class="s-tbtn">IN</span><span class="s-tbtn">HOLD</span><span class="s-tbtn">OUT</span>
+      <span class="sp"></span>
+      <span style="font-family:var(--meta); font-size:9px; color:var(--ink-2)">IN &nbsp;<b style="color:var(--ink)">09</b>/12f</span>
+      <span style="font-family:var(--meta); font-size:9px; color:var(--ink-3)">2.4 ms</span>
+      <span class="s-tbtn pvw">CUE <span class="k">␣</span></span>
+    </div>
+    <div class="s-well">
+      <div class="s-canvas">
+        <div class="s-grid"></div>
+        <div class="s-safe action"><span class="tag">ACTION</span></div>
+        <div class="s-safe title"><span class="tag">TITLE</span></div>
+        <div class="g3 sel">
+          <div class="bar"></div>
+          <div class="bd">
+            <div class="nm">Amara Okonkwo</div>
+            <div class="rl">Chief Correspondent · Lagos</div>
+          </div>
+          <span class="h tl"></span><span class="h tr"></span><span class="h bl"></span><span class="h br"></span>
+        </div>
+        <span class="s-ov tl">1920 × 1080 · 50p</span>
+        <span class="s-ov tr">100 %</span>
+        <span class="s-ov bl">x 8.0 % &nbsp; y 68.0 %</span>
+        <span class="s-ov br">w 46.0 % &nbsp; h 12.4 %</span>
+      </div>
+    </div>
+    <div class="s-scrub">
+      <span class="band in" style="left:0; width:24%"></span>
+      <span class="band hold" style="left:24%; width:56%"></span>
+      <span class="band out" style="left:80%; width:20%"></span>
+      <span class="head" style="left:18%"></span>
+      <span class="lbl">IN 12f</span>
+      <span style="flex:1"></span>
+      <span class="lbl">HOLD ∞</span>
+      <span style="flex:1"></span>
+      <span class="lbl">OUT 10f</span>
+    </div>
+  </div>
+
+  <div class="s-panel s-right">
+    <div class="insp-tabs">
+      <span class="insp-tab on">Properties</span><span class="insp-tab">Data</span><span class="insp-tab">History</span>
+    </div>
+    <div class="s-bd" style="overflow-y:auto">
+      <div class="insp-grp">
+        <div class="t">Transform<span class="ln"></span></div>
+        <div class="prow"><span class="k">Position</span>
+          <span class="field">8.0<span class="u">%</span></span><span class="field">68.0<span class="u">%</span></span>
+          <span class="pkey on">${ICON.keyOn}</span></div>
+        <div class="prow"><span class="k">Size</span>
+          <span class="field">46.0<span class="u">%</span></span><span class="field">12.4<span class="u">%</span></span>
+          <span class="pkey">${ICON.key}</span></div>
+        <div class="prow"><span class="k">Opacity</span>
+          <span class="field">100<span class="u">%</span></span><span class="pkey on">${ICON.keyOn}</span></div>
+      </div>
+      <div class="insp-grp">
+        <div class="t">Type<span class="ln"></span></div>
+        <div class="prow"><span class="k">Content</span>
+          <span class="field bound"><span class="b">talent.name</span><span class="u">Amara Okonkwo</span></span></div>
+        <div class="prow"><span class="k">Family</span><span class="field">Founders Grotesk</span></div>
+        <div class="prow"><span class="k">Size</span><span class="field">3.6<span class="u">%</span></span>
+          <span class="pkey">${ICON.key}</span></div>
+        <div class="prow"><span class="k">Colour</span><span class="swatch" style="background:#fff"></span>
+          <span class="field">brand · on-dark</span></div>
+        <div class="prow"><span class="k">Tracking</span><span class="field">−0.02<span class="u">em</span></span></div>
+      </div>
+      <div class="insp-grp">
+        <div class="t">Animation<span class="ln"></span></div>
+        <div class="prow"><span class="k">In</span><span class="field">Rise + fade</span></div>
+        <div class="prow"><span class="k">Ease</span><span class="field">glide</span></div>
+        <div class="prow"><span class="k">Start</span><span class="field bound"><span class="b">+3f after</span><span class="u">Panel</span></span></div>
+      </div>
+      <div class="insp-grp">
+        <div class="t">Defaults<span class="ln"></span></div>
+        <div class="prow"><span class="k" style="width:auto; color:var(--ink-3); font-size:9px">31 more at default</span>
+          <span style="margin-left:auto; font-size:8.5px; color:var(--accent)">Show all</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="s-panel s-bottom">
+    <div class="s-hd"><span class="nm">Timeline</span><span class="sp"></span>
+      <span class="ct">Lower Third · 50 fps · IN 12f · OUT 10f</span></div>
+    <div class="s-bd" style="padding:0"><div id="screen-tl" style="height:100%"></div></div>
+  </div>
+
+  <div class="s-status">
+    <span class="it"><b>Match Day 14</b> · written 19:04:12</span>
+    <span class="it">Amara Okonkwo · 883 × 134 px</span>
+    <span class="it">100 %</span>
+    <span class="sp"></span>
+    <span class="it good">${slamp("ok")} <b>verdict clear</b> · 2 min ago</span>
+    <span class="it">2.4 ms · <b>headroom 7.1 ms</b></span>
+    <span class="it">${slamp("idle")} 3 in production · token unheld</span>
+  </div>`;
+
+document.getElementById("screen-legend").innerHTML = [
+  ["Rail · 40 px", "<b>Five sections.</b> Design, Assets, Data, Brand, Outputs. Never more — a sixth would mean Studio had grown a second job."],
+  ["Left dock · 208 px", "<b>Layers over Assets.</b> The two panels a designer looks at without being asked. Both collapse to a spine, never hide."],
+  ["Stage · 63 % × 71 %", "<b>One instrument.</b> Transport head, canvas well, band scrubber — a single machined body, not three floating panels."],
+  ["Right dock · 258 px", "<b>Inspector.</b> Three tabs, fixed order. Wide enough for two numeric fields plus a keyframe control at the reference density."],
+  ["Bottom dock · 152 px", "<b>Timeline.</b> Four lanes visible without scrolling, which covers the great majority of broadcast graphics."],
+  ["Status · 24 px", "<b>Six slots, two clickable.</b> Zoom resets to 100 %; the verdict opens the report. Nothing else responds to a pointer."]
+].map(([k, v]) => `<div class="c"><div class="label">${k}</div><div class="v">${v}</div></div>`).join("");
+
+/* ==========================================================================
+   TIMELINE — three bands, value curves, tethers
+   ========================================================================== */
+const FPS = 50, IN_F = 12, OUT_F = 10, HOLD_F = 28;   // HOLD shown at a nominal width
+const TOTAL = IN_F + HOLD_F + OUT_F;
+/* Every animation must finish inside its band — an IN keyframe past frame 12
+   would be in HOLD, which T-1 forbids. Stagger is +2, +3, +2. */
+const TL_LANES = [
+  { nm:"Accent Bar",  sub:false, prop:"Scale X",  from:0,  to:7,  ease:"glide", curve:"ease",  tether:null },
+  { nm:"Panel",       sub:false, prop:"Position", from:2,  to:9,  ease:"glide", curve:"ease",  tether:{ after:"Accent Bar", f:2 } },
+  { nm:"Amara Okonkwo", sub:false, prop:"Opacity", from:5, to:12, ease:"press", curve:"press", tether:{ after:"Panel", f:3 } },
+  { nm:"Chief Correspondent", sub:false, prop:"Opacity", from:7, to:12, ease:"press", curve:"press", tether:{ after:"Amara Okonkwo", f:2 } }
+];
+
+function curvePath(kind, w, h) {
+  const pts = [];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    let v;
+    if (kind === "press") v = 1 - Math.pow(1 - t, 2.4);
+    else if (kind === "ease") v = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    else v = t;
+    pts.push(`${(t * w).toFixed(1)},${(h - v * h).toFixed(1)}`);
+  }
+  return "M" + pts.join(" L");
+}
+
+function buildTimeline(host, opts) {
+  const o = opts || {};
+  const px = f => (f / TOTAL) * 100;
+  const inW = px(IN_F), holdW = px(HOLD_F), outW = px(OUT_F);
+
+  const lanes = TL_LANES.map((l, i) => {
+    const segL = px(l.from), segW = px(l.to - l.from);
+    return `
+      <div class="lane-t">
+        <div class="seg" style="left:${segL}%; width:${segW}%">
+          ${o.curves === false ? "" : `<svg class="curve" viewBox="0 0 100 20" preserveAspectRatio="none">
+            <path d="${curvePath(l.curve, 100, 20)}" fill="none" stroke="var(--accent)" stroke-width="1.4"
+                  vector-effect="non-scaling-stroke" opacity=".95"/></svg>`}
+        </div>
+        <span class="kf" style="left:${segL}%"></span>
+        <span class="kf" style="left:${segL + segW}%"></span>
+        ${o.tethers !== false && l.tether ? `<span class="tether" style="left:${px(TL_LANES[i - 1].from)}%;
+            width:${segL - px(TL_LANES[i - 1].from)}%; top:2px"></span>` : ""}
+      </div>`;
+  }).join("");
+
+  host.innerHTML = `
+    <div class="tl">
+      <div class="tl-ruler">
+        <div class="tl-names" style="display:flex; align-items:center; padding:0 6px">
+          <span style="font-size:7.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); font-weight:700">Layer · property</span>
+        </div>
+        <div class="tl-track">
+          <div class="tl-band in"   style="left:0; width:${inW}%">IN ${IN_F}f</div>
+          <div class="tl-band hold" style="left:${inW}%; width:${holdW}%">HOLD · unbounded</div>
+          <div class="tl-band out"  style="left:${inW + holdW}%; width:${outW}%">OUT ${OUT_F}f</div>
+        </div>
+      </div>
+      <div class="tl-lanes">
+        <div class="tl-names">
+          ${TL_LANES.map(l => `<div class="lane"><span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${l.nm}</span>
+             <span style="color:var(--ink-3); font-size:8px">${l.prop}</span></div>`).join("")}
+        </div>
+        <div class="tl-track" style="position:relative">
+          ${lanes}
+          <div class="tl-head" id="${o.headId || "tl-head"}" style="left:${px(o.head || 0)}%"></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+buildTimeline(document.getElementById("screen-tl"), { head: 9, headId: "screen-tl-head", curves: true, tethers: true });
+
+/* Playable copy */
+const tlOpts = { curves: true, tethers: true };
+const tlShell = document.getElementById("tl-shell");
+const tlRange = document.getElementById("tl-range");
+
+function renderTl() {
+  const f = (Number(tlRange.value) / 100) * TOTAL;
+  buildTimeline(tlShell, { ...tlOpts, head: f, headId: "tl-demo-head" });
+  const band = f < IN_F ? "IN" : f < IN_F + HOLD_F ? "HOLD" : "OUT";
+  const frame = Math.round(f);
+  const v = document.getElementById("tl-verdict");
+  const inFrame = band === "IN" ? frame : band === "OUT" ? frame - IN_F - HOLD_F : frame - IN_F;
+  v.innerHTML = band === "HOLD"
+    ? `<b>Frame ${inFrame} of HOLD — and this is the point.</b> HOLD has no length. The playhead can sit here for
+       four seconds or forty minutes; the graphic is simply up. Nothing may be keyframed here except a loop or a
+       reaction to data, which is why the band is drawn differently and why its edge cannot be dragged.`
+    : `<b>${band} · frame ${inFrame} of ${band === "IN" ? IN_F : OUT_F}.</b> Every value in this band is
+       keyframed against a fixed frame count at ${FPS} fps. The curves are the actual eased values, so the
+       stagger — 2 frames, then 3, then 2 — is visible without opening a graph editor. The tethers are what
+       make that stagger survive a change to the Accent Bar.`;
+}
+tlRange.addEventListener("input", renderTl);
+document.getElementById("tl-tools").addEventListener("click", e => {
+  const b = e.target.closest("[data-t]"); if (!b) return;
+  const k = b.dataset.t;
+  tlOpts[k] = !tlOpts[k];
+  b.classList.toggle("on", tlOpts[k]);
+  renderTl();
+});
+renderTl();
+
+/* ==========================================================================
+   AUDIT
+   ========================================================================== */
+const FINDINGS = [
+  ["F-01","blocking","Keyboard","Volume Two K1 forbids unmodified keys for authoring, which makes tool selection by single letter impossible. Every gesture in Studio would cost an extra modifier, permanently.","Corrected in §08: single letters are tools off air and inert on air, which is what K2 already permits. The safety property is unchanged."],
+  ["F-02","blocking","Timeline","The timeline had no model. A broadcast graphic has an unbounded hold, and no previous document said how that is represented, edited or bounded.","§04 · three bands. IN and OUT are frame-counted, HOLD is elastic and unkeyframeable except for loops and data reactions."],
+  ["F-03","blocking","Selection","Three panels can hold selection — layers, viewport, timeline — and nothing specified whether they are one selection or three.","§05 · one selection, shared by all three, always. No panel has a private selection."],
+  ["F-04","major","Layout","The viewport is 63 % of width against a 65–70 % target, because the inspector needs 258 px to fit two numeric fields and a keyframe control.","Accepted deliberately. Narrowing the inspector would wrap every transform row, which costs more than 2 % of viewport."],
+  ["F-05","major","Viewport","No decision existed on whether space outside the frame is usable.","§03 V-1 · there is no pasteboard. Objects snap back with 25 % inside and are flagged off-frame."],
+  ["F-06","major","Timeline","Absolute keyframe times mean every timing change is a manual re-layout of the whole graphic.","§04 T-3 · relative, named tethers. One drag re-times the sequence."],
+  ["F-07","major","Timeline","Easing was invisible — a diamond tells you nothing about the curve until playback.","§04 T-2 · the lane plots the value. Easing is seen, not inspected."],
+  ["F-08","major","Inspector","A text layer has ~40 properties and a designer touches four. Nothing specified what is shown.","§06 I-2 · set, bound and overridden only. Defaults collapse to one row."],
+  ["F-09","major","Inspector","Numeric entry was unspecified — no scrub, no step, no expressions, no precision modifiers.","§06 I-1 · one field is scrubber, stepper and expression input."],
+  ["F-10","major","Layers","Layer naming was unspecified, which in every comparable tool produces “Text 14”.","§05 · auto-named from content or binding. The engine already knows."],
+  ["F-11","major","Layers","Nothing said whether visibility is persisted. If it is, a hidden layer airs missing.","§05 · authoring-only, never written to the document."],
+  ["F-12","major","Viewport","Wheel-zoom versus wheel-scroll was unspecified. Bare-wheel zoom fires constantly on trackpads.","§03 · wheel scrolls; ⌘+wheel zooms about the pointer."],
+  ["F-13","major","Motion","Panel collapse, inspector expand and layer reorder animated for no informational reason, costing latency on the most repeated gestures.","§10 · all three removed. Instant."],
+  ["F-14","major","Pointer","No rule existed for when a cursor changes — hover or capability.","§09 · capability only. Select over an unselected object, Move over a selected one."],
+  ["F-15","major","Inspector","A scrub could produce hundreds of undo entries.","§06 · one gesture is one undo entry, coalesced start to release."],
+  ["F-16","minor","Viewport","Zoom was continuous, so a designer is never at a known scale.","§03 · eight discrete steps with an exact 1:1."],
+  ["F-17","minor","Viewport","Guides were session-scoped in the prototype, so nobody would make one.","§03 · stored per graphic."],
+  ["F-18","minor","Timeline","No unit was specified. Milliseconds would permit sub-frame keyframes.","§04 · frames at delivery rate, always."],
+  ["F-19","minor","Layers","Nesting was unbounded.","§05 · capped at 4, refused with a reason."],
+  ["F-20","minor","Transport","The transport head mixed state and tools in the prototype.","§07 · state and playback only. Tools are keyboard and pointer."],
+  ["F-21","minor","Status","The status bar was decorative in the prototype — six readouts, none actionable.","§07 · two are clickable and both are frequent: reset zoom, open verdict."],
+  ["F-22","minor","Motion","Timeline scrubbing had inertia, which overshoots the frame you wanted.","§04 · no inertia anywhere in the timeline."],
+  ["F-23","minor","Performance","No interaction budgets existed.","§12 · eight budgets, worst case, on the slowest supported machine."],
+  ["F-24","done","Accessibility","Lamps were hue-only, violating H6.","Already fixed in Volume Eight A-II. Studio uses the shaped marks throughout — visible in §01."]
+];
+const SEVG = { blocking:"live", major:"warn", minor:"idle", done:"ok" };
+function renderAudit(f) {
+  const rows = FINDINGS.filter(r => f === "all" || r[1] === f);
+  document.getElementById("audit-table").innerHTML = `
+    <thead><tr><th>#</th><th>Severity</th><th>Area</th><th>Finding</th><th>Resolution</th></tr></thead>
+    <tbody>${rows.map(r => `
+      <tr>
+        <td class="n">${r[0]}</td>
+        <td><span class="sev ${r[1]}">${slamp(SEVG[r[1]])}${r[1] === "done" ? "fixed" : r[1]}</span></td>
+        <td>${r[2]}</td>
+        <td class="wrap">${r[3]}</td>
+        <td class="wrap">${r[4]}</td>
+      </tr>`).join("")}</tbody>`;
+}
+document.getElementById("audit-filter").addEventListener("click", e => {
+  const b = e.target.closest("[data-f]"); if (!b) return;
+  [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
+  renderAudit(b.dataset.f);
+});
+renderAudit("all");
+
+/* ==========================================================================
+   KEYBOARD
+   ========================================================================== */
+const KEYS = [
+  { z:"Tools · single letters, off air only", lamp:"idle",
+    why:"The deepest muscle memory in this profession. F-01 restores them by scoping to the off-air boundary that K2 already permits — on air they are inert and the live transport takes over.",
+    keys:[["V","Select","the default, always returns"],["A","Direct select","into a group"],["T","Text",""],["R","Rectangle",""],["E","Ellipse",""],["I","Image",""],["C","Crop","media layers only"],["G","Guide","drag to place"],["P","Pen","paths"],["H","Hand","momentary with Space"]] },
+  { z:"Viewport", lamp:"idle",
+    why:"⌥ owns the view because it owns precision and reveal everywhere else in the product. Nothing here modifies the document, so nothing here needs ⌘.",
+    keys:[["⌘0","Fit",""],["⌘1","100 % · exact 1:1",""],["⌘+ ⌘−","Zoom step","never continuous"],["⌥1–6","Recall camera",""],["⌥⇧1–6","Set camera",""],["⌥S","Safe areas","on by default"],["⌥G","Grid","12 × 6 of frame"],["⌥R","Rulers",""],["⌥B","Reference image",""],["⌥L","Live feed behind",""],["⌥W","Legal warnings",""],["⌥X","Worst case","longest value in the feed"]] },
+  { z:"Selection & arrange", lamp:"idle",
+    why:"⇧ extends and ⌘ toggles, matching the modifier meanings fixed in K3. Nudge is on arrows because it is the most repeated precision action in the product.",
+    keys:[["↑↓←→","Nudge 1 px",""],["⇧arrows","Nudge 10 px",""],["⌥arrows","Nudge 0.1 px",""],["⌘A","Select all",""],["⌘⇧A","Deselect",""],["⌘G","Group",""],["⌘⇧G","Ungroup",""],["⌘]","Bring forward",""],["⌘[","Send back",""],["⌘L","Lock",""],["⌘⇧L","Unlock all",""],["⌫","Delete","reversible 30 s"]] },
+  { z:"Timeline", lamp:"pvw",
+    why:"Comma and period sit under the right hand next to the number row, so frame-stepping needs no reach. K is keyframe because it is the only timeline verb that starts with one.",
+    keys:[["Space","Play the current band",""],["⇧Space","Play the whole sequence",""],[", .","Step 1 frame",""],["⇧, ⇧.","Step 10 frames",""],["Home End","Band start / end",""],["K","Key at playhead",""],["⌥K","Remove key",""],["⌘K","Ease · cycle named","press → glide → weight"],["⌥⌘K","Custom bezier","the escape hatch"],["Tab","Next keyframe",""],["⇧Tab","Previous keyframe",""]] },
+  { z:"Data &amp; bindings", lamp:"idle",
+    why:"D for data. Binding is the action that makes a graphic broadcast rather than a picture, and it deserves one keystroke.",
+    keys:[["⌘D","Bind selected property",""],["⌘⇧D","Unbind",""],["⌥D","Jump to variable",""],["⌘E","Edit sample data",""],["⌘⇧E","Worst-case data","same view as ⌥X"]] },
+  { z:"Document & system", lamp:"idle",
+    why:"Standard where standard is right — an operator's ⌘Z must be ⌘Z. ⌘Z never touches layout, per Volume Two P4.",
+    keys:[["⌘Z","Undo · document only",""],["⌘⇧Z","Redo",""],["⌘K","Command palette","in any non-timeline focus"],["⌘F","Find layer or asset",""],["⌘N","New graphic",""],["⌘⇧V","Mark a version",""],["⌘,","Settings",""],["Esc","Peel one layer","per Volume Two"]] }
+];
+document.getElementById("keymap").innerHTML = KEYS.map(z => `
+  <div class="kzone">
+    <h4>${slamp(z.lamp)}${z.z}</h4>
+    <div class="why">${z.why}</div>
+    ${z.keys.map(([k, a, b]) => `<div class="krow"><span class="kbd">${k}</span><span class="a">${a}</span>${b ? `<span class="b">${b}</span>` : ""}</div>`).join("")}
+  </div>`).join("");
+
+/* ==========================================================================
+   MOTION INVENTORY
+   ========================================================================== */
+const MOTION = [
+  ["Zoom step","120 ms","press","Keeps orientation across a scale change","Orientation. You lose where you were."],
+  ["Pan","0 ms","—","Follows the pointer exactly","—"],
+  ["Selection ring","0 ms","—","Appears on the frame of selection","—"],
+  ["Handles","0 ms","—","Appear with the ring","—"],
+  ["Marquee","0 ms","—","Follows the pointer","—"],
+  ["Drag ghost","0 ms","—","Follows the pointer","—"],
+  ["Snap indicator","90 ms","press","Fades in on snap, out on release","Confidence that the snap took"],
+  ["Playhead scrub","0 ms","—","Frame-accurate, no inertia","—"],
+  ["Timeline playback","exact rate","—","At the delivery frame rate","—"],
+  ["Keyframe add","90 ms","press","The diamond scales in from 0.6","Nothing. Retained only because it confirms which lane took the key."],
+  ["Segment drag","0 ms","—","Follows the pointer","—"],
+  ["Inspector rebuild","0 ms","—","Instant on selection change","—"],
+  ["Field scrub","0 ms","—","Value follows the pointer","—"],
+  ["Colour picker open","180 ms","press","Inline expansion from the swatch","Where it came from"],
+  ["Panel collapse","REMOVED","—","Was 320 ms glide","Nothing — F-13"],
+  ["Inspector group expand","REMOVED","—","Was 180 ms press","Nothing — F-13"],
+  ["Layer reorder","REMOVED","—","Was 180 ms glide","Nothing — F-13. The list must be correct before the hand releases."],
+  ["Graphic open","320 ms","glide","Stage resolves, panels settle","That a different graphic is now loaded"],
+  ["Asset import","determinate","—","Progress on the asset itself","How much is left"],
+  ["Cue","90 ms","press","Preview edge lights, lamp on","That it is armed"],
+  ["Take","0 ms + report","—","Cut at frame zero; tally ignites in 90 ms","Nothing — the cut is instant by law"]
+];
+document.getElementById("motion-table").innerHTML = `
+  <thead><tr><th>Animation</th><th>Duration</th><th>Curve</th><th>What it does</th><th>Lost if removed</th></tr></thead>
+  <tbody>${MOTION.map(m => `
+    <tr>
+      <td${m[1] === "REMOVED" ? ' style="color:var(--ink-3); text-decoration:line-through"' : ""}>${m[0]}</td>
+      <td class="n"${m[1] === "REMOVED" ? ' style="color:var(--live)"' : ""}>${m[1]}</td>
+      <td class="n">${m[2]}</td><td class="wrap">${m[3]}</td><td class="wrap">${m[4]}</td>
+    </tr>`).join("")}</tbody>`;
+
+/* ==========================================================================
+   WORKFLOWS
+   ========================================================================== */
+const WF = [
+  ["Build a lower third from nothing","T · type · ⌘D · pick variable · T · type · ⌘D · pick variable · R · drag","11 actions","pointer for placement only","The most common task in the product. Two bound text layers and a bar."],
+  ["Bind an existing property to data","select · ⌘D · type variable name · ⏎","4 actions","no pointer","Turning a picture into a broadcast graphic."],
+  ["Add a staggered reveal","select layers · K · ⌘K to ease · set +3f after","6 actions","no pointer","T-3 is what makes this six rather than twenty."],
+  ["Check it against the worst data","⌥X","1 action","no pointer","Volume Four §02, one key, in the place where the fix happens."],
+  ["Fix an overflow it revealed","select · drag size field · ⌥X to confirm","3 actions","no pointer","Scrubbing a field beats opening a dialog."],
+  ["Cue and take it to air","␣ · ⏎","2 actions","no pointer","Unchanged from Volume One. The two most important keys in the product."]
+];
+document.getElementById("wf-table").innerHTML = `
+  <thead><tr><th>Workflow</th><th>Sequence</th><th>Target</th><th>Pointer</th><th>Note</th></tr></thead>
+  <tbody>${WF.map(w => `<tr><td>${w[0]}</td><td class="n wrap" style="font-size:10px">${w[1]}</td>
+    <td class="n">${w[2]}</td><td class="wrap">${w[3]}</td><td class="wrap">${w[4]}</td></tr>`).join("")}</tbody>`;
+
+/* ==========================================================================
+   SCORE
+   ========================================================================== */
+const SCORE = [
+  ["Layout & regions", 95, "Every dimension fixed. Nothing to guess."],
+  ["Viewport", 92, "Complete, minus 3D which L3 excludes deliberately."],
+  ["Timeline", 88, "Model, gestures and units specified. L1 and L2 are real holes."],
+  ["Layers", 94, "Fully specified."],
+  ["Inspector", 78, "Three principles and the panel rules. Text editing (L4) is the gap."],
+  ["Keyboard", 96, "62 bindings, collision-audited, each with a reason."],
+  ["Pointer", 93, "Every region and condition mapped to a drawn cursor."],
+  ["Motion", 97, "Complete inventory with durations, curves and a removal test."],
+  ["Performance", 90, "Eight budgets. Unvalidated against real hardware."],
+  ["Data & bindings", 74, "Bind, unbind, inspect. The variable editor itself is out of scope here."],
+  ["Assets in Studio", 62, "Only where it touches Studio. The browser is Volume Six's territory."],
+  ["Validation", 20, "L6. Nothing has been built or watched."]
+];
+document.getElementById("score-grid").innerHTML = SCORE.map(([k, n, m]) => `
+  <div class="c">
+    <div class="label">${k}</div>
+    <div class="n ${n >= 85 ? "good" : n >= 60 ? "mid" : "bad"}">${n}</div>
+    <div class="scorebar"><i style="width:${n}%; background:${n >= 85 ? "var(--ok)" : n >= 60 ? "var(--warn)" : "var(--live)"}"></i></div>
+    <div class="m">${m}</div>
+  </div>`).join("");
+</script>
+
+</body></html>

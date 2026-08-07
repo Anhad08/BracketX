@@ -1,6 +1,55 @@
-# BracketX — Product
+# Streamatrix — Product
 
-**Status:** Draft · **Last updated:** 2026-07-30 · **Owner:** @Pixelborne
+**Status:** Repaired against the founder record · **Last updated:** 2026-08-07
+**Owner:** @Pixelborne
+
+> **The product was renamed BracketX to Streamatrix.** The sections below were
+> authored 2026-07-30, before the Streamatrix Product Vision (2026-08-03), and
+> still say "BracketX" in places. They are repaired in place, never replaced.
+
+---
+
+## 0. Source of truth, and the order of authority
+
+The approved specification is **vendored in this repository** at
+[`docs/design-os/`](./design-os/). It previously existed only as claude.ai
+artifacts, which meant every context compaction severed the implementation from
+the product. That was the single root cause of the drift documented on
+2026-08-07.
+
+| Authority | Where |
+|---|---|
+| 1 · The founder's words | session transcripts (`~/.claude/projects/...`) |
+| 2 · Founder-approved decisions | this file, and the volumes |
+| 3 · Design OS volumes | `docs/design-os/volume-*.html` |
+| 4 · Blueprint | `docs/design-os/blueprint.html` |
+| 5 · Implementation | `apps/`, `packages/` |
+
+**If the implementation disagrees with the founder, the implementation is
+wrong. If documentation disagrees with the founder, the documentation is
+wrong.** No document in this repository outranks the founder, including this
+one.
+
+Vendored artifacts, with the claude.ai artifact each came from:
+
+| File | Artifact | Title |
+|---|---|---|
+| `design-os/volume-one.html` | `da877ce5` | Design OS — Volume One |
+| `design-os/volume-two.html` | `5f376485` | Design OS — Volume Two |
+| `design-os/blueprint.html` | `ac8228e9` | Studio — Final Blueprint |
+| `design-os/studio-specification.html` | `357f489f` | Studio — Specification |
+| `design-os/studio-prototype.html` | `1a764642` | Studio — Prototype |
+| `design-os/ui-prototype.html` | `ff8427d8` | Studio — UI Prototype |
+
+**Volumes Three through Eight are not yet vendored.** They exist as artifacts
+`f90480f0`, `a73e2468`, `f2b70a1e`, `d63dd462`, `69c6335a`, `fa64294b` and must
+be vendored before anything may rely on them.
+
+**These artifacts conflict with one another on the Studio layout.** The
+conflict is unresolved and reserved for the founder — see "Unresolved
+conflicts" in [`apps/studio/PROTOTYPE.md`](../apps/studio/PROTOTYPE.md).
+
+---
 
 > This document describes *what* we are building and *for whom*. It does not
 > describe how — see [ARCHITECTURE.md](./ARCHITECTURE.md). It does not describe
@@ -141,3 +190,135 @@ until we have real users.
   One dropped frame on air costs more trust than ten features earn.
 - **Graphics authored via AI vs. manually.** Directly tests the "AI-first"
   thesis. If this stays low, the positioning is wrong.
+
+---
+
+## 12. Approved modules — RESTORED
+
+Recorded from the founder's own briefs. Present here because this document
+previously omitted most of them, and an omitted module is one that quietly
+stops being built. **None of these may be removed.**
+
+**Product surfaces.** Productions · Studio · Production (on-air) · Marketplace
+· Assets · Data · Brand · Outputs · Templates · Settings · Master Console ·
+Replay · Scoring · Team System · Broadcast Control · Remote · Networking ·
+Plugins · AI.
+
+**RTGFX — the graphics ecosystem inside Streamatrix.** Theme Packs · Motion
+Packs · Transition Packs · Broadcast Packages · Graphics Components · Virtual
+Sets · Scoreboards · Leaderboards · Lower Third Collections · Tickers · News ·
+Sports · Esports · Corporate · Weather · Election · Sponsor · Intro · Outro ·
+Camera Packs · Lighting Presets · Future AI Packs · Future Community Packs.
+
+> "Every RTGFX package must be production-ready."
+> "One package should support hundreds of productions without requiring
+> redesign."
+
+**Every graphic must be customizable across:** Text · Fonts · Logos · Team
+Branding · Images · Videos · Colors · Materials · Lighting · Camera Angles ·
+Motion · Timing · Variables · Data Sources · Layout · States · Effects.
+
+**Asset types (permanent architecture).** Images (PNG/JPEG/WebP/AVIF, alpha,
+colour profiles) · Vector (SVG, no raster fallback unless explicitly chosen) ·
+Video (MP4/MOV/WebM, alpha video, frame accuracy, timeline sync) · Audio
+(WAV/MP3/AAC/OGG, waveform, cue points) · Fonts (TTF/OTF/WOFF/WOFF2, variable,
+fallback chains) · 3D (glTF/GLB, PBR, instancing) · Materials (full PBR channel
+set) · HDR/Environment (HDRI, skyboxes, reflection probes).
+
+**Brand Kits.** "A broadcaster should upload a complete brand package once."
+Logo · secondary · monochrome · icon · primary and secondary colours ·
+typography · motion presets · theme · sponsor assets · backgrounds ·
+watermarks.
+
+**Cloud.** "Cloud is a core feature. Every paid plan includes cloud storage."
+Projects · Templates · RTGFX purchases · Assets · Team Libraries · Workspaces ·
+User Preferences · Production Settings · offline cache · automatic sync ·
+conflict resolution · version history. "Never design the asset system assuming
+only local storage."
+
+**Marketplace.** "The Marketplace is the front door." Purchases · installation
+· updates · package verification · dependencies · versioning · licensing ·
+integrity · metadata · removal. "Every installation should integrate
+immediately into Studio. No manual configuration."
+
+## 13. The Golden Rule — RESTORED
+
+> "Every professional feature must have a one-click version. The user presses
+> ONE button. The engine performs hundreds of decisions."
+
+| One click | The engine generates |
+|---|---|
+| Enable 3D | camera · lighting · environment · default material · shadows · perspective |
+| Glass | transmission · IOR · reflections · roughness · fresnel |
+| Animate | keyframes · easing · timing · tracks |
+| Broadcast Ready | preflight · overflow · contracts · output validation · performance checks |
+| Responsive | constraints · scaling · anchors |
+| Social Outputs | 16:9 · 9:16 · 1:1 · 4:5, with confidence previews |
+
+**Materials are named by outcome, never by parameter** at Beginner and Designer
+level: Matte · Glass · Chrome · Plastic · Broadcast · Premium · Soft · Bold.
+Advanced reveals the underlying parameters.
+
+**Cameras and lights are infrastructure, not authoring.** "Users should not need
+to create a light before seeing a beautiful result."
+
+## 14. Progressive disclosure — RESTORED
+
+> **The number of levels is OQ-2, open, and reserved for the founder.**
+> Recorded here as approved on 2026-08-05; a later message asks for two.
+
+| Level | Exposes |
+|---|---|
+| 1 · Beginner | Name · Subtitle · Logo · Colour · Animation · Take. "Nothing else." |
+| 2 · Designer | Layers · Properties · Components · Variables · Motion · Templates · Constraints · Brand Kits · Assets · Scene hierarchy |
+| 3 · Advanced | Camera · Lighting · Materials · Curves · Timeline · 3D Controls · Shader Settings · Projection · Performance · Debug |
+
+## 15. The primary user journey — the acceptance test
+
+```
+Marketplace -> Install Scene -> Assets -> Drag Scene into Stage
+-> Scene instantiated -> Edit -> Preview -> Cue -> Take -> Program
+```
+
+> "If this journey is incomplete, nothing else matters."
+
+**Secondary journey:** a hybrid scene — 2D object + 3D object + text + image +
+material + animation + preview + take.
+
+## 16. Viewport philosophy — RESTORED, including the founder's revision
+
+The 2026-08-05 doctrine said the Stage stays fundamentally 2D and "Do NOT
+convert Streamatrix into Blender." The founder **revised this** on 2026-08-06:
+
+> "this was supposd to be a 3D broadcasting software and not just 2D the main
+> motive is 3D"
+> "i want blender type viewport for 3d and normal for 2D"
+> "2D viewport is supposed to be fixed and not moveable"
+> "make the 2D and 3D viewports on the same engine but different ports... so
+> that if i switch to 3D mid session it moves all the details with it... and
+> same with 2D"
+
+**Recovered position:** one engine, one Scene, **two ports**. The 2D port is
+fixed, non-orbitable, and behaves like Canva. The 3D port is Blender-grade. The
+08-06 instruction supersedes the 08-05 "never Blender" clause **for the 3D port
+only**.
+
+**Depth remains a property, not a mode:** "Any 2D object can become 3D...
+Everything remains editable. Nothing becomes a mesh. Nothing leaves the document
+model."
+
+## 17. Identity and doctrine — RESTORED
+
+> **Canva simplicity × Spline's invisible complexity × Ross Video reliability**
+
+Explicitly **not**: "Figma for Broadcast", "Spline for Broadcast", "Vizrt made
+easier".
+
+- "Every visible engine concept on the beginner surface is a bug. Every
+  placeholder is a bug. Every dead button is a bug."
+- "If something is not implemented, either implement it or temporarily remove
+  it. A smaller product that works is better than a larger product that lies."
+- "Search before building. Reuse before creating. Never duplicate engine
+  functionality."
+- Success is measured by "What can a broadcaster do today that they could not do
+  yesterday?" — never by tests, modules, commits or benchmarks.

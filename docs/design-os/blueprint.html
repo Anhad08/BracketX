@@ -1,0 +1,1375 @@
+<!doctype html><html><head><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"capabilities":{"comments":"comments.BaoaqR_K.js","db":"db.CfOZ1CRq.js","downloads":"downloads.BXsoAvg9.js","mcp":"mcp.CYSdpjo0.js","permissions":"permissions.DdITF2Mk.js","self":"self.DtZoNC4q.js","user":"user.Cr_h1ETf.js"},"transforms":"_transforms.VaITkagF.js","comments":"_comments.zwwDucaS.js","translate":"_translate.BOzFH2D9.js"}</script><script>(function(){"use strict";var re=["light","dark","system"];function ne(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function Y(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function se(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const n=t.theme;return typeof n=="string"&&re.includes(n)}function oe(e){try{typeof reportError=="function"?reportError(e):setTimeout(()=>{throw e},0)}catch{}}var K=Object.freeze(Object.assign(Object.create(null),{user:Object.freeze(Object.assign(Object.create(null),{id:null,isOwner:!1,canEdit:!1,name:null,avatarUrl:null,email:null}))})),ie={};function x(e){if(window===top||e.type==="auxclick"&&e.button!==1)return;const t=e.composedPath?e.composedPath():[e.target];let n=null;for(let m=0;m<t.length;m++){const f=t[m];if(f&&f.matches&&f.matches("a[href],area[href]")){n=f;break}}if(!n&&e.target&&e.target.closest&&(n=e.target.closest("a[href],area[href]")),!n)return;const u=n.getAttribute("href");if(!u)return;let i,s;try{i=new URL(u,document.baseURI),s=new URL(document.baseURI).origin}catch{return}(i.protocol==="http:"||i.protocol==="https:")&&i.origin!==s&&(e.preventDefault(),parent.postMessage({__frame_nav:!0,url:i.href},"*"))}var J={};function I(e){if(window===top)return;const t=Date.now();t-(J[e]||0)<500||(J[e]=t,parent.postMessage({__frame_engaged:!0,kind:e},"*"))}var ae=2e3,G=["wheel","touchstart","touchmove","keydown","pointerdown"],X=0;function ce(e){e.isTrusted&&(X=Date.now())}function le(){addEventListener("click",x,!0),addEventListener("auxclick",x,!0)}function ue(){for(let e=0;e<G.length;e++)addEventListener(G[e],ce,{capture:!0,passive:!0});addEventListener("scroll",e=>{e.isTrusted&&Date.now()-X<ae&&I("scroll")},{capture:!0,passive:!0}),addEventListener("pointermove",e=>{e.isTrusted&&I("pointer")},{capture:!0,passive:!0}),addEventListener("click",e=>{e.isTrusted&&I("click")},{capture:!0,passive:!0})}var D="__frame_scroll",fe=150,de=310,pe=160,me=3e4;function he(){let e=0,t=!1,n=!1,u=!1,i=0,s=null;const m=l=>{try{sessionStorage.setItem(D,JSON.stringify({y:l}))}catch{}},f=()=>{if(clearTimeout(e),s===null)return;const l=s;s=null,m(l)},_=()=>{if(t){t=!1;return}n=!0,s=scrollY,clearTimeout(e),e=setTimeout(f,fe)};try{addEventListener("scroll",_,{passive:!0}),addEventListener("pagehide",f)}catch{}const y=()=>{let l;try{l=sessionStorage.getItem(D)}catch{return null}if(l===null)return null;let a;try{a=JSON.parse(l)}catch{a=null}const p=a?.y;if(!(typeof p=="number"&&Number.isFinite(p)&&p>=0)){try{sessionStorage.removeItem(D)}catch{}return null}return p};let o=!1;const c=l=>{try{const a=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),i=l,u=!0,clearTimeout(e),s=null,m(l);const p=scrollY;p!==a&&(t=!0),p!==l&&!o&&(o=!0,addEventListener("load",()=>{try{if(scrollY===p){const g=y();c(g!==null?g:i)}}catch{}},{once:!0}))}catch{}},d=()=>{try{return!!location.hash}catch{return!0}};let h=!1;const v=()=>{try{if(h||innerWidth>de||innerHeight>pe)return;h=!0;const l=Date.now(),a=()=>{try{removeEventListener("resize",a)}catch{}if(Date.now()-l>me||n||d())return;const p=y();c(p!==null?p:i)};addEventListener("resize",a)}catch{}};let w=!1,S=!1;return{restore(){if(w||(w=!0,d()))return;const l=y();l!==null&&(c(l),v())},promoted(){if(S||(S=!0,d()))return;const l=y();l!==null?(c(l),v()):u&&c(i)}}}function ge(e,t,n){const u=[...t.values()].filter(i=>i.targets.some(s=>s.startsWith(e+".")));return{wrap(i,s){const m=`${e}.${i}`,f=u.filter(_=>_.targets.includes(m));return f.length===0?(..._)=>{try{return s(..._)}catch(y){return Promise.reject(y)}}:(..._)=>{let y=_;for(const c of f){const d=c.module.parameters;if(d)try{y=d(y)}catch{return Promise.reject({code:"transform_error",id:c.id,scope:e,message:"parameters transform failed"})}}let o;try{o=s(...y)}catch(c){o=Promise.reject(c)}return o.then(c=>{for(let d=f.length-1;d>=0;d--){const h=f[d],v=h.module.returns;if(v)try{c=v(c)}catch{return n({id:h.id,scope:e,leg:"returns"}),c}}return c},c=>{for(let d=f.length-1;d>=0;d--){const h=f[d],v=h.module.throws;if(v)try{c=v(c)}catch{return n({id:h.id,scope:e,leg:"throws"}),Promise.reject(c)}}return Promise.reject(c)})}}}}function ve(e,t,n,u=()=>{}){const i=new Set(e.changes??[]),s=new Map;for(const m of i){const f=t[m];f&&s.set(m,f)}return{contract:e.contract,changes:i,flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:s,shellOrigin:n.shellOrigin,mount:n.mount,pipe:m=>ge(m,s,u)}}var Oe="modulepreload",Se=function(e){return"/"+e},Ae={},_e=function(t,n,u){let i=Promise.resolve();function s(m){const f=new Event("vite:preloadError",{cancelable:!0});if(f.payload=m,window.dispatchEvent(f),!f.defaultPrevented)throw m}return i.then(m=>{for(const f of m||[])f.status==="rejected"&&s(f.reason);return t().catch(s)})};(function(){const e=Object.defineProperty,t=globalThis,n=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let u=0;for(let i=0;i<n.length;i++){const s=n[i];try{e(t,s,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[s]}catch{}try{e(t,s,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[s]=="function"&&u++}if(u&&window!==top)try{parent.postMessage({__frame_rtc_lockdown_failed:u},"*")}catch{}})();var ye=1e4,be=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function Q(e){for(const t of be)if(t.endsWith(":*"))try{const n=new URL(e);if(`${n.protocol}//${n.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var k=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),q=window.__FRAME_PREAMBLE?.transforms,z=window.__FRAME_PREAMBLE?.comments,B=window.__FRAME_PREAMBLE?.translate,C=/^[\w.-]+\.js$/,Ee=/^[a-z][a-z0-9_-]{0,63}$/,V=null,R=null;function $(e,t,n){try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var F=!1;function Z(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,F=!0):F&&(delete t.dataset.theme,t.style.colorScheme="",F=!1)}var ee=256,L=Object.assign(Object.create(null),{mcp:Object.assign(Object.create(null),{watchTool:{handlerArg:3}})}),M=new Map;function te(e,t){const n=M.get(e);if(!n)return;const u=Object.assign(Object.create(null),t);Object.assign(n.impl,u),n.impl.__settled=()=>Promise.reject({code:"capability_removed",message:`${e}: method not in this runtime`});const i=n.queue;n.queue=[];for(const s of i){const m=u[s.method];if(m)if(L[e]?.[s.method])try{s.resolve(m(...s.args))}catch{T(s,L[e][s.method].handlerArg,{code:"transform_error",message:`${e}.${s.method} rejected its arguments`})}else m(...s.args).then(s.resolve,s.reject);else{const f={code:"capability_removed",message:`${e}.${s.method} is not in this runtime`},_=L[e]?.[s.method];if(_){T(s,_.handlerArg,f);continue}s.reject(f)}}}function we(e,t){const n=M.get(e);if(!n)return;n.impl.__settled=()=>Promise.reject(t);const u=n.queue;n.queue=[];for(const i of u){const s=L[e]?.[i.method];if(s){T(i,s.handlerArg,t);continue}i.reject(t)}}function N(e,t){const n=K[e];if(!n){we(e,t);return}te(e,Object.fromEntries(Object.entries(n).map(([u,i])=>[u,()=>Promise.resolve(i)])))}function T(e,t,n){if(e.syncState?.dead)return;const u=e.args[t];typeof u=="function"&&queueMicrotask(()=>{if(!e.syncState?.dead)try{u({type:"error",error:n})}catch(i){oe(i)}})}var H=Object.getOwnPropertyDescriptor(window,"claude");if(window!==top&&!(H&&H.writable===!1)){le(),ue();let e=null;try{e=he()}catch{}const t=H?.value??{};$(window,"claude",t);const n=o=>{const c={impl:Object.create(null),queue:[]};M.set(o,c);const d=c.impl,h=l=>({code:"queue_overflow",message:`${o}.${l}: pre-init call queue is full`}),v=(l,a)=>{if(c.queue.length>=ee){const p=K[o];return p&&l in p?Promise.resolve(p[l]):Promise.reject(h(l))}return new Promise((p,g)=>{c.queue.push({method:l,args:a,resolve:p,reject:g})})},w=ie[o],S=new Proxy(w===void 0?d:(()=>{}),{apply:(l,a,p)=>{const g=w,E=d[g]??d.__settled;return E?E(...p):v(g,p)},get:(l,a)=>{if(typeof a!="string"||a==="then"||a==="toJSON"||a==="valueOf")return;if(a==="toString")return Object.prototype.toString;if(w!==void 0&&(a==="call"||a==="apply"||a==="bind"))return Function.prototype[a];const p=L[o]?.[a];return p?(...g)=>{if(typeof g[p.handlerArg]!="function")throw new TypeError(`${o}.${a} requires a handler function`);const E=d[a];if(E)return E(...g);if(d.__settled){const b={dead:!1},U={args:[...g],syncState:b};return d.__settled().catch(r=>T(U,p.handlerArg,r)),()=>{b.dead=!0}}if(c.queue.length>=ee){const b={dead:!1};return T({args:[...g],syncState:b},p.handlerArg,h(a)),()=>{b.dead=!0}}let A=null;const j={dead:!1};return c.queue.push({method:a,args:g,resolve:b=>{A=typeof b=="function"?b:null,j.dead&&A?.()},reject:()=>{},syncState:j}),()=>{j.dead=!0,A?.()}}:(...g)=>{const E=d[a]??d.__settled;return E?E(...g):v(a,g)}},set:()=>!1});$(t,o,S)};for(const o of Object.keys(k)){if(t[o]!==void 0){$(t,o,t[o]);continue}n(o)}let u=null,i=null,s=0;const m=o=>{o.source!==parent||!Q(o.origin)||ne(o.data)&&(u=o.data.__frame_init,R=o.origin,removeEventListener("message",m),clearTimeout(s),i?.())};addEventListener("message",m),parent.postMessage({__frame_connect:!0},"*");const f=new Promise(o=>{i=o,s=setTimeout(()=>{removeEventListener("message",m),o()},ye)}),_=document.readyState==="loading"?new Promise(o=>document.addEventListener("DOMContentLoaded",()=>o(),{once:!0})):Promise.resolve();_.then(()=>{try{e?.restore()}catch{}});const y=o=>{if(!(o.source!==parent||!Q(o.origin))&&Y(o.data)){removeEventListener("message",y);try{e?.promoted()}catch{}}};addEventListener("message",y),f.then(async()=>{if(!u||!R){for(const r of M.keys())N(r,{code:"not_granted",message:"frame initialization did not arrive - capability unavailable"});return}Z(u.theme);const o=R;let c=!1,d=!1;addEventListener("message",r=>{if(r.source!==parent||r.origin!==o)return;se(r.data)&&Z(r.data.__frame_theme.theme);const O=r.data?.__fc_mode;O&&typeof O=="object"&&!c&&z&&C.test(z)&&(c=!0,h(z).then(W=>W.install?.(o,O.on===!0)).catch(()=>{}));const P=r.data?.__ft_cmd;P&&typeof P=="object"&&!d&&B&&C.test(B)&&(d=!0,h(B).then(W=>W.install?.(o,P)).catch(()=>{}))});const h=r=>_e(()=>import("/_runtime/"+r),void 0),v=Object.keys(u.capabilities??{});for(const r of v)Object.hasOwn(k,r)||Ee.test(r)&&t[r]===void 0&&(n(r),N(r,{code:"capability_disabled",message:"capability not in this runtime generation"}));const w=v.filter(r=>Object.hasOwn(k,r)).map(r=>[r,k[r]]).filter(r=>typeof r[1]=="string"&&C.test(r[1])),[S,...l]=await Promise.allSettled([q&&C.test(q)?h(q):Promise.resolve({}),...w.map(([,r])=>h(r))]),a=R;V=ve(u,S.status==="fulfilled"&&S.value?.TRANSFORMS||{},{shellOrigin:a,mount:te},r=>parent.postMessage({__frame_cap_telemetry:r},a));const p=r=>parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:r}},a),g=V;l.forEach((r,O)=>{const P=w[O][0];if(r.status!=="fulfilled"){p(P);return}try{r.value?.install?.(g)}catch{p(P)}});for(const[r,O]of M)if(!(O.queue.length===0&&Object.keys(O.impl).length>0)){if(v.includes(r)){N(r,{code:"capability_disabled",message:"capability not available in this session"});continue}N(r,{code:"not_granted",message:"capability not available in this session"})}await _,parent.postMessage({__frame_ready:!0},R);let E=-1,A=0;const j=()=>{A=0;const r=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);r!==E&&(E=r,parent.postMessage({__frame_size:!0,h:r},a))},b=()=>{A||(A=setTimeout(j,200))},U=new ResizeObserver(b);U.observe(document.documentElement),document.body&&U.observe(document.body),document.addEventListener("load",b,!0),document.fonts?.ready.then(b,()=>{}),addEventListener("beforeprint",()=>{E=-1,j()}),b(),addEventListener("message",r=>{if(!(r.source!==parent||r.origin!==a)&&Y(r.data)){try{e?.promoted()}catch{}E=-1,b()}})})}})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Streamatrix Studio — Final Blueprint</title>
+
+<style>
+/* ==========================================================================
+   STREAMATRIX DESIGN OS — SHARED CHASSIS
+   ==========================================================================
+   The token system and document furniture used by every volume and by the
+   Studio specification. Identical across all of them by design: a handbook
+   built in a different visual language would refute its own thesis.
+   ========================================================================== */
+:root {
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s8:40px; --s9:56px;
+  --t-display:30px; --tr-display:-.036em; --t-title:20px; --tr-title:-.028em;
+  --t-head:14px; --tr-head:-.018em; --t-body:13px; --tr-body:-.004em;
+  --t-small:11px; --tr-small:0em; --t-micro:9px; --tr-micro:.16em;
+  --chassis:#0a0a0c; --panel:#131417; --panel-hi:#181a1e;
+  --control:#20232a; --control-hi:#292d35; --well:#050506;
+  --line:rgba(255,255,255,.07); --hair:rgba(255,255,255,.055);
+  --hair-strong:rgba(255,255,255,.1); --seam:rgba(0,0,0,.55);
+  --ink:#f3f4f6; --ink-2:#a7aab2; --ink-3:#6e717a;
+  --live:#ff3b30; --warn:#ffb020; --preview:#2ee6c8; --ok:#3ddc97;
+  --accent:#c9d1da; --accent-2:#9aa5b1; --key:#eef0f3; --key-2:#c6cad1; --key-ink:#0c0d10;
+  --grain:.042; --sheen:.04; --brush:.012;
+  --edge: inset 0 1px 0 var(--hair), inset 0 -1px 0 var(--seam);
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0,0,0,.7);
+  --recess: inset 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(0,0,0,.92),
+            inset 0 0 0 1px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.045);
+  --cast: 0 1px 2px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.32);
+  --cast-lg: 0 2px 4px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.45), 0 28px 64px rgba(0,0,0,.35);
+  --ambient: 0 8px 30px rgba(0,0,0,.28);
+  --r-xl:18px; --r-lg:12px; --r-md:9px; --r-sm:7px; --r-xs:5px;
+  --display:ui-sans-serif,-apple-system,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --iface:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --meta:ui-monospace,"Cascadia Mono","SF Mono","Roboto Mono",Menlo,monospace;
+  --press:cubic-bezier(.3,.7,.4,1); --glide:cubic-bezier(.16,1,.3,1); --weight:cubic-bezier(.45,.05,.15,1);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --chassis:#dbd8d3; --panel:#eeece8; --panel-hi:#f6f5f2; --control:#fcfbfa; --control-hi:#fff; --well:#c3bfb9;
+    --line:rgba(0,0,0,.1); --hair:rgba(255,255,255,.95); --hair-strong:#fff; --seam:rgba(0,0,0,.1);
+    --ink:#16171a; --ink-2:#53555b; --ink-3:#83858c; --accent:#8a6a3a; --accent-2:#6d5129;
+    --key:#2a2b30; --key-2:#141519; --key-ink:#fff; --grain:.03; --sheen:.55; --brush:.028;
+    --edge-key: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.12);
+    --recess: inset 0 2px 6px rgba(0,0,0,.14), inset 0 1px 0 rgba(0,0,0,.1), inset 0 0 0 1px rgba(0,0,0,.06);
+    --cast: 0 1px 2px rgba(60,50,40,.09), 0 3px 8px rgba(60,50,40,.07);
+    --cast-lg: 0 2px 4px rgba(60,50,40,.1), 0 10px 26px rgba(60,50,40,.13), 0 28px 64px rgba(60,50,40,.1);
+    --ambient: 0 8px 30px rgba(60,50,40,.08); color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --chassis:#dbd8d3; --panel:#eeece8; --panel-hi:#f6f5f2; --control:#fcfbfa; --control-hi:#fff; --well:#c3bfb9;
+  --line:rgba(0,0,0,.1); --hair:rgba(255,255,255,.95); --hair-strong:#fff; --seam:rgba(0,0,0,.1);
+  --ink:#16171a; --ink-2:#53555b; --ink-3:#83858c; --accent:#8a6a3a; --accent-2:#6d5129;
+  --key:#2a2b30; --key-2:#141519; --key-ink:#fff; --grain:.03; --sheen:.55; --brush:.028;
+  --edge-key: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.12);
+  --recess: inset 0 2px 6px rgba(0,0,0,.14), inset 0 1px 0 rgba(0,0,0,.1), inset 0 0 0 1px rgba(0,0,0,.06);
+  --cast: 0 1px 2px rgba(60,50,40,.09), 0 3px 8px rgba(60,50,40,.07);
+  --cast-lg: 0 2px 4px rgba(60,50,40,.1), 0 10px 26px rgba(60,50,40,.13), 0 28px 64px rgba(60,50,40,.1);
+  --ambient: 0 8px 30px rgba(60,50,40,.08); color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --chassis:#0a0a0c; --panel:#131417; --panel-hi:#181a1e; --control:#20232a; --control-hi:#292d35; --well:#050506;
+  --line:rgba(255,255,255,.07); --hair:rgba(255,255,255,.055); --hair-strong:rgba(255,255,255,.1); --seam:rgba(0,0,0,.55);
+  --ink:#f3f4f6; --ink-2:#a7aab2; --ink-3:#6e717a; --accent:#c9d1da; --accent-2:#9aa5b1;
+  --key:#eef0f3; --key-2:#c6cad1; --key-ink:#0c0d10; --grain:.042; --sheen:.04; --brush:.012;
+  --edge-key: inset 0 1px 0 var(--hair-strong), inset 0 -1px 0 rgba(0,0,0,.7);
+  --recess: inset 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(0,0,0,.92),
+            inset 0 0 0 1px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.045);
+  --cast: 0 1px 2px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.32);
+  --cast-lg: 0 2px 4px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.45), 0 28px 64px rgba(0,0,0,.35);
+  --ambient: 0 8px 30px rgba(0,0,0,.28); color-scheme: dark;
+}
+
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); font-family:var(--iface); font-size:var(--t-body); line-height:1.55;
+  letter-spacing:var(--tr-body); font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased;
+  background: radial-gradient(130% 66% at 50% -14%, rgba(255,255,255,.03), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,var(--brush)) 0 1px, transparent 1px 4px), var(--chassis); }
+.grain { position:fixed; inset:0; z-index:400; pointer-events:none; opacity:var(--grain); mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23a)'/%3E%3C/svg%3E"); }
+
+h1,h2,h3,h4 { margin:0; font-family:var(--display); font-weight:600; text-wrap:balance; }
+h1 { font-size:var(--t-display); letter-spacing:var(--tr-display); line-height:1.08; }
+h2 { font-size:var(--t-title); letter-spacing:var(--tr-title); line-height:1.15; }
+h3 { font-size:var(--t-head); letter-spacing:var(--tr-head); }
+h4 { font-size:var(--t-body); letter-spacing:var(--tr-body); }
+p { margin:0; }
+button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+code { font-family:var(--meta); font-size:11px; letter-spacing:-.02em; color:var(--ink); }
+.num { font-family:var(--meta); font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+.label { font-size:var(--t-micro); letter-spacing:var(--tr-micro); text-transform:uppercase; color:var(--ink-3); font-weight:700; }
+.small { font-size:var(--t-small); letter-spacing:var(--tr-small); }
+.dim { color:var(--ink-2); } .dim3 { color:var(--ink-3); }
+
+.mat-panel { background: radial-gradient(120% 90% at 10% -14%, rgba(255,255,255,var(--sheen)), transparent 58%),
+  repeating-linear-gradient(90deg, rgba(255,255,255,calc(var(--brush)*.6)) 0 1px, transparent 1px 4px),
+  linear-gradient(180deg, var(--panel-hi), var(--panel) 44%, color-mix(in oklab, var(--panel) 90%, #000));
+  box-shadow:var(--edge), var(--ambient); }
+.mat-well { background:linear-gradient(180deg, color-mix(in oklab, var(--well) 92%, #000), var(--well)); box-shadow:var(--recess); }
+.mat-sub { background:rgba(255,255,255,.022); box-shadow:inset 0 0 0 1px var(--line); }
+
+.lamp { width:7px; height:7px; border-radius:50%; flex:none; background:radial-gradient(circle at 35% 30%, #4a4d55, #1a1c21);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.6); transition:background .3s var(--press), box-shadow .3s var(--press); }
+.lamp.live { background:radial-gradient(circle at 35% 30%, #ff8a82, var(--live)); box-shadow:0 0 8px rgba(255,59,48,.9); }
+.lamp.pvw { background:radial-gradient(circle at 35% 30%, #9df5e6, var(--preview)); box-shadow:0 0 8px rgba(46,230,200,.75); }
+.lamp.ok { background:radial-gradient(circle at 35% 30%, #9df0c6, var(--ok)); box-shadow:0 0 7px rgba(61,220,151,.6); }
+.lamp.warn { background:radial-gradient(circle at 35% 30%, #ffd88a, var(--warn)); box-shadow:0 0 7px rgba(255,176,32,.65); }
+.lamp.idn { background:radial-gradient(circle at 35% 30%, #fff, var(--accent)); box-shadow:0 0 7px var(--accent); }
+
+.btn { display:inline-flex; align-items:center; gap:var(--s2); height:30px; padding:0 var(--s4); border-radius:var(--r-sm);
+  font-size:var(--t-small); font-weight:600; white-space:nowrap;
+  transition:transform .09s var(--press), box-shadow .16s var(--press), background .16s var(--press), color .16s var(--press); }
+.btn:active { transform:translateY(1px); }
+.btn.sec { color:var(--ink-2); background:linear-gradient(180deg, var(--control-hi), var(--control)); box-shadow:var(--edge-key), var(--cast); }
+.btn.sec:hover { color:var(--ink); }
+.btn.pri { color:var(--key-ink); background:linear-gradient(180deg, var(--key), var(--key-2)); box-shadow:inset 0 1px 0 rgba(255,255,255,.6), var(--cast); }
+.btn.quiet { color:var(--ink-3); box-shadow:inset 0 0 0 1px var(--line); }
+.btn.quiet:hover { color:var(--ink); box-shadow:inset 0 0 0 1px var(--hair-strong); }
+.btn.quiet.on { color:var(--ink); box-shadow:inset 0 0 0 1px var(--accent); }
+.btn.sm { height:24px; padding:0 var(--s3); font-size:var(--t-micro); letter-spacing:.06em; text-transform:uppercase; }
+.btn[disabled] { opacity:.32; pointer-events:none; }
+.kbd { display:inline-grid; place-items:center; min-width:17px; height:17px; padding:0 var(--s1); border-radius:4px;
+  font-family:var(--meta); font-size:9px; line-height:1; color:var(--ink-3);
+  background:linear-gradient(180deg, var(--control-hi), var(--control)); box-shadow:var(--edge-key), 0 1px 1px rgba(0,0,0,.4); }
+.pill { display:inline-flex; align-items:center; gap:var(--s2); height:20px; padding:0 var(--s3); border-radius:10px;
+  font-size:var(--t-micro); letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+  box-shadow:inset 0 0 0 1px var(--line); color:var(--ink-2); }
+.pill.live { color:var(--live); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 42%, transparent); }
+.pill.warn { color:var(--warn); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--warn) 42%, transparent); }
+.pill.ok { color:var(--ok); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 42%, transparent); }
+
+.doc { display:grid; grid-template-columns:250px minmax(0,1fr); min-height:100vh; }
+.index { position:sticky; top:0; align-self:start; height:100vh; display:flex; flex-direction:column;
+  border-right:1px solid var(--seam);
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,var(--brush)) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, color-mix(in oklab, var(--chassis) 88%, #fff), var(--chassis));
+  box-shadow:inset -1px 0 0 var(--hair); z-index:20; }
+.index-head { padding:var(--s6) var(--s5) var(--s4); border-bottom:1px solid var(--line); }
+.mark { display:flex; align-items:center; gap:var(--s3); }
+.mark-glyph { width:22px; height:22px; border-radius:var(--r-xs); flex:none; position:relative;
+  background:linear-gradient(150deg, var(--accent), var(--accent-2)); box-shadow:0 0 0 1px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4); }
+.mark-glyph::after { content:""; position:absolute; inset:6px 5px; border-radius:1px;
+  background:linear-gradient(180deg, rgba(0,0,0,.75) 0 2px, transparent 2px 4px, rgba(0,0,0,.75) 4px 6px, transparent 6px); }
+.mark-name { font-family:var(--display); font-weight:650; letter-spacing:-.03em; font-size:var(--t-head); }
+.index-scroll { flex:1; min-height:0; overflow-y:auto; padding:var(--s4) var(--s3) var(--s6); }
+.index-group { margin-top:var(--s5); } .index-group:first-child { margin-top:0; }
+.index-group > .label { padding:0 var(--s3) var(--s2); }
+.ix { display:flex; align-items:center; gap:var(--s3); width:100%; padding:var(--s2) var(--s3); border-radius:var(--r-sm);
+  color:var(--ink-2); text-align:left; text-decoration:none; transition:color .16s var(--press), background .16s var(--press); }
+.ix:hover { color:var(--ink); background:rgba(255,255,255,.03); }
+.ix-dot { width:3px; height:3px; border-radius:50%; flex:none; background:var(--ink-3); transition:all .2s var(--press); }
+.ix.on { color:var(--ink); } .ix.on .ix-dot { background:var(--accent); box-shadow:0 0 6px var(--accent); transform:scale(1.3); }
+.ix-n { margin-left:auto; font-size:var(--t-micro); letter-spacing:.08em; color:var(--ink-3); }
+.index-foot { padding:var(--s3); border-top:1px solid var(--line); display:flex; gap:var(--s2); }
+.column { min-width:0; padding:var(--s9) var(--s8) 120px; max-width:1240px; }
+
+.masthead { max-width:74ch; }
+.eyebrow { display:flex; align-items:center; gap:var(--s3); margin-bottom:var(--s5); }
+.eyebrow .rule { flex:1; height:1px; background:linear-gradient(90deg, var(--line), transparent); }
+.masthead h1 { font-size:clamp(34px,5vw,52px); letter-spacing:-.04em; }
+.lede { margin-top:var(--s5); font-size:16px; line-height:1.6; color:var(--ink-2); max-width:64ch; }
+.lede strong { color:var(--ink); font-weight:600; }
+
+section { padding-top:var(--s9); scroll-margin-top:72px; }
+.sec-head { display:flex; align-items:flex-end; gap:var(--s4); padding-bottom:var(--s5); border-bottom:1px solid var(--line); margin-bottom:var(--s7); }
+.sec-num { font-family:var(--meta); font-size:var(--t-small); color:var(--ink-3); letter-spacing:.04em; padding-bottom:3px; }
+.sec-head h2 { flex:1; }
+.prose { max-width:68ch; display:flex; flex-direction:column; gap:var(--s4); color:var(--ink-2); }
+.prose strong { color:var(--ink); font-weight:600; }
+.sub { margin-top:var(--s8); margin-bottom:var(--s4); display:flex; align-items:center; gap:var(--s3); }
+.sub h3 { white-space:nowrap; } .sub .rule { flex:1; height:1px; background:var(--line); }
+
+.law { position:relative; margin:var(--s6) 0; padding:var(--s5) var(--s6) var(--s5) var(--s7); border-radius:var(--r-md);
+  max-width:76ch; background:rgba(255,255,255,.025); box-shadow:inset 0 0 0 1px var(--line);
+  font-family:var(--display); font-size:15px; line-height:1.5; letter-spacing:-.015em; color:var(--ink); }
+.law::before { content:""; position:absolute; left:0; top:var(--s4); bottom:var(--s4); width:2px; border-radius:2px; background:var(--accent); }
+.law .label { display:block; margin-bottom:var(--s2); }
+.law.hot::before { background:var(--live); } .law.hot .label { color:var(--live); }
+.law.amend::before { background:var(--warn); } .law.amend .label { color:var(--warn); }
+.law .body { display:block; margin-top:10px; font-family:var(--iface); font-size:var(--t-small);
+  color:var(--ink-2); line-height:1.55; letter-spacing:0; font-weight:400; }
+
+.bench { margin-top:var(--s6); border-radius:var(--r-lg); overflow:hidden; }
+.bench-head { display:flex; align-items:center; gap:var(--s4); padding:var(--s3) var(--s4); border-bottom:1px solid var(--seam);
+  box-shadow:inset 0 -1px 0 var(--hair); flex-wrap:wrap; }
+.bench-head .t { font-weight:600; font-size:var(--t-small); }
+.bench-head .s { color:var(--ink-3); font-size:var(--t-small); }
+.bench-head .sp { flex:1; }
+.bench-body { padding:var(--s6); } .bench-body.flush { padding:0; }
+.bench-foot { padding:var(--s3) var(--s4); border-top:1px solid var(--seam); box-shadow:inset 0 1px 0 var(--hair);
+  font-size:var(--t-small); color:var(--ink-3); display:flex; gap:var(--s5); flex-wrap:wrap; }
+.bench-foot b { color:var(--ink-2); font-weight:600; }
+
+table.spec { width:100%; border-collapse:collapse; font-size:var(--t-small); }
+table.spec th { text-align:left; padding:var(--s2) var(--s3); color:var(--ink-3); font-size:var(--t-micro);
+  letter-spacing:var(--tr-micro); text-transform:uppercase; font-weight:700; border-bottom:1px solid var(--line); white-space:nowrap; }
+table.spec td { padding:var(--s3); border-bottom:1px solid var(--hair); vertical-align:top; color:var(--ink-2); line-height:1.5; }
+table.spec td:first-child { color:var(--ink); font-weight:600; white-space:nowrap; }
+table.spec td.n { font-family:var(--meta); color:var(--ink); letter-spacing:-.03em; white-space:nowrap; }
+table.spec td.wrap { white-space:normal; }
+table.spec tr:last-child td { border-bottom:0; }
+.table-scroll { overflow-x:auto; }
+
+.rules { display:flex; flex-direction:column; margin-top:var(--s5); }
+.rule { display:flex; gap:var(--s4); padding:var(--s4) 0; border-bottom:1px solid var(--hair); align-items:flex-start; }
+.rule:last-child { border-bottom:0; }
+.rule .idx { font-family:var(--meta); font-size:var(--t-small); color:var(--ink-3); width:38px; flex:none; padding-top:1px; }
+.rule .tx { flex:1; max-width:74ch; }
+.rule .tx b { display:block; font-weight:600; color:var(--ink); margin-bottom:3px; }
+.rule .tx span { color:var(--ink-2); font-size:var(--t-small); line-height:1.55; }
+.rule .tx em { color:var(--ink); font-style:normal; font-weight:600; }
+
+.dd { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:var(--s4); margin-top:var(--s5); }
+.dd-col { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.dd-col.yes { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 26%, transparent); }
+.dd-col.no { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--live) 24%, transparent); }
+.dd-col h4 { display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3); }
+.dd-col.yes h4 { color:var(--ok); } .dd-col.no h4 { color:var(--live); }
+.dd-col ul { margin:0; padding-left:var(--s5); display:flex; flex-direction:column; gap:var(--s2); }
+.dd-col li { font-size:var(--t-small); color:var(--ink-2); line-height:1.5; }
+
+.toolbar { position:fixed; right:var(--s5); top:var(--s5); z-index:200; padding:var(--s2); border-radius:var(--r-md);
+  background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge), var(--cast); }
+
+@media (max-width:900px) {
+  .doc { grid-template-columns:1fr; }
+  .index { position:static; height:auto; border-right:0; border-bottom:1px solid var(--seam); }
+  .column { padding:var(--s6) var(--s5) 96px; }
+  .toolbar { position:static; margin:var(--s4) var(--s5) 0; display:inline-block; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+</style>
+
+
+<style>
+/* ==========================================================================
+   STUDIO BLUEPRINT · additions
+   ========================================================================== */
+.slamp { width:11px; height:11px; flex:none; display:inline-block; }
+.slamp svg { display:block; width:100%; height:100%; }
+.slamp .f { fill:var(--tone,var(--ink-3)); }
+.slamp.live { --tone:var(--live); } .slamp.warn { --tone:var(--warn); }
+.slamp.pvw { --tone:var(--preview); } .slamp.ok { --tone:var(--ok); } .slamp.idle { --tone:var(--ink-3); }
+
+.verdictline { display:flex; align-items:center; gap:var(--s3); font-size:var(--t-micro);
+  letter-spacing:.1em; text-transform:uppercase; font-weight:700; white-space:nowrap; }
+.verdictline.keep { color:var(--ok); } .verdictline.cut { color:var(--live); }
+.verdictline.new { color:var(--warn); } .verdictline.chg { color:var(--ink-2); }
+
+/* -- Before / after ------------------------------------------------------- */
+.ba { display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); margin-top:var(--s5); }
+@media (max-width:820px) { .ba { grid-template-columns:1fr; } }
+.ba-col { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.ba-col.was { opacity:.72; }
+.ba-col.now { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--ok) 30%, transparent); }
+.ba-col h4 { display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3); font-size:var(--t-small); }
+.ba-col.now h4 { color:var(--ok); }
+.ba-col ol { margin:0; padding-left:var(--s5); display:flex; flex-direction:column; gap:5px; }
+.ba-col li { font-size:var(--t-small); color:var(--ink-2); line-height:1.5; }
+.ba-col .count { margin-top:var(--s4); padding-top:var(--s3); border-top:1px solid var(--hair);
+  font-family:var(--meta); font-size:var(--t-head); letter-spacing:-.03em; }
+.ba-col.now .count { color:var(--ok); }
+
+/* ==========================================================================
+   THE SCREEN v2
+   ========================================================================== */
+.screen-wrap { padding:var(--s5); }
+.scr { border-radius:var(--r-md); overflow:hidden; user-select:none; display:grid; gap:3px; padding:3px;
+  grid-template-columns:40px minmax(0,1fr) 268px;
+  grid-template-rows:minmax(0,1fr) 24px;
+  grid-template-areas:"rail stage right" "status status status";
+  height:560px; font-size:11px; }
+@media (max-width:1080px) { .scr { grid-template-columns:40px minmax(0,1fr) 214px; height:500px; } }
+
+.s-rail { grid-area:rail; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center;
+  gap:5px; padding:7px 0; background:linear-gradient(180deg, color-mix(in oklab, var(--chassis) 86%, #fff), var(--chassis));
+  box-shadow:inset 0 0 0 1px var(--line); }
+.s-railbtn { width:26px; height:22px; border-radius:5px; background:rgba(255,255,255,.045); position:relative; flex:none;
+  display:grid; place-items:center; color:var(--ink-3); }
+.s-railbtn.on { background:rgba(255,255,255,.1); color:var(--ink); }
+.s-railbtn.on::before { content:""; position:absolute; left:-5px; top:50%; margin-top:-5px; width:2px; height:10px;
+  border-radius:2px; background:var(--accent); box-shadow:0 0 7px var(--accent); }
+.s-rail .sp { flex:1; }
+
+.s-stage { grid-area:stage; border-radius:var(--r-sm); display:flex; flex-direction:column; padding:4px; gap:4px;
+  min-width:0; background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge); }
+.s-transport { height:26px; flex:none; border-radius:5px; display:flex; align-items:center; gap:6px; padding:0 8px;
+  background:rgba(255,255,255,.025); box-shadow:inset 0 0 0 1px var(--line); }
+.s-transport .sp { flex:1; }
+.s-tbtn { height:17px; padding:0 8px; border-radius:4px; font-size:8px; letter-spacing:.1em; text-transform:uppercase;
+  font-weight:700; color:var(--ink-2); background:linear-gradient(180deg, var(--control-hi), var(--control));
+  box-shadow:var(--edge-key), var(--cast); display:inline-flex; align-items:center; gap:4px; }
+.s-tbtn.key { color:var(--key-ink); background:linear-gradient(180deg, var(--key), var(--key-2)); }
+.s-tbtn.pvw { color:var(--preview); box-shadow:var(--edge-key), var(--cast), inset 0 0 0 1px color-mix(in oklab, var(--preview) 40%, transparent); }
+.s-tbtn .k { font-family:var(--meta); font-size:7px; opacity:.55; }
+
+.s-well { flex:1; min-height:0; border-radius:5px; background:#05060a; box-shadow:var(--recess);
+  position:relative; overflow:hidden; display:flex; gap:5px; padding:5px; }
+.s-main { flex:1; min-width:0; display:grid; place-items:center; }
+.s-canvas { position:relative; aspect-ratio:16/9; max-height:100%; max-width:100%; width:100%;
+  background:linear-gradient(150deg,#0f1622,#04060b); box-shadow:0 0 0 1px rgba(255,255,255,.08); }
+.s-safe { position:absolute; border:1px dashed rgba(255,255,255,.13); pointer-events:none; }
+.s-safe.action { inset:3.5%; } .s-safe.title { inset:5%; border-color:rgba(255,255,255,.19); }
+.s-safe .tag { position:absolute; top:2px; left:4px; font-family:var(--meta); font-size:6.5px; letter-spacing:.1em; color:rgba(255,255,255,.28); }
+
+/* The confidence strip — every declared delivery format, live, always */
+.s-conf { width:82px; flex:none; display:flex; flex-direction:column; gap:5px; }
+.conf { border-radius:3px; overflow:hidden; position:relative; background:#080b11;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.07); }
+.conf .cv { position:absolute; inset:0; background:linear-gradient(150deg,#0f1622,#04060b); }
+.conf .tag { position:absolute; left:3px; bottom:2px; font-family:var(--meta); font-size:6px;
+  color:rgba(255,255,255,.4); letter-spacing:.02em; z-index:2; }
+.conf.on { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent); }
+.conf.bad { box-shadow:inset 0 0 0 1px var(--warn); }
+.conf .warnmk { position:absolute; right:3px; top:3px; z-index:2; }
+
+/* graphic */
+.g3 { position:absolute; left:8%; bottom:15%; width:46%; border-radius:2px; overflow:hidden; }
+.g3 .bar { height:3px; background:linear-gradient(90deg, var(--accent), transparent); }
+.g3 .bd { padding:6px 9px 7px; background:linear-gradient(100deg, rgba(9,11,15,.95), rgba(16,19,26,.82)); }
+.g3 .nm { font-family:var(--display); font-weight:650; font-size:12px; letter-spacing:-.02em; color:#fff; line-height:1.1; }
+.g3 .rl { font-size:6.5px; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.6); margin-top:3px; font-weight:700; }
+.g3.sel { outline:1px solid var(--accent); outline-offset:1px; }
+.g3 .h { position:absolute; width:5px; height:5px; background:var(--accent); border-radius:1px; box-shadow:0 0 0 1px rgba(0,0,0,.6); }
+.g3 .h.tl{left:-3px;top:-3px} .g3 .h.tr{right:-3px;top:-3px} .g3 .h.bl{left:-3px;bottom:-3px} .g3 .h.br{right:-3px;bottom:-3px}
+/* mini version for confidence renders */
+.g3.mini { left:8%; bottom:14%; width:64%; }
+.g3.mini .bd { padding:2px 3px 2px; } .g3.mini .nm { font-size:4.5px; } .g3.mini .rl { font-size:2.6px; margin-top:1px; }
+.g3.mini .bar { height:1px; }
+.g3.mini.overflow .nm { white-space:nowrap; width:180%; }
+
+.s-ov { position:absolute; font-family:var(--meta); font-size:7px; color:rgba(255,255,255,.4); }
+.s-ov.tl{top:5px;left:6px} .s-ov.tr{top:5px;right:6px} .s-ov.bl{bottom:5px;left:6px} .s-ov.br{bottom:5px;right:6px}
+
+/* -- right dock: navigator + inspector, one column ------------------------- */
+.s-right { grid-area:right; border-radius:var(--r-sm); display:flex; flex-direction:column; min-height:0;
+  background:linear-gradient(180deg, var(--panel-hi), var(--panel)); box-shadow:var(--edge); }
+.s-hd { display:flex; align-items:center; gap:6px; padding:0 7px; height:22px; flex:none; box-shadow:inset 0 -1px 0 var(--seam); }
+.s-hd .nm { font-size:8px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--ink-2); }
+.s-hd .sp { flex:1; }
+.s-hd .ct { font-family:var(--meta); font-size:8px; color:var(--ink-3); }
+.s-nav { flex:none; max-height:132px; overflow-y:auto; padding:4px; box-shadow:inset 0 -1px 0 var(--seam); }
+.lay { display:flex; align-items:center; gap:5px; padding:2px 4px; border-radius:4px; font-size:9.5px; color:var(--ink-2); }
+.lay.sel { background:color-mix(in oklab, var(--accent) 15%, transparent); color:var(--ink);
+  box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent); }
+.lay .ic { width:10px; height:10px; flex:none; color:var(--ink-3); } .lay.sel .ic { color:var(--accent); }
+.lay .ic svg { display:block; }
+.lay .nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lay .bind { font-family:var(--meta); font-size:7px; color:var(--accent); opacity:.85; }
+.s-insp { flex:1; min-height:0; overflow-y:auto; padding:5px; }
+.insp-grp { padding:4px 0 3px; }
+.insp-grp .t { font-size:7.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); font-weight:700;
+  padding:0 2px 4px; display:flex; align-items:center; gap:5px; }
+.insp-grp .t .ln { flex:1; height:1px; background:var(--line); }
+.prow { display:flex; align-items:center; gap:5px; padding:2px 0; font-size:10px; }
+.prow .k { width:48px; flex:none; color:var(--ink-3); font-size:9px; }
+.field { flex:1; min-width:0; height:18px; border-radius:4px; display:flex; align-items:center; padding:0 5px;
+  background:rgba(0,0,0,.28); box-shadow:inset 0 0 0 1px var(--line); font-family:var(--meta); font-size:9.5px; color:var(--ink); }
+.field .u { margin-left:auto; color:var(--ink-3); font-size:8px; }
+.field .b { color:var(--accent); font-size:8.5px; }
+.field.bound { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--accent) 50%, transparent);
+  background:color-mix(in oklab, var(--accent) 9%, rgba(0,0,0,.28)); }
+.field.motion { box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--preview) 45%, transparent);
+  background:color-mix(in oklab, var(--preview) 8%, rgba(0,0,0,.28)); }
+.swatch { width:18px; height:18px; border-radius:4px; flex:none; box-shadow:inset 0 0 0 1px var(--line); }
+
+.s-status { grid-area:status; border-radius:var(--r-sm); display:flex; align-items:center; gap:var(--s4); padding:0 8px;
+  background:linear-gradient(180deg, color-mix(in oklab, var(--chassis) 86%, #fff), var(--chassis));
+  box-shadow:inset 0 0 0 1px var(--line); font-family:var(--meta); font-size:8px; color:var(--ink-3); }
+.s-status .sp { flex:1; }
+.s-status .it { display:flex; align-items:center; gap:4px; }
+.s-status .it b { color:var(--ink-2); font-weight:400; }
+.s-status .it.good b { color:var(--ok); }
+
+/* ==========================================================================
+   MOTION COMPOSER
+   ========================================================================== */
+.mc { display:grid; grid-template-columns:250px minmax(0,1fr); gap:var(--s5); padding:var(--s5) var(--s6); }
+@media (max-width:900px) { .mc { grid-template-columns:1fr; } }
+.mc-ctl { display:flex; flex-direction:column; gap:var(--s4); }
+.mc-set .label { margin-bottom:var(--s2); }
+.mc-opts { display:flex; flex-direction:column; gap:2px; }
+.mc-opt { display:flex; align-items:center; gap:var(--s3); padding:5px var(--s3); border-radius:var(--r-sm);
+  text-align:left; color:var(--ink-2); font-size:var(--t-small); }
+.mc-opt:hover { background:rgba(255,255,255,.03); color:var(--ink); }
+.mc-opt.on { background:rgba(255,255,255,.055); color:var(--ink); box-shadow:inset 0 0 0 1px var(--line); }
+.mc-opt .d { margin-left:auto; font-family:var(--meta); font-size:var(--t-micro); color:var(--ink-3); }
+.mc-out { min-width:0; display:flex; flex-direction:column; gap:var(--s4); }
+.mc-expr { border-radius:var(--r-md); padding:var(--s4) var(--s5); font-family:var(--meta); font-size:12px;
+  line-height:1.7; letter-spacing:-.01em; color:var(--ink-2); }
+.mc-expr b { color:var(--ink); font-weight:400; }
+.mc-expr .k { color:var(--accent); }
+/* A frame count is a value, not a state. Amber means system attention and
+   nothing else — using it here would be exactly the decorative use the
+   colour law forbids, and it reads badly on the light finish besides. */
+.mc-expr .n { color:var(--ink); font-weight:600; }
+.mc-tl { border-radius:var(--r-md); overflow:hidden; }
+.mc-tl-row { display:flex; align-items:center; height:22px; box-shadow:inset 0 -1px 0 var(--hair); }
+.mc-tl-row:last-child { box-shadow:none; }
+.mc-tl-row .n { width:120px; flex:none; padding:0 8px; font-size:9px; color:var(--ink-2);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mc-tl-row .t { flex:1; position:relative; height:100%; }
+.mc-seg { position:absolute; top:5px; bottom:5px; border-radius:2px;
+  background:linear-gradient(180deg, color-mix(in oklab, var(--accent) 34%, transparent), color-mix(in oklab, var(--accent) 18%, transparent));
+  box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent);
+  transition:left .28s var(--glide), width .28s var(--glide); }
+.mc-seg svg { position:absolute; inset:1px 0; width:100%; height:calc(100% - 2px); overflow:visible; }
+.mc-note { font-size:var(--t-small); color:var(--ink-2); line-height:1.55; }
+.mc-note b { color:var(--ink); font-weight:600; }
+
+/* ==========================================================================
+   MISC
+   ========================================================================== */
+.kzones { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:var(--s4); margin-top:var(--s5); }
+.kzone { border-radius:var(--r-md); padding:var(--s4) var(--s5); box-shadow:inset 0 0 0 1px var(--line); }
+.kzone h4 { display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3); }
+.krow { display:flex; align-items:baseline; gap:var(--s3); font-size:var(--t-small); padding:3px 0; }
+.krow .kbd { flex:none; min-width:34px; }
+.krow .a { color:var(--ink); } .krow .b { color:var(--ink-3); margin-left:auto; text-align:right; font-size:var(--t-micro); }
+
+.qbox { margin-top:var(--s8); border-radius:var(--r-lg); padding:var(--s7) var(--s8);
+  box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent); max-width:80ch; }
+.qbox .q { font-family:var(--display); font-size:19px; line-height:1.35; letter-spacing:-.026em; color:var(--ink); }
+.qbox .a { margin-top:var(--s5); font-size:var(--t-body); color:var(--ink-2); line-height:1.65; display:flex; flex-direction:column; gap:var(--s4); }
+.qbox .a strong { color:var(--ink); font-weight:600; }
+</style>
+
+<div class="grain"></div>
+<div class="toolbar"><button class="btn quiet sm" id="theme-toggle">Finish</button></div>
+
+<div class="doc">
+  <nav class="index">
+    <div class="index-head">
+      <div class="mark">
+        <div class="mark-glyph"></div>
+        <div><div class="mark-name">Streamatrix</div><div class="label" style="margin-top:4px">Studio · Final Blueprint</div></div>
+      </div>
+    </div>
+    <div class="index-scroll">
+      <div class="index-group">
+        <div class="label">Verdict</div>
+        <a class="ix" href="#critical"><span class="ix-dot"></span>Critical Findings<span class="ix-n">7</span></a>
+        <a class="ix" href="#screen"><span class="ix-dot"></span>The Screen, Rebuilt</a>
+      </div>
+      <div class="index-group">
+        <div class="label">The Big Change</div>
+        <a class="ix" href="#motion"><span class="ix-dot"></span>Motion as Property</a>
+        <a class="ix" href="#timeline"><span class="ix-dot"></span>Timeline as Escape</a>
+        <a class="ix" href="#components"><span class="ix-dot"></span>Components</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Viewport</div>
+        <a class="ix" href="#confidence"><span class="ix-dot"></span>Confidence Strip</a>
+        <a class="ix" href="#variants"><span class="ix-dot"></span>Variants, not Canvas</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Input</div>
+        <a class="ix" href="#input"><span class="ix-dot"></span>Pointer &amp; Touchpad</a>
+        <a class="ix" href="#dpi"><span class="ix-dot"></span>High DPI &amp; Monitors</a>
+        <a class="ix" href="#dnd"><span class="ix-dot"></span>Drag &amp; Drop</a>
+        <a class="ix" href="#keys"><span class="ix-dot"></span>Keyboard Deltas</a>
+      </div>
+      <div class="index-group">
+        <div class="label">Ledger</div>
+        <a class="ix" href="#removed"><span class="ix-dot"></span>Removed</a>
+        <a class="ix" href="#added"><span class="ix-dot"></span>Added Behaviours</a>
+        <a class="ix" href="#amend"><span class="ix-dot"></span>OS Amendments<span class="ix-n">3</span></a>
+        <a class="ix" href="#eng"><span class="ix-dot"></span>Engineering Notes</a>
+        <a class="ix" href="#limits"><span class="ix-dot"></span>Limitations</a>
+        <a class="ix" href="#apple"><span class="ix-dot"></span>The Question</a>
+      </div>
+    </div>
+    <div class="index-foot"><span class="label" style="padding:var(--s2)">2 playable</span></div>
+  </nav>
+
+  <main class="column">
+
+    <header class="masthead">
+      <div class="eyebrow"><span class="label">Studio</span><span class="rule"></span><span class="label">Final Blueprint</span></div>
+      <h1>Less Studio</h1>
+      <p class="lede">
+        The previous specification was a good description of a conventional editor. Working through it against
+        the real question — <em>what does a designer actually do forty times a day?</em> — the answer is that
+        <strong>Studio has too much interface for the work it does.</strong>
+        <br><br>
+        This blueprint removes two of five permanent panels, demotes the timeline from the primary authoring
+        surface to an escape hatch, and gives the viewport 76 % of the width. Building a lower third goes from
+        <strong>11 actions to 5</strong>. Nothing here is a feature; every change deletes work.
+      </p>
+    </header>
+
+    <!-- ============================================================
+         CRITICAL FINDINGS
+         ============================================================ -->
+    <section id="critical">
+      <div class="sec-head"><span class="sec-num">01</span><h2>Critical Findings</h2><span class="label">against my own spec</span></div>
+
+      <div class="prose">
+        <p>Seven findings against the Studio Specification. Four of them are cases where I described what
+        professional editors do rather than what this product needs.</p>
+      </div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">B-01</div><div class="tx"><b>The timeline was made the primary animation surface, and it should not be.</b>
+          <span>A lower third's entire animation is <em>rise and fade, glide, 12 frames, staggered by 3</em>. That is five values. Expressing it as four lanes and eight keyframes is more work than saying it. I specified a beautiful timeline and then routed the easy case — which is 90 % of broadcast graphics — through the hard path. <em>Resolution:</em> §03, motion becomes a property.</span></div></div>
+        <div class="rule"><div class="idx">B-02</div><div class="tx"><b>Two permanent panels describe the selected object, on opposite sides of the screen.</b>
+          <span>Layers on the left, Inspector on the right, canvas between. Over eight hours the eye crosses the viewport constantly to relate a thing to its description. <em>Resolution:</em> §02, one right dock — navigator above, properties below. The left dock is deleted and the viewport gains 208 px.</span></div></div>
+        <div class="rule"><div class="idx">B-03</div><div class="tx"><b>A show delivers three formats and the spec only ever showed one.</b>
+          <span>1080p50 for programme, 2160p50 for the archive, 9:16 for social. The designer checks each by switching, which means most graphics are never checked in most formats. <em>Resolution:</em> §05, a permanent confidence strip rendering every declared format live.</span></div></div>
+        <div class="rule"><div class="idx">B-04</div><div class="tx"><b>Components were never specified, so a facility with forty lower thirds has forty graphics.</b>
+          <span>They differ by text and colour. That is one component and forty data rows. Without components the Marketplace, the brand kit and the update model in Volume Six all operate on the wrong unit. <em>Resolution:</em> §04.</span></div></div>
+        <div class="rule"><div class="idx">B-05</div><div class="tx"><b>Touchpad behaviour was never specified, and most authoring happens on a laptop.</b>
+          <span>Pinch, two-finger pan and momentum have different physics from a mouse wheel, and a spec that only describes a wheel will produce a tool that fights half its users. <em>Resolution:</em> §06.</span></div></div>
+        <div class="rule"><div class="idx">B-06</div><div class="tx"><b>Live data changes the screen without a person, which H2 forbids.</b>
+          <span>A bound text layer's content changes when the feed changes. That is the interface moving on its own, and no document addressed it. <em>Resolution:</em> §11, Amendment 1 — permitted, and marked.</span></div></div>
+        <div class="rule"><div class="idx">B-07</div><div class="tx"><b>The History panel exists because editors have one.</b>
+          <span>Undo is <code>⌘Z</code>; what happened during a show is the Flight Recorder; what happened to the document is version marks. A scrolling list of every property change serves none of those and occupies a tab. <em>Resolution:</em> §09, removed.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         THE SCREEN
+         ============================================================ -->
+    <section id="screen">
+      <div class="sec-head"><span class="sec-num">02</span><h2>The Screen, Rebuilt</h2><span class="label">two panels · 76 % viewport</span></div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Studio</span><span class="s">Match Day 14 · Lower Third · off air</span>
+          <span class="sp"></span><span class="label">rail 40 · stage 76 % · dock 268</span></div>
+        <div class="bench-body flush">
+          <div class="screen-wrap"><div class="scr mat-well" id="scr"></div></div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Gone:</b> the left dock, the permanent timeline, the History tab, the Assets panel.</span>
+          <span><b>Arrived:</b> the confidence strip, and motion as three fields.</span>
+        </div>
+      </div>
+
+      <div class="prose" style="margin-top:var(--s6)">
+        <p>The navigator sits directly above the properties that describe the selected layer, so the relationship
+        between <em>which</em> and <em>what</em> is vertical and short rather than horizontal and wide. Assets are
+        a rail section rather than a panel, because a designer imports in bursts and then does not look at them
+        for an hour — a permanent panel for a bursty task is the definition of wasted space.</p>
+      </div>
+
+      <div class="ba">
+        <div class="ba-col was">
+          <h4><span class="slamp idle"></span>Specification</h4>
+          <ol>
+            <li>Rail, Layers, Assets, Stage, Inspector, Timeline, Status — five permanent panels</li>
+            <li>Viewport 63 % × 71 %</li>
+            <li>Timeline always present, 152 px, four lanes visible</li>
+            <li>One delivery format visible</li>
+          </ol>
+          <div class="count">5 panels · 63 % viewport</div>
+        </div>
+        <div class="ba-col now">
+          <h4><span class="slamp ok"></span>Blueprint</h4>
+          <ol>
+            <li>Rail, Stage, Dock, Status — two permanent panels</li>
+            <li>Viewport 76 % × 90 %, with a live confidence strip inside it</li>
+            <li>Timeline summoned by <code>⌥T</code>, over the stage, dismissed by Escape</li>
+            <li>Every declared delivery format visible, always</li>
+          </ol>
+          <div class="count">2 panels · 76 % viewport</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         MOTION AS PROPERTY
+         ============================================================ -->
+    <section id="motion">
+      <div class="sec-head"><span class="sec-num">03</span><h2>Motion as Property</h2><span class="label">playable · the central change</span></div>
+
+      <div class="prose">
+        <p>Broadcast graphics are built from a small vocabulary of entrances. Not because designers lack
+        imagination, but because an entrance has to be readable in twelve frames on a moving background, and
+        the set of things that work is genuinely small. Every facility rebuilds that vocabulary by hand, in
+        keyframes, thousands of times.</p>
+      </div>
+
+      <div class="law hot">
+        <span class="label">M-1 · animation is a property with a name</span>
+        A layer's motion is authored as <em>preset · ease · frames</em>, and a group's stagger is a single
+        number. The keyframes are generated, visible, and editable — but nobody places them to get the
+        common case.
+        <span class="body">This is not a shortcut layered over a timeline. It is the primary representation:
+        the document stores the preset, and the timeline is a <em>view</em> of what the preset produced. Breaking
+        out to hand-keyframes is one action and is recorded on the layer, so a reviewer can see which layers
+        left the vocabulary and ask why.</span>
+      </div>
+
+      <div class="law hot">
+        <span class="label">M-0 · the golden rule · Volume One L8</span>
+        Motion-as-property is not a feature. It is the first instance of the rule the whole product now follows:
+        <em>every professional capability ships with a one-click version that is the default, and the advanced
+        controls are the option.</em>
+        <span class="body">The pattern generalises exactly. <b>Enable depth</b> provisions the camera, the
+        lighting, the environment, the material and the shadows. <b>Glass</b> builds transmission, IOR,
+        reflections, roughness and fresnel. <b>Broadcast ready</b> runs the pre-flight, the overflow check, the
+        contracts, output validation and the frame budget. <b>Responsive</b> generates constraints, scaling and
+        anchors. <b>Social outputs</b> creates 16:9, 9:16, 1:1 and 4:5 with confidence previews. One press;
+        hundreds of decisions. In every case the generated result is inspectable and editable, and breaking out
+        is one action that is recorded on the object.</span>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Three depths</span><span class="s">Volume One L9 · a control belongs to exactly one</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Depth</th><th>Sees</th><th>Never sees</th></tr></thead>
+            <tbody>
+              <tr><td>Beginner</td><td class="wrap">Name, subtitle, logo, colour, animation, take. The component surface and nothing else.</td><td class="wrap">Layers, transforms, keyframes, cameras, lights, materials.</td></tr>
+              <tr><td>Designer</td><td class="wrap">Layers, properties, components, variables, motion, templates, constraints.</td><td class="wrap">Cameras, lighting, materials, curves, shaders, projection, performance.</td></tr>
+              <tr><td>Advanced</td><td class="wrap">Everything, including the parameters the one-click workflows generated.</td><td class="wrap">—</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Materials name outcomes, not physics.</b> Matte, Glass, Chrome, Plastic, Broadcast, Premium, Soft, Bold. Metalness, roughness, IOR and transmission exist beneath them and appear only at Advanced.</span>
+          <span><b>Cameras and lights are infrastructure.</b> Created and maintained automatically; a beginner never provisions one to see a good result.</span>
+        </div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Compose an entrance</span><span class="s">three choices · watch the timeline generate</span></div>
+        <div class="bench-body flush">
+          <div class="mc">
+            <div class="mc-ctl">
+              <div class="mc-set"><div class="label">Preset</div><div class="mc-opts" id="mc-preset"></div></div>
+              <div class="mc-set"><div class="label">Ease</div><div class="mc-opts" id="mc-ease"></div></div>
+              <div class="mc-set"><div class="label">Stagger</div><div class="mc-opts" id="mc-stagger"></div></div>
+            </div>
+            <div class="mc-out">
+              <div class="mc-expr mat-well" id="mc-expr"></div>
+              <div class="mc-tl mat-well" id="mc-tl"></div>
+              <div class="mc-note" id="mc-note"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Eight keyframes generated from three choices.</b> The timeline is the result, never the input.</span>
+        </div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">The vocabulary</span><span class="s">ships with the product · a facility may add to it</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Preset</th><th>Does</th><th>Reads well when</th></tr></thead>
+            <tbody>
+              <tr><td>Rise + fade</td><td class="wrap">Translate up 12 % of own height, opacity 0→1.</td><td class="wrap">Text over a busy background. The default for a reason.</td></tr>
+              <tr><td>Wipe</td><td class="wrap">Reveal along an axis, no opacity change.</td><td class="wrap">Bars and plates. Preserves the edge, which fade destroys.</td></tr>
+              <tr><td>Slide</td><td class="wrap">Translate from a named edge, no opacity change.</td><td class="wrap">Full-width elements entering from off frame.</td></tr>
+              <tr><td>Scale</td><td class="wrap">0.94 → 1 about a named origin, with opacity.</td><td class="wrap">Badges, marks, anything circular.</td></tr>
+              <tr><td>Count</td><td class="wrap">Numeric interpolation to the bound value.</td><td class="wrap">Scores and totals. The only preset that reads the data.</td></tr>
+              <tr><td>Type on</td><td class="wrap">Reveal by grapheme cluster, not by character.</td><td class="wrap">Rarely. Included because it is asked for constantly and doing it wrong breaks scripts that use combining marks.</td></tr>
+              <tr><td>Hold</td><td class="wrap">No entrance. Present from frame 0.</td><td class="wrap">Elements that were already on screen. An explicit choice, not an absence.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Every OUT is the IN reversed unless overridden</b>, at 0.8× the frames. Exits are faster than entrances — the audience has already read it.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         TIMELINE
+         ============================================================ -->
+    <section id="timeline">
+      <div class="sec-head"><span class="sec-num">04</span><h2>Timeline as Escape</h2><span class="label">demoted, not deleted</span></div>
+
+      <div class="prose">
+        <p>Everything specified about the timeline stands — three bands, value curves, tethers, frames as the
+        unit. What changes is its <strong>status</strong>: it is no longer a permanent 152 px dock, because for
+        most graphics there is nothing in it a designer needs to see.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">When the timeline appears</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Trigger</th><th>Behaviour</th><th>Reasoning</th></tr></thead>
+            <tbody>
+              <tr><td><code>⌥T</code></td><td class="wrap">Opens over the lower third of the stage, semi-recessed. Escape dismisses.</td><td class="wrap">A transient (layer 3), so it never displaces the layout — Volume Two W4 permits this and W6's auto-hide ban does not apply, because it is summoned deliberately.</td></tr>
+              <tr><td>Break out to keyframes</td><td class="wrap">Opens automatically and stays until dismissed.</td><td class="wrap">You asked for the hard path; here it is.</td></tr>
+              <tr><td>Pinned</td><td class="wrap">Becomes a real bottom dock, permanently, per Volume Two.</td><td class="wrap">A motion designer working on one complex graphic all day should not press <code>⌥T</code> four hundred times.</td></tr>
+              <tr><td>Never</td><td class="wrap">If the graphic has no animation at all, <code>⌥T</code> opens it with the bands and no lanes.</td><td class="wrap">Law 7 — the empty state explains that motion is set in the inspector, and offers to add one.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub"><h3>Two things the previous timeline got wrong</h3><span class="rule"></span></div>
+      <div class="rules">
+        <div class="rule"><div class="idx">T-5</div><div class="tx"><b>HOLD needed a vocabulary, not just a rule.</b>
+          <span>I said HOLD may contain loops and data reactions and then specified neither. A scoreboard in HOLD does three things: <em>a loop</em> (a shimmer, a ticker), <em>a data reaction</em> (the score changes and the number flips), and <em>a state swap</em> (possession moves side). Those are the three, they are declarative like the entrance presets, and they are the only things permitted in HOLD.</span></div></div>
+        <div class="rule"><div class="idx">T-6</div><div class="tx"><b>Procedural motion was ignored entirely.</b>
+          <span>A ticker scrolls at a rate, not through keyframes. A count-up interpolates to a bound value whose target is unknown at design time. Neither is expressible as a keyframe and both are common. They are properties of the layer with a rate and a bound target, shown in the timeline as a hatched band rather than a segment — visibly not keyframed, because it is not.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         COMPONENTS
+         ============================================================ -->
+    <section id="components">
+      <div class="sec-head"><span class="sec-num">05</span><h2>Components</h2><span class="label">the missing unit</span></div>
+
+      <div class="prose">
+        <p>A facility does not have forty lower thirds. It has one lower third and forty rows of data — and until
+        the product models that, every downstream system operates on the wrong object: brand kits apply forty
+        times, package updates diff forty graphics, and a designer fixes a spacing error forty times.</p>
+      </div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">C-1</div><div class="tx"><b>A component is a graphic that declares a surface.</b>
+          <span>Its surface is the set of properties an instance may override — usually the bound variables, sometimes a colour role or a mark. Everything else is structural and cannot be overridden by an instance. The surface is declared, not inferred, so a component author knows exactly what they are promising.</span></div></div>
+        <div class="rule"><div class="idx">C-2</div><div class="tx"><b>An instance shows its overrides, always, and can reset each one.</b>
+          <span>An overridden property carries a mark in the inspector and a one-action reset. <em>Why:</em> the failure mode of every component system is the instance that silently diverged eight months ago and now ignores the brand update.</span></div></div>
+        <div class="rule"><div class="idx">C-3</div><div class="tx"><b>Editing an instance never edits the component.</b>
+          <span>There is no ambiguity, no "edit main", no push-to-master. Changing the component is a deliberate act performed in the component, and it shows how many instances will change and diffs them — Volume Six's machinery, applied inside the facility.</span></div></div>
+        <div class="rule"><div class="idx">C-4</div><div class="tx"><b>A component with no overrides in use is not a component.</b>
+          <span>Studio reports components whose instances all match. That usually means the variation should have been data, and it is worth telling someone.</span></div></div>
+      </div>
+    </section>
+
+    <div class="law">
+      <span class="label">C-5 · depth is a property</span>
+      Any 2D object may be given depth. A rectangle becomes an extruded rectangle, text becomes extruded text, a
+      logo becomes an extruded logo.
+      <span class="body">Nothing becomes a mesh. Nothing leaves the document model. Everything stays editable as
+      the 2D object it still is — the Stage remains screen-space and a designer still drags rectangles exactly as
+      they did before. 3D is an engine capability, not a workflow, and there is no "3D mode" to enter or leave.
+      Per M-0 the engine provisions the camera, lighting, environment and material on the same press.</span>
+    </div>
+
+    <!-- ============================================================
+         CONFIDENCE STRIP
+         ============================================================ -->
+    <section id="confidence">
+      <div class="sec-head"><span class="sec-num">06</span><h2>Confidence Strip</h2><span class="label">every format, always</span></div>
+
+      <div class="prose">
+        <p>Broadcast has always had confidence monitors — a wall of small screens showing every feed, so a fault
+        is seen rather than reported. The design tool has never had one, and the result is graphics checked in
+        one format and transmitted in three.</p>
+      </div>
+
+      <div class="law">
+        <span class="label">V-2 · every declared format renders continuously</span>
+        The stage shows the primary format large and every other declared delivery format as a live render
+        beside it — same data, same frame, same engine.
+        <span class="body">It costs real GPU time, which is why it is bounded: a maximum of four secondary
+        formats, rendered at 1/6 scale, at 10 fps while authoring and paused entirely while an output is live.
+        A format whose render fails a check — overflow, illegal colour, an element outside title safe — carries
+        an attention mark, and clicking it makes that format primary.</span>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">What it catches</span><span class="s">that switching formats manually does not</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Failure</th><th>Today</th><th>With the strip</th></tr></thead>
+            <tbody>
+              <tr><td>Overflow at 9:16</td><td class="wrap">Discovered when someone watches the social cut, days later.</td><td class="wrap">Visible while typing the name.</td></tr>
+              <tr><td>Type illegible at 720p</td><td class="wrap">Never checked. 720p is a downconvert nobody opens.</td><td class="wrap">Flagged by the legibility floor at the moment the size is set.</td></tr>
+              <tr><td>Safe-area breach on a 4:3 protect</td><td class="wrap">Caught by a compliance viewing if at all.</td><td class="wrap">Attention mark on the 4:3 render.</td></tr>
+              <tr><td>Cost blowout at 2160</td><td class="wrap">Found by the frame budget, after the design is finished.</td><td class="wrap">The strip's own cost is shown per format, live.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         VARIANTS
+         ============================================================ -->
+    <section id="variants">
+      <div class="sec-head"><span class="sec-num">07</span><h2>Variants, not Infinite Canvas</h2><span class="label">the request, answered differently</span></div>
+
+      <div class="prose">
+        <p>Infinite canvas was asked for directly, and the Studio spec refused it — there is no space outside the
+        frame, because a pasteboard is where forgotten objects go to be rendered accidentally at 20:00. I still
+        think that refusal is right, but it was an answer to the mechanism rather than to the need.</p>
+        <p><strong>What people actually want a pasteboard for is comparison.</strong> Two versions of a lower
+        third side by side. A dark and a light treatment. The graphic with the longest name and with the
+        shortest.</p>
+      </div>
+
+      <div class="law">
+        <span class="label">V-3 · variants are real, framed and switchable</span>
+        A graphic may hold named variants. Each is a complete frame at delivery resolution, not a region of a
+        larger canvas. They are shown side by side on request, and exactly one is the graphic that airs.
+        <span class="body">This gives comparison without giving a place to park rubbish. A variant is either
+        promoted or deleted; it cannot linger in a corner. And because every variant is a real frame, all of it
+        — worst case, legal check, frame cost — applies to each one, which a pasteboard region could never
+        support.</span>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         INPUT
+         ============================================================ -->
+    <section id="input">
+      <div class="sec-head"><span class="sec-num">08</span><h2>Pointer &amp; Touchpad</h2><span class="label">two devices, different physics</span></div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Device-specific behaviour</span><span class="s">detected by event characteristics, never by a setting</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Gesture</th><th>Mouse</th><th>Touchpad</th></tr></thead>
+            <tbody>
+              <tr><td>Scroll</td><td class="wrap">Wheel scrolls vertically in the dock, pans the viewport vertically.</td><td class="wrap">Two-finger pans the viewport in both axes directly. No axis lock.</td></tr>
+              <tr><td>Zoom</td><td class="wrap"><code>⌘</code>+wheel, snapping to steps.</td><td class="wrap">Pinch, continuous while pinching, <b>settling to the nearest step on release</b>. Continuous during, discrete after.</td></tr>
+              <tr><td>Momentum</td><td class="wrap">None.</td><td class="wrap">Respected for panning, suppressed for scrubbing and for any drag that edits.</td></tr>
+              <tr><td>Precision</td><td class="wrap"><code>⌥</code> for 0.1×.</td><td class="wrap">Same, plus a 3 px dead zone before a drag begins — a trackpad drag from rest is imprecise for the first few pixels.</td></tr>
+              <tr><td>Right button</td><td class="wrap">Context menu.</td><td class="wrap">Two-finger tap, and <code>⌃</code>-click for parity.</td></tr>
+              <tr><td>Middle drag</td><td class="wrap">Pans.</td><td class="wrap">No equivalent. Space-drag exists on both, which is why it is the documented route.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Detected, not configured.</b> A wheel event with a large discrete delta is a mouse; small continuous deltas with phase information are a trackpad. A designer with both plugged in gets the right physics from each without touching a preference.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         DPI
+         ============================================================ -->
+    <section id="dpi">
+      <div class="sec-head"><span class="sec-num">09</span><h2>High DPI &amp; Monitors</h2><span class="label">the 1:1 promise</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">D-1</div><div class="tx"><b>100 % means one output pixel per <em>physical</em> device pixel.</b>
+          <span>On a 2× display the canvas is drawn at 2× into a backing store and presented at half CSS size, so a 1920-wide frame occupies 960 points and every output pixel is a real pixel. <em>Why:</em> the alternative — 1920 CSS points — makes 100 % a lie on exactly the displays designers use, and type legibility judged there is wrong.</span></div></div>
+        <div class="rule"><div class="idx">D-2</div><div class="tx"><b>A fractional scale factor never produces a fractional canvas.</b>
+          <span>At 150 %, the canvas snaps to the nearest integer device-pixel size and the surrounding layout absorbs the remainder. A half-pixel canvas edge is a shimmering hairline on every redraw.</span></div></div>
+        <div class="rule"><div class="idx">D-3</div><div class="tx"><b>Moving the window between displays re-renders at the new density before it is shown.</b>
+          <span>Never a scaled bitmap for a frame or two. The blur is brief and it teaches designers to distrust what they see.</span></div></div>
+        <div class="rule"><div class="idx">D-4</div><div class="tx"><b>The second monitor's job in Studio is a full-frame confidence render.</b>
+          <span>Not a copy of Studio — the graphic, alone, at 100 %, with no chrome and no cursor after 2 s, over the live feed if one is configured. This is Volume Two G3 applied to authoring, and it is the single most valuable use of a second screen in this workflow.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         DRAG & DROP
+         ============================================================ -->
+    <section id="dnd">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Drag &amp; Drop</h2><span class="label">never specified before</span></div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Every drop target</span><span class="s">and what it means</span></div>
+        <div class="bench-body">
+          <div class="table-scroll">
+          <table class="spec">
+            <thead><tr><th>Dragging</th><th>Onto</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td>Asset</td><td class="wrap">Empty canvas</td><td class="wrap">New layer at drop point, sized to its natural size, capped to title safe.</td></tr>
+              <tr><td>Asset</td><td class="wrap">An existing image layer</td><td class="wrap">Replaces the source, preserving every transform, animation and binding. The most valuable drop in the product.</td></tr>
+              <tr><td>Asset</td><td class="wrap">A property field</td><td class="wrap">Sets that property. Dropping a colour on a fill; a font on a family.</td></tr>
+              <tr><td>Variable</td><td class="wrap">A text layer</td><td class="wrap">Binds the content. Equivalent to <code>⌘D</code>, for people who think in the pointer.</td></tr>
+              <tr><td>Variable</td><td class="wrap">Any numeric field</td><td class="wrap">Binds that property, if the contract's type is compatible. Refused with a reason if not.</td></tr>
+              <tr><td>Layer</td><td class="wrap">Navigator</td><td class="wrap">Reorders. Instant, no animation — F-13.</td></tr>
+              <tr><td>Layer</td><td class="wrap">Another graphic's tab</td><td class="wrap">Copies with its bindings, reporting any variable that does not exist at the destination.</td></tr>
+              <tr><td>OS file</td><td class="wrap">Anywhere in Studio</td><td class="wrap">Imports to the library first, then behaves exactly as an asset drag. Never a hidden embedded copy.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Every drop target illuminates on approach and nothing previews the result.</b> A preview of a layout that has not happened is a lie — Volume Two W3, applied to drops.</span>
+          <span><b>Escape during a drag cancels it.</b> Releasing outside any target cancels it. There is no "drop into nowhere".</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         KEYBOARD
+         ============================================================ -->
+    <section id="keys">
+      <div class="sec-head"><span class="sec-num">11</span><h2>Keyboard Deltas</h2><span class="label">what changed, and why</span></div>
+
+      <div class="prose">
+        <p>The 62-binding map stands. Nine changes, each because a panel disappeared or a new action became
+        frequent enough to earn a key.</p>
+      </div>
+
+      <div class="kzones" id="keydeltas"></div>
+    </section>
+
+    <!-- ============================================================
+         REMOVED
+         ============================================================ -->
+    <section id="removed">
+      <div class="sec-head"><span class="sec-num">12</span><h2>Removed</h2><span class="label">the ledger</span></div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Deleted from Studio</span><span class="s">with what replaces each</span></div>
+        <div class="bench-body flush">
+          <div class="table-scroll"><table class="spec" id="removed-table"></table></div>
+        </div>
+        <div class="bench-foot">
+          <span><b>Nothing here was removed to simplify.</b> Each was removed because something else already did the job better, or because it did no job at all.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         ADDED
+         ============================================================ -->
+    <section id="added">
+      <div class="sec-head"><span class="sec-num">13</span><h2>Added Behaviours</h2><span class="label">including four animations</span></div>
+
+      <div class="prose">
+        <p>The brief asked for animations that improve confidence rather than decorate. Four qualify, and each
+        answers a question an operator would otherwise have to check by hand.</p>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Added</span></div>
+        <div class="bench-body flush">
+          <div class="table-scroll"><table class="spec" id="added-table"></table></div>
+        </div>
+        <div class="bench-foot">
+          <span><b>The data tick is the important one.</b> It is the only way to know a binding is live rather than merely configured, and it costs one frame.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         AMENDMENTS
+         ============================================================ -->
+    <section id="amend">
+      <div class="sec-head"><span class="sec-num">14</span><h2>Design OS Amendments</h2><span class="label">three</span></div>
+
+      <div class="law amend">
+        <span class="label">Amendment 1 · Volume Two H2, via Volume Five</span>
+        <b>Was:</b> Nothing the operator can see changes unless a person changed it.<br>
+        <b>Now:</b> …<em>except a value bound to live data, which changes when the data changes and is marked when it does.</em>
+        <span class="body">B-06. A bound score updating is the product working, not the interface moving. But
+        an unmarked change is indistinguishable from a mistake, so the rule gains its exception <em>and</em> its
+        obligation together: the value changes, and a one-frame accent tick on the field says it was the feed. No
+        motion, no layout change, no reflow — the number is replaced and the field acknowledges it.</span>
+      </div>
+
+      <div class="law amend">
+        <span class="label">Amendment 2 · Volume Two W6</span>
+        <b>Was:</b> Auto-hide does not exist. No panel slides away and returns.<br>
+        <b>Now:</b> Unchanged for docked panels. A <em>summoned transient</em> is not auto-hide.
+        <span class="body">The timeline opening on <code>⌥T</code> and closing on Escape is deliberate in both
+        directions and never a function of pointer position, which is what W6 was written against. The
+        distinction that matters: <em>a panel that appears because you asked is a tool; a panel that appears
+        because your mouse arrived is a hazard.</em></span>
+      </div>
+
+      <div class="law amend">
+        <span class="label">Amendment 3 · Studio Specification §04 T-1</span>
+        <b>Was:</b> HOLD may contain loops and data reactions.<br>
+        <b>Now:</b> HOLD contains exactly three declarable things — a <em>loop</em>, a <em>data reaction</em>, or a <em>state swap</em> — and nothing else.
+        <span class="body">T-5. The original was a permission with no vocabulary, which in practice would have
+        become "anything, as long as you call it a loop". Naming the three closes it, and all three are
+        declarative like the entrance presets rather than keyframed, because none of them has a known
+        duration.</span>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         ENGINEERING
+         ============================================================ -->
+    <section id="eng">
+      <div class="sec-head"><span class="sec-num">15</span><h2>Engineering Notes</h2><span class="label">what this costs to build</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">E-1</div><div class="tx"><b>Motion presets are document data, not a UI convenience.</b>
+          <span>The scene format stores <code>motion: { preset, ease, frames, stagger }</code> on the layer, and the projection expands it to keyframes at load. This is additive under SCENE_FORMAT §13 rule 4 — an optional property with a default — so it needs no version bump. Hand-keyframed layers store keyframes as today; the two coexist and a layer is one or the other.</span></div></div>
+        <div class="rule"><div class="idx">E-2</div><div class="tx"><b>The confidence strip is N extra projections, not N extra documents.</b>
+          <span>One document, one mirror per format, each with its own viewport dimensions. The engine's determinism makes them consistent by construction. Budget: 4 secondaries × 1/6 scale × 10 fps ≈ 11 % of one full-rate render. Suspended entirely when an output is live, per Volume Five P2.</span></div></div>
+        <div class="rule"><div class="idx">E-3</div><div class="tx"><b>Components need one new document concept and no new engine concept.</b>
+          <span>An instance is a reference plus an override map. The projection resolves it before reconciliation, so the mirror never knows components exist. This keeps ADR-013 untouched, which is the point.</span></div></div>
+        <div class="rule"><div class="idx">E-4</div><div class="tx"><b>The summoned timeline must not cost a layout pass.</b>
+          <span>It composites over the stage rather than resizing it. Resizing the stage would re-project every format in the confidence strip, which is exactly the hitch a summoned panel must not have.</span></div></div>
+        <div class="rule"><div class="idx">E-5</div><div class="tx"><b>Device detection needs no permissions and no settings.</b>
+          <span><code>wheelDeltaY</code> magnitude plus event phase distinguishes trackpad from wheel reliably enough, and the failure mode of getting it wrong is a slightly odd zoom rather than a broken tool. Do not add a preference; a preference means every user must discover they need it.</span></div></div>
+        <div class="rule"><div class="idx">E-6</div><div class="tx"><b>The data tick must originate in the projection, not the UI.</b>
+          <span>The field flashes because the projection told it a bound value changed, not because the UI diffed a string. A UI-side diff would fire on re-render and lie.</span></div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         LIMITATIONS
+         ============================================================ -->
+    <section id="limits">
+      <div class="sec-head"><span class="sec-num">16</span><h2>Honest Limitations</h2><span class="label">and open questions</span></div>
+
+      <div class="rules">
+        <div class="rule"><div class="idx">L-1</div><div class="tx"><b>Motion presets will not cover the flagship graphic.</b>
+          <span>A title sequence or a complex scoreboard reveal needs hand keyframes, and those designers will experience the preset vocabulary as a wall they have to climb over on every layer. The break-out is one action, but it is one action they perform constantly. <em>Unresolved:</em> whether a facility should be able to make hand-keyframing the default for a graphic.</span></div></div>
+        <div class="rule"><div class="idx">L-2</div><div class="tx"><b>Removing the left dock will be unpopular for about a week.</b>
+          <span>Every professional editor has a left panel and hands expect one. I believe the ergonomic argument is correct and I am aware that believing it is not evidence.</span></div></div>
+        <div class="rule"><div class="idx">L-3</div><div class="tx"><b>The confidence strip's cost estimate is arithmetic, not measurement.</b>
+          <span>11 % assumes linear scaling with pixel count, which is wrong for anything fill-bound. On a text-heavy graphic it will be cheaper; on a blur it could be far worse.</span></div></div>
+        <div class="rule"><div class="idx">L-4</div><div class="tx"><b>Text editing is still not specified.</b>
+          <span>Named as the one real hole in the Studio Specification and it remains one. Selection semantics, bidirectional text, ligature-aware caret movement. Nothing in this blueprint touches it, and it is the most-used tool in the product.</span></div></div>
+        <div class="rule"><div class="idx">L-5</div><div class="tx"><b>Variants multiply everything.</b>
+          <span>Four variants × four formats is sixteen renders of one graphic, sixteen worst-case checks and sixteen legal checks. The budget in E-2 does not account for variants, and the honest answer is that variants and the confidence strip probably cannot both be at full fidelity simultaneously.</span></div></div>
+        <div class="rule"><div class="idx">L-6</div><div class="tx"><b>Still nothing has been built.</b>
+          <span>Unchanged and unchangeable from a desk. Every action count in this document is derived, not observed.</span></div></div>
+      </div>
+
+      <div class="bench mat-panel">
+        <div class="bench-head"><span class="t">Workflow, re-counted</span><span class="s">the proof that the removals paid</span></div>
+        <div class="bench-body flush">
+          <div class="table-scroll"><table class="spec" id="wf2-table"></table></div>
+        </div>
+        <div class="bench-foot"><span><b>Estimates, stated as acceptance criteria.</b> If an implementation cannot hit these, the interface is wrong regardless of how it looks.</span></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         THE QUESTION
+         ============================================================ -->
+    <section id="apple">
+      <div class="sec-head"><span class="sec-num">17</span><h2>The Question</h2><span class="label">one only</span></div>
+
+      <div class="qbox mat-panel">
+        <div class="q">If Apple acquired Streamatrix tomorrow, what would they still redesign before shipping Studio?</div>
+        <div class="a">
+          <p><strong>Text.</strong> Not the timeline, not the panels, not the viewport — those are decided and
+          defensible. They would open a graphic, double-click a name, and find that the single most-used
+          interaction in the entire product is the one thing this project never specified. Then they would find
+          that it needs a real text engine underneath — shaping, bidi, ligature-aware carets, grapheme-cluster
+          selection — and that the MSDF pipeline was built to <em>render</em> text, not to let a person work
+          inside it. That is not a design gap, it is a missing subsystem, and it is the thing that would delay a
+          ship date.</p>
+
+          <p>Second, they would take the vocabulary away from the operator. Every document in this project is
+          proud of its precision — <em>tethers, bands, contracts, impact classes, the shaped lamp</em> — and a
+          designer opening Studio for the first time meets all of it at once. Apple would keep every mechanism
+          and hide most of the words, because a system that requires you to learn its terminology before you can
+          make a lower third has put its own coherence ahead of the person using it.</p>
+
+          <p>Third, and most uncomfortably: they would ask <strong>why Studio and the control room are the same
+          application.</strong> This whole project has assumed one product spanning authoring and transmission,
+          and has spent enormous effort — the show clock, the token, the sterile phase, the entire on-air/off-air
+          bifurcation of the keyboard — reconciling two jobs with genuinely opposing requirements. Apple would
+          probably split them, ship the authoring tool first, and let the control room be a smaller, harder,
+          separate thing. I think that would be the wrong call for a broadcaster and the right call for a
+          business, and I do not know which of those matters more.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+"use strict";
+
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  const r = document.documentElement;
+  const dark = !(r.getAttribute("data-theme") === "light" ||
+    (!r.hasAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: light)").matches));
+  r.setAttribute("data-theme", dark ? "light" : "dark");
+});
+const links = [...document.querySelectorAll(".ix")];
+const spy = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.getAttribute("href") === "#" + e.target.id)); });
+}, { rootMargin: "-12% 0px -74% 0px" });
+links.map(a => document.querySelector(a.getAttribute("href"))).filter(Boolean).forEach(s => spy.observe(s));
+
+const SH = {
+  live:"M6 1.4 A4.6 4.6 0 1 1 5.99 1.4 Z", warn:"M6 1 L11.1 10.4 L0.9 10.4 Z",
+  pvw:"M6 0.9 L11.1 6 L6 11.1 L0.9 6 Z",
+  ok:"M6 1.4 A4.6 4.6 0 1 1 5.99 1.4 Z M6 3.9 A2.1 2.1 0 1 0 6.01 3.9 Z",
+  idle:"M6 3.6 A2.4 2.4 0 1 1 5.99 3.6 Z"
+};
+const slamp = k => `<span class="slamp ${k}"><svg viewBox="0 0 12 12" aria-hidden="true"><path class="f" fill-rule="evenodd" d="${SH[k]}"/></svg></span>`;
+
+const ICON = {
+  design:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 2 L12 5 L7 8 L2 5 Z M2 9 L7 12 L12 9" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>',
+  assets:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="2" y="3" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.1"/><path d="M2 9 L5 6.5 L8 9 L10 7.5 L12 9" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>',
+  data:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><ellipse cx="7" cy="4" rx="4.5" ry="1.8" stroke="currentColor" stroke-width="1.1"/><path d="M2.5 4 v6 a4.5 1.8 0 0 0 9 0 V4" stroke="currentColor" stroke-width="1.1"/></svg>',
+  brand:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.1"/><path d="M7 2.4 v9.2 M2.4 7 h9.2" stroke="currentColor" stroke-width="1.1"/></svg>',
+  out:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="2" y="3.5" width="10" height="7" rx="1.4" stroke="currentColor" stroke-width="1.1"/><path d="M5 12 h4" stroke="currentColor" stroke-width="1.1"/></svg>',
+  text:'<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2.5 3 h7 M6 3 v6.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>',
+  shape:'<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><rect x="2.5" y="3" width="7" height="6" rx="1" stroke="currentColor" stroke-width="1.1"/></svg>',
+  image:'<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><rect x="2" y="2.5" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M2 8 L4.5 6 L6.5 8 L8 6.8 L10 8" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>',
+  group:'<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.1" stroke-dasharray="2 1.6"/></svg>'
+};
+
+/* ==========================================================================
+   THE SCREEN
+   ========================================================================== */
+const LAY = [
+  { d:0, ic:"group", nm:"Lower Third" },
+  { d:1, ic:"shape", nm:"Accent Bar" },
+  { d:1, ic:"shape", nm:"Panel" },
+  { d:1, ic:"text",  nm:"Amara Okonkwo", bind:"talent.name", sel:true },
+  { d:1, ic:"text",  nm:"Chief Correspondent", bind:"talent.role" },
+  { d:1, ic:"image", nm:"Competition Mark" }
+];
+const FORMATS = [
+  { nm:"2160p50", ratio:"16/9", ok:true },
+  { nm:"720p50",  ratio:"16/9", ok:true },
+  { nm:"9:16",    ratio:"9/16", ok:false },
+  { nm:"4:3 prot", ratio:"4/3", ok:true }
+];
+
+document.getElementById("scr").innerHTML = `
+  <div class="s-rail">
+    <div class="s-railbtn on">${ICON.design}</div>
+    <div class="s-railbtn">${ICON.assets}</div>
+    <div class="s-railbtn">${ICON.data}</div>
+    <div class="s-railbtn">${ICON.brand}</div>
+    <div class="sp"></div>
+    <div class="s-railbtn">${ICON.out}</div>
+  </div>
+
+  <div class="s-stage">
+    <div class="s-transport">
+      ${slamp("idle")}
+      <span class="s-tbtn key">▶ <span class="k">SPC</span></span>
+      <span class="s-tbtn">IN</span><span class="s-tbtn">HOLD</span><span class="s-tbtn">OUT</span>
+      <span class="s-tbtn">TIMELINE <span class="k">⌥T</span></span>
+      <span class="sp"></span>
+      <span style="font-family:var(--meta); font-size:9px; color:var(--ink-2)">IN <b style="color:var(--ink)">09</b>/12f</span>
+      <span style="font-family:var(--meta); font-size:9px; color:var(--ink-3)">2.4 ms</span>
+      <span class="s-tbtn pvw">CUE <span class="k">␣</span></span>
+    </div>
+    <div class="s-well">
+      <div class="s-main">
+        <div class="s-canvas">
+          <div class="s-safe action"><span class="tag">ACTION</span></div>
+          <div class="s-safe title"><span class="tag">TITLE</span></div>
+          <div class="g3 sel">
+            <div class="bar"></div>
+            <div class="bd"><div class="nm">Amara Okonkwo</div><div class="rl">Chief Correspondent · Lagos</div></div>
+            <span class="h tl"></span><span class="h tr"></span><span class="h bl"></span><span class="h br"></span>
+          </div>
+          <span class="s-ov tl">1920 × 1080 · 50p · 100 %</span>
+          <span class="s-ov br">w 46.0 % &nbsp; h 12.4 %</span>
+        </div>
+      </div>
+      <div class="s-conf">
+        ${FORMATS.map(f => `
+          <div class="conf ${f.ok ? "" : "bad"}" style="aspect-ratio:${f.ratio}">
+            <div class="cv"></div>
+            <div class="g3 mini ${f.ok ? "" : "overflow"}">
+              <div class="bar"></div>
+              <div class="bd"><div class="nm">Amara Okonkwo</div><div class="rl">Chief Correspondent</div></div>
+            </div>
+            ${f.ok ? "" : `<span class="warnmk">${slamp("warn")}</span>`}
+            <span class="tag">${f.nm}</span>
+          </div>`).join("")}
+      </div>
+    </div>
+  </div>
+
+  <div class="s-right">
+    <div class="s-hd"><span class="nm">Lower Third</span><span class="sp"></span><span class="ct">6 layers</span></div>
+    <div class="s-nav">
+      ${LAY.map(l => `<div class="lay${l.sel ? " sel" : ""}" style="padding-left:${4 + l.d * 9}px">
+        <span class="ic">${ICON[l.ic]}</span><span class="nm">${l.nm}</span>
+        ${l.bind ? `<span class="bind">${l.bind}</span>` : ""}</div>`).join("")}
+    </div>
+    <div class="s-insp">
+      <div class="insp-grp">
+        <div class="t">Motion<span class="ln"></span></div>
+        <div class="prow"><span class="k">In</span><span class="field motion">Rise + fade</span></div>
+        <div class="prow"><span class="k">Ease</span><span class="field motion">glide</span></div>
+        <div class="prow"><span class="k">Frames</span><span class="field motion">12<span class="u">f</span></span></div>
+        <div class="prow"><span class="k">Stagger</span><span class="field motion">+3<span class="u">f · group</span></span></div>
+        <div class="prow"><span class="k"></span><span style="font-size:8.5px; color:var(--accent)">Break out to keyframes</span></div>
+      </div>
+      <div class="insp-grp">
+        <div class="t">Transform<span class="ln"></span></div>
+        <div class="prow"><span class="k">Position</span><span class="field">8.0<span class="u">%</span></span><span class="field">68.0<span class="u">%</span></span></div>
+        <div class="prow"><span class="k">Size</span><span class="field">46.0<span class="u">%</span></span><span class="field">12.4<span class="u">%</span></span></div>
+      </div>
+      <div class="insp-grp">
+        <div class="t">Type<span class="ln"></span></div>
+        <div class="prow"><span class="k">Content</span><span class="field bound"><span class="b">talent.name</span><span class="u">Amara Okonkwo</span></span></div>
+        <div class="prow"><span class="k">Family</span><span class="field">Founders Grotesk</span></div>
+        <div class="prow"><span class="k">Size</span><span class="field">3.6<span class="u">%</span></span></div>
+        <div class="prow"><span class="k">Colour</span><span class="swatch" style="background:#fff"></span><span class="field">brand · on-dark</span></div>
+      </div>
+      <div class="insp-grp">
+        <div class="t">Defaults<span class="ln"></span></div>
+        <div class="prow"><span class="k" style="width:auto; font-size:9px">28 more at default</span>
+          <span style="margin-left:auto; font-size:8.5px; color:var(--accent)">Show all</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="s-status">
+    <span class="it"><b>Match Day 14</b> · written 19:04:12</span>
+    <span class="it">Amara Okonkwo · 883 × 134 px</span>
+    <span class="it">100 %</span>
+    <span class="sp"></span>
+    <span class="it">${slamp("warn")} <b style="color:var(--warn)">9:16 overflows</b></span>
+    <span class="it good">${slamp("ok")} <b>verdict clear</b></span>
+    <span class="it">2.4 ms · <b>headroom 7.1 ms</b></span>
+  </div>`;
+
+/* ==========================================================================
+   MOTION COMPOSER
+   ========================================================================== */
+const PRESETS = {
+  "Rise + fade": { f:12, curve:"press", note:"translate up 12 % of own height, opacity 0→1" },
+  "Wipe":        { f:10, curve:"ease",  note:"reveal along the layer's long axis, no opacity change" },
+  "Slide":       { f:14, curve:"ease",  note:"translate from the nearest frame edge, no opacity change" },
+  "Scale":       { f:11, curve:"press", note:"0.94 → 1 about the layer's own centre, with opacity" },
+  "Type on":     { f:18, curve:"linear",note:"reveal by grapheme cluster at a fixed rate" }
+};
+const EASES = { glide:"cubic-bezier(.16,1,.3,1)", press:"cubic-bezier(.3,.7,.4,1)", weight:"cubic-bezier(.45,.05,.15,1)", linear:"linear" };
+const MC_LAYERS = ["Accent Bar", "Panel", "Amara Okonkwo", "Chief Correspondent"];
+let mc = { preset:"Rise + fade", ease:"glide", stagger:3 };
+
+function opts(host, list, key, fmt) {
+  document.getElementById(host).innerHTML = list.map(v => `
+    <button class="mc-opt${mc[key] === v ? " on" : ""}" data-k="${key}" data-v="${v}">
+      <span>${fmt ? fmt(v) : v}</span>
+      ${key === "preset" ? `<span class="d">${PRESETS[v].f}f</span>` : ""}
+    </button>`).join("");
+}
+function curvePath(kind, w, h) {
+  const pts = [];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    let v;
+    if (kind === "press") v = 1 - Math.pow(1 - t, 2.4);
+    else if (kind === "ease") v = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    else v = t;
+    pts.push(`${(t * w).toFixed(1)},${(h - v * h).toFixed(1)}`);
+  }
+  return "M" + pts.join(" L");
+}
+function renderMC() {
+  const p = PRESETS[mc.preset];
+  const IN = p.f + mc.stagger * (MC_LAYERS.length - 1);
+  const TOTAL = IN + 20;
+
+  document.getElementById("mc-expr").innerHTML =
+    `<b>motion.in</b> = <span class="k">${mc.preset}</span> · <span class="k">${mc.ease}</span> · <span class="n">${p.f}</span>f<br>` +
+    `<b>motion.stagger</b> = <span class="n">${mc.stagger === 0 ? "0" : "+" + mc.stagger}</span>f<br>` +
+    `<b>motion.out</b> = reversed · <span class="n">${Math.round(p.f * .8)}</span>f`;
+
+  document.getElementById("mc-tl").innerHTML = MC_LAYERS.map((n, i) => {
+    const from = i * mc.stagger, to = from + p.f;
+    return `<div class="mc-tl-row"><span class="n">${n}</span><span class="t">
+      <span class="mc-seg" style="left:${(from / TOTAL) * 100}%; width:${(p.f / TOTAL) * 100}%">
+        <svg viewBox="0 0 100 20" preserveAspectRatio="none">
+          <path d="${curvePath(mc.ease === "linear" ? "linear" : p.curve, 100, 20)}" fill="none"
+                stroke="var(--accent)" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
+      </span></span></div>`;
+  }).join("");
+
+  document.getElementById("mc-note").innerHTML =
+    `<b>${MC_LAYERS.length * 2} keyframes generated from 3 choices.</b> ${p.note[0].toUpperCase() + p.note.slice(1)},
+     eased on <em>${mc.ease}</em>, ${mc.stagger === 0 ? "with every layer starting together" :
+     `each layer ${mc.stagger} frames after the one above`}. The IN band is
+     <b>${IN} frames</b> — ${p.f} for the animation plus ${mc.stagger * (MC_LAYERS.length - 1)} of stagger — and it
+     recomputes whenever any of the three values change. Nobody dragged anything.`;
+}
+["mc-preset", "mc-ease", "mc-stagger"].forEach(id => {
+  document.getElementById(id).addEventListener("click", e => {
+    const b = e.target.closest("[data-k]"); if (!b) return;
+    mc[b.dataset.k] = b.dataset.k === "stagger" ? Number(b.dataset.v) : b.dataset.v;
+    opts("mc-preset", Object.keys(PRESETS), "preset");
+    opts("mc-ease", ["glide", "press", "weight", "linear"], "ease");
+    opts("mc-stagger", [0, 2, 3, 5], "stagger", v => v === 0 ? "None" : "+" + v + " frames");
+    renderMC();
+  });
+});
+opts("mc-preset", Object.keys(PRESETS), "preset");
+opts("mc-ease", ["glide", "press", "weight", "linear"], "ease");
+opts("mc-stagger", [0, 2, 3, 5], "stagger", v => v === 0 ? "None" : "+" + v + " frames");
+renderMC();
+
+/* ==========================================================================
+   KEY DELTAS
+   ========================================================================== */
+const KD = [
+  { z:"New", lamp:"ok", keys:[
+    ["⌥T","Summon the timeline","the panel that stopped being permanent"],
+    ["⌥M","Cycle motion preset on selection","the most frequent authoring choice now has a key"],
+    ["⌥⇧M","Break out to keyframes","recorded on the layer"],
+    ["⌥V","Variants side by side","replaces the pasteboard request"],
+    ["⌥F","Cycle primary format","from the confidence strip"],
+    ["⌘⌥C","Create component from selection",""],
+    ["⌘⌥R","Reset one override on an instance",""]
+  ]},
+  { z:"Changed", lamp:"warn", keys:[
+    ["⌘F","Search — now spans layers, assets, variables, components and other productions","was layers and assets only"],
+    ["⌥A","Assets — now opens the rail section","was a panel toggle"]
+  ]},
+  { z:"Unchanged and load-bearing", lamp:"idle", keys:[
+    ["V A T R E I C G P H","Tools, off air only","F-01 stands"],
+    ["⌘D","Bind selected property",""],
+    ["⌥X","Worst case",""],
+    ["␣ ⏎","Cue, Take",""],
+    ["Esc","Peel one layer — now also dismisses the summoned timeline",""]
+  ]}
+];
+document.getElementById("keydeltas").innerHTML = KD.map(z => `
+  <div class="kzone">
+    <h4>${slamp(z.lamp)}${z.z}</h4>
+    ${z.keys.map(([k, a, b]) => `<div class="krow"><span class="kbd">${k}</span><span class="a">${a}</span>${b ? `<span class="b">${b}</span>` : ""}</div>`).join("")}
+  </div>`).join("");
+
+/* ==========================================================================
+   LEDGERS
+   ========================================================================== */
+const REMOVED = [
+  ["Left dock","Layers and Assets, permanently, 208 px","Navigator moved above the inspector; Assets became a rail section. 208 px to the viewport."],
+  ["Permanent timeline","152 px, always present","Summoned on ⌥T, or pinned to a dock by anyone who wants it back."],
+  ["History tab","A scrolling list of every property change","⌘Z for undo, version marks for the document, Flight Recorder for the show. It served none of those."],
+  ["Theme Editor panel","A Studio panel for brand editing","A rail section. Brand is facility-wide, not per graphic — a panel implied otherwise."],
+  ["Keyframe-first authoring","Placing keyframes as the primary way to animate","Motion presets. Keyframes remain, one action away, and are marked when used."],
+  ["Panel collapse animation","320 ms glide","Instant. Carried no information — F-13, retained from the specification."],
+  ["Inspector group expand","180 ms press","Instant. Same reason."],
+  ["Layer reorder animation","180 ms glide","Instant. The list must be correct before the hand releases."]
+];
+document.getElementById("removed-table").innerHTML = `
+  <thead><tr><th>Removed</th><th>What it was</th><th>What replaces it</th></tr></thead>
+  <tbody>${REMOVED.map(r => `<tr><td>${r[0]}</td><td class="wrap">${r[1]}</td><td class="wrap">${r[2]}</td></tr>`).join("")}</tbody>`;
+
+const ADDED = [
+  ["Motion presets","behaviour","Animation authored as preset · ease · frames, with generated keyframes.","§03"],
+  ["Confidence strip","behaviour","Every declared delivery format rendered live beside the primary.","§06"],
+  ["Components","behaviour","One graphic, many instances, explicit override surface.","§05"],
+  ["Variants","behaviour","Named alternatives, each a real frame, one of which airs.","§07"],
+  ["Touchpad physics","behaviour","Pinch settles to a zoom step; momentum for pan, never for edit drags.","§08"],
+  ["Second-monitor confidence","behaviour","The graphic alone, full frame, no chrome, over the live feed.","§09"],
+  ["Data tick","animation · 1 frame","A bound field flashes the accent once when the feed changes it. Answers “is this binding live?”","Amendment 1"],
+  ["Snap tick","animation · 90 ms","The guide brightens on snap and decays on release. Answers “did it take?”","kept"],
+  ["Format promote","animation · 120 ms","A confidence render scales into the main position when clicked. Answers “which one am I looking at now?”","§06"],
+  ["Override reset","animation · 90 ms","The field returns to the component value with a single accent sweep. Answers “what did it go back to?”","§05"]
+];
+document.getElementById("added-table").innerHTML = `
+  <thead><tr><th>Added</th><th>Kind</th><th>What it does</th><th>Where</th></tr></thead>
+  <tbody>${ADDED.map(a => `<tr><td>${a[0]}</td><td class="n">${a[1]}</td><td class="wrap">${a[2]}</td><td class="n">${a[3]}</td></tr>`).join("")}</tbody>`;
+
+const WF2 = [
+  ["Build a lower third","T · type · ⌘D · T · type · ⌘D","11 → 5","Motion is inherited from the group's preset. The bar is a component."],
+  ["Bind a property","select · ⌘D · name · ⏎","4 → 4","Unchanged. Already minimal."],
+  ["Add a staggered reveal","select group · ⌥M · set stagger","6 → 2","The whole of §03, in one row."],
+  ["Check every delivery format","—","4 → 0","Continuous. There is nothing to do."],
+  ["Fix an overflow it revealed","click the flagged format · drag size","3 → 2","The flag is the navigation."],
+  ["Make a variant to compare","⌥V · edit","new","Did not previously exist."],
+  ["Cue and take","␣ · ⏎","2 → 2","Unchanged, and it never will."]
+];
+document.getElementById("wf2-table").innerHTML = `
+  <thead><tr><th>Workflow</th><th>Sequence</th><th>Actions</th><th>Why it changed</th></tr></thead>
+  <tbody>${WF2.map(w => `<tr><td>${w[0]}</td><td class="n wrap" style="font-size:10px">${w[1]}</td>
+    <td class="n" style="color:var(--ok)">${w[2]}</td><td class="wrap">${w[3]}</td></tr>`).join("")}</tbody>`;
+</script>
+
+</body></html>
