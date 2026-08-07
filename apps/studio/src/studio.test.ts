@@ -877,6 +877,46 @@ describe("viewport", () => {
     studio.dispose();
   });
 
+  it("boxes a TEXT layer where the words are, not half a box to the left", () => {
+    // ======================================================================
+    // TWO ANCHORS, AND THE EDITOR USED TO KNOW ABOUT ONLY ONE
+    // ======================================================================
+    // A rect is a quad centred on its origin; a text block hangs from the
+    // box's top-left corner (pinned in `text.test.ts` against the shaper's own
+    // geometry). `nodeBounds` assumed centred for everything, so selecting a
+    // name drew its handles — and its hit area, its snap edges and its
+    // alignment guides — half a box-width to the left of the text.
+    //
+    // Every unit test passed throughout, because both halves were internally
+    // consistent. It took looking at the screen.
+    const studio = session();
+    const created = createNode(studio.document, "text", studio.document.root.id, ids);
+    studio.store.apply(created.transaction);
+    studio.store.apply(
+      setProp(studio.document, created.nodeId, "transform.position", [2, 1, 0]),
+    );
+    studio.render();
+
+    const node = findNode(studio.document.root, created.nodeId)!;
+    const width = node.size!.width;
+    const height = node.size!.height;
+    const box = nodeBounds(studio.document, (id) => studio.worldMatrixOf(id)).find(
+      (entry) => entry.nodeId === created.nodeId,
+    )!;
+
+    // The box hangs right and down from the origin, so its centre is offset by
+    // half its extent in each direction.
+    expect(box.rect.x).toBeCloseTo(2 + width / 2, 6);
+    expect(box.rect.y).toBeCloseTo(1 - height / 2, 6);
+
+    // And the consequence that matters: a click ON the words hits the layer,
+    // and a click where the old box was does not.
+    const all = nodeBounds(studio.document, (id) => studio.worldMatrixOf(id));
+    expect(pick(all, { x: 2 + width / 4, y: 1 - height / 4 })).toBe(created.nodeId);
+    expect(pick(all, { x: 2 - width / 2, y: 1 })).not.toBe(created.nodeId);
+    studio.dispose();
+  });
+
   it("marquee-selects everything a rect touches", () => {
     const studio = session();
     const a = createNode(studio.document, "rect", studio.document.root.id, ids);

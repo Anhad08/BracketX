@@ -71,6 +71,7 @@ import {
   type LibraryEntry,
 } from "./studio/library";
 import { SceneView } from "./ui/scene-view";
+import { ConfidenceStrip } from "./ui/confidence";
 import { Content, Hierarchy, Inspector, Toolbox, Variables } from "./ui/panels";
 import { TimelineEditor } from "./ui/timeline";
 import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
@@ -1965,7 +1966,8 @@ export function App() {
             />
           ) : null}
 
-          <SceneView
+          <div className="well">
+            <SceneView
             onDropScene={(templateId, at) => placeTemplate(templateId, at)}
             session={session}
             canvas={canvasRef.current}
@@ -1997,7 +1999,20 @@ export function App() {
               const view = VIEWS.find((candidate) => candidate.id === wanted);
               if (view !== undefined) setView(view);
             }}
-          />
+            />
+
+            {/* EVERY FORMAT YOU WILL DELIVER IN, AT ONCE. Beside the graphic
+                rather than behind a check button, because the failure it
+                catches — a name that fits in 16:9 and runs off the side in
+                9:16 — is otherwise discovered by whoever watches the 9:16
+                cut. It shows the engine's own pixels; see `confidence.tsx`. */}
+            <ConfidenceStrip
+              session={session}
+              canvas={canvasRef.current}
+              revision={revision}
+              onSelect={(nodeId) => setSelection(selectOnly(nodeId))}
+            />
+          </div>
 
           {/* The Program row lives in Production now. Going to air is not a
               design act, and a control that starts a transmission has no

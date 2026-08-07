@@ -8,7 +8,62 @@
  * would show up as a swapped texture or a back-face-culled graphic rather than
  * as a type error.
  */
+import type { SceneNode } from "@bracketx/engine-scene";
+
 import type { GeometryDescriptor, Rgba } from "./mirror-backend";
+
+/**
+ * Where a node's `size` box sits relative to its origin.
+ *
+ * ==========================================================================
+ * THE ENGINE HAS TWO CONVENTIONS, AND THIS IS THE ONLY PLACE THAT SAYS SO
+ * ==========================================================================
+ * A rect is a quad CENTRED on the node origin — see `quadDescriptor` below,
+ * and it is centred for a good reason: a lower third must spin about its own
+ * middle rather than its top-left corner.
+ *
+ * Text is not. The shaper lays a block out in a box whose top-left corner is
+ * the origin — a glyph's pen position runs right and down from (0, 0) — and
+ * alignment moves the words INSIDE that box rather than moving the box. That
+ * is also correct: a name and a role stacked in a lower third are two boxes
+ * whose left edges must line up, and centring the box would make a wide field
+ * and a narrow field disagree about where their text begins.
+ *
+ * Both conventions are right and they are different, and until this function
+ * existed nothing wrote that down. Studio's `nodeBounds` assumed everything
+ * was centred, so a text layer's selection box, its hit area, its snapping
+ * candidates and its alignment edges were all half a box-width to the left of
+ * the words. Visible the moment anybody clicked a name, and invisible to every
+ * test, because both halves were individually self-consistent.
+ *
+ * Anything that needs a node's box in world space must ask here rather than
+ * assume, which is the whole point of it being one function.
+ */
+export type BoxAnchor = "centre" | "top-left";
+
+export function boxAnchorOf(node: SceneNode): BoxAnchor {
+  return (node.components ?? []).some((component) => component.type === "text")
+    ? "top-left"
+    : "centre";
+}
+
+/**
+ * The offset from a node's origin to the CENTRE of its box, in local units.
+ *
+ * Returned as a centre offset because every consumer — bounds, picking,
+ * marquee, snapping — works in centre-and-extent form. A caller that had to
+ * remember which anchor implied which arithmetic would be a second place the
+ * convention lives.
+ */
+export function boxCentreOffset(
+  node: SceneNode,
+  width: number,
+  height: number,
+): { readonly x: number; readonly y: number } {
+  return boxAnchorOf(node) === "centre"
+    ? { x: 0, y: 0 }
+    : { x: width / 2, y: -height / 2 };
+}
 
 /**
  * A quad in the XY plane, centred on its node's origin, facing +Z.

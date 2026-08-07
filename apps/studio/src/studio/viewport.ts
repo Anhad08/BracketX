@@ -27,6 +27,8 @@
  * this arithmetic is how a gizmo ends up half a pixel from the thing it drags.
  */
 import { childrenOf, type SceneDocument, type SceneNode } from "@bracketx/engine-scene";
+import { boxCentreOffset } from "@bracketx/engine-reconciler";
+
 import { intersectPlane, project, rayThrough, type CameraView } from "./camera";
 
 export interface Viewport {
@@ -374,13 +376,21 @@ export function nodeBounds(
     // Column-major: 12/13 are the translation, 0/5 the x/y scale.
     const scaleX = matrix[0] ?? 1;
     const scaleY = matrix[5] ?? 1;
+    const width = node.size.width * scaleX;
+    const height = node.size.height * scaleY;
+    // WHERE THE BOX SITS is the engine's business, not the editor's. A rect is
+    // centred on its origin and a text block hangs from its top-left corner —
+    // both correct, and different. Assuming one of them made every text
+    // layer's handles, hit area and alignment edges half a box-width from the
+    // words. See `boxAnchorOf`.
+    const offset = boxCentreOffset(node, width, height);
     out.push({
       nodeId: node.id,
       rect: {
-        x: matrix[12] ?? 0,
-        y: matrix[13] ?? 0,
-        width: node.size.width * scaleX,
-        height: node.size.height * scaleY,
+        x: (matrix[12] ?? 0) + offset.x,
+        y: (matrix[13] ?? 0) + offset.y,
+        width,
+        height,
       },
     });
   }

@@ -96,6 +96,12 @@ export {
 } from "./mesh-primitives";
 
 export {
+  boxAnchorOf,
+  boxCentreOffset,
+  type BoxAnchor,
+} from "./primitives";
+
+export {
   EMPTY_VARIABLES,
   channelForPath,
   findComponent,

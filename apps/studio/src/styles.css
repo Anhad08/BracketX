@@ -460,6 +460,41 @@ kbd {
   background: linear-gradient(180deg, color-mix(in oklab, var(--canvas-void) 92%, #000), var(--canvas-void));
   box-shadow: var(--recess);
 }
+/* The well holds the picture and the confidence strip side by side. The strip
+   is not chrome floating over the scene: it is a second column, so it can never
+   cover the graphic it is reporting on. */
+.well { flex: 1; min-height: 0; display: flex; }
+
+/* --- The confidence strip ------------------------------------------------ */
+
+.conf-strip {
+  width: 92px; flex: none; display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; overflow-y: auto;
+  border-left: 1px solid var(--line); background: var(--panel);
+}
+/* Below this there is not room for the picture AND a column beside it, and the
+   picture wins. The pre-flight in Production reports the same findings in
+   words, so nothing is only knowable here. */
+@media (max-width: 900px) { .conf-strip { display: none; } }
+
+.conf-tile {
+  display: block; width: 100%; padding: 0; border: 0; background: none;
+  cursor: pointer; text-align: left; color: var(--dim);
+  transition: color 0.16s var(--press);
+}
+.conf-tile canvas {
+  display: block; width: 100%; border-radius: 3px;
+  background: var(--canvas-void);
+  box-shadow: var(--recess), inset 0 0 0 1px var(--line);
+}
+.conf-tile.warn canvas { box-shadow: var(--recess), inset 0 0 0 1px var(--warn); }
+/* The document's own format reads as the one being edited, not as a fifth
+   deliverable of equal weight — while still being CHECKED as one. */
+.conf-tile.primary { color: var(--text-strong); }
+.conf-tile:hover { color: var(--text-strong); }
+.conf-foot { display: flex; align-items: center; gap: 4px; padding: 3px 1px 0; font-size: 9px; }
+.conf-name { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+
 .scene-surface { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
 /* The canvas is above anything else in the surface, always. It is appended
    imperatively, so it cannot rely on DOM order to stay on top — and when it

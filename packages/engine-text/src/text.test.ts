@@ -654,6 +654,49 @@ describe("the text engine", () => {
     expect(result.geometry[0]!.indices).toHaveLength(10 * 6);
   });
 
+  it("hangs the block from the box's TOP-LEFT corner, not its centre", () => {
+    // ======================================================================
+    // THE CONVENTION, PINNED AGAINST THE GEOMETRY THAT PROVES IT
+    // ======================================================================
+    // A text block's box has its top-left corner at the node origin: the pen
+    // runs right and down from (0, 0), and alignment moves the words INSIDE
+    // the box rather than moving the box. A rect, by contrast, is a quad
+    // CENTRED on its origin (`quadDescriptor`). Both are right, and they are
+    // different.
+    //
+    // Nothing wrote that down, and Studio assumed everything was centred — so
+    // a text layer's selection box, hit area, snap edges and alignment guides
+    // all sat half a box-width to the left of the words. `boxAnchorOf` in the
+    // reconciler is the one place that now states it, and this test is what
+    // makes it a fact rather than a claim: the shaper's own output.
+    const { engine: text, stack: fonts } = engine();
+    const result = text.render(spec("ALEX RIVERA"), fonts, { scale: 1 });
+    const positions = result.geometry[0]!.positions;
+
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (let index = 0; index < positions.length; index += 3) {
+      xs.push(positions[index]!);
+      ys.push(positions[index + 1]!);
+    }
+
+    // The tolerance is ONE EM, not zero: an MSDF quad is inflated by the
+    // field's padding and a glyph carries a left side bearing, so the first
+    // quad's corner sits a few pixels outside the pen. A CENTRED box would put
+    // it at -300, which is six ems away — the two readings are not close.
+    const em = BASE.size;
+    expect(Math.min(...xs)).toBeGreaterThan(-em);
+    expect(Math.min(...xs)).toBeLessThan(em);
+    expect(Math.max(...xs)).toBeGreaterThan(em);
+    // Runs DOWN from the origin: the box's TOP edge is y = 0.
+    expect(Math.max(...ys)).toBeLessThan(em);
+    expect(Math.min(...ys)).toBeLessThan(-em);
+    // And stays inside the box it was given, which is what makes the extent
+    // above a box measurement rather than an accident of this string.
+    expect(Math.max(...xs)).toBeLessThanOrEqual(BASE.box.width);
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(-BASE.box.height);
+  });
+
   it("emits UVs inside the atlas", () => {
     const { engine: text, stack: fonts } = engine();
     const result = text.render(spec("ALEX"), fonts, { scale: 1 });

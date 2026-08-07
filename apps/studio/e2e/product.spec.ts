@@ -202,17 +202,23 @@ test("browsing costs no rendering", async ({ page }) => {
   // unmounts the canvas and stops its animation-frame loop.
   await boot(page);
   await page.getByTestId("start-tpl_lower_third").click();
-  await expect(page.locator("canvas")).toHaveCount(1);
+  // Scoped to the scene surface, because that is the one the ENGINE draws
+  // into. The confidence strip mounts a small 2D canvas per delivery format
+  // beside it, and counting every canvas on the page made this assertion about
+  // how many pictures Studio shows rather than about how much it renders.
+  // The claim below — nothing at all while browsing — is what carries the cost.
+  await expect(page.locator(".scene-surface canvas")).toHaveCount(1);
 
   await page.getByTestId("nav-marketplace").click();
-  // No canvas in the document at all while browsing.
+  // No canvas in the document at all while browsing. The strip's tiles go with
+  // the editor, so browsing still costs nothing.
   await expect(page.locator("canvas")).toHaveCount(0);
 
   // And it comes back intact, with the graphic still open.
   await page.getByTestId("nav-design").click();
   // Studio opens at BEGINNER depth (Volume One L9). These are Designer
   await ensureDepth(page, "designer");
-  await expect(page.locator("canvas")).toHaveCount(1);
+  await expect(page.locator(".scene-surface canvas")).toHaveCount(1);
   await expect(page.getByTestId("doc-name")).toContainText("Lower Third");
 });
 
