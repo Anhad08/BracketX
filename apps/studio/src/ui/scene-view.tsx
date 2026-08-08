@@ -84,6 +84,7 @@ import {
   orbitBy,
   orbitOf,
   positionFor,
+  worldFromEuler,
   type Orbit,
   type Vec3,
 } from "../studio/camera";
@@ -331,6 +332,8 @@ export function SceneView({
   }, [selection]);
 
   const [menu, setMenu] = useState<Point | null>(null);
+  /** Walk navigation. See the effect below for why it is a mode. */
+  const [walking, setWalking] = useState(false);
 
   /**
    * ESCAPE CLOSES THE STAGE MENU.
@@ -2071,6 +2074,153 @@ export function SceneView({
     }
   };
 
+  /**
+   * WALK THE CAMERA — W A S D, with Q and E for down and up.
+   *
+   * ==========================================================================
+   * WHY IT IS A MODE, AND WHY IT IS ENTERED THE WAY BLENDER ENTERS IT
+   * ==========================================================================
+   * W is free. So are A and D — select-all and duplicate both need the
+   * modifier. S is not: on its own it means Scale, and G, R, S for move,
+   * rotate and scale is the one binding this editor already shares with
+   * Blender exactly. Flying on a bare S would take the transform triad apart
+   * to add navigation, which is a bad trade in a tool people already know.
+   *
+   * Blender's own answer is a MODE — walk navigation, entered deliberately,
+   * left with Escape — and that is what this is. Shift+` enters, Escape or a
+   * click leaves, and the stage says so while you are in it, because a mode
+   * you cannot see you are in is a mode that eats your keystrokes.
+   *
+   * Movement is along the camera's OWN axes, read out of its rotation: W goes
+   * where the lens is pointing, not along −Z of the world. Speed scales with
+   * how far out the camera is, so flying across a wide set and inching around
+   * a plinth both feel the same. Held keys accumulate per frame rather than
+   * per keydown, so the repeat rate of the keyboard never becomes the speed.
+   *
+   * Silent, like the orbit and the dolly: flying is a change of view, and the
+   * undo stack is for changes to the work.
+   */
+  useEffect(() => {
+    if (!walking) return;
+
+    const held = new Set<string>();
+    const FLY = new Set(["w", "a", "s", "d", "q", "e"]);
+    let raf = 0;
+    let last = performance.now();
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const key = event.key.toLowerCase();
+      if (key === "escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setWalking(false);
+        return;
+      }
+      if (!FLY.has(key)) return;
+      // Captured, so the global keymap never sees them: an S that both flew
+      // the camera and switched to the scale gizmo would do both.
+      event.preventDefault();
+      event.stopPropagation();
+      held.add(key);
+    };
+    const onKeyUp = (event: KeyboardEvent): void => {
+      held.delete(event.key.toLowerCase());
+    };
+
+    const step = (now: number): void => {
+      const seconds = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      raf = requestAnimationFrame(step);
+      if (held.size === 0) return;
+
+      const camera = cameraNode(session.document);
+      if (camera === null) return;
+      const position = camera.transform?.position ?? [0, 0, 10];
+      const rotation = (camera.transform?.rotation ?? [0, 0, 0]) as [number, number, number];
+      const basis = worldFromEuler({ x: 0, y: 0, z: 0 }, rotation);
+
+      // Column-major: 0..2 is right, 4..6 is up, 8..10 is BACKWARD — the
+      // camera looks down its own −Z, which is why forward is negated.
+      const right = { x: basis[0]!, y: basis[1]!, z: basis[2]! };
+      const up = { x: basis[4]!, y: basis[5]!, z: basis[6]! };
+      const forward = { x: -basis[8]!, y: -basis[9]!, z: -basis[10]! };
+
+      // Proportional to distance from the origin, so the same keypress covers
+      // the same fraction of the view whether the camera is inches from a
+      // prop or across the set from it.
+      const reach = Math.max(1, Math.hypot(position[0]!, position[1]!, position[2]!));
+      const speed = reach * 0.9 * seconds;
+
+      let dx = 0, dy = 0, dz = 0;
+      const push = (v: { x: number; y: number; z: number }, sign: number) => {
+        dx += v.x * sign * speed;
+        dy += v.y * sign * speed;
+        dz += v.z * sign * speed;
+      };
+      if (held.has("w")) push(forward, 1);
+      if (held.has("s")) push(forward, -1);
+      if (held.has("d")) push(right, 1);
+      if (held.has("a")) push(right, -1);
+      if (held.has("e")) push(up, 1);
+      if (held.has("q")) push(up, -1);
+      if (dx === 0 && dy === 0 && dz === 0) return;
+
+      const moved = setProps(
+        session.document,
+        camera.id,
+        new Map<string, unknown>([
+          [
+            "transform.position",
+            [round(position[0]! + dx), round(position[1]! + dy), round(position[2]! + dz)],
+          ],
+        ]),
+        "Walk",
+      );
+      if (moved !== null) session.store.applySilently(moved);
+    };
+
+    raf = requestAnimationFrame(step);
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+    };
+  }, [walking, session]);
+
+  /** Leaving 3D leaves walk mode. There is nothing to fly through in a flat view. */
+  useEffect(() => {
+    if (!dimensional && walking) setWalking(false);
+  }, [dimensional, walking]);
+
+  /**
+   * Shift+` enters walk mode — the same key Blender uses, for the same thing.
+   *
+   * Only in the dimensional view, and never while typing: a backtick belongs
+   * to whoever has the caret.
+   */
+  useEffect(() => {
+    if (!dimensional) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== "`" && event.key !== "~") return;
+      if (!event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target !== null &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setWalking((current) => !current);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dimensional]);
+
   // -- Chrome ---------------------------------------------------------------
 
   const toScreen = (worldX: number, worldY: number) =>
@@ -2617,6 +2767,15 @@ export function SceneView({
       {drag !== null && detent !== null ? (
         <span className="ov detent" data-testid="ov-detent">
           {detent}
+        </span>
+      ) : null}
+
+      {/* A MODE YOU CANNOT SEE YOU ARE IN IS A MODE THAT EATS YOUR KEYSTROKES.
+          Walk mode swallows W A S D Q E, so it says so, and it says how to
+          leave. */}
+      {walking ? (
+        <span className="ov walking" data-testid="ov-walking">
+          Walking · W A S D · Q E · Esc
         </span>
       ) : null}
 

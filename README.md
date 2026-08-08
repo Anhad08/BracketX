@@ -13,6 +13,7 @@ Read these before contributing. They are the source of truth, in this order:
 | [docs/PRODUCT.md](./docs/PRODUCT.md) | What we are building, for whom, and what we are deliberately *not* building |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | How it is structured, and why — including a decision log |
 | [docs/ROADMAP.md](./docs/ROADMAP.md) | **Canonical roadmap** — 17 phases from foundation to public launch, what blocks what, and which decisions gate which phase |
+| [docs/GRAPHICS_LIBRARY.md](./docs/GRAPHICS_LIBRARY.md) | **The live work queue** for the overlay library, 3D overlays, gizmo snapping and Adaptive Graphics — what is done, what is next, and what has been **cut** (virtual sets) |
 | [docs/DATABASE.md](./docs/DATABASE.md) | Verified database state, how to run Postgres locally, and where the generated schema differs from its documentation |
 | [docs/ARCHITECTURE_VERIFICATION.md](./docs/ARCHITECTURE_VERIFICATION.md) | **Read first.** Adversarial verification — every claim labelled Proven/Derived/Assumed/Unknown, defects, and blocking changes |
 | [docs/ARCHITECTURE_FINAL_REVIEW.md](./docs/ARCHITECTURE_FINAL_REVIEW.md) | Architecture freeze review — critical issues, reversals, and subsystem scores |
@@ -80,3 +81,28 @@ Scope to one package with a filter: `pnpm build --filter=web`.
   [turbo.json](./turbo.json) *and* [.env.example](./.env.example). Skipping the
   first one lets Turborepo serve a cache artifact built against different values.
 - **`packages/ui` is a leaf.** It may not import `core`, `db`, or `auth`.
+
+## Where things go
+
+Stated because more than one session works in this tree at once, and a file in
+the wrong place is how two of them end up doing the same work twice — or
+committing each other's half-finished edits.
+
+| Kind of file | Home |
+| --- | --- |
+| Engine capability | `packages/engine-*/src/<thing>.ts` — beside its siblings. A pure generator of geometry, pixels or keys goes next to `mesh-primitives.ts` / `paint.ts`, not in a new package |
+| Engine unit test | `packages/engine-*/src/<thing>.test.ts` — same folder as the code |
+| Studio logic | `apps/studio/src/studio/<thing>.ts` — pure, no React, no DOM, so it is testable without a browser |
+| Studio unit test | `apps/studio/src/<thing>.test.ts` — `src/`, **not** `src/studio/`; matches every existing one |
+| Studio browser test | `apps/studio/e2e/<thing>.spec.ts` — drives a real pointer, asserts what a person sees |
+| Plans, findings, decisions | `docs/` — **and add it to the table above**, or the next session will not find it |
+| Debug screenshots, pixel probes, throwaway scripts | A scratch directory, never the repo. A stray `p3d.png` at an app root or a `probe.spec.ts` in `e2e/` gets collected by the suite and reviewed as though it were real |
+
+Playwright's `test-results/` and `playwright-report/` are generated, and are
+gitignored. Two of those files had been committed; if you find them tracked
+again, untrack them rather than editing them.
+
+**Before starting a substantial piece of work, read
+[docs/GRAPHICS_LIBRARY.md](./docs/GRAPHICS_LIBRARY.md) §5.** It is the live
+queue, it records what has been cut and why, and it is the cheapest way for two
+sessions not to collide.

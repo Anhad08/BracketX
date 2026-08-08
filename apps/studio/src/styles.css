@@ -1204,6 +1204,14 @@ kbd {
   padding: 3px 8px; border-radius: 5px;
   background: var(--accent); color: #fff; font-size: 11px;
 }
+/* Walk mode announces itself for the same reason the detent does, and more
+   urgently: it SWALLOWS keys. Top-centre, out of the way of the detent, and
+   at full contrast — this is not an ambient readout, it is a state. */
+.ov.walking {
+  top: 10px; left: 50%; transform: translateX(-50%);
+  padding: 3px 10px; border-radius: 5px;
+  background: var(--accent); color: #fff; font-size: 11px;
+}
 :root[data-theme="light"] .ov { color: rgba(0, 0, 0, 0.42); }
 
 /* ==========================================================================

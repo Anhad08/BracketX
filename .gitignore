@@ -45,3 +45,16 @@ yarn-error.log*
 # never a source of truth, and large.
 apps/studio/shots/
 apps/studio/shots-before/
+
+# Playwright output. Generated on every run, and it had been COMMITTED —
+# `test-results/.last-run.json` and an `error-context.md` from one failed audit
+# were tracked, so a passing run showed up as a dirty tree and a failing one
+# rewrote history nobody had authored.
+test-results/
+playwright-report/
+
+# Debug screenshots dropped at an app root by a pixel-probe run (`p3d.png`,
+# `p-count.png`). No legitimate image lives directly at `apps/studio/` — the real
+# ones are in `public/images/`, `shots/` and `walkthrough/` — so anything here is
+# scratch. Fenced off rather than deleted: a session may still be reading it.
+apps/studio/*.png
