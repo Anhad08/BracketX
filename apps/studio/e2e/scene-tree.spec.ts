@@ -159,6 +159,42 @@ test("clicking elsewhere in the studio closes the scene menu", async ({ page }) 
 });
 
 /**
+ * The right mouse button belongs to Studio.
+ *
+ * Playwright cannot see the browser's own menu, so this asks the question the
+ * browser asks: was the event's default prevented? That is exactly what
+ * decides whether "Back / Reload / View page source" appears over a broadcast
+ * tool.
+ */
+async function defaultPrevented(page: Page, selector: string): Promise<boolean> {
+  return page.evaluate((target) => {
+    const element = document.querySelector(target);
+    if (element === null) return false;
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    element.dispatchEvent(event);
+    return event.defaultPrevented;
+  }, selector);
+}
+
+test("the browser's own menu never appears over the app", async ({ page }) => {
+  await open(page);
+  for (const surface of [".statusbar", ".panel.inspector", ".dock", "body"]) {
+    expect(await defaultPrevented(page, surface), `${surface} still shows the browser menu`)
+      .toBe(true);
+  }
+});
+
+test("but a text field keeps its cut, copy and paste", async ({ page }) => {
+  await open(page);
+  // Taking the native menu away here would remove working functionality —
+  // clipboard and spelling — that Studio does not reimplement.
+  expect(
+    await defaultPrevented(page, ".panel.hierarchy input"),
+    "a text field lost its clipboard menu",
+  ).toBe(false);
+});
+
+/**
  * Two flat graphics on the same plane. THE case the fix is for.
  *
  * At equal depth the depth test cannot separate them, so the only thing that

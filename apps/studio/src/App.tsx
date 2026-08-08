@@ -1680,6 +1680,37 @@ export function App() {
    * Space cues and Escape un-cues, both only when not typing — they are
    * ordinary characters and stealing them mid-word would be a fault.
    */
+  /**
+   * The right mouse button belongs to Studio, not to the browser.
+   *
+   * A broadcast tool that answers a right-click with "Back / Reload / View
+   * page source" is a web page wearing an application's clothes. Surfaces that
+   * have their own menu — the stage, the Scene tree — already call
+   * `preventDefault`; this covers everywhere else, so the answer is either OUR
+   * menu or nothing, and never the browser's.
+   *
+   * TEXT FIELDS ARE EXEMPT, DELIBERATELY. The native menu there carries cut,
+   * copy, paste, spelling and the clipboard permissions that go with them, and
+   * we do not reimplement any of it. Taking it away would remove working
+   * functionality to make a point about branding.
+   */
+  useEffect(() => {
+    const onContextMenu = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target !== null &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+    };
+    window.addEventListener("contextmenu", onContextMenu);
+    return () => window.removeEventListener("contextmenu", onContextMenu);
+  }, []);
+
   useEffect(() => {
     if (bus === null) return;
     const onKey = (event: KeyboardEvent): void => {
