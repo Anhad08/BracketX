@@ -677,6 +677,26 @@ kbd {
 
 /* --- The confidence strip ------------------------------------------------ */
 
+/* THE PICTURE IS PINNED TO THE VIEW'S ORIGIN, AND SCALES FROM IT.
+
+   These two lines went missing in a careless block deletion, and the result
+   was the fault that made both viewports unusable: without `position:
+   absolute; top: 0; left: 0` the surface sits in normal flow, and without
+   `transform-origin: 0 0` the zoom scales it about its own CENTRE.
+
+   Both together offset the rendered picture from the SVG overlay by hundreds
+   of pixels. The frame outline, the rulers, the safe areas and every gizmo are
+   drawn by the overlay; the graphic is drawn by the engine into the surface.
+   They stopped agreeing about where the world was — so the graphic sat in one
+   corner, the gizmo in another, and clicking a layer selected nothing.
+
+   `worldToScreen` assumes exactly this geometry. It is not decoration. */
+.scene-surface { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+/* The canvas is above anything else in the surface, always. It is appended
+   imperatively, so it cannot rely on DOM order to stay on top — and when it
+   did, a remounted sibling silently covered the scene. */
+.scene-surface canvas { display: block; width: 100%; height: 100%; position: relative; z-index: 1; }
+
 /* TRANSPARENCY, SAID QUIETLY.
    The checker was 24px squares at full strength, and it was the loudest thing
    on the screen — a designer judging the weight of a plate against live video
