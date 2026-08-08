@@ -292,18 +292,41 @@ export function helpers(
     // Behind the camera. Not an error — just nothing to draw.
     if (at === null || !at.inFront) continue;
 
+    const dx = origin.x - eyePosition.x;
+    const dy = origin.y - eyePosition.y;
+    const dz = origin.z - eyePosition.z;
+    const depth = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    /**
+     * A LIGHT GIZMO IS THE SAME SIZE WHEREVER THE LIGHT IS.
+     *
+     * It used to be 1.6 WORLD units, which meant its size on screen depended
+     * entirely on how far away the light happened to be. A key light hung high
+     * over a set drew four rays hundreds of pixels long across the top of the
+     * stage — thin diagonal scratches with no icon near them, appearing in
+     * every screenshot of a 3D scene and reading as something broken.
+     *
+     * Blender solves this the way this file's own move gizmo already does:
+     * solve the world length so the DRAWN length is constant. Under
+     * perspective a thing of size s at distance d subtends roughly s/d, so
+     * holding s ∝ d holds its screen size. The clamp keeps a light at the far
+     * plane from solving to something enormous, and a light almost inside the
+     * lens from vanishing.
+     *
+     * A gizmo is a piece of interface. Interface does not get bigger because
+     * the thing it refers to moved away.
+     */
+    const reach = Math.min(4, Math.max(0.25, depth * 0.09));
+
     const lines =
       source.kind === "camera"
         ? source.descriptor === undefined
           ? []
           : cameraFrustum(view, source.world, source.descriptor, aspect)
         : lightHelper(view, source.world, source.kind, {
+            reach,
             ...(source.angle === undefined ? {} : { angle: source.angle }),
           });
-
-    const dx = origin.x - eyePosition.x;
-    const dy = origin.y - eyePosition.y;
-    const dz = origin.z - eyePosition.z;
     out.push({
       nodeId: source.nodeId,
       kind: source.kind,

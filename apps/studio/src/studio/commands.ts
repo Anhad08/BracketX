@@ -116,6 +116,33 @@ export const KEYMAP: readonly KeyBinding[] = [
   { id: "view.zoomIn", key: "=", label: "=", description: "Zoom in" },
   { id: "view.zoomOut", key: "-", label: "-", description: "Zoom out" },
   { id: "view.actualSize", key: "0", label: "0", description: "Zoom to 100%" },
+
+  /**
+   * CAMERA PRESETS. `studio-specification.html` §03 — six, ⌥1–⌥6, set with
+   * ⌥⇧1–⌥⇧6.
+   *
+   * Generated so the pair can never drift apart: a recall binding with no
+   * matching store binding is a preset a designer can reach and never fill.
+   */
+  ...Array.from({ length: 6 }, (_, index) => index + 1).flatMap((slot) => [
+    {
+      id: `view.recall${slot}`,
+      key: String(slot),
+      code: `Digit${slot}`,
+      alt: true,
+      label: `⌥${slot}`,
+      description: `Camera ${slot}`,
+    },
+    {
+      id: `view.store${slot}`,
+      key: String(slot),
+      code: `Digit${slot}`,
+      alt: true,
+      shift: true,
+      label: `⌥⇧${slot}`,
+      description: `Set camera ${slot}`,
+    },
+  ]),
   { id: "view.safeAreas", key: "'", label: "'", description: "Toggle safe areas" },
   { id: "view.grid", key: "\\", label: "\\", description: "Toggle grid" },
   { id: "view.snap", key: ";", label: ";", description: "Toggle snapping" },

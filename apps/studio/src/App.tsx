@@ -41,7 +41,8 @@ import {
 } from "./studio/library-assets";
 import { hashBytes } from "@bracketx/engine-assets";
 import type { AssetRecord, AssetRegistry } from "@bracketx/engine-assets";
-import { DEFAULT_VIEWPORT, zoomAt, type Viewport } from "./studio/viewport";
+import { DEFAULT_VIEWPORT, type Viewport } from "./studio/viewport";
+import { PRESET_SLOTS, type ViewportAction, type ViewportRequest } from "./studio/interaction";
 import {
   fileNameFor,
   loadRecents,
@@ -337,8 +338,20 @@ export function App() {
     [workspace.quality, device],
   );
 
-  const [fitToken, setFitToken] = useState(0);
-  const [frameToken, setFrameToken] = useState(0);
+  /**
+   * ONE CHANNEL TO THE VIEWPORT.
+   *
+   * The shell NAMES a viewport action; the stage performs it. It used to be a
+   * token per action plus arithmetic done here, which is how the keyboard came
+   * to zoom continuously about the origin while the wheel zoomed in discrete
+   * steps about the pointer — two zooms in one product. The stage is the only
+   * thing that knows the element's size, and every one of these actions needs
+   * it, so the stage is the owner.
+   */
+  const [viewportRequest, setViewportRequest] = useState<ViewportRequest | null>(null);
+  const askViewport = useCallback((action: ViewportAction) => {
+    setViewportRequest((current) => ({ action, nonce: (current?.nonce ?? 0) + 1 }));
+  }, []);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [recents, setRecents] = useState<readonly RecentProject[]>([]);
@@ -896,7 +909,7 @@ export function App() {
         setExpanded(expandedOnOpen(parsed));
         setLocked(new Set());
         setRevision((value) => value + 1);
-        setFitToken((value) => value + 1);
+        askViewport({ kind: "fit" });
         setNotice(`Opened ${parsed.meta.name}`);
       } catch (error) {
         // Refused at the door, with the document that was open left intact.
@@ -1428,7 +1441,7 @@ export function App() {
         title: "Fit scene in view",
         section: "View",
         shortcut: shortcutFor("view.fit"),
-        run: () => setFitToken((value) => value + 1),
+        run: () => askViewport({ kind: "fit" }),
       },
       {
         id: "view.frameSelected",
@@ -1439,29 +1452,62 @@ export function App() {
             ? "Nothing selected — frames the whole scene"
             : "Zoom to what is selected",
         shortcut: shortcutFor("view.frameSelected"),
-        run: () => setFrameToken((value) => value + 1),
+        run: () => askViewport({ kind: "frame" }),
       },
       {
         id: "view.zoomIn",
         title: "Zoom in",
         section: "View",
         shortcut: shortcutFor("view.zoomIn"),
-        run: () => setViewport((current) => zoomAt(current, { x: 0, y: 0 }, 1.25)),
+        run: () => askViewport({ kind: "zoom", direction: 1 }),
       },
       {
         id: "view.zoomOut",
         title: "Zoom out",
         section: "View",
         shortcut: shortcutFor("view.zoomOut"),
-        run: () => setViewport((current) => zoomAt(current, { x: 0, y: 0 }, 0.8)),
+        run: () => askViewport({ kind: "zoom", direction: -1 }),
       },
       {
         id: "view.actualSize",
         title: "Zoom to 100%",
         section: "View",
         shortcut: shortcutFor("view.actualSize"),
-        run: () => setViewport((current) => ({ ...current, zoom: 1 })),
+        // Zoom alone is not enough: the spec guarantees one viewport pixel is
+        // one output pixel at 100%, and leaving the pan where it was slides
+        // the frame off centre on the way.
+        run: () => askViewport({ kind: "actualSize" }),
       },
+
+      /**
+       * CAMERA PRESETS. `studio-specification.html` §03.
+       *
+       * "Six, bound ⌥1 – ⌥6. Set with ⌥⇧1 – ⌥⇧6. Six because a lower third has
+       * about that many regions worth returning to. Ten would never be filled."
+       *
+       * Generated rather than written twelve times, and registered as COMMANDS
+       * so they reach the palette, the View menu and the keyboard reference —
+       * which is the whole reason viewport actions now go through one channel.
+       * A gesture nobody can find is a gesture nobody has.
+       */
+      ...Array.from({ length: PRESET_SLOTS }, (_, index) => index + 1).flatMap((slot) => [
+        {
+          id: `view.recall${slot}`,
+          title: `Camera ${slot}`,
+          section: "View" as const,
+          keywords: ["camera", "preset", "recall", "view"],
+          shortcut: `⌥${slot}`,
+          run: () => askViewport({ kind: "recall", slot }),
+        },
+        {
+          id: `view.store${slot}`,
+          title: `Set camera ${slot}`,
+          section: "View" as const,
+          keywords: ["camera", "preset", "store", "save view"],
+          shortcut: `⌥⇧${slot}`,
+          run: () => askViewport({ kind: "store", slot }),
+        },
+      ]),
       ...(
         [
           ["view.safeAreas", "safe areas", "showSafeAreas"],
@@ -2297,7 +2343,7 @@ export function App() {
               </span>
             ) : null}
 
-            <button type="button" className="chip" onClick={() => setFitToken((v) => v + 1)}>
+            <button type="button" className="chip" onClick={() => askViewport({ kind: "fit" })}>
               Fit
             </button>
             {/* A percentage is for matching two views precisely. A beginner
@@ -2366,8 +2412,7 @@ export function App() {
             lockedIds={locked}
             viewport={viewport}
             onViewport={setViewport}
-            fitToken={fitToken}
-            frameToken={frameToken}
+            viewportRequest={viewportRequest}
             /* The SAME command objects the palette and keyboard run. */
             menuCommands={menuCommands}
             /* Clicking a ball looks down that axis. It reuses the named-view

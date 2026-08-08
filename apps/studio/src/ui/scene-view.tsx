@@ -35,13 +35,22 @@ import {
   screenToWorld,
   worldToScreen,
   worldToCanvas,
-  zoomAt,
   type NodeBounds,
   type Point,
   type Rect,
   recentre,
   type Viewport,
 } from "../studio/viewport";
+import {
+  actualSize,
+  scrolled,
+  snappedToStep,
+  wheelIntent,
+  zoomedStep,
+  zoomedStepCentred,
+  type CameraPreset,
+  type ViewportRequest,
+} from "../studio/interaction";
 import {
   equalGapCandidates,
   frameCandidates,
@@ -150,9 +159,8 @@ export interface SceneViewProps {
   readonly viewport: Viewport;
   readonly onViewport: (viewport: Viewport) => void;
   /** Bumped by the shell to request a fit. */
-  readonly fitToken: number;
+  readonly viewportRequest: ViewportRequest | null;
   /** Bumped by the shell to request a frame of the current selection. */
-  readonly frameToken: number;
   /**
    * A scene was dropped on the stage, at this point in canvas coordinates.
    *
@@ -274,8 +282,7 @@ export function SceneView({
   lockedIds,
   viewport,
   onViewport,
-  fitToken,
-  frameToken,
+  viewportRequest,
   onDropScene,
   menuCommands,
   onCompass,
@@ -543,22 +550,67 @@ export function SceneView({
     return () => observer.disconnect();
   }, []);
 
+  /** The first measurement always fits. Nothing else opens at a random scale. */
   useEffect(() => {
-    if (element.width > 0 && element.height > 0) onViewport(fit(document_, element));
-    // Only on an explicit fit request or the first measurement.
-  }, [fitToken, element.width === 0]);
+    if (element.width > 0 && element.height > 0) {
+      onViewport(fit(document_, element));
+    }
+  }, [element.width === 0]);
 
-  // FRAME SELECTED. Falls back to framing the whole scene when nothing is
-  // selected, which is what every editor does and what makes one key enough:
-  // pressing it with an empty selection should still take you somewhere
-  // useful rather than doing nothing at all.
+  /**
+   * EVERY NAMED VIEWPORT ACTION, IN ONE PLACE.
+   *
+   * The stage is the owner because it is the only thing that knows the
+   * element's size, and Fit, Frame, both zooms, 1:1 and every camera preset
+   * need it. Splitting that knowledge is what let the keyboard and the wheel
+   * disagree about what zooming means.
+   *
+   * Keyed on the NONCE alone. A selection change must not move the view, or
+   * the stage would lurch every time a layer is clicked.
+   */
   useEffect(() => {
-    if (frameToken === 0 || element.width === 0) return;
-    const union = selectionBounds(bounds, selection.ids);
-    onViewport(union === null ? fit(document_, element) : frame(document_, union, element));
-    // Deliberately keyed on the token alone: a selection change must not
-    // move the view, or the stage would lurch every time a layer is clicked.
-  }, [frameToken]);
+    if (viewportRequest === null || element.width === 0) return;
+    const action = viewportRequest.action;
+
+    if (action.kind === "fit") {
+      // "Default — Fit, then snap to nearest step. Opening at an arbitrary
+      // 87 % teaches nothing." §03.
+      onViewport(snappedToStep(fit(document_, element), element));
+      return;
+    }
+    if (action.kind === "frame") {
+      // Falls back to the whole scene when nothing is selected, which is what
+      // every editor does and what makes one key enough.
+      const union = selectionBounds(bounds, selection.ids);
+      onViewport(
+        snappedToStep(
+          union === null ? fit(document_, element) : frame(document_, union, element),
+          element,
+        ),
+      );
+      return;
+    }
+    if (action.kind === "zoom") {
+      onViewport(zoomedStepCentred(viewport, element, action.direction));
+      return;
+    }
+    if (action.kind === "actualSize") {
+      onViewport(actualSize(viewport, element));
+      return;
+    }
+    if (action.kind === "store") {
+      // §03: "Camera presets — Six, bound ⌥1 – ⌥6. Set with ⌥⇧1 – ⌥⇧6."
+      presets.current.set(action.slot, viewport);
+      return;
+    }
+    if (action.kind === "recall") {
+      const stored = presets.current.get(action.slot);
+      // An empty slot does NOTHING rather than jumping to a default. Recalling
+      // a preset you never set and being thrown somewhere is worse than the
+      // key appearing not to work.
+      if (stored !== undefined) onViewport(stored);
+    }
+  }, [viewportRequest?.nonce]);
 
   // -- Bounds and picking ---------------------------------------------------
 
@@ -1339,19 +1391,74 @@ export function SceneView({
     }
   };
 
+  /**
+   * Is space held?
+   *
+   * A ref rather than state: it is read inside a pointer handler and must be
+   * current at the instant of the press, and re-rendering the whole stage
+   * because a modifier went down would be a frame lost for nothing.
+   */
+  /**
+   * The six camera presets. §03.
+   *
+   * A ref: they are recalled by an action and never rendered, so storing one
+   * must not cost a re-render of the stage. Per graphic rather than global,
+   * which is what a ref inside the stage gives for free — a new document
+   * mounts a new stage.
+   */
+  const presets = useRef(new Map<number, CameraPreset>());
+
+  const spaceHeld = useRef(false);
+  useEffect(() => {
+    const down = (event: KeyboardEvent): void => {
+      if (event.code !== "Space") return;
+      const target = event.target as HTMLElement | null;
+      // Space belongs to whoever has the caret, and to the transport when the
+      // stage has focus — this only records that it is DOWN.
+      if (
+        target !== null &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      ) {
+        return;
+      }
+      spaceHeld.current = true;
+    };
+    const up = (event: KeyboardEvent): void => {
+      if (event.code === "Space") spaceHeld.current = false;
+    };
+    // Cleared on blur: holding space and alt-tabbing away would otherwise
+    // leave the stage panning on the next click.
+    const clear = (): void => {
+      spaceHeld.current = false;
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", clear);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", clear);
+    };
+  }, []);
+
   const onPointerDown = (event: React.PointerEvent) => {
     if (error !== null) return;
     const screen = pointOf(event);
     const world = screenToWorld(document_, viewport, screen, view ?? undefined);
     (event.target as Element).setPointerCapture?.(event.pointerId);
 
-    // ORBIT — the middle button, on its own, exactly as Blender binds it.
-    // Shift with the middle button pans, and Alt-drag still pans for anyone
-    // without a middle button at all.
+    // ORBIT — ALT-DRAG.
     //
-    // It was Shift+middle to begin with, which put the product's defining
-    // gesture behind a modifier nobody would guess. A 3D product where
-    // looking around needs a chord is a 3D product nobody looks around in.
+    // It was the middle button, "exactly as Blender binds it", and that was
+    // the mistake: `studio-specification.html` §03 reserves the middle button
+    // for PAN, as one of three sanctioned routes alongside space-drag and
+    // two-finger scroll. Blender is not wrong for Blender — it is a modelling
+    // application whose users hold a three-button mouse all day. Streamatrix
+    // is a broadcast tool used on laptops, and the spec knew that.
+    //
+    // Alt-drag is not a consolation prize. It is the orbit binding in Maya and
+    // in Blender's own emulate-three-button mode, so it is a gesture a 3D user
+    // already has in their hands.
     //
     // Unlike pan and zoom, this MOVES THE SCENE CAMERA. That is a document
     // edit: it changes what the output frames, so it is undoable and it goes
@@ -1365,7 +1472,7 @@ export function SceneView({
     //
     // The way into 3D is the view control, which is deliberate and named. The
     // way back is Front, which is exact rather than approximately-square-on.
-    if (view !== null && dimensional && event.button === 1 && !event.shiftKey) {
+    if (view !== null && dimensional && event.button === 0 && event.altKey) {
       const camera = cameraNode(document_);
       if (camera !== null) {
         const position = camera.transform?.position ?? [0, 0, 10];
@@ -1394,9 +1501,14 @@ export function SceneView({
       }
     }
 
-    // Shift+middle, or Alt-drag, pans. Panning moves the VIEW and never the
-    // scene camera — see the header comment in viewport.ts.
-    if (event.button === 1 || event.altKey) {
+    // PAN — the middle button, or space with the left. Two of the three routes
+    // `studio-specification.html` §03 names; the third, two-finger scroll,
+    // arrives as a bare wheel and is handled in `onWheel`.
+    //
+    // Three routes "because hand position varies", says the spec. Panning moves
+    // the VIEW and never the scene camera — see the header comment in
+    // viewport.ts for why that distinction is load-bearing.
+    if (event.button === 1 || spaceHeld.current) {
       setDrag({
         kind: "pan",
         startScreen: screen,
@@ -2064,13 +2176,38 @@ export function SceneView({
     return true;
   };
 
+  /**
+   * ROUTED THROUGH THE INTERACTION MODEL, not decided here.
+   *
+   * This handler used to zoom on a bare wheel and dolly the camera on top of
+   * it. `studio-specification.html` §03 says the wheel SCROLLS and ⌘-wheel
+   * zooms about the pointer, and is emphatic about why: bare-wheel zoom is the
+   * single most complained-about behaviour in design tools and it fires on
+   * every two-finger gesture — which the same table lists as a way to PAN.
+   *
+   * The rule now lives in `interaction.ts` with a test naming its spec row.
+   * This function's only job is to carry out the intent.
+   */
   const onWheel = (event: React.WheelEvent) => {
-    if (event.ctrlKey || event.metaKey || !event.shiftKey) {
+    const intent = wheelIntent({
+      alt: event.altKey,
+      shift: event.shiftKey,
+      mod: event.ctrlKey || event.metaKey,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      at: pointOf(event),
+    });
+
+    if (intent.kind === "scroll") {
+      onViewport(scrolled(viewport, intent.dx, intent.dy));
+      return;
+    }
+    if (intent.kind === "zoom") {
+      // In space, "closer" means moving the CAMERA — a perspective view does
+      // not survive being rescaled as a bitmap. Flat, it is an ordinary zoom
+      // and lands on a rung of the spec's ladder.
       if (dolly(event)) return;
-      const factor = Math.pow(0.999, event.deltaY);
-      onViewport(zoomAt(viewport, pointOf(event), factor));
-    } else {
-      onViewport(pan(viewport, -event.deltaX, -event.deltaY));
+      onViewport(zoomedStep(viewport, intent.at, intent.direction));
     }
   };
 

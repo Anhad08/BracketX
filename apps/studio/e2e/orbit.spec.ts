@@ -113,10 +113,13 @@ test("orbiting turns the scene camera, and does not touch the history", async ({
   const cy = box.y + box.height / 2;
 
   await page.mouse.move(cx, cy);
-  await page.mouse.down({ button: "middle" });
+  await page.keyboard.down("Alt");
+  await page.mouse.down();
   await expect(chrome).toHaveAttribute("data-drag", "orbit");
   await page.mouse.move(cx + 160, cy, { steps: 8 });
-  await page.mouse.up({ button: "middle" });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+  await page.keyboard.up("Alt");
 
   const after = await cameraPosition(page);
   // Turned further about Y, and the distance to the pivot is preserved.
@@ -176,9 +179,12 @@ test("selection still lands on the graphic after the camera has moved", async ({
   const cy = box.y + box.height / 2;
 
   await page.mouse.move(cx, cy);
-  await page.mouse.down({ button: "middle" });
+  await page.keyboard.down("Alt");
+  await page.mouse.down();
   await page.mouse.move(cx + 120, cy + 40, { steps: 8 });
-  await page.mouse.up({ button: "middle" });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+  await page.keyboard.up("Alt");
 
   // Select through the layer tree, then read where the editor believes the
   // graphic is, and click THERE. Under the old flat map this point would have
@@ -222,9 +228,12 @@ test("named views move the camera, and the control says where you are", async ({
   // pixel-accurate.
   const box = (await page.getByTestId("scene-chrome").boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down({ button: "middle" });
+  await page.keyboard.down("Alt");
+  await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2, { steps: 6 });
-  await page.mouse.up({ button: "middle" });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+  await page.keyboard.up("Alt");
   await expect(page.getByTestId("view-top")).not.toHaveClass(/on/);
 
   // And undo does NOT put it back, because a view change is not work. The way
@@ -305,9 +314,12 @@ test("the flat view is fixed: the camera cannot be nudged off axis", async ({ pa
   const cy = box.y + box.height / 2;
 
   await page.mouse.move(cx, cy);
-  await page.mouse.down({ button: "middle" });
+  await page.keyboard.down("Alt");
+  await page.mouse.down();
   await page.mouse.move(cx + 200, cy + 120, { steps: 10 });
-  await page.mouse.up({ button: "middle" });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+  await page.keyboard.up("Alt");
 
   // A lower third is designed square-on and stays square-on. A camera nudged
   // off axis by a stray drag makes every later judgement about alignment and
@@ -321,9 +333,12 @@ test("the flat view is fixed: the camera cannot be nudged off axis", async ({ pa
   // The way into 3D is the view control, which is deliberate and named.
   await enterSpatial(page, "three-quarter");
   await page.mouse.move(cx, cy);
-  await page.mouse.down({ button: "middle" });
+  await page.keyboard.down("Alt");
+  await page.mouse.down();
   await page.mouse.move(cx + 120, cy, { steps: 8 });
-  await page.mouse.up({ button: "middle" });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+  await page.keyboard.up("Alt");
   expect(Math.abs((await cameraPosition(page))[0])).not.toBeCloseTo(Math.abs(before[0]), 1);
 });
 
@@ -430,9 +445,12 @@ test("the dimension switch comes first, and the modes live inside 3D", async ({ 
   await page.getByTestId("dim-3d").click();
   await settle(page);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down({ button: "middle" });
+  await page.keyboard.down("Alt");
+  await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 140, box.y + box.height / 2, { steps: 8 });
-  await page.mouse.up({ button: "middle" });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+  await page.keyboard.up("Alt");
   await expect(page.getByTestId("dim-3d")).toHaveClass(/on/);
 
   // And 2D returns exactly, not approximately.

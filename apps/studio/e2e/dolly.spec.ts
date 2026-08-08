@@ -72,13 +72,24 @@ async function cameraDistance(page: Page): Promise<number> {
   return Math.hypot(...axes);
 }
 
+/**
+ * ⌘/Ctrl + wheel, because a BARE wheel scrolls.
+ *
+ * `studio-specification.html` §03 reserves the bare wheel for scrolling and
+ * puts zoom behind the modifier — "bare-wheel zoom is the single most
+ * complained-about behaviour in design tools". This file was written before
+ * that was honoured, when the bare wheel dollied. The behaviour under test is
+ * unchanged; the gesture that asks for it moved.
+ */
 async function wheel(page: Page, amount: number, times: number): Promise<void> {
   const box = (await page.getByTestId("scene-view").boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.keyboard.down("Control");
   for (let index = 0; index < times; index += 1) {
     await page.mouse.wheel(0, amount);
     await page.waitForTimeout(50);
   }
+  await page.keyboard.up("Control");
   await page.waitForTimeout(500);
 }
 
