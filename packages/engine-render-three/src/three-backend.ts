@@ -346,7 +346,15 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
   }
 
   setRenderOrder(node: NodeHandle, order: number): void {
-    this.#requireNode(node, "setRenderOrder").object.renderOrder = order;
+    const record = this.#requireNode(node, "setRenderOrder");
+    record.object.renderOrder = order;
+    // AND THE ATTACHMENT MESH — for exactly the reason `setLayers` above says.
+    // The mesh is a CHILD of the node's object, and Three inherits neither
+    // layers nor render order: it sorts each renderable by its OWN
+    // `renderOrder`. Setting it only on the parent set it on an object that
+    // draws nothing, so the value was correct everywhere except where it
+    // mattered — and reordering the scene tree changed the picture not at all.
+    if (record.mesh !== null) record.mesh.renderOrder = order;
   }
 
   // -- Attachments ---------------------------------------------------------
@@ -377,6 +385,10 @@ export class ThreeMirrorBackend implements InspectableMirrorBackend {
     // drop back to the default and stop being drawn by a camera masked to
     // anything else — a node that renders until something re-attaches it.
     mesh.layers.mask = record.object.layers.mask;
+    // And the render order, for the same reason: a mesh replaced after the
+    // node's order was set would start at Three's default of 0 and composite
+    // against its siblings by the wrong rule.
+    mesh.renderOrder = record.object.renderOrder;
     applyShadowReceiving(mesh, this.#environment.shadows);
     record.object.add(mesh);
     record.mesh = mesh;

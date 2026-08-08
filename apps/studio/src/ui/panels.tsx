@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   childrenOf,
   findNode,
@@ -8,6 +9,7 @@ import {
 } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "../studio/session";
+import type { StudioCommand } from "../studio/commands";
 import type { Selection } from "../studio/selection";
 import { primaryOf, selectOnly, selectRange, toggle } from "../studio/selection";
 import {
@@ -172,7 +174,39 @@ export interface HierarchyProps {
   readonly onMove: (nodeId: string, parentId: string, index: number) => void;
   readonly onRename: (nodeId: string, name: string) => void;
   readonly onToggleVisible: (nodeId: string) => void;
+  /**
+   * The studio's command registry — the SAME one the palette, the menu bar and
+   * the keyboard read.
+   *
+   * Passed in rather than rebuilt here so a right-click on a row can never
+   * offer something the rest of the app does not do, or do it differently.
+   */
+  readonly commands: readonly StudioCommand[];
 }
+
+/**
+ * What a right-click on a row offers, in order.
+ *
+ * Structure first, then order, then the destructive pair last with a gap
+ * before them — the two that cannot be recovered by looking at the screen
+ * should not sit under a moving cursor.
+ */
+const ROW_MENU: readonly (string | null)[] = [
+  "edit.rename",
+  "edit.duplicate",
+  null,
+  "arrange.group",
+  "arrange.ungroup",
+  null,
+  "arrange.front",
+  "arrange.forward",
+  "arrange.backward",
+  "arrange.back",
+  null,
+  "view.frameSelected",
+  null,
+  "edit.delete",
+];
 
 export function Hierarchy({
   session,
@@ -185,11 +219,56 @@ export function Hierarchy({
   onMove,
   onRename,
   onToggleVisible,
+  commands,
 }: HierarchyProps) {
   const [filter, setFilter] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<{ id: string; where: "before" | "after" | "inside" } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const dragged = useRef<string | null>(null);
+
+  /**
+   * Escape closes it, before anything else sees the key.
+   *
+   * The scrim covers the panel, so a menu that could not be dismissed would
+   * take the tree with it — the same way the stage menu once took the stage.
+   */
+  useEffect(() => {
+    if (menu === null) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      event.preventDefault();
+      setMenu(null);
+    };
+    // A pointer listener on the document rather than a scrim over the panel:
+    // the menu belongs to the tree, but a click anywhere in the studio — the
+    // stage, another panel, the menu bar — has to dismiss it. A scrim can only
+    // cover its own panel, and one left open behind a later click would act on
+    // a selection the user has since changed.
+    const onPointer = (event: PointerEvent): void => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".context-menu") !== null) return;
+      setMenu(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("pointerdown", onPointer, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", onPointer, true);
+    };
+  }, [menu]);
+
+  // A separator is an explicit entry, not "a command we failed to find" — an
+  // id that stops existing must vanish, not silently become a divider.
+  type MenuEntry =
+    | { readonly separator: true; readonly key: string }
+    | { readonly separator: false; readonly key: string; readonly command: StudioCommand };
+  const rowMenu = ROW_MENU.flatMap<MenuEntry>((id, index) => {
+    if (id === null) return [{ separator: true as const, key: `sep${index}` }];
+    const command = commands.find((entry) => entry.id === id);
+    return command === undefined ? [] : [{ separator: false as const, key: id, command }];
+  });
 
   const rows = outline(session.document, { expanded, locked, filter });
   const flattened = rows.map((row) => row.id);
@@ -212,15 +291,18 @@ export function Hierarchy({
   };
 
   return (
-    <section className="panel hierarchy" aria-label="Layers">
+    <section className="panel hierarchy" aria-label="Scene">
       <div className="panel-head">
-        <h2>Layers</h2>
+        {/* Not "Layers". A layer is a flat stack of pictures; this is the
+            scene's structure, and it holds things that are in space as well as
+            things that are on the glass. */}
+        <h2>Scene</h2>
         <input
           className="field"
           placeholder="Filter"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          aria-label="Filter layers"
+          aria-label="Filter scene"
         />
       </div>
 
@@ -252,6 +334,15 @@ export function Hierarchy({
               });
             }}
             onDragLeave={() => setDragOver(null)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              // Select first. A menu that acts on the PREVIOUS selection while
+              // pointing at a different row is how you delete the wrong thing.
+              if (!selection.ids.includes(row.id)) onSelection(selectOnly(row.id));
+              // Viewport coordinates, because the menu is portalled to the body
+              // — see the render below for why it cannot live in the panel.
+              setMenu({ x: event.clientX, y: event.clientY });
+            }}
             onDrop={(event) => {
               event.preventDefault();
               const source = dragged.current;
@@ -322,6 +413,52 @@ export function Hierarchy({
           </li>
         ))}
       </ol>
+
+      {/* PORTALLED TO THE BODY, DELIBERATELY.
+          Rendered inside the panel, the menu was painted over by the Inspector
+          below it and clipped by the dock's own scrolling — it appeared, and
+          then swallowed its own clicks. A menu is not part of the panel's
+          layout; it belongs to the window. */}
+      {menu === null ? null : createPortal(
+          <ul
+            className="context-menu floating"
+            role="menu"
+            data-testid="tree-menu"
+            style={{
+              // Kept on screen. A row near the bottom of a tall tree would
+              // otherwise open a menu whose last item is below the fold.
+              left: Math.min(menu.x, window.innerWidth - 220),
+              top: Math.min(menu.y, window.innerHeight - rowMenu.length * 26 - 16),
+            }}
+          >
+            {rowMenu.map((entry) =>
+              entry.separator ? (
+                <li key={entry.key} className="menu-rule" role="separator" />
+              ) : (
+                <li key={entry.key}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-testid={`tree-menu-${entry.command.id}`}
+                    // Greyed, never hidden: a menu whose shape changes with the
+                    // selection cannot be learned by muscle memory.
+                    disabled={entry.command.enabled === false}
+                    onClick={() => {
+                      setMenu(null);
+                      entry.command.run();
+                    }}
+                  >
+                    <span>{entry.command.title}</span>
+                    {entry.command.shortcut === undefined ? null : (
+                      <kbd>{entry.command.shortcut}</kbd>
+                    )}
+                  </button>
+                </li>
+              ),
+            )}
+          </ul>,
+          document.body,
+      )}
     </section>
   );
 }

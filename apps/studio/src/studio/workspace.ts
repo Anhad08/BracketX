@@ -400,7 +400,16 @@ function sanitize(value: unknown): Workspace {
     showRulers: bool("showRulers"),
     showDebug: bool("showDebug"),
     snapEnabled: bool("snapEnabled"),
+    snapToGrid: bool("snapToGrid"),
+    snapToObjects: bool("snapToObjects"),
+    snapToSafeAreas: bool("snapToSafeAreas"),
+    snapToAngle: bool("snapToAngle"),
+    snapToSize: bool("snapToSize"),
     gridStep: clamp(raw.gridStep, 0.05, 5, DEFAULT_WORKSPACE.gridStep),
+    // Clamped to angles that divide 90, so square stays reachable. A step of
+    // 7° would make a right angle impossible to snap to, which is the one
+    // angle that must never be approximate.
+    angleStep: clamp(raw.angleStep, 1, 90, DEFAULT_WORKSPACE.angleStep),
     // An unknown mode lands on Move, which is the one that can undo the damage
     // any other mode could have done.
     gizmoMode:

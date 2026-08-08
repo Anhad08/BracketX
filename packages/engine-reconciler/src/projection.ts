@@ -308,6 +308,24 @@ export class Projector {
   #placements = new Map<string, Placement>();
 
   /**
+   * Node id -> the paint order the TREE gives it.
+   *
+   * Compositing order for flat graphics is a property of the scene tree: a
+   * node painted later in a depth-first walk covers one painted earlier, and
+   * that walk visits siblings in `order`. Without this, every flat node
+   * carried render order 0 and the renderer broke the tie however it liked —
+   * so "Bring Forward" moved a row in a panel and changed nothing on screen.
+   *
+   * Only flat graphics are listed. A mesh is placed in SPACE, and its
+   * occlusion is the camera's business; giving it a tree-derived render order
+   * would let a row in a panel push an object in front of one that is
+   * physically nearer, which is the exact confusion of layer with depth this
+   * map exists to avoid. An explicit `runtime.renderOrder` still wins over
+   * both — an author who states an order means it.
+   */
+  #paintOrder = new Map<string, number>();
+
+  /**
    * States currently active, in precedence order. Later wins.
    *
    * The engine assigns no meaning to any name. `enter`/`visible`/`exit` and
@@ -624,6 +642,9 @@ export class Projector {
 
     visit(document.root, null, variables);
     this.#recomputeWorld(document.root.id, IDENTITY, true, dirty);
+    // After the tree exists — paint order is a property of the whole walk, so
+    // it cannot be assigned while nodes are still arriving.
+    this.#repaintOrder();
 
     return {
       operations: 0,
@@ -676,6 +697,11 @@ export class Projector {
     }
 
     this.#flush(document, variables, dirty, localRefresh);
+
+    // Only when the SHAPE changed. A reorder arrives as a reparent onto the
+    // same parent, so this covers "Bring Forward" as well as drag-to-reparent,
+    // while a colour or a position never pays for the walk.
+    if (created > 0 || destroyed > 0 || reparented > 0) this.#repaintOrder();
 
     return {
       operations: transaction.operations.length,
@@ -1004,6 +1030,90 @@ export class Projector {
     this.backend.setEnvironment(wanted);
   }
 
+  /**
+   * Recomputes tree-derived paint order and pushes what changed.
+   *
+   * Walks the MIRROR rather than the document, for two reasons: its child
+   * lists are already kept sorted by `order`, and it contains repeat
+   * INSTANCES, which the document tree does not — a leaderboard's rows would
+   * otherwise all share one order and composite arbitrarily against each
+   * other.
+   *
+   * Called only when the shape of the tree actually changed. A walk per
+   * transaction would be the O(scene) cost the incremental path exists to
+   * avoid; a reorder is rare and human-driven, and a colour change does not
+   * reach here at all.
+   */
+  #repaintOrder(): void {
+    const root = this.mirror.rootId;
+    if (root === null) return;
+
+    this.#paintOrder.clear();
+    let next = 0;
+
+    const visit = (nodeId: string): void => {
+      if (this.#isFlat(nodeId)) this.#paintOrder.set(nodeId, (next += 1));
+      for (const childId of this.mirror.childrenOf(nodeId)) visit(childId);
+    };
+    visit(root);
+
+    // Push only differences. Every flat node's order shifts by one when a node
+    // is inserted near the front, but the mirror holds what the backend was
+    // last told, so a no-op stays a no-op where it can.
+    for (const nodeId of this.#paintOrderCandidates()) {
+      const mirror = this.mirror.get(nodeId);
+      if (mirror === undefined) continue;
+      const wanted = this.#renderOrderOf(nodeId);
+      if (wanted === mirror.renderOrder) continue;
+      mirror.renderOrder = wanted;
+      this.backend.setRenderOrder(mirror.handle, wanted);
+    }
+  }
+
+  /** Every node that could carry a render order — flat now, or flat before. */
+  #paintOrderCandidates(): Set<string> {
+    const ids = new Set(this.#paintOrder.keys());
+    // A node that STOPPED being flat, or left the tree's flat set, still holds
+    // a stale order in the backend. Sweeping the mirror costs a map walk and
+    // saves a graphic that composites by a rule that no longer applies.
+    for (const nodeId of this.mirror.nodeIds()) {
+      if (this.mirror.get(nodeId)?.renderOrder !== 0) ids.add(nodeId);
+    }
+    return ids;
+  }
+
+  /** The order a node should carry: authored if stated, else tree-derived. */
+  #renderOrderOf(nodeId: string): number {
+    const authored = this.#index.get(nodeId)?.runtime?.renderOrder;
+    if (authored !== undefined) return authored;
+    return this.#paintOrder.get(nodeId) ?? 0;
+  }
+
+  /**
+   * Whether a node's compositing is decided by the tree rather than by space.
+   *
+   * Flat graphics — plates, bars, text, images — sit on the same plane often
+   * enough that depth cannot separate them, so the tree does. A meshRenderer
+   * is a thing in space and is left to the camera, even on a node that also
+   * carries a rect.
+   */
+  #isFlat(nodeId: string): boolean {
+    const components = this.#index.get(nodeId)?.components;
+    if (components === undefined) return false;
+    let flat = false;
+    for (const component of components) {
+      if (component.type === "meshRenderer") return false;
+      if (
+        component.type === "rect" ||
+        component.type === "text" ||
+        component.type === "image"
+      ) {
+        flat = true;
+      }
+    }
+    return flat;
+  }
+
   #flush(
     document: SceneDocument,
     variables: VariableSource,
@@ -1176,7 +1286,7 @@ export class Projector {
       mirror.layers = layers;
       this.backend.setLayers(mirror.handle, layers);
     }
-    const renderOrder = runtime?.renderOrder ?? 0;
+    const renderOrder = runtime?.renderOrder ?? this.#paintOrder.get(node.id) ?? 0;
     if (renderOrder !== mirror.renderOrder) {
       mirror.renderOrder = renderOrder;
       this.backend.setRenderOrder(mirror.handle, renderOrder);

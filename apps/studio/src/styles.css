@@ -442,6 +442,14 @@ kbd {
 .panel.hierarchy {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
 }
+/* A hairline between groups of menu items. Height comes from the border, so it
+   reads as a rule rather than an empty row. */
+.menu-rule {
+  height: 0; margin: 4px 6px; border-top: 1px solid var(--line);
+}
+/* A menu portalled to the body is positioned against the WINDOW, not against a
+   panel, and must sit above every dock. */
+.context-menu.floating { position: fixed; z-index: 90; }
 .panel.hierarchy .outline { flex: 1; min-height: 0; }
 .panel.inspector { flex: 1; min-height: 0; overflow-y: auto; }
 .panel h2 { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--dim); margin: 0 0 6px; }
@@ -738,7 +746,25 @@ kbd {
   filter: drop-shadow(0 0 3px color-mix(in oklab, var(--accent) 60%, transparent));
 }
 .selection-box .handle { fill: var(--accent); stroke: none; }
+/* SNAP GUIDES SAY WHICH KIND THEY ARE, IN COLOUR AS WELL AS IN WORDS.
+   An object edge, the title-safe margin and an equal gap are three different
+   claims about why the graphic moved, and a designer reads the colour before
+   they read the label. One dash pattern in one colour for all three is why the
+   old single guide had to be trusted rather than understood. */
 .snap-guide { stroke: var(--bad); stroke-width: 1; stroke-dasharray: 3 3; }
+.snap-guide[data-reason="safe"] { stroke: var(--warn); stroke-dasharray: 6 4; }
+.snap-guide[data-reason="gap"] { stroke: var(--accent); stroke-dasharray: 2 4; }
+.snap-guide[data-reason="size"] { stroke: var(--accent); stroke-dasharray: 8 3; }
+/* A centre line is continuous. It is the one guide that means "exactly", and a
+   dashed line reads as approximate however fine the dashes are. */
+.snap-guide[data-reason="centre"] { stroke-dasharray: none; opacity: 0.75; }
+.snap-guide-label {
+  font-family: var(--meta); font-size: 10px; letter-spacing: 0.04em;
+  fill: var(--bad); paint-order: stroke;
+  /* Struck through the guide's own line otherwise, which is unreadable over a
+     dashed stroke of the same colour. */
+  stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round;
+}
 .marquee { fill: #62a8ff22; stroke: var(--accent); stroke-width: 1; }
 .scene-error { position: absolute; inset: auto 0 0; margin: 0; padding: 10px; background: #8b000099; color: #fff; }
 
@@ -1170,6 +1196,14 @@ kbd {
 }
 .ov.tl { top: 8px; left: 10px; }
 .ov.br { bottom: 8px; right: 10px; }
+/* The detent readout is the one overlay that must NOT disappear when not looked
+   for — it appears only during a gesture, and it exists to be read at that
+   moment. So it is centred, full contrast, and on the accent. */
+.ov.detent {
+  bottom: 8px; left: 50%; transform: translateX(-50%);
+  padding: 3px 8px; border-radius: 5px;
+  background: var(--accent); color: #fff; font-size: 11px;
+}
 :root[data-theme="light"] .ov { color: rgba(0, 0, 0, 0.42); }
 
 /* ==========================================================================

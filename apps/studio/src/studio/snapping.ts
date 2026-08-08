@@ -462,6 +462,28 @@ export function snapAngle(
   return { degrees: stepped, detent: true, at: stepped };
 }
 
+/**
+ * The signed shortest turn from `from` to `to`, in degrees.
+ *
+ * ==========================================================================
+ * WHY A RING DRAG NEEDS AN OFFSET RATHER THAN THE SNAPPED ANGLE
+ * ==========================================================================
+ * `snapAngle` wraps into 0..360, and a ring drag legitimately passes 360 — the
+ * accumulated turn is what reaches 540°, and that is the whole reason the ring
+ * accumulates deltas instead of measuring from the grab. Replacing the raw turn
+ * with a wrapped snapped angle would silently undo two thirds of a long drag.
+ *
+ * So the snap is applied as a small correction to the raw turn instead, and
+ * this is the correction: signed, and never more than half a turn, so a drag at
+ * 359° nudges forward to 360 rather than backwards to 0.
+ */
+export function shortestOffset(from: number, to: number): number {
+  const raw = (to - from) % 360;
+  if (raw > 180) return raw - 360;
+  if (raw < -180) return raw + 360;
+  return raw;
+}
+
 /** Shortest distance between two angles, in degrees. Handles the wrap at 360. */
 export function angularDistance(a: number, b: number): number {
   const raw = Math.abs(normalise(a) - normalise(b)) % 360;

@@ -28,9 +28,10 @@ async function boot(page: Page): Promise<void> {
   // Studio opens at BEGINNER depth (Volume One L9). These are Designer
   await ensureDepth(page, "designer");
   await expect(page.getByTestId("scene-view")).toBeVisible();
-  // "layers", not "nodes" — the status bar says what a designer calls them.
+  // "objects", not "nodes" — the status bar says what a designer calls them,
+  // and the tree holds lights and cameras, which are not layers.
   // `journey.spec.ts` holds the stronger rule: "nodes" must not appear at all.
-  await expect(page.getByTestId("statusbar")).toContainText("layers");
+  await expect(page.getByTestId("statusbar")).toContainText("objects");
   // Fonts have parsed by now — TEXT_ENGINE 3 makes that a real wait.
 }
 

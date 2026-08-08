@@ -80,23 +80,23 @@ typecheck 15/15 · lint clean.
 
 Two of these need a decision, not more work.
 
-### 3.1 Virtual sets need glTF and image-based lighting — REFUSED in IF-006
+### 3.1 Virtual sets — **CUT, 2026-08-08**
 
-3dvirtualset.com sells photoreal sets: modelled desks, video walls, real
-lighting, HDRI reflections. This engine can build a *set* today — it has
-primitives, lights, shadows, a camera with real lenses, and a soft-gradient
-environment map. It cannot load a **model** or an **HDRI**, both refused in
+Cut by the founder: *"rule out virtual sets rn we are not giving chroma."*
+
+The reasoning holds independently of the decision, and is worth recording so the
+question is not reopened by accident. A virtual set only earns its cost when
+there is a **key** to composite the talent into it. Without chroma there is no
+key, so a set is a background nobody can stand in — which is a full-frame
+graphic, and the library already covers those in tranche 3.
+
+The glTF + HDRI question this section previously raised is therefore **moot for
+now**, not deferred-with-a-plan. It becomes live again only if chroma keying is
+ever funded, and at that point the blocker is unchanged: photoreal sets need
+model loading and image-based lighting, both refused in
 [IF-006](./IMPLEMENTATION_FINDING_IF-006.md) §5.
 
-So a virtual set built now is architectural: planes, boxes, cylinders, lit and
-shadowed, with screens that take a feed. That is genuinely usable for a news
-desk, an esports stage or a talk-show set, and it is **not** photoreal, and it
-will not be mistaken for the reference.
-
-**Decision needed:** fund the glTF + HDRI subsystem (the honest route to the
-reference), or accept architectural sets built from primitives for now. Building
-the primitive version first is not wasted either way — the set dressing, camera
-positions, screen feeds and lighting rigs are the same work.
+Nothing was built against this, so nothing is wasted.
 
 ### 3.2 Icons need SVG — REFUSED in IF-006 §3
 
@@ -151,16 +151,92 @@ variants are the thing that row should have been.
 | 2 | This plan, and the refusals above stated | ✅ |
 | 3 | Paint model — gradients, corners, strokes, shadows, glows | ✅ |
 | 4 | Paint through the reconciler and both backends, pixel-tested | ✅ |
-| 5 | Shape masking, for reveal animations that wipe rather than fade | ⏳ |
-| 6 | Overlay tranche 1 — lower thirds, name bars, tickers, labels | ⏳ |
-| 7 | Overlay tranche 2 — scoreboards, timers, alerts, now-playing, polls, social | ⏳ |
-| 8 | Overlay tranche 3 — full-frame screens, schedules, sponsor loops | ⏳ |
-| 9 | Customisation surface — fonts, colours, gradients, corners, strokes, shadows, per template | ⏳ |
-| 10 | 3D overlays — depth, lit solids, spin and orbit reveals | ⏳ |
-| 11 | Virtual sets — dressing, camera positions, screens that take a feed | ⏳ blocked on §3.1 decision for photoreal |
+| 5 | Gizmo snapping — grid, object, angle, size, in every gesture | ✅ — §6 |
+| 6 | Shape masking, for reveal animations that wipe rather than fade | ⏳ |
+| 7 | Overlay tranche 1 — lower thirds, name bars, tickers, labels | ⏳ |
+| 8 | Overlay tranche 2 — scoreboards, timers, alerts, now-playing, polls, social | ⏳ |
+| 9 | Overlay tranche 3 — full-frame screens, schedules, sponsor loops | ⏳ |
+| 10 | Customisation surface — fonts, colours, gradients, corners, strokes, shadows, per template | ⏳ |
+| 11 | 3D overlays — depth, lit solids, spin and orbit reveals | ⏳ |
+| — | ~~Virtual sets~~ | ❌ cut — §3.1 |
 | 12 | Adaptive Graphics with Transition Logic | ⏳ |
 
-Item 5 is next because a reveal that *wipes* is the difference between a graphic
-that looks animated and one that looks like it faded in — and masking is the one
-remaining primitive the animated library needs that the paint model did not
-bring.
+---
+
+## 6. Gizmo snapping
+
+**Brief:** *"gizmoz should be very inteactive and easy to use with snaping angle
+snapping size snapping grid snapping object snapping."*
+
+### 6.1 What was actually wrong
+
+Not that snapping was bad. That it existed **once** and was missing **four
+times**:
+
+| Gesture | Before |
+| --- | --- |
+| 2D move | grid + object edges ✅ |
+| 2D resize | nothing ❌ |
+| 2D rotate | 15°, and only while Shift was held ⚠️ |
+| 3D axis move | nothing ❌ |
+| 3D ring rotate | 15°, and only while Shift was held ⚠️ |
+| 3D stretch | nothing ❌ |
+
+That pattern appears because each gesture was wired separately, so each one had
+to *remember* to snap. A gesture that forgets is not a bug anybody files — it
+just feels slightly worse than the others, which is how an editor comes to feel
+unfinished without a single reproducible fault.
+
+`snapping.ts` is now one module every gesture asks, so adding a gesture means
+calling it rather than reimplementing it.
+
+### 6.2 What it snaps to
+
+- **Grid** — in 2D and now along all three axes in 3D. Only when the grid is
+  within reach, so a coarse grid is not a magnet the object cannot escape.
+- **Objects** — edges, centres, and **equal gaps**: the positions where the box
+  sits an equal distance between two neighbours, or continues an existing rhythm
+  past the end of a run. Alignment makes a row straight; equal spacing is what
+  makes it look designed.
+- **Safe areas** — title-safe and action-safe. *This was the most useful snap in
+  broadcast and it was missing entirely.* The margins were drawn on screen and
+  nothing landed on them, which is a ruler with no notches.
+- **Angle** — 15° by default, with **the cardinals pulling twice as hard**. A
+  graphic 1° off square is not at a jaunty angle, it is a mistake; so square is
+  the easy thing to hit and 15°-off-square is the deliberate one.
+- **Size** — matching another object's width or height, plus grid multiples and
+  the standard broadcast aspect ratios on a corner drag. Matching *width* is
+  what makes a stack of lower thirds read as one set, and aligning edges cannot
+  do it.
+- **Scale**, in 3D — the multiples a person says out loud (half, same, double)
+  and 10% steps between. Nobody wants 1.9873×; they wanted double.
+
+### 6.3 Two decisions worth naming
+
+**Snapping is on by default, and Alt suspends it.** Rotation used to need Shift,
+which meant the default gesture produced angles like 7.3°. Shift still *forces*
+snapping so the existing shortcut documentation stays true; Alt is the escape
+hatch, and it is what makes on-by-default acceptable.
+
+**Every snap says why.** The guide carries its reason, labels itself (`Edge`,
+`Centre`, `Title safe`, `Equal gap`, `Same size`) and is coloured by kind, and
+size/angle detents show a readout (`2.00×`, `90°`) because those have no line to
+draw. A designer who sees a value jump and cannot tell whether it hit the grid,
+an object edge or a margin does not trust it — and turns snapping off.
+
+### 6.4 Three bugs the tests found
+
+1. **A `<line>` guide has a zero-width bounding box**, so Playwright reports it
+   as not visible. The first browser tests used `isVisible()`: it failed the move
+   test on a guide that was really there, and made the Alt test a **false pass**,
+   since "no guide" was indistinguishable from "a guide Playwright would not
+   admit to seeing". Now asserted by attachment.
+2. **The flat rotate handle snapped silently** — the angle detent was wired but
+   its readout was not. Found by the browser test, not by reading the code.
+3. **The "moving" test was really resizing.** Dragging from the gizmo's bounding
+   box centre presses a resize handle, because the box includes the rotation
+   grip above the shape. It passed anyway, asserting feedback a resize also
+   produces. Both move tests now assert `data-drag` so neither can drift again.
+
+**Verified:** 44 unit tests · 6 browser tests · the 18 existing gesture browser
+tests still pass · studio unit suite 461 · typecheck and lint clean.

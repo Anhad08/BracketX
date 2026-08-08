@@ -1467,6 +1467,15 @@ export function App() {
           ["view.safeAreas", "safe areas", "showSafeAreas"],
           ["view.grid", "grid", "showGrid"],
           ["view.snap", "snapping", "snapEnabled"],
+          // The four kinds, individually. `commands.ts` states the rule — "an
+          // action with no entry here does not exist" — so a snap kind that
+          // could only be reached by editing stored workspace JSON would, for
+          // the menu bar, the palette and the keyboard, not exist at all.
+          ["view.snapGrid", "snap to grid", "snapToGrid"],
+          ["view.snapObjects", "snap to objects", "snapToObjects"],
+          ["view.snapSafe", "snap to safe areas", "snapToSafeAreas"],
+          ["view.snapAngle", "angle snapping", "snapToAngle"],
+          ["view.snapSize", "size snapping", "snapToSize"],
           ["view.debug", "debug overlay", "showDebug"],
         ] as const
       ).map(([id, label, key]) => ({
@@ -2491,6 +2500,7 @@ export function App() {
               <>
                 <Hierarchy
                   session={session}
+                  commands={commands}
                   selection={selection}
                   onSelection={setSelection}
                   expanded={expanded}
@@ -2560,9 +2570,10 @@ export function App() {
 
       <footer className="statusbar" data-testid="statusbar">
         <span>{selection.ids.length} selected</span>
-        {/* "Layers" is what the panel calls them and what a designer calls
-            them. "Nodes" is what the engine calls them. */}
-        <span className="dim">{countNodes(document_)} layers</span>
+        {/* "Objects" is what the panel now calls them. "Layers" was wrong the
+            moment the tree held things that are in space: a light and a camera
+            are not layers, and calling them one taught the wrong model. */}
+        <span className="dim">{countNodes(document_)} objects</span>
         <span className="dim" data-testid="history">
           history {store.depth}
           {store.dirty ? " · unsaved" : " · saved"}

@@ -28,7 +28,7 @@ async function boot(page: Page): Promise<void> {
   await expect(page.getByTestId("scene-view")).toBeVisible();
   // "layers", not "nodes" — the status bar says what a designer calls them.
   // `journey.spec.ts` holds the stronger rule: "nodes" must not appear at all.
-  await expect(page.getByTestId("statusbar")).toContainText("layers");
+  await expect(page.getByTestId("statusbar")).toContainText("objects");
   // Studio now opens at BEGINNER depth (Volume One L9): no toolbox, no layer
   // tree, no timeline. Every test in this file is a Designer or Advanced
   // workflow, so it asks for that depth the way a designer does — one click.

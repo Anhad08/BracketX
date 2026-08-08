@@ -37,8 +37,6 @@ import {
   screenToCanvas,
   screenToWorld,
   worldToScreen,
-  snap,
-  snapCandidates,
   worldToCanvas,
   zoomAt,
   type NodeBounds,
@@ -47,6 +45,24 @@ import {
   recentre,
   type Viewport,
 } from "../studio/viewport";
+import {
+  equalGapCandidates,
+  frameCandidates,
+  neighboursOn,
+  objectCandidates,
+  snapAlongAxis,
+  snapAngle,
+  snapAspect,
+  snapExtent,
+  snapResizePointer,
+  snapScale,
+  snapValue,
+  shortestOffset,
+  withModifiers,
+  type SnapCandidate,
+  type SnapGuide,
+  type SnapSettings,
+} from "../studio/snapping";
 import { SCENE_DRAG } from "../studio/place";
 import { cameraPosition, groundGrid, navigationGizmo } from "../studio/grid";
 import {
@@ -345,14 +361,96 @@ export function SceneView({
     return () => window.removeEventListener("keydown", close, true);
   }, [menu]);
 
-  const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({
-    x: null,
-    y: null,
-  });
+  /**
+   * The guides currently showing, and what they mean.
+   *
+   * `SnapGuide` rather than a bare coordinate, because a guide that cannot say
+   * whether it is an object edge, the title-safe margin or an equal gap is a
+   * line a designer has to guess at — and guessing is why people turn snapping
+   * off.
+   */
+  const [guides, setGuides] = useState<{
+    x: SnapGuide | null;
+    y: SnapGuide | null;
+  }>({ x: null, y: null });
+
+  /**
+   * What the current gesture snapped to, for the readout.
+   *
+   * Separate from `guides` because a size or angle detent has no line to draw —
+   * it is a number, and the number is the feedback.
+   */
+  const [detent, setDetent] = useState<string | null>(null);
 
   const document_ = session.document;
   const size = canvasSize(document_);
   const ppu = pixelsPerUnit(document_);
+
+  /**
+   * Snapping, as the workspace has it configured.
+   *
+   * Built here rather than passed in, so every gesture below reads ONE object
+   * and no gesture can be wired to a different set of rules than its
+   * neighbours — which is exactly how three of the six ended up with no
+   * snapping at all.
+   */
+  const snapSettings: SnapSettings = useMemo(
+    () => ({
+      enabled: workspace.snapEnabled,
+      toGrid: workspace.snapToGrid,
+      toObjects: workspace.snapToObjects,
+      toSafeAreas: workspace.snapToSafeAreas,
+      toAngle: workspace.snapToAngle,
+      toSize: workspace.snapToSize,
+      gridStep: workspace.gridStep,
+      angleStep: workspace.angleStep,
+      thresholdPx: 8,
+    }),
+    [
+      workspace.snapEnabled,
+      workspace.snapToGrid,
+      workspace.snapToObjects,
+      workspace.snapToSafeAreas,
+      workspace.snapToAngle,
+      workspace.snapToSize,
+      workspace.gridStep,
+      workspace.angleStep,
+    ],
+  );
+
+  /**
+   * The snap threshold in WORLD units, at the current zoom.
+   *
+   * 8 screen pixels feels the same at every zoom level; 8 world units does not.
+   * Converted in one place so no gesture can convert it differently.
+   */
+  const thresholdWorld = snapSettings.thresholdPx / (viewport.zoom * ppu);
+
+  /**
+   * The frame's centre lines, edges and safe margins, in WORLD units.
+   *
+   * `safeAreas` reports canvas pixels because that is what the overlay draws
+   * in; snapping happens in world units. Converted here rather than at the call
+   * site so the two conventions meet in exactly one place — world origin is the
+   * canvas centre (`worldToCanvas`), which is why every rect below is centred
+   * on zero.
+   */
+  const frameSnaps = useMemo(() => {
+    const width = size.width / ppu;
+    const height = size.height / ppu;
+    const declared = document_.world.safeAreas;
+    const inset = (fraction: number) => ({
+      x: 0,
+      y: 0,
+      width: width * fraction,
+      height: height * fraction,
+    });
+    return frameCandidates({
+      canvas: { x: 0, y: 0, width, height },
+      title: inset(declared?.title ?? 0.9),
+      action: inset(declared?.action ?? 0.93),
+    });
+  }, [size.width, size.height, ppu, document_.world.safeAreas]);
 
   // -- Canvas attachment ----------------------------------------------------
 
@@ -719,14 +817,37 @@ export function SceneView({
    * scale — which is why editors that do it that way feel like the object is
    * sliding on ice, faster at the far end of the arm than the near.
    */
-  const applyAxisDrag = (state: DragState, screen: Point) => {
+  const applyAxisDrag = (state: DragState, screen: Point, alt: boolean) => {
     if (state.axis === undefined || state.startParam === undefined) return;
     if (state.axisOrigin === undefined || view === null) return;
 
     const now = axisParameterAt(view, screenToCanvas(viewport, screen), state.axisOrigin, state.axis);
     if (now === null) return;
-    const delta = now - state.startParam;
+    const settings = withModifiers(snapSettings, { alt });
     const direction = state.axis.direction;
+
+    // ======================================================================
+    // A 3D MOVE SNAPS THE RESULTING COORDINATE, NOT THE DELTA
+    // ======================================================================
+    // Snapping the delta would land the node on a grid multiple AWAY from
+    // wherever it already was, so a node sitting at 0.13 would step to 1.13 —
+    // technically snapped, visibly not on the grid. The primary node's final
+    // coordinate along the axis is what has to be a round number; every other
+    // node in the selection then keeps its offset from it.
+    const primary = primaryOf(selection);
+    const anchor =
+      primary === null ? undefined : state.origins.get(primary);
+    const axisIndex = state.axis.id === "x" ? 0 : state.axis.id === "y" ? 1 : 2;
+
+    let delta = now - state.startParam;
+    let guide: SnapGuide | null = null;
+
+    if (anchor !== undefined) {
+      const hit = snapAlongAxis(anchor[axisIndex]! + delta, settings, thresholdWorld);
+      delta = hit.value - anchor[axisIndex]!;
+      guide = hit.guide;
+    }
+    setDetent(guide?.label ?? null);
 
     const moved = setPropOnMany(
       session.document,
@@ -761,7 +882,12 @@ export function SceneView({
    * those changes should re-render anything: the drawing follows the DOCUMENT,
    * which the drag is already writing.
    */
-  const applyRingDrag = (state: DragState, screen: Point, snap: boolean) => {
+  const applyRingDrag = (
+    state: DragState,
+    screen: Point,
+    force: boolean,
+    alt: boolean,
+  ) => {
     if (state.axis === undefined || view === null) return;
     if (state.axisOrigin === undefined) return;
     const gizmoFrame = state.frame ?? WORLD_FRAME;
@@ -777,11 +903,18 @@ export function SceneView({
     turned.current += turnBetween(lastAngle.current, now);
     lastAngle.current = now;
 
-    // 15° with Shift — the angles a broadcast set is actually built on.
+    // Snapped through the SAME detents the flat rotation grip uses, so a ring
+    // and a handle cannot disagree about what 90° is. On by default rather than
+    // Shift-only; Shift forces it when snapping is off globally, Alt suspends.
     const degrees = (turned.current * 180) / Math.PI;
-    const radians = snap
-      ? (Math.round(degrees / 15) * 15 * Math.PI) / 180
-      : turned.current;
+    const hit = snapAngle(degrees, withModifiers(snapSettings, { alt }), { force });
+    // `snapAngle` wraps into 0..360 and a ring drag legitimately passes 360 —
+    // the accumulated turn is what reaches 540°. So the SNAPPED OFFSET is
+    // applied to the raw turn rather than replacing it, which keeps multi-turn
+    // drags working while still landing on a detent.
+    const offset = hit.detent ? shortestOffset(degrees, hit.degrees) : 0;
+    const radians = ((degrees + offset) * Math.PI) / 180;
+    setDetent(hit.detent ? `${Math.round(degrees + offset)}°` : null);
 
     const ids = [...state.origins.keys()];
     const direction = state.axis.direction;
@@ -826,7 +959,12 @@ export function SceneView({
    * doubles the object whichever way the axis happens to point on screen — and
    * so that letting go where you grabbed leaves the object exactly as it was.
    */
-  const applyStretch = (state: DragState, screen: Point, uniform: boolean) => {
+  const applyStretch = (
+    state: DragState,
+    screen: Point,
+    uniform: boolean,
+    alt: boolean,
+  ) => {
     if (state.axis === undefined || view === null) return;
     if (state.axisOrigin === undefined || state.startDistance === undefined) return;
     const gizmoFrame = state.frame ?? WORLD_FRAME;
@@ -839,7 +977,17 @@ export function SceneView({
     );
     if (now === null) return;
 
-    const factor = scaleFactor(state.startDistance, now);
+    // Snapped to the multiples a designer says out loud — half, same, double —
+    // and to 10% steps between them. Nobody wants 1.9873x; they wanted double,
+    // and a scale nobody can read back is a scale nobody can reproduce on the
+    // next graphic in the set.
+    const hit = snapScale(
+      scaleFactor(state.startDistance, now),
+      withModifiers(snapSettings, { alt }),
+    );
+    const factor = hit.factor;
+    setDetent(hit.detent ? `${factor.toFixed(2)}×` : null);
+
     const index = state.axis.id === "x" ? 0 : state.axis.id === "y" ? 1 : 2;
     const ids = [...state.origins.keys()];
 
@@ -996,22 +1144,51 @@ export function SceneView({
     if (moved !== null) session.store.applySilently(moved);
   };
 
+  /**
+   * Turns the selection with the flat rotation grip.
+   *
+   * ==========================================================================
+   * ANGLE SNAPPING IS ON BY DEFAULT NOW, NOT ONLY WHILE SHIFT IS HELD
+   * ==========================================================================
+   * It used to require Shift, which meant the default gesture produced angles
+   * like 7.3° — and a broadcast graphic at 7.3° is not a design choice, it is
+   * something nobody noticed. Shift still FORCES snapping, so the shortcut
+   * documentation stays true even with snapping switched off globally, and Alt
+   * suspends it for a deliberate off-angle.
+   *
+   * `rotateBox`'s own 15° snap is no longer used: the detents live in
+   * `snapping.ts` where the cardinals pull harder than the step, so that square
+   * is the easy angle to hit rather than one of twenty-four equals.
+   */
   const applyRotate = (
     state: DragState,
     pivot: Point,
     world: Point,
-    snapAngle: boolean,
+    force: boolean,
+    alt: boolean,
   ) => {
+    const settings = withModifiers(snapSettings, { alt });
     const ids = [...state.origins.keys()];
+
+    const snapTurn = (degrees: number): number => {
+      const hit = snapAngle(degrees, settings, { force });
+      // The readout is not optional. A rotate that snaps silently is a rotate
+      // the designer has to verify in a panel afterwards — and this was the one
+      // gesture whose feedback was missed on the first pass, found by the
+      // browser test rather than by reading the code.
+      setDetent(hit.detent ? `${Math.round(hit.degrees)}°` : null);
+      return hit.degrees;
+    };
+
     const rotated = setPropOnMany(
       session.document,
       ids,
       "transform.rotation",
       (id) => {
         const start = state.startEulers?.get(id) ?? [0, 0, 0];
-        const next = rotateBox(pivot, state.startWorld, world, start[2], {
-          snap: snapAngle,
-        });
+        const next = snapTurn(
+          rotateBox(pivot, state.startWorld, world, start[2]),
+        );
         // X and Y are CARRIED, not zeroed. The flat handle turns about the
         // screen only, and a node angled in space that was then resized
         // square-on used to come back flat — the two rotations lived in the
@@ -1025,9 +1202,10 @@ export function SceneView({
     // Multi-selection orbits the pivot. A single node rotates in place because
     // its offset from the pivot is zero.
     if (ids.length > 1) {
-      const delta =
-        rotateBox(pivot, state.startWorld, world, 0, { snap: snapAngle }) *
-        (Math.PI / 180);
+      // Snapped through the SAME function as the rotation above, or the group
+      // orbits by a different angle than its members turn — which shears the
+      // selection apart over a long drag.
+      const delta = snapTurn(rotateBox(pivot, state.startWorld, world, 0)) * (Math.PI / 180);
       const cos = Math.cos(-delta);
       const sin = Math.sin(-delta);
       const orbited = setPropOnMany(
@@ -1375,15 +1553,15 @@ export function SceneView({
       return;
     }
     if (drag.kind === "axis") {
-      applyAxisDrag(drag, screen);
+      applyAxisDrag(drag, screen, event.altKey);
       return;
     }
     if (drag.kind === "ring") {
-      applyRingDrag(drag, screen, event.shiftKey);
+      applyRingDrag(drag, screen, event.shiftKey, event.altKey);
       return;
     }
     if (drag.kind === "stretch") {
-      applyStretch(drag, screen, event.shiftKey);
+      applyStretch(drag, screen, event.shiftKey, event.altKey);
       return;
     }
     if (drag.kind === "marquee") {
@@ -1392,17 +1570,94 @@ export function SceneView({
     }
 
     if (drag.kind === "resize" && drag.handle && drag.startRect) {
-      const result = resizeBox(drag.startRect, drag.handle, world, {
+      // ====================================================================
+      // A RESIZE SNAPS THE EDGE THE DESIGNER IS DRAGGING, THEN ITS SIZE
+      // ====================================================================
+      // Two passes, in this order, because they answer different questions.
+      // The POINTER pass aims the dragged edge at another object's edge, the
+      // safe margin or the grid — snapping the pointer rather than the result
+      // keeps the anchor corner exactly still, which snapping a width cannot.
+      // The SIZE pass then matches another object's width or height, which is
+      // what makes a stack of lower thirds read as one set.
+      const settings = withModifiers(snapSettings, { alt: event.altKey });
+      const moving = new Set(selection.ids);
+
+      const aimed = snapResizePointer(world, settings, {
+        dx: drag.handle.dx,
+        dy: drag.handle.dy,
+        candidates: {
+          x: [...objectCandidates(bounds, moving).x, ...frameSnaps.x],
+          y: [...objectCandidates(bounds, moving).y, ...frameSnaps.y],
+        },
+        extents: [],
+        heights: [],
+        thresholdWorld,
+      });
+
+      let result = resizeBox(drag.startRect, drag.handle, aimed, {
         lockAspect: event.shiftKey,
         fromCentre: event.metaKey || event.ctrlKey,
       });
+
+      let label = aimed.guideX?.label || aimed.guideY?.label || null;
+
+      if (settings.enabled) {
+        // The extents this resize produced, in world units, so they can be
+        // compared against what else is on stage.
+        const width = drag.startRect.width * result.scaleX;
+        const height = drag.startRect.height * result.scaleY;
+        const others = bounds.filter((entry) => !moving.has(entry.nodeId));
+
+        const snappedWidth =
+          drag.handle.dx === 0
+            ? { value: width, reason: null as string | null }
+            : snapExtent(
+                width,
+                others.map((entry) => ({ extent: entry.rect.width, nodeId: entry.nodeId })),
+                settings,
+                thresholdWorld,
+              );
+        const snappedHeight =
+          drag.handle.dy === 0
+            ? { value: height, reason: null as string | null }
+            : snapExtent(
+                height,
+                others.map((entry) => ({ extent: entry.rect.height, nodeId: entry.nodeId })),
+                settings,
+                thresholdWorld,
+              );
+
+        // A corner drag also offers the standard broadcast ratios.
+        const aspect =
+          drag.handle.dx !== 0 && drag.handle.dy !== 0
+            ? snapAspect(snappedWidth.value, snappedHeight.value, settings)
+            : { width: snappedWidth.value, height: snappedHeight.value, label: null };
+
+        // Re-derive the scale from the snapped extents, keeping the centre the
+        // first pass computed. Recomputing the centre from a snapped size is
+        // what makes the anchor corner creep.
+        result = {
+          ...result,
+          scaleX: drag.startRect.width > 0 ? aspect.width / drag.startRect.width : result.scaleX,
+          scaleY: drag.startRect.height > 0 ? aspect.height / drag.startRect.height : result.scaleY,
+        };
+
+        label =
+          aspect.label ??
+          (snappedWidth.reason === "size" || snappedHeight.reason === "size"
+            ? "Same size"
+            : label);
+      }
+
+      setGuides({ x: aimed.guideX, y: aimed.guideY });
+      setDetent(label);
       applyResize(drag, result);
       return;
     }
 
     if (drag.kind === "rotate" && drag.startRect) {
       const pivot = { x: drag.startRect.x, y: drag.startRect.y };
-      applyRotate(drag, pivot, world, event.shiftKey);
+      applyRotate(drag, pivot, world, event.shiftKey, event.altKey);
       return;
     }
 
@@ -1412,33 +1667,61 @@ export function SceneView({
     let dy = world.y - drag.startWorld.y;
 
     const primary = primaryOf(selection);
-    let guideX: number | null = null;
-    let guideY: number | null = null;
+    let guideX: SnapGuide | null = null;
+    let guideY: SnapGuide | null = null;
 
-    if (workspace.snapEnabled && primary !== null) {
+    // Alt suspends snapping for the length of the gesture — the escape hatch a
+    // designer needs to place something one pixel off a margin deliberately.
+    const settings = withModifiers(snapSettings, { alt: event.altKey });
+
+    if (settings.enabled && primary !== null) {
       const anchor = drag.origins.get(primary);
-      const candidates = snapCandidates(bounds, new Set(selection.ids));
-      // Threshold in SCREEN pixels, converted here — 8px feels the same at
-      // every zoom, and a world-space threshold does not.
-      const threshold = 8 / (viewport.zoom * ppu);
+      const moving = new Set(selection.ids);
+      const box = selectionBounds(bounds, selection.ids);
+
       if (anchor !== undefined) {
-        const x = snap(anchor[0] + dx, candidates.x, {
-          gridStep: workspace.gridStep,
-          toGrid: workspace.showGrid,
-          thresholdWorld: threshold,
-        });
-        const y = snap(anchor[1] + dy, candidates.y, {
-          gridStep: workspace.gridStep,
-          toGrid: workspace.showGrid,
-          thresholdWorld: threshold,
-        });
-        dx = x.value - anchor[0];
-        dy = y.value - anchor[1];
+        // Object edges and centres, the frame's own centre and safe margins,
+        // and the positions where this box would sit an equal distance between
+        // two neighbours. All three are candidates in one contest, so the
+        // strongest wins rather than whichever was checked first.
+        const objects = objectCandidates(bounds, moving);
+        const framed = frameSnaps;
+
+        const gapsX: readonly SnapCandidate[] =
+          box === null
+            ? []
+            : equalGapCandidates(box.width, neighboursOn("x", bounds, moving));
+        const gapsY: readonly SnapCandidate[] =
+          box === null
+            ? []
+            : equalGapCandidates(box.height, neighboursOn("y", bounds, moving));
+
+        // The BOX's centre is what aligns, not the anchor node's origin — a
+        // multi-selection whose primary sits at its left edge would otherwise
+        // align that node's origin and leave the group visibly off.
+        const offsetX = box === null ? 0 : box.x - anchor[0];
+        const offsetY = box === null ? 0 : box.y - anchor[1];
+
+        const x = snapValue(
+          anchor[0] + dx + offsetX,
+          [...objects.x, ...framed.x, ...gapsX],
+          settings,
+          thresholdWorld,
+        );
+        const y = snapValue(
+          anchor[1] + dy + offsetY,
+          [...objects.y, ...framed.y, ...gapsY],
+          settings,
+          thresholdWorld,
+        );
+        dx = x.value - offsetX - anchor[0];
+        dy = y.value - offsetY - anchor[1];
         guideX = x.guide;
         guideY = y.guide;
       }
     }
     setGuides({ x: guideX, y: guideY });
+    setDetent(guideX?.label || guideY?.label || null);
 
     // One transaction per pointer move would put a hundred entries on the undo
     // stack for one drag. Instead the store is driven directly and the undo
@@ -1568,6 +1851,7 @@ export function SceneView({
     setDrag(null);
     setMarqueeRect(null);
     setGuides({ x: null, y: null });
+    setDetent(null);
   };
 
   const onWheel = (event: React.WheelEvent) => {
@@ -2032,24 +2316,57 @@ export function SceneView({
           );
         })()}
 
+        {/* A GUIDE THAT SAYS WHAT IT IS.
+            An unlabelled line tells a designer that something snapped and not
+            what to — and somebody who cannot tell an object edge from the
+            title-safe margin stops trusting the line and turns snapping off.
+            The reason is carried on the element so the style can differ too:
+            a safe-area guide is not the same claim as an object edge. */}
         {workspace.showGuides && guides.x !== null ? (
-          <line
-            className="snap-guide"
-            x1={toScreen(guides.x, 0).x}
-            y1={0}
-            x2={toScreen(guides.x, 0).x}
-            y2={element.height}
-            data-testid="snap-guide-x"
-          />
+          <g>
+            <line
+              className="snap-guide"
+              data-reason={guides.x.reason}
+              x1={toScreen(guides.x.at, 0).x}
+              y1={0}
+              x2={toScreen(guides.x.at, 0).x}
+              y2={element.height}
+              data-testid="snap-guide-x"
+            />
+            {guides.x.label !== "" ? (
+              <text
+                className="snap-guide-label"
+                x={toScreen(guides.x.at, 0).x + 6}
+                y={14}
+                data-testid="snap-guide-x-label"
+              >
+                {guides.x.label}
+              </text>
+            ) : null}
+          </g>
         ) : null}
         {workspace.showGuides && guides.y !== null ? (
-          <line
-            className="snap-guide"
-            x1={0}
-            y1={toScreen(0, guides.y).y}
-            x2={element.width}
-            y2={toScreen(0, guides.y).y}
-          />
+          <g>
+            <line
+              className="snap-guide"
+              data-reason={guides.y.reason}
+              x1={0}
+              y1={toScreen(0, guides.y.at).y}
+              x2={element.width}
+              y2={toScreen(0, guides.y.at).y}
+              data-testid="snap-guide-y"
+            />
+            {guides.y.label !== "" ? (
+              <text
+                className="snap-guide-label"
+                x={6}
+                y={toScreen(0, guides.y.at).y - 6}
+                data-testid="snap-guide-y-label"
+              >
+                {guides.y.label}
+              </text>
+            ) : null}
+          </g>
         ) : null}
 
         {marqueeRect !== null ? (
@@ -2075,6 +2392,17 @@ export function SceneView({
           </span>
         );
       })()}
+
+      {/* WHAT JUST SNAPPED.
+          A size or angle detent has no line to draw — it IS a number, and the
+          number is the whole feedback. "2.00×" or "90°" beside the pointer is
+          the difference between a gesture that felt precise and a gesture the
+          designer has to verify in a panel afterwards. */}
+      {drag !== null && detent !== null ? (
+        <span className="ov detent" data-testid="ov-detent">
+          {detent}
+        </span>
+      ) : null}
 
       {/* Rulers read in flat canvas units. Under a turned camera those units
           no longer run along the screen, so the numbers would be confidently
