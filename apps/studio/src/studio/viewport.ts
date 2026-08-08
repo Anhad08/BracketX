@@ -362,6 +362,27 @@ export function nodeBounds(
 
   while (stack.length > 0) {
     const node = stack.pop()!;
+    // THE ROOT IS THE DOCUMENT, NOT AN OBJECT IN IT.
+    //
+    // A blank scene's root carries the canvas size, so its box covers every
+    // pixel of the stage. Emitting it made it the thing under the cursor
+    // wherever there was nothing else: clicking empty space selected it, a
+    // marquee anywhere caught it, and the next drag then moved THE WHOLE
+    // SCENE — every graphic, every solid, the lot — while the object the
+    // designer was aiming at stayed exactly where it was.
+    //
+    // Which is precisely how it was reported: "the object won't move, the
+    // whole viewport will". Nothing was wrong with the viewport. The root had
+    // been selected and dragged.
+    //
+    // Its children are still walked; only the root itself is not selectable.
+    if (node.id === document.root.id) {
+      const children = childrenOf(node);
+      for (let index = children.length - 1; index >= 0; index -= 1) {
+        stack.push(children[index]!);
+      }
+      continue;
+    }
     // Reversed, so `pop` yields siblings in DOCUMENT order. Without this the
     // stack inverts them and `pick` — which takes the last match as the
     // topmost — hands back whichever sibling was authored first.

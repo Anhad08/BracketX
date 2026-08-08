@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { childrenOf } from "@bracketx/engine-scene";
+import { childrenOf, findNode } from "@bracketx/engine-scene";
 import type { SceneDocument, SceneNode } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "../studio/session";
@@ -27,12 +27,9 @@ import {
   canvasToScreen,
   fit,
   frame,
-  marquee,
   nodeBounds,
   pan,
-  pick,
   pixelsPerUnit,
-  rectFromCorners,
   safeAreas,
   screenToCanvas,
   screenToWorld,
@@ -576,6 +573,121 @@ export function SceneView({
     // Recomputed when the document changes or a frame moved something.
     [document_, revision, session],
   );
+
+  /**
+   * Where a node ACTUALLY APPEARS on screen, silhouette and all.
+   *
+   * ==========================================================================
+   * THE BUG THIS EXISTS FOR
+   * ==========================================================================
+   * `nodeBounds` returns a flat rectangle: the node's `size`, in world units,
+   * lying in the XY plane. For a graphic that is the whole truth. For a cube
+   * it is a cross-section — the slice through its middle at z = 0 — and the
+   * editor was drawing the selection, hit-testing the click and placing the
+   * gizmo on that slice.
+   *
+   * A cube one unit on a side, seen from three-quarters, drew its selection as
+   * a 76-pixel square while the cube itself covered 186 by 155 pixels. The
+   * brackets sat over its top-left quarter, the gizmo origin sat where nothing
+   * was, and clicking the cube missed it. Not a rounding error — a different
+   * shape in a different place.
+   *
+   * Two things were wrong and both had to go:
+   *
+   *   DEPTH        the flat rect knows nothing about the third dimension, so
+   *                a solid's front face — nearer the lens, and therefore
+   *                projected LARGER — was never accounted for
+   *   PERSPECTIVE  the old code projected ONE corner and then sized the box in
+   *                canvas units times zoom. That is only correct when the
+   *                projection is a uniform scale, which is exactly what
+   *                perspective is not
+   *
+   * So this projects all EIGHT corners of the node's world box and takes their
+   * screen-space bounding box. Under an orthographic front-on view it reduces
+   * to the old answer, which is why the flat editor is unchanged.
+   */
+  const screenBoxes = useMemo(() => {
+    const out = new Map<string, Rect>();
+    for (const entry of bounds) {
+      const node = findNode(document_.root, entry.nodeId);
+      if (node === null) continue;
+
+      // Half-depth. A flat graphic has none, and its box collapses to the
+      // quad it always was.
+      // Read defensively. Component props are a union across every component
+      // type, and only a meshRenderer carries a primitive at all.
+      const mesh = (node.components ?? []).find(
+        (component) => component.type === "meshRenderer",
+      );
+      const primitive = (mesh?.props as Record<string, unknown> | undefined)?.primitive as
+        | Record<string, unknown>
+        | undefined;
+      const depth =
+        typeof primitive?.depth === "number"
+          ? primitive.depth
+          : typeof primitive?.radius === "number"
+            ? primitive.radius * 2
+            : 0;
+      const scaleZ = session.worldMatrixOf(entry.nodeId)?.[10] ?? 1;
+      const halfZ = (depth * scaleZ) / 2;
+
+      const left = entry.rect.x - entry.rect.width / 2;
+      const right = entry.rect.x + entry.rect.width / 2;
+      const bottom = entry.rect.y - entry.rect.height / 2;
+      const top = entry.rect.y + entry.rect.height / 2;
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const x of [left, right]) {
+        for (const y of [bottom, top]) {
+          for (const z of halfZ === 0 ? [0] : [-halfZ, halfZ]) {
+            const point = worldToScreen(document_, viewport, { x, y }, view ?? undefined, z);
+            if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+            if (point.x < minX) minX = point.x;
+            if (point.x > maxX) maxX = point.x;
+            if (point.y < minY) minY = point.y;
+            if (point.y > maxY) maxY = point.y;
+          }
+        }
+      }
+      if (!Number.isFinite(minX) || !Number.isFinite(minY)) continue;
+      out.set(entry.nodeId, {
+        x: minX,
+        y: minY,
+        width: Math.max(1, maxX - minX),
+        height: Math.max(1, maxY - minY),
+      });
+    }
+    return out;
+  }, [bounds, document_, viewport, view, session, revision]);
+
+  /**
+   * The node under a SCREEN point, or null.
+   *
+   * Picking used to invert the screen point onto the z = 0 plane and test the
+   * flat rects there, which asks "what would be under the cursor if every
+   * object were a sheet of paper on the floor". Testing the drawn silhouettes
+   * asks what the user can see, which is the question they are asking when
+   * they click.
+   *
+   * Last match wins, matching `pick`: `bounds` is emitted depth-first, so the
+   * last node containing the point is the one drawn most recently.
+   */
+  const pickOnScreen = (screen: Point): string | null => {
+    let hit: string | null = null;
+    for (const entry of bounds) {
+      const box = screenBoxes.get(entry.nodeId);
+      if (box === undefined) continue;
+      if (
+        screen.x >= box.x &&
+        screen.x <= box.x + box.width &&
+        screen.y >= box.y &&
+        screen.y <= box.y + box.height
+      ) {
+        hit = entry.nodeId;
+      }
+    }
+    return hit;
+  };
 
   /**
    * The move gizmo's three arms.
@@ -1458,7 +1570,10 @@ export function SceneView({
       }
     }
 
-    const hit = pick(bounds, world);
+    // Against the DRAWN silhouette. Inverting the cursor onto the z = 0
+    // plane asks what would be under it if every object were a sheet of paper
+    // on the floor; a solid is not, and clicking one used to miss.
+    const hit = pickOnScreen(screen);
     const pickable = hit !== null && !lockedIds.has(hit) ? hit : null;
 
     if (pickable === null) {
@@ -1524,7 +1639,7 @@ export function SceneView({
               : stretchers.length > 0
                 ? pickScaleHandle(stretchers, canvas)
                 : null;
-      const hit = handle === null && axis === null ? pick(bounds, world) : null;
+      const hit = handle === null && axis === null ? pickOnScreen(screen) : null;
       const node = hit !== null && !lockedIds.has(hit) ? hit : null;
       if (
         node !== hover.node ||
@@ -1744,8 +1859,34 @@ export function SceneView({
     if (drag === null) return;
 
     if (drag.kind === "marquee" && marqueeRect !== null) {
-      const area = rectFromCorners(marqueeRect.a, marqueeRect.b);
-      const hits = marquee(bounds, area).filter((id) => !lockedIds.has(id));
+      // ON SCREEN, like every other kind of picking.
+      //
+      // The rubber band is drawn on the screen and the user is enclosing what
+      // they can SEE. Intersecting flat world rects instead answers a
+      // different question — what would be enclosed if every object lay in the
+      // z = 0 plane — and in a dimensional view it caught solids the band was
+      // nowhere near and missed ones it plainly surrounded.
+      const a = toScreen(marqueeRect.a.x, marqueeRect.a.y);
+      const b = toScreen(marqueeRect.b.x, marqueeRect.b.y);
+      const area = {
+        left: Math.min(a.x, b.x),
+        right: Math.max(a.x, b.x),
+        top: Math.min(a.y, b.y),
+        bottom: Math.max(a.y, b.y),
+      };
+      const hits = bounds
+        .filter((entry) => {
+          const box = screenBoxes.get(entry.nodeId);
+          if (box === undefined) return false;
+          return (
+            box.x <= area.right &&
+            box.x + box.width >= area.left &&
+            box.y <= area.bottom &&
+            box.y + box.height >= area.top
+          );
+        })
+        .map((entry) => entry.nodeId)
+        .filter((id) => !lockedIds.has(id));
       onSelection(hits.length === 0 ? EMPTY_SELECTION : selectMany(hits));
     }
 
@@ -1977,8 +2118,7 @@ export function SceneView({
           // Right-clicking something that is not selected selects it first.
           // Anything else means the menu acts on a thing the user cannot see
           // they are acting on, which is how people delete the wrong layer.
-          const world = screenToWorld(document_, viewport, pointOf(event), view ?? undefined);
-          const hit = pick(bounds, world);
+          const hit = pickOnScreen(pointOf(event));
           if (hit !== null && !lockedIds.has(hit) && !selection.ids.includes(hit)) {
             onSelection(selectOnly(hit));
           }
@@ -2124,12 +2264,16 @@ export function SceneView({
           : null}
 
         {selectedBounds.map((entry) => {
-          const topLeft = toScreen(
+          // The DRAWN silhouette, not the flat cross-section. See `screenBoxes`
+          // — sizing a box by `width * ppu * zoom` assumes the projection is a
+          // uniform scale, and under perspective it is not.
+          const box = screenBoxes.get(entry.nodeId);
+          const topLeft = box ?? toScreen(
             entry.rect.x - entry.rect.width / 2,
             entry.rect.y + entry.rect.height / 2,
           );
-          const width = entry.rect.width * ppu * viewport.zoom;
-          const height = entry.rect.height * ppu * viewport.zoom;
+          const width = box?.width ?? entry.rect.width * ppu * viewport.zoom;
+          const height = box?.height ?? entry.rect.height * ppu * viewport.zoom;
           return (
             <g
               key={entry.nodeId}
@@ -2194,7 +2338,12 @@ export function SceneView({
           if (selection.ids.includes(hover.node)) return null;
           const box = bounds.find((entry) => entry.nodeId === hover.node);
           if (box === undefined) return null;
-          const topLeft = toScreen(box.rect.x - box.rect.width / 2, box.rect.y + box.rect.height / 2);
+          // The drawn silhouette, exactly as the selection uses. A hover
+          // outline that disagreed with the selection it predicts would be
+          // worse than no hover at all: it would teach the wrong hit area.
+          const screen = screenBoxes.get(hover.node);
+          const topLeft =
+            screen ?? toScreen(box.rect.x - box.rect.width / 2, box.rect.y + box.rect.height / 2);
           const scale = viewport.zoom * ppu;
           return (
             <rect
@@ -2202,8 +2351,8 @@ export function SceneView({
               data-testid="hover-outline"
               x={topLeft.x}
               y={topLeft.y}
-              width={box.rect.width * scale}
-              height={box.rect.height * scale}
+              width={screen?.width ?? box.rect.width * scale}
+              height={screen?.height ?? box.rect.height * scale}
             />
           );
         })()}
