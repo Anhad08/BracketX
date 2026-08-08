@@ -21,6 +21,7 @@
     "@bracketx/engine-scene": "workspace:*",
     "@bracketx/engine-text": "workspace:*",
     "@bracketx/engine-image": "workspace:*",
+    "@bracketx/engine-model": "workspace:*",
     "@bracketx/engine-assets": "workspace:*"
   },
   "devDependencies": {

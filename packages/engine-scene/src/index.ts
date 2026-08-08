@@ -63,6 +63,8 @@ export {
   type LightComponent,
   type MeshRendererComponent,
   type NodeRuntimeMetadata,
+  type PaintGradientSpec,
+  type PaintSpecDoc,
   type RectComponent,
   type SceneAsset,
   type SceneDocument,

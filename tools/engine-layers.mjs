@@ -67,6 +67,22 @@ export const ENGINE_PACKAGES = {
     allow: ["@bracketx/engine-scene"],
   },
 
+  "@bracketx/engine-model": {
+    layer: "engine-core",
+    // Owns the whole path from a model file to backend-neutral geometry:
+    // parsing, hierarchy, transforms, materials and animation clips. Depends on
+    // the scene graph for asset types and knows nothing about a renderer,
+    // because vertex data is backend-neutral — the same argument that keeps
+    // engine-text and engine-image off a backend.
+    //
+    // This is what makes "the renderer consumes assets through Streamatrix's
+    // own abstraction" true rather than aspirational. A glTF becomes positions,
+    // indices, normals and UVs here, and MirrorBackend already takes exactly
+    // that shape. Neither Babylon nor three ever learns what glTF is, and
+    // neither Marketplace nor Assets ever learns what a Babylon mesh is.
+    allow: ["@bracketx/engine-scene"],
+  },
+
   "@bracketx/engine-host": {
     layer: "engine-host",
     // The COMPOSITION ROOT. The only package that may know both the reconciler
@@ -84,6 +100,7 @@ export const ENGINE_PACKAGES = {
       "@bracketx/engine-reconciler",
       "@bracketx/engine-text",
       "@bracketx/engine-image",
+      "@bracketx/engine-model",
       "@bracketx/engine-assets",
     ],
   },

@@ -342,6 +342,25 @@ export class AssetRegistry {
 
     this.#resident.set(record.hash, { asset: decoded, refs: 0 });
     this.#bytes += decoded.bytes;
+
+    // THE CODEC'S FACTS BELONG ON THE RECORD.
+    //
+    // Only the decoder can know an image's dimensions or a model's size and
+    // vertex count, and the product needs them where records are read: the
+    // Assets panel shows them, and scene placement uses a model's measured
+    // bounds to put a 40-metre stadium and a 4-centimetre badge on stage at a
+    // usable size. Leaving them on the resident copy meant asking the question
+    // required already having the answer.
+    //
+    // `updatedAt` is deliberately NOT touched. Resolving is not an edit, and
+    // stamping it would mark every asset dirty the first time it loaded.
+    if (Object.keys(decoded.metadata).length > 0) {
+      this.#records.set(record.id, {
+        ...record,
+        metadata: { ...record.metadata, ...decoded.metadata },
+      });
+    }
+
     return { ok: true, asset: decoded };
   }
 

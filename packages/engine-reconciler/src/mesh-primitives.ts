@@ -340,3 +340,26 @@ export function readPrimitive(value: unknown): PrimitiveSpec | null {
     ...(number("rings") === undefined ? {} : { rings: number("rings")! }),
   };
 }
+
+/**
+ * An asset-backed mesh reference, or null when the spec is a generated shape.
+ *
+ * `{ shape: "asset", assetId, mesh }`. The mesh INDEX is part of the reference
+ * because one model file becomes many Scene Tree nodes — one per part, so a
+ * designer can select the sponsor board without selecting the stadium around
+ * it. Each node names the part it draws.
+ *
+ * Read here rather than in the projector so that "what a primitive spec may
+ * say" has exactly one home, which is what stopped `readPrimitive` and this
+ * disagreeing about a malformed value.
+ */
+export function readModelRef(
+  value: unknown,
+): { readonly assetId: string; readonly mesh: number } | null {
+  if (value === null || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  if (raw.shape !== "asset") return null;
+  if (typeof raw.assetId !== "string" || raw.assetId === "") return null;
+  const mesh = typeof raw.mesh === "number" && Number.isFinite(raw.mesh) ? raw.mesh : 0;
+  return { assetId: raw.assetId, mesh: Math.max(0, Math.floor(mesh)) };
+}

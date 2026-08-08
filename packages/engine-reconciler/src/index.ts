@@ -98,6 +98,7 @@ export {
   planeDescriptor,
   primitiveDescriptor,
   primitiveKey,
+  readModelRef,
   readPrimitive,
   sphereDescriptor,
   type PrimitiveShape,
@@ -200,3 +201,4 @@ export type {
   TextRequest,
 } from "./text-provider";
 export type { ImageProvider, ProvidedImage } from "./image-provider";
+export type { ModelProvider, ProvidedMesh } from "./model-provider";

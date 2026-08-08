@@ -141,6 +141,7 @@ import {
 import {
   primitiveDescriptor,
   primitiveKey,
+  readModelRef,
   readPrimitive,
 } from "./mesh-primitives";
 import {
@@ -173,6 +174,7 @@ import type {
 } from "./mirror-backend";
 import type { TextFacts, TextProvider, TextRequest } from "./text-provider";
 import type { ImageProvider, ProvidedImage } from "./image-provider";
+import type { ModelProvider } from "./model-provider";
 
 export class ProjectionError extends Error {
   constructor(message: string) {
@@ -522,6 +524,15 @@ export class Projector {
      * component with no provider attaches nothing while the node survives.
      */
     private readonly images?: ImageProvider,
+    /**
+     * Models, on the same terms.
+     *
+     * A scene with no imported geometry must not carry a parser, and a mesh
+     * pointing at an asset with no provider wired attaches nothing while the
+     * node survives — which is what an unloaded font and a missing image
+     * already do.
+     */
+    private readonly models?: ModelProvider,
   ) {}
 
   get dependencies(): DependencyIndex {
@@ -1512,10 +1523,24 @@ export class Projector {
    * reopened, and `unlit` is the only kind that produces a picture today.
    */
   #applyMesh(node: SceneNode, props: Record<string, unknown>): void {
+    // AN ASSET-BACKED MESH — an imported model.
+    //
+    // Handled before `readPrimitive`, which does not know about assets and
+    // returns null for them. The geometry arrives from a PROVIDER as positions,
+    // indices, normals and UVs, which is the shape `createGeometry` already
+    // takes: an imported stadium and a generated cube reach the backend through
+    // one code path, and the backend cannot tell them apart. That is what makes
+    // model support a Streamatrix feature rather than a renderer feature.
+    const asset = readModelRef(props.primitive);
+    if (asset !== null) {
+      this.#applyModelMesh(node, asset, props);
+      return;
+    }
+
     const spec = readPrimitive(props.primitive);
     if (spec === null) {
-      // An asset-backed mesh, or a malformed spec. Release anything this node
-      // used to own rather than leaving a stale attachment on screen.
+      // A malformed spec. Release anything this node used to own rather than
+      // leaving a stale attachment on screen.
       this.#releaseMesh(node.id);
       return;
     }
@@ -1554,6 +1579,101 @@ export class Projector {
       geometry: geometry.value,
       materialHandle: materialHandle.value,
     });
+  }
+
+  /**
+   * Attaches one mesh of an imported model.
+   *
+   * The node's OWN material wins when it states one, and the file's material is
+   * the default otherwise. That order is the whole difference between "an
+   * imported prop" and "an object in your scene": it arrives looking like
+   * itself, and the moment a designer assigns a Streamatrix material it becomes
+   * theirs. Neither is a special case in the Inspector — it edits the same
+   * `material` props a generated cube has.
+   */
+  #applyModelMesh(
+    node: SceneNode,
+    asset: { assetId: string; mesh: number },
+    props: Record<string, unknown>,
+  ): void {
+    const provider = this.models;
+    const supplied = provider?.mesh(asset.assetId, asset.mesh);
+    if (supplied === undefined) {
+      // Not loaded, or failed to. Nothing is drawn and the node survives — a
+      // placeholder cube standing in for a sponsor's product is the kind of
+      // thing that reaches air.
+      this.#releaseMesh(node.id);
+      return;
+    }
+
+    const key = `asset:${asset.assetId}:${asset.mesh}`;
+    // Authored material if there is one; otherwise the file's own, mapped into
+    // the engine's vocabulary.
+    const material: MaterialDescriptor =
+      props.material === undefined && supplied.material !== undefined
+        ? {
+            kind: "pbr",
+            baseColor: supplied.material.baseColor,
+            metallic: supplied.material.metallic,
+            roughness: supplied.material.roughness,
+            transparent: supplied.material.baseColor[3] < 1,
+            doubleSided: supplied.material.doubleSided,
+            ...(supplied.material.baseColorTexture === undefined
+              ? {}
+              : this.#modelTexture(supplied.material.baseColorTexture)),
+          }
+        : materialDescriptorOf(props.material);
+
+    const previous = this.#meshes.get(node.id);
+    if (previous !== undefined && previous.key === key) {
+      if (sameMaterial(previous.material, material)) return;
+      // In place, exactly as a generated primitive does: recreating would free
+      // and reallocate a GPU buffer to change a colour.
+      this.backend.updateMaterial(previous.materialHandle, material);
+      this.#meshes.set(node.id, { ...previous, material });
+      return;
+    }
+    if (previous !== undefined) this.#releaseMesh(node.id);
+
+    const geometry = this.backend.createGeometry({
+      positions: supplied.positions,
+      ...(supplied.indices === undefined ? {} : { indices: supplied.indices }),
+      ...(supplied.normals === undefined ? {} : { normals: supplied.normals }),
+      ...(supplied.uvs === undefined ? {} : { uvs: supplied.uvs }),
+    });
+    if (!geometry.ok) return;
+    const materialHandle = this.backend.createMaterial(material);
+    if (!materialHandle.ok) {
+      this.backend.destroyGeometry(geometry.value);
+      return;
+    }
+
+    this.mirror.setAttachment(node.id, {
+      kind: "mesh",
+      geometry: geometry.value,
+      material: materialHandle.value,
+    });
+    this.#meshes.set(node.id, {
+      key,
+      material,
+      geometry: geometry.value,
+      materialHandle: materialHandle.value,
+    });
+  }
+
+  /**
+   * The base-colour map for an imported material, if its texture has loaded.
+   *
+   * Routed through the IMAGE provider rather than decoded here: a texture
+   * inside a model is an image, and IF-005 already owns turning encoded bytes
+   * into premultiplied linear pixels. Two decoders for one job is how the two
+   * disagree about colour space.
+   */
+  #modelTexture(assetId: string): { map: TextureHandle } | Record<string, never> {
+    const image = this.images?.image(assetId);
+    if (image === undefined || image.width <= 0) return {};
+    const texture = this.#textureForImage(assetId, image);
+    return texture === undefined ? {} : { map: texture.handle };
   }
 
   /** Frees what a meshRenderer owned. Every create* above is matched here once. */

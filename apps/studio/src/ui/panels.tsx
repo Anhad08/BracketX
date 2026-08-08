@@ -43,6 +43,14 @@ import {
   graphicHasDepth,
 } from "../studio/finishes";
 import {
+  PAINTS,
+  applyPaint,
+  applyPaintEverywhere,
+  canPaint,
+  graphicPaint,
+  paintOfAll,
+} from "../studio/paints";
+import {
   LOOKS,
   applyLook,
   exposureOf,
@@ -549,6 +557,7 @@ export function Inspector({ session, selection, onEdit, developerMode }: Inspect
   const rectProps = (rect?.props ?? {}) as Record<string, unknown>;
   const mirror = session.host.reconciler.mirror.get(node.id);
   const selectionFinish = finishOfAll(document_, selection.ids);
+  const selectionPaint = paintOfAll(document_, selection.ids);
 
   return (
     <section className="panel inspector" aria-label="Properties" data-testid="inspector">
@@ -701,6 +710,44 @@ export function Inspector({ session, selection, onEdit, developerMode }: Inspect
             </p>
           ) : (
             <p className="note">{selectionFinish.hint}</p>
+          )}
+        </Group>
+      ) : null}
+
+      {/* STYLE — the flat-surface counterpart to Material.
+          Material says what a surface is made of under lights; Style says what
+          the graphic looks like flat: gradient, rounded corners, rim, shadow,
+          glow. Two pickers rather than one because they answer different
+          questions and a graphic routinely wants a look from each. Same
+          vocabulary rule: outcomes, never gradient stops. */}
+      {canPaint(document_, selection.ids) ? (
+        <Group title="Style">
+          <div className="finishes" data-testid="styles">
+            {PAINTS.map((paint) => (
+              <button
+                key={paint.id}
+                type="button"
+                className={`finish ${selectionPaint?.id === paint.id ? "on" : ""}`}
+                data-testid={`style-${paint.id}`}
+                aria-pressed={selectionPaint?.id === paint.id}
+                title={paint.hint}
+                onClick={() => {
+                  const txn = applyPaint(document_, selection.ids, paint);
+                  if (txn) onEdit(txn);
+                }}
+              >
+                {paint.label}
+              </button>
+            ))}
+          </div>
+          {selectionPaint === null ? (
+            <p className="note">
+              {selection.ids.length > 1
+                ? "These graphics are not all styled the same. Choosing one makes them match."
+                : "Adjusted by hand. Choosing a style replaces those values."}
+            </p>
+          ) : (
+            <p className="note">{selectionPaint.hint}</p>
           )}
         </Group>
       ) : null}
@@ -1364,6 +1411,7 @@ export function Content({
   const colours = colourTokens(document_);
   const solid = graphicHasDepth(document_);
   const current = graphicFinish(document_);
+  const currentPaint = graphicPaint(document_);
   const currentLook = lookOf(document_);
   const lights = lightsOf(document_);
   /** Is there anything in this scene that a light would change? */
@@ -1518,6 +1566,49 @@ export function Content({
             ))}
           </div>
         ) : null}
+      </div>
+
+      {/* ==================================================================
+          STYLE — THE WHOLE GRAPHIC, IN ONE PRESS
+          ==================================================================
+          The same golden rule as 3D above, applied to the flat look: one press
+          restyles every panel in the graphic, and the engine makes the hundreds
+          of decisions — gradient direction, corner radius scaled to each box,
+          rim highlight opacity, shadow blur and offset.
+
+          On the whole graphic rather than a selection, for the same reason
+          Enable 3D is: a beginner has no selection, and a lower third whose
+          plate went Glass while its accent bar stayed flat is not a glass
+          lower third.
+
+          Every look is derived from each node's OWN fill, so this never
+          repaints a broadcaster's brand in somebody else's colours. */}
+      <div className="fgrp" data-testid="content-style">
+        <div className="lbl">Style<span className="ln" /></div>
+        <div className="finishes" data-testid="graphic-styles">
+          {PAINTS.map((paint) => (
+            <button
+              key={paint.id}
+              type="button"
+              className={`finish ${currentPaint?.id === paint.id ? "on" : ""}`}
+              data-testid={`graphic-style-${paint.id}`}
+              aria-pressed={currentPaint?.id === paint.id}
+              title={paint.hint}
+              disabled={onAir}
+              onClick={() => {
+                const txn = applyPaintEverywhere(document_, paint);
+                if (txn) onEdit(txn);
+              }}
+            >
+              {paint.label}
+            </button>
+          ))}
+        </div>
+        <p className="note">
+          {currentPaint === null
+            ? "The graphic's panels are styled differently. Choosing one makes them match."
+            : currentPaint.hint}
+        </p>
       </div>
 
       {/* ==================================================================
