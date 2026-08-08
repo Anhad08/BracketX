@@ -49,6 +49,8 @@ import {
   canPaint,
   graphicPaint,
   paintOfAll,
+  paintableIds,
+  repaint,
 } from "../studio/paints";
 import {
   LOOKS,
@@ -1495,8 +1497,27 @@ export function Content({
                   aria-label={token.name}
                   data-testid={`token-${token.name}`}
                   onChange={(event) => {
-                    const txn = setToken(document_, { ...token, value: event.target.value });
-                    if (txn) onEdit(txn);
+                    const value = event.target.value;
+                    const txn = setToken(document_, { ...token, value });
+                    if (txn === null) return;
+                    // A STYLE IS DERIVED FROM ITS COLOUR, so recolouring has to
+                    // rebuild it. Without this, changing Surface from near-black
+                    // to red turns every flat fill red and leaves every gradient
+                    // describing the old colour — a graphic that looks broken in
+                    // a way that points at the colour picker.
+                    //
+                    // Merged into ONE transaction rather than applied after, so
+                    // a recolour is a single undo step and never leaves the
+                    // colour changed with the gradients half-rebuilt.
+                    const rebuild = repaint(document_, paintableIds(document_), {
+                      name: token.name,
+                      value,
+                    });
+                    onEdit(
+                      rebuild === null
+                        ? txn
+                        : { ...txn, operations: [...txn.operations, ...rebuild.operations] },
+                    );
                   }}
                 />
                 <span className="swatch-name">{roleName(token.name)}</span>

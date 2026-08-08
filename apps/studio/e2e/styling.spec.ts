@@ -117,14 +117,31 @@ test("a style survives a save and a reopen", async ({ page }) => {
 
   // Save through the real command, not a test hook.
   await page.keyboard.press("ControlOrMeta+s");
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1000);
 
-  // Reopen the application entirely. A style held only in memory passes every
-  // in-session assertion and is worthless.
+  // Reload the whole application. Studio does NOT restore the open document on
+  // reload — only the recents list persists — so reopening means what it means
+  // for a user: come back to Home and pick the project up again. Asserting a
+  // reload alone would have been asserting a feature the product does not have.
   await page.reload();
   await expect(page.getByTestId("rail")).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
 
+  // The workspace persists which SECTION was open, so a reload lands back on
+  // Design rather than Home — and the recents list lives on Home. Looking for a
+  // recent project without navigating there first reports "the save produced no
+  // recent project" when the save was fine.
+  await page.getByTestId("nav-home").click();
+
+  const recent = page.locator('[data-testid^="recent-"]').first();
+  await expect(recent, "the save produced no recent project").toBeVisible({
+    timeout: 15_000,
+  });
+  await recent.click();
+
+  await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
+  await expect(page.getByTestId("graphic-styles")).toBeVisible({ timeout: 30_000 });
+
+  // The style came back from disk, not from memory.
   await expect(page.getByTestId("graphic-style-glass")).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -150,9 +167,13 @@ test("a styled graphic goes to air and reaches Program", async ({ page }) => {
   // Program is a SECOND renderer of the same document. A paint that reached the
   // design viewport but not Program would be a graphic that looks right to the
   // designer and wrong to the audience — the worst possible failure here.
-  const program = page.locator('[data-testid="program-canvas"] canvas').first();
+  const program = page.getByTestId("program-monitor");
   await expect(program).toBeVisible();
   await page.waitForTimeout(700);
+  // The canvas is MOVED into the program monitor rather than recreated — a
+  // backend binds to its canvas for the session (MirrorBackend C2) — so the
+  // assertion is that the monitor is hosting one and drawing.
+  await expect(program.locator("canvas")).toHaveCount(1);
   const shot = await program.screenshot();
   expect(shot.byteLength, "Program rendered nothing").toBeGreaterThan(1000);
 
@@ -185,4 +206,39 @@ test("styling a selection is offered beside Material, in Designer depth", async 
     "aria-pressed",
     "false",
   );
+});
+
+test("recolouring a theme rebuilds the gradients with it", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await openLowerThird(page);
+
+  await page.getByTestId("graphic-style-soft").click();
+  await page.waitForTimeout(700);
+  const before = await picture(page);
+
+  // The beginner COLOUR swatch — the gesture a broadcaster actually makes.
+  const surface = page.getByTestId("token-color.surface");
+  await expect(surface).toBeVisible();
+  await surface.fill("#7a1030");
+  await page.waitForTimeout(900);
+
+  // A style is DERIVED from its colour, so recolouring must rebuild it. Without
+  // that, the flat fill goes red and every gradient keeps describing the old
+  // colour — and the picker then reports the style as hand-edited.
+  expect(Buffer.compare(before, await picture(page)), "recolour changed nothing").not.toBe(0);
+  await expect(page.getByTestId("graphic-style-soft")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  // One undo step: the colour and the rebuild travel together, so a single undo
+  // cannot leave the fill recoloured with stale gradients.
+  await page.keyboard.press("ControlOrMeta+z");
+  await page.waitForTimeout(900);
+  await expect(page.getByTestId("graphic-style-soft")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(errors, errors.join("\n")).toEqual([]);
 });

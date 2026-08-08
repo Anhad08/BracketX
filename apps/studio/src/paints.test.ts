@@ -315,3 +315,59 @@ describe("the whole graphic at once", () => {
     expect(graphicPaint(after)?.id).toBe("elevated");
   });
 });
+
+describe("recolouring through a token", () => {
+  /** A themed rect, the way every shipped template writes one. */
+  function themed(id: string): SceneNode {
+    return rect(id, { $var: "color.surface" });
+  }
+
+  function withTokens(value: string, ...children: SceneNode[]): SceneDocument {
+    const base = documentOf(...children);
+    return { ...base, tokens: [{ name: "color.surface", value }] } as SceneDocument;
+  }
+
+  it("resolves a token binding, so a SHIPPED template is paintable", () => {
+    // The bug this pins: treating any non-string fill as unpaintable disabled
+    // styling on every template the product ships, because they all bind their
+    // fills to design tokens.
+    const document = withTokens("#101319", themed("nod_a"));
+    expect(canPaint(document, ["nod_a"])).toBe(true);
+    expect(applyPaint(document, ["nod_a"], paintById("soft")!)).not.toBeNull();
+  });
+
+  it("records the RESOLVED colour, not the binding", () => {
+    const before = withTokens("#101319", themed("nod_a"));
+    const after = commit(before, applyPaint(before, ["nod_a"], paintById("soft")!));
+    const props = (after.root.children![0]!.components ?? [])[0]!.props as Record<string, unknown>;
+    expect(props.paintFrom).toBe("#101319");
+    // And the fill is still the BINDING — styling must not flatten a theme.
+    expect(props.fill).toEqual({ $var: "color.surface" });
+  });
+
+  it("rebuilds against a token value that has not been written yet", () => {
+    // What the colour swatch needs: the new value is known before the document
+    // carries it, so the recolour and the rebuild can be ONE undo step.
+    let document = withTokens("#101319", themed("nod_a"));
+    document = commit(document, applyPaint(document, ["nod_a"], paintById("soft")!));
+    const wasDark = JSON.stringify(paintPropOf(document, "nod_a"));
+
+    const rebuild = repaint(document, ["nod_a"], {
+      name: "color.surface",
+      value: "#d7263d",
+    });
+    expect(rebuild).not.toBeNull();
+    document = applyTransaction(document, rebuild!);
+
+    expect(JSON.stringify(paintPropOf(document, "nod_a"))).not.toBe(wasDark);
+    // paintFrom followed, so the style still reports itself after the recolour.
+    const props = (document.root.children![0]!.components ?? [])[0]!.props as Record<string, unknown>;
+    expect(props.paintFrom).toBe("#d7263d");
+  });
+
+  it("does nothing for a token the graphic does not use", () => {
+    let document = withTokens("#101319", themed("nod_a"));
+    document = commit(document, applyPaint(document, ["nod_a"], paintById("soft")!));
+    expect(repaint(document, ["nod_a"], { name: "color.primary", value: "#fff" })).toBeNull();
+  });
+});

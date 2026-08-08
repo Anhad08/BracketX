@@ -152,10 +152,11 @@ variants are the thing that row should have been.
 | 3 | Paint model — gradients, corners, strokes, shadows, glows | ✅ |
 | 4 | Paint through the reconciler and both backends, pixel-tested | ✅ |
 | 5 | Gizmo snapping — grid, object, angle, size, in every gesture | ✅ — §6 |
-| 6 | Shape masking, for reveal animations that wipe rather than fade | ⏳ |
-| 7 | Overlay tranche 1 — lower thirds, name bars, tickers, labels | ⏳ |
-| 8 | Overlay tranche 2 — scoreboards, timers, alerts, now-playing, polls, social | ⏳ |
-| 9 | Overlay tranche 3 — full-frame screens, schedules, sponsor loops | ⏳ |
+| 6 | **Styling — paint as a user capability**, Design panel + templates | ✅ — §7 |
+| 7 | Shape masking, for reveal animations that wipe rather than fade | ⏳ |
+| 8 | Overlay tranche 1 — lower thirds, name bars, tickers, labels | ⏳ |
+| 9 | Overlay tranche 2 — scoreboards, timers, alerts, now-playing, polls, social | ⏳ |
+| 10 | Overlay tranche 3 — full-frame screens, schedules, sponsor loops | ⏳ |
 | 10 | Customisation surface — fonts, colours, gradients, corners, strokes, shadows, per template | ⏳ |
 | 11 | 3D overlays — depth, lit solids, spin and orbit reveals | ⏳ |
 | — | ~~Virtual sets~~ | ❌ cut — §3.1 |
@@ -240,3 +241,69 @@ an object edge or a margin does not trust it — and turns snapping off.
 
 **Verified:** 44 unit tests · 6 browser tests · the 18 existing gesture browser
 tests still pass · studio unit suite 461 · typecheck and lint clean.
+
+---
+
+## 7. Styling — closing the vertical on paint
+
+**Why this jumped the queue.** The 3D-workflow brief states an acceptance rule
+that applies to everything: *do not report a capability unless the user can
+actually use it.* By that rule, "paint model implemented" (§2) was **not true**.
+The engine drew gradients, rounded corners, strokes, shadows and glows, all
+pixel-tested — and no Studio panel exposed any of it, so nobody could put a
+gradient on a graphic. Masking and the library tranches were postponed to fix
+that first.
+
+**What was added.** `apps/studio/src/studio/paints.ts` — seven named looks
+(Flat, Soft, Elevated, Glass, Glow, Outlined, Pill), a per-node picker beside
+Material in the inspector, and a whole-graphic picker in the beginner Content
+panel next to Enable 3D.
+
+**The vocabulary rule is `finishes.ts`'s, applied unchanged:** a person picks
+*Glass*, the engine receives a full `PaintSpecDoc`. No gradient stop, corner
+radius or blur radius appears in the interface.
+
+**Every look is derived from the node's own fill**, so a look can never
+introduce a colour the document did not already contain — a broadcaster's brand
+survives a restyle. The cost is that a paint goes stale on a recolour, which
+`repaint` rebuilds.
+
+### 7.1 Four bugs, and the test that found each
+
+1. **The feature was disabled on all real content.** Template fills are
+   `{ $var: "color.surface" }` token bindings, and the first version treated any
+   non-string fill as unpaintable. Correct in spirit, catastrophic in effect: the
+   only paintable rects were ones a user had drawn by hand, and on every shipped
+   template the picker rendered with nothing lit and every click did nothing. The
+   distinction that matters is not literal-vs-bound but *knowable here* — a token
+   resolves against the document; a live data feed does not.
+2. **Saved styles came back unrecognised — key order.** `canonicalize` sorts keys
+   on save, so a reopened paint reads `{cornerRadius, gradient, shadow, stroke}`
+   while `build` emits authoring order. The comparison was order-sensitive.
+3. **Saved styles came back unrecognised — precision.** `1.9 * 0.12` is
+   `0.22799999999999998` in memory and `0.228` on disk.
+4. **`repaint` discarded hand edits.** It could not tell "the fill changed" from
+   "somebody edited a stop" — both differ from a fresh build. Fixed by recording
+   `paintFrom`, the colour the paint was built from.
+
+(2) and (3) share a symptom worth naming: reopen a Glass lower third and the
+picker showed *nothing* selected. The style still rendered; the product had
+forgotten its own name for it, and `repaint` would then refuse to follow a
+recolour because it believed the gradient was hand-edited. Both are invisible
+within one session — only the save-and-reopen browser test caught them. (1) and
+(4) were caught the same way: by driving the real gesture rather than the unit.
+
+**Verified as a journey, not as units:** style it → the picture changes → all
+seven looks draw differently → save → reload → reopen from recents → still
+Glass → cue → take → Program renders it. 23 unit tests, 5 browser tests, studio
+suite 524, and the 16 neighbouring gesture browser tests still pass.
+
+### 7.2 Noticed, not caused, not fixed
+
+In the flagship lower third the **Name and Role text is hidden behind the
+Background panel**. This is not a paint bug: it reproduces on *Flat*, which
+writes no paint at all. It appeared alongside `e683b1a` "the scene tree now
+decides what covers what", which is the render-ordering work owned by the other
+session in flight. Left untouched rather than fixed from here, because two
+sessions editing render order at once is how both changes get lost — but it is a
+visible fault in the template a first-time user opens first.

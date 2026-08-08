@@ -1062,11 +1062,31 @@ export class Projector {
     this.#paintOrder.clear();
     let next = 0;
 
-    const visit = (nodeId: string): void => {
-      if (this.#isFlat(nodeId)) this.#paintOrder.set(nodeId, (next += 1));
-      for (const childId of this.mirror.childrenOf(nodeId)) visit(childId);
+    /**
+     * `inherited` is what a node with no DOCUMENT node behind it uses.
+     *
+     * A text node draws through a synthetic mirror CHILD — one per batch, with
+     * no document node corresponding to it (see `TextInstance.child`). Asking
+     * `#isFlat` about that child finds no components and answers "not flat", so
+     * it kept paint order 0 while its own parent, a real node, got a positive
+     * one. In the transparent sort, order 0 draws FIRST — so the lower third's
+     * background plate painted straight over ALEX RIVERA and Team Captain.
+     *
+     * The founder found that within the hour. It is exactly the class of bug
+     * this mechanism was introduced to fix, reintroduced one level down, and
+     * the reason is instructive: the tree the DOCUMENT describes and the tree
+     * the MIRROR holds are not the same tree, and paint order is a property of
+     * the second one.
+     *
+     * So flatness is inherited. A batch belongs to the text node that made it,
+     * sits just above it in the walk, and composites where the designer put it.
+     */
+    const visit = (nodeId: string, inherited: boolean): void => {
+      const own = this.#index.has(nodeId) ? this.#isFlat(nodeId) : inherited;
+      if (own) this.#paintOrder.set(nodeId, (next += 1));
+      for (const childId of this.mirror.childrenOf(nodeId)) visit(childId, own);
     };
-    visit(root);
+    visit(root, false);
 
     // Push only differences. Every flat node's order shifts by one when a node
     // is inserted near the front, but the mirror holds what the backend was

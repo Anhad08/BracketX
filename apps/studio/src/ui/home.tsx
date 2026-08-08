@@ -153,7 +153,11 @@ export function Home({
             <ul className="row-list">
               {recents.slice(0, 6).map((project) => (
                 <li key={project.id}>
-                  <button type="button" onClick={() => onOpenRecent(project)}>
+                  <button
+                    type="button"
+                    data-testid={`recent-${project.id}`}
+                    onClick={() => onOpenRecent(project)}
+                  >
                     <strong>{project.name}</strong>
                     <span className="dim">{friendlyDate(project.savedAt)}</span>
                   </button>

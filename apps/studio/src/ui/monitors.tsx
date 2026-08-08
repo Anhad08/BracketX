@@ -230,7 +230,7 @@ export function Monitors({
           data-testid="monitor-program"
           data-live={live ? "yes" : "no"}
         >
-          <div className="mon-face" ref={programMount} />
+          <div className="mon-face" ref={programMount} data-testid="program-monitor" />
 
           {/* THE KEY, on the monitor it acts on. It is the one primary control
               on this screen, and it sits over Program because that is where

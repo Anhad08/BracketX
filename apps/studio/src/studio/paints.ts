@@ -274,6 +274,60 @@ export function paintById(id: string): Paint | undefined {
 // Reading what a node wears
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolves a rect's `fill` to a concrete colour, or null.
+ *
+ * ==========================================================================
+ * A TOKEN BINDING IS RESOLVABLE. A RUNTIME VARIABLE IS NOT
+ * ==========================================================================
+ * Every pack template writes its fills as `{ $var: "color.surface" }`, because
+ * that reference is what makes a graphic themeable — installing a theme pack
+ * rewrites `tokens` and every graphic pointing at them repaints.
+ *
+ * The first version of this module treated any non-string fill as unpaintable,
+ * which was correct in spirit and catastrophic in effect: it disabled styling on
+ * **every template the product ships**, and the only rects it would paint were
+ * ones a user had drawn by hand. The style picker rendered with nothing lit and
+ * every click did nothing.
+ *
+ * The distinction that matters is not "literal vs bound". It is whether the
+ * value is KNOWABLE HERE. A `$var` naming a design token resolves against the
+ * document — the same chain the host walks, variables first then tokens. A
+ * `$var` fed by a live data feed genuinely cannot be known at author time, and
+ * that one stays unpaintable.
+ */
+function resolveColour(
+  document: SceneDocument,
+  fill: unknown,
+  override?: TokenOverride,
+): string | null {
+  if (typeof fill === "string") return fill;
+  if (fill === null || typeof fill !== "object") return null;
+
+  const name = (fill as { $var?: unknown }).$var;
+  if (typeof name !== "string") return null;
+
+  // A recolour in flight. The token's new value is known before the document
+  // carries it, which is what lets the swatch rebuild every gradient in the SAME
+  // transaction as the colour change — one undo step for "recolour", rather than
+  // a colour edit followed by a mysterious second entry.
+  if (override !== undefined && override.name === name) return override.value;
+
+  // Variables first, then tokens — the order the host resolves in, so an
+  // operator's on-air override wins exactly as it does at render time.
+  const variable = (document.variables ?? []).find((entry) => entry.key === name);
+  if (typeof variable?.default === "string") return variable.default;
+
+  const token = (document.tokens ?? []).find((entry) => entry.name === name);
+  return typeof token?.value === "string" ? token.value : null;
+}
+
+/** A token value that is about to change, but has not been written yet. */
+export interface TokenOverride {
+  readonly name: string;
+  readonly value: string;
+}
+
 interface RectFacts {
   readonly index: number;
   readonly fill: string;
@@ -297,18 +351,21 @@ interface RectFacts {
  * lights and groups all reach here through a multi-selection and none of them
  * can wear a paint.
  */
-function rectFactsOf(node: SceneNode): RectFacts | null {
+function rectFactsOf(
+  document: SceneDocument,
+  node: SceneNode,
+  override?: TokenOverride,
+): RectFacts | null {
   const components = node.components ?? [];
   for (let index = 0; index < components.length; index += 1) {
     const component = components[index]!;
     if (component.type !== "rect") continue;
     const props = component.props as Record<string, unknown>;
 
-    // A BOUND fill cannot be read as a colour, so a paint cannot be derived
-    // from it. Falling back to white would repaint a brand-bound graphic in
-    // white the moment somebody clicked a look, so the fallback is the
-    // document's declared literal only.
-    const fill = typeof props.fill === "string" ? props.fill : null;
+    // Resolved, so a themed template is paintable. Null only when the colour is
+    // genuinely unknowable here — a fill driven by a live feed. Guessing white
+    // would repaint a broadcaster's brand the moment somebody clicked a look.
+    const fill = resolveColour(document, props.fill, override);
     if (fill === null) return null;
 
     const width = typeof props.width === "number" ? props.width : 1;
@@ -331,7 +388,7 @@ export function canPaint(
 ): boolean {
   return nodeIds.some((id) => {
     const node = findNode(document.root, id);
-    return node !== null && node !== undefined && rectFactsOf(node) !== null;
+    return node !== null && node !== undefined && rectFactsOf(document, node) !== null;
   });
 }
 
@@ -345,7 +402,7 @@ export function canPaint(
 export function paintOf(document: SceneDocument, nodeId: string): Paint | null {
   const node = findNode(document.root, nodeId);
   if (node === null || node === undefined) return null;
-  const facts = rectFactsOf(node);
+  const facts = rectFactsOf(document, node);
   if (facts === null) return null;
 
   const claimed = facts.styleId === null ? null : paintById(facts.styleId);
@@ -384,14 +441,70 @@ export function paintOfAll(
   return shared;
 }
 
-/** Structural equality, for comparing a stored paint against a rebuilt one. */
+/**
+ * Structural equality for a paint, TOLERANT OF PRECISION.
+ *
+ * ==========================================================================
+ * WHY EXACT COMPARISON WAS WRONG, AND HOW IT FAILED
+ * ==========================================================================
+ * `build` produces values like `1.9 * 0.09 === 0.17099999999999999`. The scene
+ * document stores numbers at fixed precision, so that value comes back from a
+ * save as `0.171` — and an exact JSON comparison then declares the paint
+ * hand-edited. The visible symptom was the worst kind: save a Glass lower third,
+ * reopen it, and the picker showed NOTHING selected. The style was still
+ * rendering correctly; the product had just forgotten its own name for it, and
+ * `repaint` would then refuse to follow a recolour because it believed the user
+ * had edited the gradient by hand.
+ *
+ * Caught by the save-and-reopen browser test, and by nothing else — every
+ * in-session assertion passed, because within one session the float never
+ * round-trips.
+ *
+ * Numbers are therefore compared at the precision the document keeps, and
+ * everything else structurally.
+ */
+const COMPARE_PRECISION = 6;
+
 function sameShape(left: unknown, right: unknown): boolean {
-  if (left === right) return true;
-  if (left === undefined || right === undefined) return false;
-  // JSON is a fair canonical form here: a PaintSpecDoc is flat, bounded, has no
-  // cycles and no undefined-vs-absent ambiguity, because `build` never emits
-  // undefined members.
-  return JSON.stringify(left) === JSON.stringify(right);
+  if (left === undefined || right === undefined) return left === right;
+  return canonical(left) === canonical(right);
+}
+
+/**
+ * A canonical string for a paint: keys sorted, numbers quantised.
+ *
+ * ==========================================================================
+ * BOTH HALVES OF THIS WERE LEARNED THE HARD WAY
+ * ==========================================================================
+ * **Key order.** `canonicalize` sorts object keys when a document is saved, so a
+ * reopened paint reads `{cornerRadius, gradient, shadow, stroke}` while `build`
+ * produces them in authoring order. A plain `JSON.stringify` comparison is
+ * order-sensitive, so every saved style came back unrecognised.
+ *
+ * **Precision.** `1.9 * 0.12` is `0.22799999999999998` in memory and `0.228` on
+ * disk.
+ *
+ * Either one alone is enough to make the picker forget its own name for a style
+ * the moment a project is reopened — and to make `repaint` refuse to follow a
+ * recolour, because it would believe the gradient had been hand-edited. Both are
+ * invisible within a single session, which is why only the save-and-reopen
+ * browser test caught them.
+ */
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return typeof value === "number"
+      ? String(Number(value.toFixed(COMPARE_PRECISION)))
+      : JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(canonical).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    // Absent and undefined mean the same thing in a paint, and only one of them
+    // survives a save. Dropped from both sides so they cannot disagree.
+    .filter(([, member]) => member !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return `{${entries.map(([key, member]) => `${key}:${canonical(member)}`).join(",")}}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -413,7 +526,7 @@ export function applyPaint(
   const operations = nodeIds.flatMap((id) => {
     const node = findNode(document.root, id);
     if (node === null || node === undefined) return [];
-    const facts = rectFactsOf(node);
+    const facts = rectFactsOf(document, node);
     if (facts === null) return [];
 
     const built = paint.build(facts.fill, facts.shorterSide);
@@ -456,11 +569,12 @@ export function applyPaint(
 export function repaint(
   document: SceneDocument,
   nodeIds: readonly string[],
+  override?: TokenOverride,
 ): Transaction | null {
   const operations = nodeIds.flatMap((id) => {
     const node = findNode(document.root, id);
     if (node === null || node === undefined) return [];
-    const facts = rectFactsOf(node);
+    const facts = rectFactsOf(document, node, override);
     if (facts === null || facts.styleId === null) return [];
 
     const paint = paintById(facts.styleId);
@@ -492,7 +606,7 @@ export function repaint(
 export function paintableIds(document: SceneDocument): readonly string[] {
   const out: string[] = [];
   const visit = (node: SceneNode): void => {
-    if (rectFactsOf(node) !== null) out.push(node.id);
+    if (rectFactsOf(document, node) !== null) out.push(node.id);
     for (const child of node.children ?? []) visit(child);
   };
   visit(document.root);
