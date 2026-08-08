@@ -43,6 +43,7 @@ import {
 } from "../studio/viewport";
 import {
   actualSize,
+  pointerIntent,
   scrolled,
   snappedToStep,
   wheelIntent,
@@ -51,6 +52,7 @@ import {
   type CameraPreset,
   type ViewportRequest,
 } from "../studio/interaction";
+import { claimEscape } from "../studio/cancellation";
 import {
   equalGapCandidates,
   frameCandidates,
@@ -356,17 +358,15 @@ export function SceneView({
    * behind the menu. Escape means "back out of where I am", one level at a
    * time, and the menu is the level you are in.
    */
-  useEffect(() => {
-    if (menu === null) return;
-    const close = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      event.preventDefault();
-      setMenu(null);
-    };
-    window.addEventListener("keydown", close, true);
-    return () => window.removeEventListener("keydown", close, true);
-  }, [menu]);
+  useEffect(
+    () =>
+      claimEscape("overlay", () => {
+        if (menu === null) return false;
+        setMenu(null);
+        return true;
+      }),
+    [menu],
+  );
 
   /**
    * The guides currently showing, and what they mean.
@@ -1527,6 +1527,15 @@ export function SceneView({
       }
     }
 
+    // The right button is the context menu’s, per `pointerIntent`. Falling
+    // through to selection began a marquee whose release cleared the selection
+    // the menu was about to act on.
+    if (pointerIntent({ button: event.button, alt: event.altKey, shift: event.shiftKey,
+      mod: event.ctrlKey || event.metaKey, at: screen,
+      space: spaceHeld.current }, dimensional).kind === "menu") {
+      return;
+    }
+
     // PAN — the middle button, or space with the left. Two of the three routes
     // `studio-specification.html` §03 names; the third, two-finger scroll,
     // arrives as a bare wheel and is handled in `onWheel`.
@@ -1996,6 +2005,71 @@ export function SceneView({
     if (transaction !== null) session.store.applySilently(transaction);
   };
 
+  /**
+   * ESCAPE PUTS IT BACK.
+   *
+   * A drag in flight could not be cancelled at all. Once you had picked
+   * something up the only ways down were to drop it — committing wherever the
+   * pointer happened to be — or to drop it and undo, which is a different
+   * gesture with a different result and no help at all if you were resizing
+   * towards something and changed your mind.
+   *
+   * Every drag already records where it STARTED, because that is how the
+   * silent-then-commit pattern works: positions in `origins`, scales in
+   * `startScales`, rotations in `startEulers`, the viewport in
+   * `startViewport`. Cancelling is putting those back and dropping the drag
+   * WITHOUT recording a transaction — so the history looks like the gesture
+   * never happened, which is what "cancel" means.
+   *
+   * Claimed on the `gesture` rung, above walk mode, the cued output and the
+   * selection: leaving an object half-moved to close something else would be
+   * the worst outcome on the ladder.
+   */
+  const cancelDrag = (): boolean => {
+    if (drag === null) return false;
+
+    const ids = [...drag.origins.keys()];
+    if (ids.length > 0) {
+      const back = setPropOnMany(
+        session.document,
+        ids,
+        "transform.position",
+        (id) => drag.origins.get(id) ?? [0, 0, 0],
+        "cancel",
+      );
+      if (back !== null) session.store.applySilently(back);
+    }
+    if (drag.startScales !== undefined && drag.startScales.size > 0) {
+      const back = setPropOnMany(
+        session.document,
+        [...drag.startScales.keys()],
+        "transform.scale",
+        (id) => drag.startScales!.get(id) ?? [1, 1, 1],
+        "cancel",
+      );
+      if (back !== null) session.store.applySilently(back);
+    }
+    if (drag.startEulers !== undefined && drag.startEulers.size > 0) {
+      const back = setPropOnMany(
+        session.document,
+        [...drag.startEulers.keys()],
+        "transform.rotation",
+        (id) => drag.startEulers!.get(id) ?? [0, 0, 0],
+        "cancel",
+      );
+      if (back !== null) session.store.applySilently(back);
+    }
+    // Pan and orbit move the VIEW, not the document.
+    if (drag.kind === "pan") onViewport(drag.startViewport);
+
+    setDrag(null);
+    setMarqueeRect(null);
+    setDetent(null);
+    return true;
+  };
+
+  useEffect(() => claimEscape("gesture", cancelDrag));
+
   const finishDrag = () => {
     if (drag === null) return;
 
@@ -2273,12 +2347,9 @@ export function SceneView({
 
     const onKeyDown = (event: KeyboardEvent): void => {
       const key = event.key.toLowerCase();
-      if (key === "escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        setWalking(false);
-        return;
-      }
+      // Escape is NOT handled here. Walk mode claims the "mode" rung of the
+      // cancellation ladder below, so leaving it goes through the one owner
+      // like every other back-out — and a drag in flight still outranks it.
       if (!FLY.has(key)) return;
       // Captured, so the global keymap never sees them: an S that both flew
       // the camera and switched to the scale gizmo would do both.
@@ -2351,6 +2422,16 @@ export function SceneView({
       window.removeEventListener("keyup", onKeyUp, true);
     };
   }, [walking, session]);
+
+  useEffect(
+    () =>
+      claimEscape("mode", () => {
+        if (!walking) return false;
+        setWalking(false);
+        return true;
+      }),
+    [walking],
+  );
 
   /** Leaving 3D leaves walk mode. There is nothing to fly through in a flat view. */
   useEffect(() => {

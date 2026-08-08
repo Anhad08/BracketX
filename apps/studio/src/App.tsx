@@ -42,6 +42,7 @@ import {
 import { hashBytes } from "@bracketx/engine-assets";
 import type { AssetRecord, AssetRegistry } from "@bracketx/engine-assets";
 import { DEFAULT_VIEWPORT, type Viewport } from "./studio/viewport";
+import { cancel, claimEscape } from "./studio/cancellation";
 import { PRESET_SLOTS, type ViewportAction, type ViewportRequest } from "./studio/interaction";
 import {
   fileNameFor,
@@ -349,6 +350,35 @@ export function App() {
    * it, so the stage is the owner.
    */
   const [viewportRequest, setViewportRequest] = useState<ViewportRequest | null>(null);
+  /**
+   * The two rungs the shell owns.
+   *
+   * Un-cueing sits ABOVE deselecting because it has consequences outside the
+   * editor: with something armed, Escape should disarm before it costs a
+   * designer their selection. Two presses do both, in that order, which is
+   * what the old contested binding was trying to express with a special case
+   * inside `matchBinding`.
+   */
+  useEffect(
+    () =>
+      claimEscape("air", () => {
+        if (bus?.cued !== true) return false;
+        bus.uncue();
+        return true;
+      }),
+    [bus, revision],
+  );
+
+  useEffect(
+    () =>
+      claimEscape("selection", () => {
+        if (selection.ids.length === 0) return false;
+        setSelection(EMPTY_SELECTION);
+        return true;
+      }),
+    [selection],
+  );
+
   const askViewport = useCallback((action: ViewportAction) => {
     setViewportRequest((current) => ({ action, nonce: (current?.nonce ?? 0) + 1 }));
   }, []);
@@ -1831,20 +1861,51 @@ export function App() {
           target.tagName === "SELECT" ||
           target.isContentEditable);
 
-      // Escape is claimed twice — un-cue and deselect — and which one it means
-      // depends on whether anything is armed. Resolved here, where the state
-      // is, rather than in the keymap, which cannot know.
-      const binding = matchBinding(event, typing, (id) =>
-        id === "air.uncue" ? bus?.cued === true : true,
-      );
-      if (binding === null) return;
-
-      if (binding.id === "select.none" && (paletteOpen || keysOpen)) {
+      /**
+       * ESCAPE, ONCE, HERE.
+       *
+       * This is the only listener that sees it. Six surfaces used to claim it
+       * with their own window listeners, three in capture phase so they could
+       * win; whichever mounted last took the key, and the fixes for that —
+       * stopping propagation — then swallowed Escape from everything behind.
+       *
+       * Now every surface CLAIMS A RUNG and this walks the ladder: overlay,
+       * gesture, mode, air, selection. The first rung with something to back
+       * out of takes the key and nothing below it hears it.
+       *
+       * Not routed through `matchBinding`: Escape is not one command, it is a
+       * question about what is open. The keymap still LISTS it, because the
+       * keyboard reference has to say what the key does.
+       */
+      if (event.key === "Escape" && typing) {
+        // A TEXT FIELD KEEPS ITS OWN ESCAPE.
+        //
+        // `select.none` is flagged `whileTyping`, so Escape in a name field
+        // reached past the field and cleared the selection the designer was
+        // editing. Backing out of a field means leaving the field.
+        (event.target as HTMLElement | null)?.blur?.();
         event.preventDefault();
-        setPaletteOpen(false);
-        setKeysOpen(false);
         return;
       }
+
+      if (event.key === "Escape") {
+        if (cancel() !== null) {
+          event.preventDefault();
+          return;
+        }
+        // Nothing claimed it. Fall through so the palette and the keyboard
+        // reference — which are rendered by this component and have no other
+        // owner — can still close.
+        if (paletteOpen || keysOpen) {
+          event.preventDefault();
+          setPaletteOpen(false);
+          setKeysOpen(false);
+        }
+        return;
+      }
+
+      const binding = matchBinding(event, typing);
+      if (binding === null) return;
       const command = commands.find((entry) => entry.id === binding.id);
       if (command === undefined || command.enabled === false) return;
       event.preventDefault();

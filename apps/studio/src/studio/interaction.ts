@@ -92,6 +92,8 @@ export function steppedZoom(zoom: number, direction: 1 | -1): number {
  */
 export type ViewportIntent =
   | { readonly kind: "scroll"; readonly dx: number; readonly dy: number }
+  /** The context menu owns the right button; nothing else may act on it. */
+  | { readonly kind: "menu" }
   | { readonly kind: "zoom"; readonly direction: 1 | -1; readonly at: Point }
   | { readonly kind: "pan" }
   | { readonly kind: "orbit" }
@@ -150,6 +152,15 @@ export function wheelIntent(event: InputEvent): ViewportIntent {
  * turning the camera a designer cannot see they have turned.
  */
 export function pointerIntent(event: InputEvent, dimensional: boolean): ViewportIntent {
+  // THE RIGHT BUTTON BELONGS TO THE MENU, AND TO NOTHING ELSE.
+  //
+  // It used to fall through to selection: a right-click on empty stage began a
+  // marquee, and releasing it cleared the selection — so the context menu
+  // opened over a selection that had just been thrown away, and Escape then
+  // looked like it had deselected when the right-click had already done it.
+  // Declared here rather than guarded in the handler, so the rule is one line
+  // in the model instead of a condition somebody can forget.
+  if (event.button === 2) return { kind: "menu" };
   if (event.button === 1) return { kind: "pan" };
   if (event.space === true) return { kind: "pan" };
   if (event.alt && dimensional) return { kind: "orbit" };

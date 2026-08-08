@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { claimEscape } from "../studio/cancellation";
 import {
   childrenOf,
   findNode,
@@ -245,26 +246,22 @@ export function Hierarchy({
    */
   useEffect(() => {
     if (menu === null) return;
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      event.preventDefault();
+    // Escape goes through the ONE owner; the pointer listener stays, because
+    // dismissing on a click anywhere is this menu own business and races with
+    // nothing.
+    const release = claimEscape("overlay", () => {
+      if (menu === null) return false;
       setMenu(null);
-    };
-    // A pointer listener on the document rather than a scrim over the panel:
-    // the menu belongs to the tree, but a click anywhere in the studio — the
-    // stage, another panel, the menu bar — has to dismiss it. A scrim can only
-    // cover its own panel, and one left open behind a later click would act on
-    // a selection the user has since changed.
+      return true;
+    });
     const onPointer = (event: PointerEvent): void => {
       const target = event.target;
       if (target instanceof Element && target.closest(".context-menu") !== null) return;
       setMenu(null);
     };
-    window.addEventListener("keydown", onKey, true);
     window.addEventListener("pointerdown", onPointer, true);
     return () => {
-      window.removeEventListener("keydown", onKey, true);
+      release();
       window.removeEventListener("pointerdown", onPointer, true);
     };
   }, [menu]);

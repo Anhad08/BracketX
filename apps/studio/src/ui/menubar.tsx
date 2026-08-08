@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { claimEscape } from "../studio/cancellation";
 
 import type { CommandSection, StudioCommand } from "../studio/commands";
 
@@ -81,20 +82,20 @@ export function MenuBar({ commands }: MenuBarProps) {
       setOpen(null);
       setBrowsing(false);
     };
-    const escape = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      // Stopped here so the same key does not also clear the selection behind
-      // the menu — backing out of one thing at a time is the whole meaning of
-      // Escape.
-      event.stopPropagation();
+    // Escape goes through the ONE owner. This used to be a capture listener
+    // that stopped propagation so the key would not also clear the selection —
+    // which worked, and made the menu bar one of six surfaces racing for the
+    // same key.
+    const release = claimEscape("overlay", () => {
+      if (open === null) return false;
       setOpen(null);
       setBrowsing(false);
-    };
+      return true;
+    });
     window.addEventListener("mousedown", dismiss);
-    window.addEventListener("keydown", escape, true);
     return () => {
+      release();
       window.removeEventListener("mousedown", dismiss);
-      window.removeEventListener("keydown", escape, true);
     };
   }, [open]);
 
