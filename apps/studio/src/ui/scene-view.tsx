@@ -553,6 +553,32 @@ export function SceneView({
   /** The first measurement always fits. Nothing else opens at a random scale. */
   useEffect(() => {
     if (element.width > 0 && element.height > 0) {
+      // NOT SNAPPED ON OPEN — and this is a known, unfinished spec row.
+      //
+      // §03 says "Default — Fit, then snap to nearest step". Explicit Fit does
+      // exactly that (see the action below). Doing it HERE turns the lower
+      // third's open zoom from 55% into 50%, and at 50% the pixel-exact
+      // "a trip to 3D and back leaves the picture unchanged" assertion in
+      // orbit.spec fails.
+      //
+      // WHAT IS RULED OUT, by measurement:
+      //   camera math        the zoom reads 50% before and after
+      //   projection         the surface box is 960.00x540.00 both times,
+      //                      byte-identical, so no transform drifted
+      //   rounding           960x540 is exact at 0.5; nothing is fractional
+      //   serialization      nothing is saved or reloaded in the trip
+      //
+      // WHAT IS LEFT: render timing. An isolated probe doing the same trip
+      // with longer settling produced IDENTICAL frames — 181,012 bytes both
+      // times. So something repaints after `data-flying="no"` plus 80ms, and
+      // `stablePicture`'s "two identical frames means settled" heuristic can
+      // return before it. Why 50% exposes it and 55% does not is unproven; the
+      // likely reason is that a canvas scaled by exactly 0.5 resamples
+      // differently from one at 0.55, so a late repaint that is invisible at
+      // one scale is visible at the other.
+      //
+      // Left OFF rather than shipped with a weakened assertion. The assertion
+      // is right: returning to Front must restore the picture exactly.
       onViewport(fit(document_, element));
     }
   }, [element.width === 0]);
