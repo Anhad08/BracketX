@@ -143,6 +143,13 @@ import {
   primitiveKey,
   readPrimitive,
 } from "./mesh-primitives";
+import {
+  isFlatPaint,
+  rasterisePaint,
+  readPaint,
+  type PaintSpec,
+  type RasterisedPaint,
+} from "./paint";
 import { ScopedVariables, dependencyKeyOf, readScoped } from "./scope";
 import {
   ExpansionCache,
@@ -437,7 +444,29 @@ export class Projector {
       descriptor: MaterialDescriptor;
       geometry: GeometryHandle;
       material: MaterialHandle;
+      /**
+       * The paint texture this rect holds a reference to, if any.
+       *
+       * Stored as the key rather than the handle because the key is what the
+       * cache is indexed by and what a re-application compares against — the
+       * handle is reachable from it, and holding both invites them to disagree.
+       */
+      paint?: string;
     }
+  >();
+
+  /**
+   * Rasterised paints, shared and reference-counted.
+   *
+   * A twelve-row leaderboard whose rows share one paint uploads ONE texture,
+   * which is the whole reason this is content-addressed rather than per-node.
+   * Reference-counted rather than never freed: a paint edited on the timeline
+   * mints a new key every keyframe, and a cache that only grows would hold
+   * every intermediate gradient for the length of the show.
+   */
+  #paintTextures = new Map<
+    string,
+    { handle: TextureHandle; refs: number }
   >();
   /**
    * id -> current document node.
@@ -756,6 +785,14 @@ export class Projector {
       this.backend.destroyTexture(texture.handle);
     }
     this.#imageTextures.clear();
+    // Paint textures are already freed by `#releaseRect` above, one reference
+    // per rect. This sweep exists for the case a reference was leaked by a
+    // failure path — it must not be reachable, and if it ever is, the cache
+    // being empty here is the assertion that says so.
+    for (const texture of this.#paintTextures.values()) {
+      this.backend.destroyTexture(texture.handle);
+    }
+    this.#paintTextures.clear();
     this.#index.clear();
   }
 
@@ -1663,12 +1700,39 @@ export class Projector {
     // call — so nothing that exists today renders differently.
     const depth = typeof props.depth === "number" && props.depth > 0 ? props.depth : 0;
 
+    // ======================================================================
+    // PAINT IS A TEXTURE, SO IT IS NOT A NEW KIND OF NODE EITHER
+    // ======================================================================
+    // Gradients, rounded corners, strokes, shadows and glows all arrive as one
+    // rasterised RGBA texture on the SAME `unlit` material a logo already
+    // uses. See `paint.ts` for why that is the design and not a shortcut.
+    //
+    // Silhouette effects are dropped on a SOLID. A texture can round the front
+    // face of an extruded box but not the box, so a rounded paint at depth
+    // would show soft corners on the face and square ones on the sides — a
+    // worse result than square corners honestly. A gradient has no silhouette
+    // and survives at any depth, which is what a 3D card actually needs.
+    const requestedPaint = readPaint(props.paint);
+    const paintSpec =
+      requestedPaint === undefined || depth === 0
+        ? requestedPaint
+        : withoutSilhouette(requestedPaint);
+
+    const raster =
+      paintSpec === undefined
+        ? undefined
+        : rasterisePaint(paintSpec, width, height, fill);
+
     // A flat quad is DOUBLE-SIDED — seen from behind it must still draw, or a
     // graphic disappears the moment a camera passes it. A solid must not be:
     // back faces of a closed box are never visible, and drawing them shades
     // the inside of the object over its own front face.
+    //
+    // With a paint, the base colour becomes WHITE: the texture already carries
+    // the authored colour, and a tint would multiply it a second time. Opacity
+    // still applies, so fading a painted graphic out works unchanged.
     const material = materialDescriptorOf({
-      baseColor: fill,
+      baseColor: raster === undefined ? fill : "#FFFFFF",
       doubleSided: depth === 0,
       ...(typeof props.opacity === "number" ? { opacity: props.opacity } : {}),
       ...(typeof props.metallic === "number" ? { metallic: props.metallic } : {}),
@@ -1681,18 +1745,30 @@ export class Projector {
       previous.width === width &&
       previous.height === height &&
       previous.depth === depth &&
+      previous.paint === raster?.key &&
       sameMaterial(previous.descriptor, material)
     ) {
+      return;
+    }
+
+    if (raster !== undefined) {
+      this.#applyPaintedRect(node, raster, material, previous);
       return;
     }
 
     if (previous !== undefined) {
       // Geometry depends on size AND depth, because both are baked into the
       // vertices. Anything else is a material change and must not reallocate.
+      //
+      // A paint being REMOVED also changes the geometry, even at the same size:
+      // a painted quad is bleed-expanded to make room for its shadow, so
+      // updating the material in place would leave an oversized quad sampling a
+      // texture that is no longer there.
       const shapeChanged =
         previous.width !== width ||
         previous.height !== height ||
-        previous.depth !== depth;
+        previous.depth !== depth ||
+        previous.paint !== undefined;
 
       if (!shapeChanged) {
         // Appearance only. Update in place so the handle stays stable —
@@ -1737,6 +1813,132 @@ export class Projector {
       geometry: geometry.value,
       material: materialHandle.value,
     });
+  }
+
+  /**
+   * Attaches a rect whose appearance comes from a rasterised paint.
+   *
+   * Separated from `#applyRect` rather than branching inside it, because the
+   * two differ in every step that matters: the quad is bleed-expanded, the
+   * material carries a map, and a texture reference has to be acquired and
+   * released in step with the geometry. Interleaving those into one function
+   * produced exactly the kind of half-updated state C2 exists to forbid.
+   */
+  #applyPaintedRect(
+    node: SceneNode,
+    raster: RasterisedPaint,
+    base: MaterialDescriptor,
+    previous:
+      | {
+          width: number;
+          height: number;
+          depth: number;
+          fill: string;
+          descriptor: MaterialDescriptor;
+          geometry: GeometryHandle;
+          material: MaterialHandle;
+          paint?: string;
+        }
+      | undefined,
+  ): void {
+    // The same paint at the same size is the common case: a scene re-resolved
+    // because an unrelated variable changed must not re-upload every gradient
+    // in it.
+    const texture = this.#acquirePaintTexture(raster);
+    if (texture === undefined) {
+      // Over budget. The rect falls back to nothing rather than to a wrong
+      // picture — a gradient panel rendered as a flat white box mid-show is
+      // harder to diagnose than an absent one.
+      if (previous !== undefined) this.#releaseRect(node.id);
+      return;
+    }
+
+    const descriptor: MaterialDescriptor =
+      base.kind === "pbr"
+        ? { ...base, baseColorMap: texture }
+        : base.kind === "unlit"
+          ? { ...base, map: texture }
+          : base;
+
+    if (
+      previous !== undefined &&
+      previous.paint === raster.key &&
+      sameMaterial(previous.descriptor, descriptor)
+    ) {
+      // Acquired one reference too many above; give it straight back so the
+      // count still matches the number of rects holding it.
+      this.#releasePaintTexture(raster.key);
+      return;
+    }
+
+    // Opacity-only and colour-only changes still update in place, exactly as an
+    // unpainted rect does — the texture is unchanged, so nothing is realloc'd.
+    if (previous !== undefined && previous.paint === raster.key) {
+      this.#releasePaintTexture(raster.key);
+      this.backend.updateMaterial(previous.material, descriptor);
+      this.#rects.set(node.id, { ...previous, descriptor });
+      return;
+    }
+
+    if (previous !== undefined) this.#releaseRect(node.id);
+
+    // The world-oriented quad, NOT the image one: `rasterisePaint` writes row
+    // zero at the BOTTOM, so V=0 is the bottom edge. Using `imageQuadDescriptor`
+    // here flips every gradient upside down — the trap that module names.
+    const geometry = this.backend.createGeometry(
+      quadDescriptor(raster.quadWidth, raster.quadHeight),
+    );
+    if (!geometry.ok) {
+      this.#releasePaintTexture(raster.key);
+      return;
+    }
+    const material = this.backend.createMaterial(descriptor);
+    if (!material.ok) {
+      this.backend.destroyGeometry(geometry.value);
+      this.#releasePaintTexture(raster.key);
+      return;
+    }
+
+    this.mirror.setAttachment(node.id, {
+      kind: "mesh",
+      geometry: geometry.value,
+      material: material.value,
+    });
+    this.#rects.set(node.id, {
+      // The rect's OWN size, not the quad's. Everything else in the engine
+      // measures the shape, and a shadow must not change what a layout thinks
+      // a panel is.
+      width: raster.quadWidth - raster.bleed * 2,
+      height: raster.quadHeight - raster.bleed * 2,
+      depth: 0,
+      fill: "#FFFFFF",
+      descriptor,
+      geometry: geometry.value,
+      material: material.value,
+      paint: raster.key,
+    });
+  }
+
+  /** One texture per distinct paint, reference-counted. */
+  #acquirePaintTexture(raster: RasterisedPaint): TextureHandle | undefined {
+    const existing = this.#paintTextures.get(raster.key);
+    if (existing !== undefined) {
+      existing.refs += 1;
+      return existing.handle;
+    }
+    const created = this.backend.createTexture(raster.texture);
+    if (!created.ok) return undefined;
+    this.#paintTextures.set(raster.key, { handle: created.value, refs: 1 });
+    return created.value;
+  }
+
+  #releasePaintTexture(key: string): void {
+    const held = this.#paintTextures.get(key);
+    if (held === undefined) return;
+    held.refs -= 1;
+    if (held.refs > 0) return;
+    this.#paintTextures.delete(key);
+    this.backend.destroyTexture(held.handle);
   }
 
   /**
@@ -2026,6 +2228,9 @@ export class Projector {
     this.#rects.delete(nodeId);
     this.backend.destroyGeometry(rect.geometry);
     this.backend.destroyMaterial(rect.material);
+    // Ordered after the material, so the texture is never freed while
+    // something still samples it.
+    if (rect.paint !== undefined) this.#releasePaintTexture(rect.paint);
   }
 
   /**
@@ -2192,6 +2397,26 @@ export { MirrorViolation };
  * `{ "$var": "team.accent" }` in `baseColor` drives the colour of every
  * instance from one runtime variable, with no code path of its own.
  */
+/**
+ * The parts of a paint that a solid can honestly wear.
+ *
+ * Corner radii and shadows describe an OUTLINE, and an extruded box's outline
+ * is its geometry — a texture cannot change it. Keeping them would round the
+ * front face while the side walls stayed square, which reads as a rendering
+ * bug rather than as a design. Gradients and strokes are surface, so they stay.
+ *
+ * Returns undefined when nothing survives, putting the rect back on the flat
+ * path with no texture at all.
+ */
+function withoutSilhouette(spec: PaintSpec): PaintSpec | undefined {
+  const surface: PaintSpec = {
+    ...(spec.gradient === undefined ? {} : { gradient: spec.gradient }),
+    ...(spec.stroke === undefined ? {} : { stroke: spec.stroke }),
+    ...(spec.density === undefined ? {} : { density: spec.density }),
+  };
+  return isFlatPaint(surface) ? undefined : surface;
+}
+
 function materialDescriptorOf(value: unknown): MaterialDescriptor {
   const raw =
     value !== null && typeof value === "object"

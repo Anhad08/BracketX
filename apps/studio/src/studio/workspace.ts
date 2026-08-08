@@ -233,8 +233,26 @@ export interface Workspace {
   readonly showRulers: boolean;
   readonly showDebug: boolean;
   readonly snapEnabled: boolean;
+  /**
+   * What snapping snaps to, per kind.
+   *
+   * Four toggles rather than one, because the kinds genuinely conflict: nudging
+   * a graphic a grid step at a time wants the grid and not other objects, and
+   * aligning a row of sponsor logos wants exactly the opposite. One switch
+   * forces a designer to turn off the half that is helping them.
+   *
+   * All default on. A snap nobody asked for is easier to notice and turn off
+   * than a snap nobody knew existed is to find.
+   */
+  readonly snapToGrid: boolean;
+  readonly snapToObjects: boolean;
+  readonly snapToSafeAreas: boolean;
+  readonly snapToAngle: boolean;
+  readonly snapToSize: boolean;
   /** World units between grid lines. */
   readonly gridStep: number;
+  /** Degrees between rotation detents. */
+  readonly angleStep: number;
   /**
    * Which transform the spatial gizmo is offering: move, rotate or scale.
    *
@@ -286,7 +304,13 @@ export const DEFAULT_WORKSPACE: Workspace = {
   showRulers: true,
   showDebug: false,
   snapEnabled: true,
+  snapToGrid: true,
+  snapToObjects: true,
+  snapToSafeAreas: true,
+  snapToAngle: true,
+  snapToSize: true,
   gridStep: 0.5,
+  angleStep: 15,
   gizmoMode: "move",
   driveClientId: "",
   dropboxAppKey: "",

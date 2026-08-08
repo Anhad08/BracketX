@@ -318,6 +318,33 @@ export function SceneView({
   }, [selection]);
 
   const [menu, setMenu] = useState<Point | null>(null);
+
+  /**
+   * ESCAPE CLOSES THE STAGE MENU.
+   *
+   * It did not, and the consequence was far worse than a menu that lingers:
+   * the menu sits on a FULL-SURFACE SCRIM so that any click dismisses it — so
+   * while it was open the scrim swallowed every pointer event on the stage.
+   * Right-click, press Escape as anybody would, and the viewport stopped
+   * responding: no selection, no gizmo, no drag, until you happened to click
+   * once more somewhere.
+   *
+   * Captured and stopped, so the same key does not also clear the selection
+   * behind the menu. Escape means "back out of where I am", one level at a
+   * time, and the menu is the level you are in.
+   */
+  useEffect(() => {
+    if (menu === null) return;
+    const close = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      event.preventDefault();
+      setMenu(null);
+    };
+    window.addEventListener("keydown", close, true);
+    return () => window.removeEventListener("keydown", close, true);
+  }, [menu]);
+
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({
     x: null,
     y: null,

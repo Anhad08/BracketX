@@ -105,6 +105,23 @@ export {
 } from "./mesh-primitives";
 
 export {
+  buildRamp,
+  estimatePaintBytes,
+  isFlatPaint,
+  paintKey,
+  parseSrgb,
+  rasterisePaint,
+  readPaint,
+  roundedBoxDistance,
+  type PaintGradient,
+  type PaintShadow,
+  type PaintSpec,
+  type PaintStop,
+  type PaintStroke,
+  type RasterisedPaint,
+} from "./paint";
+
+export {
   estimateGeometryBytes,
   estimateMaterialBytes,
   estimateTextureBytes,

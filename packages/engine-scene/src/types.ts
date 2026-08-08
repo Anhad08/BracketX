@@ -173,13 +173,89 @@ export interface ScreenSpaceComponent extends ComponentBase {
   readonly props: Readonly<Record<string, never>>;
 }
 
+/**
+ * A gradient ramp. Stops are interpolated in sRGB — see `paint.ts` for why.
+ *
+ * `angle` is degrees clockwise from left-to-right, so 0 is a horizontal ramp
+ * and 90 runs bottom to top, matching every design tool an operator has used.
+ */
+export interface PaintGradientSpec {
+  readonly kind: "linear" | "radial" | "conic";
+  readonly stops: readonly {
+    readonly at: number;
+    readonly color: ColorHex;
+    readonly opacity?: number;
+  }[];
+  readonly angle?: number;
+  /** Normalised box coordinates; `[0,0]` is bottom-left. Radial and conic. */
+  readonly center?: readonly [number, number];
+  /** Fraction of the box half-diagonal. Radial only. */
+  readonly radius?: number;
+}
+
+/**
+ * Everything about a rect's appearance that a flat colour cannot express.
+ *
+ * ============================================================================
+ * WHY THIS IS ONE PROP AND NOT SIX
+ * ============================================================================
+ * A gradient, a corner radius, a stroke and a shadow are rasterised together
+ * into ONE texture, because they overlap: a stroke sits on the rounded edge the
+ * radius defined, and the shadow is a blur of that same silhouette. Exposing
+ * them as four independent props would suggest four independent effects that
+ * could be composed in any order, and they cannot — the order is fixed and the
+ * result is a single image.
+ *
+ * One prop also means one animatable path (`props.paint`) and one variable
+ * binding point, so a brand gradient can be a workspace token rather than four
+ * values that have to be kept in agreement by hand.
+ *
+ * Optional throughout: a rect with no `paint` renders exactly as it did before
+ * this existed, which is what SCENE_FORMAT §13 rule 4 requires of an addition.
+ */
+export interface PaintSpecDoc {
+  readonly gradient?: PaintGradientSpec;
+  /** World units. Clamped to half the shorter side. */
+  readonly cornerRadius?: number;
+  /** Per-corner radii, bottom-left first, counter-clockwise. */
+  readonly corners?: readonly [number, number, number, number];
+  readonly stroke?: {
+    readonly color: ColorHex;
+    readonly width: number;
+    readonly opacity?: number;
+    readonly gradient?: PaintGradientSpec;
+  };
+  /** A shadow, or — offset zero and coloured like the shape — a glow. */
+  readonly shadow?: {
+    readonly color: ColorHex;
+    readonly blur: number;
+    readonly offsetX?: number;
+    readonly offsetY?: number;
+    readonly opacity?: number;
+    readonly spread?: number;
+    readonly inner?: boolean;
+  };
+  /** Texels per world unit. Absent uses the renderer's default. */
+  readonly density?: number;
+}
+
 export interface RectComponent extends ComponentBase {
   readonly type: "rect";
   readonly props: {
     readonly width: Bindable<number>;
     readonly height: Bindable<number>;
     readonly fill: Bindable<ColorHex>;
+    /**
+     * Superseded by `paint.cornerRadius`, and still declared.
+     *
+     * Nothing has ever implemented this field — `mesh-primitives.ts` says so —
+     * and removing it would break §13 rule 1 for any document that already
+     * carries it. It is read by nothing and written by nothing new.
+     *
+     * @deprecated Use `paint.cornerRadius`.
+     */
     readonly cornerRadius?: number;
+    readonly paint?: PaintSpecDoc;
   };
 }
 
