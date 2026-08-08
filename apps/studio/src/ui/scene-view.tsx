@@ -1854,8 +1854,75 @@ export function SceneView({
     setDetent(null);
   };
 
+  /**
+   * DOLLY, IN 3D. ZOOM, WHEN FLAT.
+   *
+   * ==========================================================================
+   * THE BUG THIS EXISTS FOR
+   * ==========================================================================
+   * The wheel used to do one thing: scale the flat viewport. In the flat view
+   * that is exactly right — the picture is a picture, and scaling it is what
+   * zooming means.
+   *
+   * In 3D it is meaningless, and the result looked broken in a way nobody
+   * could describe. `viewport.zoom` scales the engine's canvas AS A FLAT IMAGE
+   * and it scales the frame rectangle, so both shrank. The ground grid is not
+   * a flat image: it is world geometry projected through the camera, and a
+   * grid line running to the horizon projects to canvas coordinates in the
+   * tens of thousands. Multiplying those by 0.05 still leaves them spanning
+   * the screen.
+   *
+   * So one wheel gesture shrank the frame to five per cent and left the floor
+   * covering everything — a tiny rectangle adrift in a giant fan of lines. The
+   * camera had not moved at all, which is the tell: the view had not changed,
+   * only its scale factor, and a perspective projection does not survive being
+   * treated as a bitmap.
+   *
+   * In 3D the wheel now DOLLIES: it changes the camera's distance from what it
+   * is looking at, which is what "closer" means in a scene. Every piece of
+   * chrome then follows, because they are all projected through the camera
+   * that moved.
+   *
+   * Silent, like the orbit drag, and for the same reason — a wheel notch is
+   * not an undo step. The clamp keeps the camera from arriving at the pivot,
+   * where the projection degenerates and the view can never be recovered by
+   * scrolling the other way.
+   */
+  const dolly = (event: React.WheelEvent): boolean => {
+    if (view === null || !dimensional) return false;
+    const camera = cameraNode(document_);
+    if (camera === null) return false;
+
+    const position = camera.transform?.position ?? [0, 0, 10];
+    const union = selectionBounds(bounds, selection.ids);
+    const pivot: Vec3 =
+      union === null ? { x: 0, y: 0, z: 0 } : { x: union.x, y: union.y, z: 0 };
+
+    const orbit = orbitOf({ x: position[0], y: position[1], z: position[2] }, pivot);
+    // Multiplicative, so a notch moves the same PROPORTION of the way in at
+    // every distance. A fixed step crawls when far out and slams into the
+    // pivot when close.
+    const radius = Math.min(500, Math.max(0.2, orbit.radius * Math.pow(1.0015, event.deltaY)));
+    if (radius === orbit.radius) return true;
+
+    const moved = positionFor({ ...orbit, radius }, pivot);
+    const rotation = lookAtRotation(moved, pivot);
+    const step = setProps(
+      session.document,
+      camera.id,
+      new Map<string, unknown>([
+        ["transform.position", [round(moved.x), round(moved.y), round(moved.z)]],
+        ["transform.rotation", [round(rotation[0]), round(rotation[1]), round(rotation[2])]],
+      ]),
+      "Dolly",
+    );
+    if (step !== null) session.store.applySilently(step);
+    return true;
+  };
+
   const onWheel = (event: React.WheelEvent) => {
     if (event.ctrlKey || event.metaKey || !event.shiftKey) {
+      if (dolly(event)) return;
       const factor = Math.pow(0.999, event.deltaY);
       onViewport(zoomAt(viewport, pointOf(event), factor));
     } else {
