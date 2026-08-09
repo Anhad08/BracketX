@@ -1590,3 +1590,20 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .tl-key { transition: none; }
 }
+
+/* THE FILTERED-EMPTY STATE. Volume One §States specifies this one in full, and
+   it was absent — filtering the Marketplace to nothing showed a blank grid.
+
+   Flush, not a card: it is a section surface, and "a panel inside a panel is a
+   seam, not another raised card". No shadow, no glass — glass belongs to the
+   hero and nowhere else on this page. Spacing from the approved steps only. */
+.empty-filtered {
+  display: flex; flex-direction: column; gap: var(--s2);
+  padding: var(--s6) var(--s4);
+  align-items: flex-start;
+}
+.empty-filtered .empty-title {
+  margin: 0; font-size: 14px; letter-spacing: -0.018em; color: var(--text-strong);
+}
+.empty-filtered .note { margin: 0; }
+.empty-actions { display: flex; gap: var(--s2); margin-top: var(--s2); }

@@ -79,6 +79,22 @@ export function Marketplace({
       .includes(needle);
   });
 
+  /**
+   * How many packs the QUERY alone finds, ignoring the kind filter.
+   *
+   * This is what makes the empty state actionable rather than a dead end: when a
+   * search inside "Themes" finds nothing, the useful fact is that four packs
+   * match everywhere else — and the fix is one press, not a retyped query.
+   */
+  const acrossEverything = PACKS.filter((pack) =>
+    needle.length === 0
+      ? true
+      : [pack.name, pack.description, ...pack.tags]
+          .join(" ")
+          .toLowerCase()
+          .includes(needle),
+  ).length;
+
   return (
     <div className="section-page" data-testid="marketplace">
       <header className="section-head">
@@ -107,6 +123,53 @@ export function Marketplace({
           </button>
         ))}
       </nav>
+
+      {/* THE EMPTY STATE IS SPECIFIED, AND IT WAS MISSING.
+          Volume One §States writes this one out in full — "Nothing matches
+          'esports' · 4 packages match in Marketplace instead", with a way on and
+          a way back. Filtering the Marketplace to nothing previously showed an
+          EMPTY GRID: no words, no count, no action. Law 7 asks "what now?" and a
+          blank area answers nothing.
+
+          The second line is adapted, deliberately and not silently: the
+          specified copy offers the Marketplace as the place to look instead,
+          which is nonsense when you are already standing in it. The STRUCTURE is
+          what the Design OS specifies — the miss, a count of what would match,
+          and one press to get there — so the count here is what the query finds
+          once the kind filter is dropped. */}
+      {shown.length === 0 ? (
+        <div className="empty-filtered" data-testid="marketplace-empty">
+          <p className="empty-title">Nothing matches “{query.trim()}”</p>
+          <p className="note">
+            {kind !== "all" && acrossEverything > 0
+              ? `${acrossEverything} ${acrossEverything === 1 ? "pack" : "packs"} match outside ${KIND_LABEL[kind]}.`
+              : "No pack in the Marketplace carries that word."}
+          </p>
+          <div className="empty-actions">
+            {kind !== "all" && acrossEverything > 0 ? (
+              <button
+                type="button"
+                className="chip primary"
+                data-testid="empty-search-everything"
+                onClick={() => setKind("all")}
+              >
+                Search Marketplace
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="chip"
+              data-testid="empty-clear-filter"
+              onClick={() => {
+                setQuery("");
+                setKind("all");
+              }}
+            >
+              Clear filter
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="pack-grid">
         {shown.map((pack) => {
