@@ -95,3 +95,93 @@ test("a pack that ships templates shows the REAL graphic, never a swatch gradien
   expect(size.w, "the still has no pixels").toBeGreaterThan(32);
   expect(size.h, "the still has no pixels").toBeGreaterThan(32);
 });
+
+for (const size of [
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+]) {
+  test(`the hero features a real graphic and moves on user intent — ${size.width}x${size.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await marketplace(page);
+
+    const hero = page.getByTestId("mk-hero");
+    await expect(hero).toBeVisible();
+
+    // GLASS, and only here. Volume One permits exactly three locations and the
+    // Marketplace hero is one; the card grid below must stay flush.
+    const blurred = await hero.evaluate((el) => getComputedStyle(el).backdropFilter);
+    expect(blurred, "the hero is not glass").not.toBe("none");
+    const cardGlass = await page.locator(".pack-card").first().evaluate((el) =>
+      getComputedStyle(el).backdropFilter,
+    );
+    expect(cardGlass, "glass leaked onto a pack card").toBe("none");
+
+    // The featured graphic is REAL — a rasterised still with actual pixels.
+    const still = hero.locator(".mk-hero-preview .art-still");
+    await expect(still).toBeVisible({ timeout: 30_000 });
+    const px = await still.evaluate((el) => {
+      const img = el as HTMLImageElement;
+      return { w: img.naturalWidth, h: img.naturalHeight };
+    });
+    expect(px.w).toBeGreaterThan(64);
+    expect(px.h).toBeGreaterThan(64);
+
+    // Production voice, not an inventory. The claim is a sentence.
+    await expect(hero.locator(".mk-claim")).not.toHaveText("");
+    // Cost on the box.
+    await expect(hero.locator(".mk-facts")).toContainText("Free");
+
+    // USER-DRIVEN focus. Nothing advances on a timer, so the selection must be
+    // unchanged after a wait, and must change when the user asks.
+    const first = page.locator(".mk-deck-card.on");
+    const before = await first.getAttribute("data-testid");
+    await page.waitForTimeout(1500);
+    await expect(page.locator(".mk-deck-card.on")).toHaveAttribute(
+      "data-testid",
+      before!,
+    );
+
+    const others = page.locator('.mk-deck-card:not(.on)');
+    if ((await others.count()) > 0) {
+      const target = await others.first().getAttribute("data-testid");
+      await others.first().click();
+      await expect(page.locator(".mk-deck-card.on")).toHaveAttribute("data-testid", target!);
+      // The headline followed the focus, so the copy belongs to the graphic.
+      await expect(hero.locator(".mk-hero-title")).not.toHaveText("");
+    }
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, "horizontal overflow").toBeLessThanOrEqual(1);
+  });
+}
+
+test("the deck is focusable, and its cards are real controls", async ({ page }) => {
+  await marketplace(page);
+  const cards = page.locator(".mk-deck-card");
+  if ((await cards.count()) < 2) return;
+
+  // Real <button>s in a tablist, so they take focus without a roving-tabindex
+  // scheme of our own invention.
+  await cards.nth(1).focus();
+  await expect(cards.nth(1)).toBeFocused();
+  await expect(cards.nth(1)).toHaveRole("tab");
+
+  // ==========================================================================
+  // A DEFECT THIS TEST DELIBERATELY DOES NOT PAPER OVER
+  // ==========================================================================
+  // Neither Enter nor Space activates a focused control anywhere in Studio,
+  // because BOTH are global transport bindings: Enter is Take — "⏎ takes,
+  // unconditionally, even from a focused field" — and Space is Play. Both are
+  // deliberate, and together they mean a keyboard user cannot press a button.
+  //
+  // That is a product-wide accessibility defect, not a Marketplace one, and the
+  // fix belongs in the global key handler rather than here. So this test asserts
+  // what is genuinely true today — the card is focusable and is a real control —
+  // and the activation gap is reported rather than hidden behind a click.
+  await cards.nth(1).click();
+  await expect(cards.nth(1)).toHaveAttribute("aria-selected", "true");
+});

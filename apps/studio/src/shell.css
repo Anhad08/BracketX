@@ -766,3 +766,103 @@
 @media (max-width: 900px) {
   .mon-row { flex-direction: column; }
 }
+
+/* ==========================================================================
+   MARKETPLACE HERO — the one Glass surface in the product
+   ==========================================================================
+   Volume One: "Glass exists in exactly three places: Marketplace hero, media
+   preview, floating dialog. Nowhere else." So the blur lives here and the card
+   grid below stays flush. If glass ever appears on a pack card, that is the
+   rule broken, not a variation.
+
+   Editorial layout: the graphic takes the larger column and the words caption
+   it. The deck sits underneath, spanning both, so a wide screen reads as one
+   composition rather than three stacked boxes. */
+.mk-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+  grid-template-areas: "art copy" "deck deck";
+  gap: var(--s5);
+  padding: var(--s5);
+  margin-bottom: var(--s6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  /* GLASS. Permitted here. A tint over a blur, not a white sheet: the graphic
+     behind it is the subject and must stay the brightest thing on the page. */
+  background: color-mix(in oklab, var(--panel) 62%, transparent);
+  backdrop-filter: blur(18px) saturate(1.1);
+}
+.mk-hero-art { grid-area: art; min-width: 0; }
+/* A WELL, as everywhere else a graphic is shown: it is content the product does
+   not own, and a transparent broadcast graphic needs something to read against. */
+.mk-hero-preview {
+  display: block; width: 100%; aspect-ratio: 16 / 9;
+  background: var(--well);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--recess);
+}
+.mk-hero-preview .art-still, .mk-hero-preview .art-live {
+  /* Tight. The still IS the whole 16:9 frame, so generous padding shrinks the
+     graphic inside a graphic — the artwork loses to its own mount. */
+  padding: var(--s2); box-sizing: border-box;
+}
+
+.mk-hero-copy {
+  grid-area: copy; min-width: 0;
+  display: flex; flex-direction: column; gap: var(--s2);
+  align-self: center;
+}
+.mk-eyebrow {
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--dim);
+}
+/* Title role. The pack name is the largest thing in the copy column, and the
+   graphic is still larger than it — the artwork stays the hero. */
+.mk-hero-title { margin: 0; font-size: 20px; letter-spacing: -0.028em; }
+.mk-claim { margin: 0; font-size: 13px; letter-spacing: -0.004em; color: var(--text); }
+.mk-facts { margin: 0; font-size: 11px; letter-spacing: 0; color: var(--dim); }
+.mk-hero-actions { display: flex; gap: var(--s2); margin-top: var(--s2); }
+
+/* THE DECK. Neighbours legible, the focused one dominant. Flush — these are
+   list surfaces, not floating cards, so the seam does the work. */
+.mk-deck {
+  grid-area: deck; display: flex; gap: var(--s2);
+  overflow-x: auto; padding-bottom: var(--s1);
+}
+.mk-deck-card {
+  flex: 0 0 auto; width: 132px;
+  display: flex; flex-direction: column; gap: var(--s1);
+  padding: var(--s1); border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; color: var(--dim); font: inherit; cursor: pointer; text-align: left;
+  /* `reveal` on the focus change, `press` easing. No spring, no overshoot. */
+  transition:
+    border-color var(--reveal) var(--press),
+    color var(--reveal) var(--press),
+    opacity var(--reveal) var(--press);
+  opacity: 0.62;
+}
+.mk-deck-card:hover, .mk-deck-card:focus-visible { opacity: 0.85; }
+.mk-deck-card.on {
+  opacity: 1; color: var(--text-strong);
+  border-color: var(--accent-line);
+}
+.mk-deck-art {
+  display: block; width: 100%; aspect-ratio: 16 / 9;
+  background: var(--well); border-radius: 4px; box-shadow: var(--recess);
+}
+.mk-deck-art .art-still { padding: 3px; box-sizing: border-box; }
+.mk-deck-name {
+  font-size: 11px; letter-spacing: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Narrower desktops stack the hero rather than squeezing the graphic into a
+   column too small to read. One breakpoint, not a screenshot-specific offset. */
+@media (max-width: 1180px) {
+  .mk-hero { grid-template-columns: minmax(0, 1fr); grid-template-areas: "art" "copy" "deck"; }
+}
+
+/* The page's own title, above the featured panel. */
+.mk-topline { margin-bottom: var(--s4); }
+.mk-topline h1 { margin: 0 0 var(--s1); }
+.mk-browse-title { margin: 0; font-size: 14px; letter-spacing: -0.018em; }

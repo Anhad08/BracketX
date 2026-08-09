@@ -96,6 +96,26 @@ export function Marketplace({
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<Pack["kind"] | "all">("all");
 
+  /**
+   * Which featured pack the hero is showing.
+   *
+   * User-driven, never a timer. Volume One refuses ambient looping outright — "a
+   * moving thing in peripheral vision reads as an alarm" — so a hero that
+   * advanced by itself would be a violation, not a flourish.
+   */
+  const [featured, setFeatured] = useState(0);
+
+  /**
+   * Packs that actually ship graphics, and therefore have something to show.
+   *
+   * A theme pack is a palette and a motion pack is a set of moves; neither has a
+   * picture of its own, so neither can headline. Derived rather than curated,
+   * because a hand-written featured list would rot the moment a pack was
+   * renamed or removed.
+   */
+  const showable = PACKS.filter((pack) => previewOf(pack) !== undefined);
+  const hero = showable[Math.min(featured, Math.max(0, showable.length - 1))];
+
   const needle = query.trim().toLowerCase();
   const shown = PACKS.filter((pack) => {
     if (kind !== "all" && pack.kind !== kind) return false;
@@ -124,10 +144,111 @@ export function Marketplace({
 
   return (
     <div className="section-page" data-testid="marketplace">
+      {/* The page names itself FIRST. A featured panel above the title reads as
+          an advert that arrived before the page did. */}
+      <div className="mk-topline">
+        <h1>Marketplace</h1>
+        <p className="lede">Themes, motion and graphics. Everything installs instantly.</p>
+      </div>
+
+      {/* ==================================================================
+          THE HERO — the one place in the product Glass is permitted
+          ==================================================================
+          Volume One: "Glass exists in exactly three places: Marketplace hero,
+          media preview, floating dialog. Nowhere else." Used here, and nowhere
+          below it.
+
+          Editorial rather than a banner: the graphic is the hero and the words
+          are a caption on it. The headline says what the broadcaster can DO —
+          the Marketplace voice rule — carried by the pack's own description,
+          because that copy is already written in production language and
+          inventing a second capability claim per pack would be inventing data.
+
+          Focus is USER-DRIVEN. Nothing advances on a timer. */}
+      {hero !== undefined ? (
+        <section className="mk-hero glass" data-testid="mk-hero" aria-label="Featured">
+          <div className="mk-hero-art">
+            <TemplateArt
+              className="mk-hero-preview"
+              templateId={previewOf(hero)!}
+              still={art.get(previewOf(hero)!)}
+              onPlay={onPlay}
+              onStop={onStop}
+              placeholder={<span className="pack-art-pending" aria-hidden />}
+            />
+          </div>
+
+          <div className="mk-hero-copy">
+            <span className="mk-eyebrow">Featured · {KIND_LABEL[hero.kind]}</span>
+            <h2 className="mk-hero-title">{hero.name}</h2>
+            <p className="mk-claim">{hero.description}</p>
+            {/* Cost on the box — Volume Four. "Free" is what the catalogue
+                actually carries; no price is invented. Mono, because these are
+                numbers a person compares between packs. */}
+            <p className="mk-facts mono">
+              {hero.author} · Free · {(hero.templates ?? []).length}{" "}
+              {(hero.templates ?? []).length === 1 ? "graphic" : "graphics"}
+            </p>
+            <div className="mk-hero-actions">
+              {installed.has(hero.id) ? (
+                <button
+                  type="button"
+                  className="chip primary"
+                  data-testid="mk-hero-use"
+                  onClick={() => onUseTemplate(hero.templates![0]!)}
+                >
+                  Open {hero.templates?.[0]?.name ?? "graphic"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="chip primary"
+                  data-testid="mk-hero-install"
+                  onClick={() => onInstall(hero)}
+                >
+                  Add to library
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* THE DECK. One card dominant, its neighbours legible beside it, and
+              the user moves between them — the Cinematic Card Deck idea, with
+              Volume One's motion instead of its physics. Real buttons in a
+              tablist, so the keyboard reaches them without a roving-tabindex
+              scheme of my own invention. */}
+          {showable.length > 1 ? (
+            <div className="mk-deck" role="tablist" aria-label="Featured packs">
+              {showable.map((pack, index) => (
+                <button
+                  key={pack.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === featured}
+                  className={`mk-deck-card ${index === featured ? "on" : ""}`}
+                  data-testid={`mk-deck-${pack.id}`}
+                  title={pack.name}
+                  onClick={() => setFeatured(index)}
+                >
+                  <TemplateArt
+                    className="mk-deck-art"
+                    templateId={previewOf(pack)!}
+                    still={art.get(previewOf(pack)!)}
+                    onPlay={undefined}
+                    onStop={undefined}
+                    placeholder={<span className="pack-art-pending" aria-hidden />}
+                  />
+                  <span className="mk-deck-name">{pack.name}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <header className="section-head">
         <div>
-          <h1>Marketplace</h1>
-          <p className="lede">Themes, motion and graphics. Everything installs instantly.</p>
+          <h2 className="mk-browse-title">Everything</h2>
         </div>
         <input
           className="field search"
