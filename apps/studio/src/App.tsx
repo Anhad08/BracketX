@@ -2126,6 +2126,9 @@ export function App() {
       case "marketplace":
         return (
           <Marketplace
+            art={templateArt}
+            onPlay={playerReady ? playTemplate : undefined}
+            onStop={playerReady ? stopTemplate : undefined}
             installed={installed}
             onInstall={installPack}
             onUninstall={uninstallPack}

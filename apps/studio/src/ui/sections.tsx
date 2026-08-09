@@ -6,6 +6,7 @@ import type { AssetRecord } from "@bracketx/engine-assets";
 import type { StudioSession } from "../studio/session";
 import type { IdFactory } from "../studio/ids";
 import { SCENE_DRAG } from "../studio/place";
+import { TemplateArt } from "./art";
 import {
   PRESETS as QUALITY_PRESETS,
   resolveTier,
@@ -43,7 +44,30 @@ import { friendlyDate } from "./home";
 // Marketplace
 // ===========================================================================
 
+/**
+ * The template a pack should show as its picture, if it ships one.
+ *
+ * The first, deliberately: a pack's templates are authored in order and the one
+ * a designer put first is the one that represents it. Picking "the most
+ * interesting" would need a judgement the data does not carry.
+ */
+function previewOf(pack: Pack): string | undefined {
+  return (pack.templates ?? [])[0]?.id;
+}
+
 export interface MarketplaceProps {
+  /**
+   * Rendered template stills, by template id. Absent until they arrive.
+   *
+   * The SAME map Home and Production's scene rail already receive. `art.tsx`
+   * says outright that "Home, Templates, the Marketplace and Production's scene
+   * rail all show the same graphics, and a hover that behaved differently on
+   * each would read as four products" — the Marketplace was the surface that
+   * never got wired to it, and showed a two-tone `swatch` gradient instead.
+   */
+  readonly art: ReadonlyMap<string, string>;
+  readonly onPlay: ((templateId: string, into: HTMLCanvasElement) => void) | undefined;
+  readonly onStop: (() => void) | undefined;
   readonly installed: ReadonlySet<string>;
   readonly onInstall: (pack: Pack) => void;
   readonly onUninstall: (pack: Pack) => void;
@@ -59,6 +83,9 @@ const KIND_LABEL: Record<Pack["kind"], string> = {
 };
 
 export function Marketplace({
+  art,
+  onPlay,
+  onStop,
   installed,
   onInstall,
   onUninstall,
@@ -176,13 +203,31 @@ export function Marketplace({
           const owned = installed.has(pack.id);
           return (
             <article className="pack-card" key={pack.id} data-testid={`pack-${pack.id}`}>
-              <span
-                className="pack-art"
-                aria-hidden
-                style={{
-                  background: `linear-gradient(135deg, ${pack.swatch[0]} 0%, ${pack.swatch[0]} 55%, ${pack.swatch[1]} 55%, ${pack.swatch[1]} 100%)`,
-                }}
-              />
+              {/* THE PACK'S OWN GRAPHIC, RENDERED — not a gradient standing in for it.
+                  A theme or motion pack ships no templates of its own, so there
+                  is genuinely nothing to render: that case keeps the swatch,
+                  which is then an honest palette sample rather than a stand-in
+                  for artwork that exists and was not shown. `data-preview` says
+                  which it is, so a regression can tell them apart. */}
+              {previewOf(pack) !== undefined ? (
+                <TemplateArt
+                  className="pack-art"
+                  templateId={previewOf(pack)!}
+                  still={art.get(previewOf(pack)!)}
+                  onPlay={onPlay}
+                  onStop={onStop}
+                  placeholder={<span className="pack-art-pending" aria-hidden />}
+                />
+              ) : (
+                <span
+                  className="pack-art"
+                  data-preview="swatch"
+                  aria-hidden
+                  style={{
+                    background: `linear-gradient(135deg, ${pack.swatch[0]} 0%, ${pack.swatch[0]} 55%, ${pack.swatch[1]} 55%, ${pack.swatch[1]} 100%)`,
+                  }}
+                />
+              )}
               <div className="pack-body">
                 <div className="pack-title">
                   <strong>{pack.name}</strong>

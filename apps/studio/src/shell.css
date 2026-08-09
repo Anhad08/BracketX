@@ -28,14 +28,12 @@
   --s7: 48px;
   --radius: 10px;
   --radius-sm: 6px;
-  /* One duration and one curve for the whole product. Two would read as two
-     applications stitched together. */
-  --ease: cubic-bezier(0.2, 0, 0, 1);
-  --fast: 120ms;
-  /* The second duration, and the only one. `--fast` acknowledges a press;
-     `--settle` is for something arriving or leaving, which needs long enough
-     to be read as a movement rather than a flicker. */
-  --settle: 220ms;
+  /* MOTION LIVES IN ONE PLACE — styles.css, from Design OS Volume One.
+     This file used to declare its own: `--ease` (a FOURTH curve, which Volume
+     One forbids), `--fast: 120ms`, and `--settle: 220ms`. That last one is the
+     dangerous kind of duplicate: the approved `settle` is 520ms, so whichever
+     stylesheet loaded second decided what "settle" meant. Deleted rather than
+     reconciled — one system, or it is two applications stitched together. */
 
   /* ------------------------------------------------------------------------
      ELEVATION
@@ -95,23 +93,23 @@
 .workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 .rail {
-  display: flex; flex-direction: column; gap: 2px;
-  width: 84px; padding: var(--s3) var(--s2);
-  background: var(--panel); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap:2px;
+  width: 84px; padding:var(--s3) var(--s2);
+  background: var(--panel); border-right:1px solid var(--line);
   flex: none;
 }
 .rail-mark {
   display: grid; place-items: center;
-  width: 32px; height: 32px; margin: 0 auto var(--s4);
+  width: 32px; height: 32px; margin:0 auto var(--s4);
   border-radius: 9px; background: var(--accent); color: var(--key-ink);
-  font-weight: 700; font-size: 15px; letter-spacing: -0.02em;
+  font-weight: 700; font-size: 11px; letter-spacing: 0;
 }
 .rail-item {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: var(--s2) 2px; border: 0; border-radius: var(--radius-sm);
+  display: flex; flex-direction: column; align-items: center; gap:3px;
+  padding:var(--s2) 2px; border: 0; border-radius: var(--radius-sm);
   background: none; color: var(--dim); cursor: pointer;
-  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+  transition: background var(--reveal) var(--press), color var(--reveal) var(--press);
 }
 .rail-item:hover { background: var(--panel-2); color: var(--text); }
 .rail-item.on { background: var(--accent-bg); color: var(--accent); }
@@ -124,25 +122,25 @@
    It grows from the centre out rather than fading in: motion along the rail
    draws the eye to where it has arrived. */
 .rail-item::before {
-  content: ""; position: absolute; left: -8px; top: 50%;
+  content: ""; position: absolute; left:-8px; top:50%;
   width: 3px; height: 0; border-radius: 0 2px 2px 0;
   background: var(--accent); transform: translateY(-50%);
-  transition: height var(--settle) var(--ease);
+  transition: height var(--reveal) var(--press);
 }
 .rail-item.on::before { height: 22px; }
 .rail-icon { font-size: 18px; line-height: 1; }
 .rail-label { font-size: 10px; letter-spacing: 0.02em; font-weight: 500; }
 .rail-dev {
-  margin-top: var(--s3); padding-top: var(--s3);
-  border-top: 1px solid var(--line); border-radius: 0;
+  margin-top:var(--s3); padding-top:var(--s3);
+  border-top:1px solid var(--line); border-radius: 0;
 }
 .rail-dot {
-  position: absolute; top: 6px; right: 14px;
+  position: absolute; top:var(--s1); right:var(--s3);
   width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
 }
 .rail-tally {
-  margin-top: auto; text-align: center;
-  font-size: 9px; letter-spacing: 0.09em; padding: var(--s1) 0;
+  margin-top:auto; text-align: center;
+  font-size: 9px; letter-spacing: 0.09em; padding:var(--s1) 0;
   border-radius: 4px; border: 1px solid var(--line); color: var(--dim);
 }
 .rail-tally.on-air { background: var(--onair); border-color: var(--onair); color: #fff; }
@@ -153,38 +151,38 @@
 /* --- Section pages -------------------------------------------------------- */
 
 .home, .section-page {
-  max-width: 1180px; margin: 0 auto;
-  padding: var(--s7) var(--s6);
-  display: flex; flex-direction: column; gap: var(--s6);
+  max-width: 1180px; margin:0 auto;
+  padding:var(--s7) var(--s6);
+  display: flex; flex-direction: column; gap:var(--s6);
 }
 .home-head h1, .section-head h1 {
-  margin: 0; font-size: 30px; font-weight: 650; letter-spacing: -0.022em;
+  margin:0; font-size: 30px; font-weight: 650; letter-spacing: -0.022em;
   color: var(--text-strong);
 }
-.lede { margin: var(--s1) 0 0; color: var(--dim); font-size: 14px; }
-.section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s5); }
+.lede { margin:var(--s1) 0 0; color: var(--dim); font-size: 14px; }
+.section-head { display: flex; align-items: flex-start; justify-content: space-between; gap:var(--s5); }
 .field.search { width: 260px; }
 
-.home-block { display: flex; flex-direction: column; gap: var(--s3); }
-.block-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); }
+.home-block { display: flex; flex-direction: column; gap:var(--s3); }
+.block-head { display: flex; align-items: baseline; justify-content: space-between; gap:var(--s3); }
 .block-head h2 {
-  margin: 0; font-size: 12px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.075em; color: var(--dim);
+  margin:0; font-size: 14px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: -0.018em; color: var(--dim);
 }
-.home-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--s6); }
+.home-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:var(--s6); }
 
 /* --- Start cards ---------------------------------------------------------- */
 
-.start-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: var(--s4); }
+.start-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap:var(--s4); }
 .start-card {
-  display: flex; flex-direction: column; gap: var(--s1); text-align: left;
-  padding: 0 0 var(--s4); border: 1px solid var(--line); border-radius: var(--radius);
+  display: flex; flex-direction: column; gap:var(--s1); text-align: left;
+  padding:0 0 var(--s4); border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--panel); color: var(--text); cursor: pointer; overflow: hidden;
   box-shadow: var(--lift-1), var(--edge);
   transition:
-    border-color var(--fast) var(--ease),
-    transform var(--settle) var(--ease),
-    box-shadow var(--settle) var(--ease);
+    border-color var(--reveal) var(--press),
+    transform var(--reveal) var(--press),
+    box-shadow var(--reveal) var(--press);
 }
 /* Lifts, and the lift is what casts the shadow — the two have to move together
    or the card looks like it is sliding rather than rising. */
@@ -195,9 +193,9 @@
 }
 /* Pressed travels ONE pixel and gets there in half the time it took to rise.
    A press is a physical event; anything slower reads as lag. */
-.start-card:active { transform: translateY(-1px); transition-duration: 60ms; }
-.start-card strong { padding: var(--s3) var(--s4) 0; font-size: 14px; color: var(--text-strong); }
-.start-card .dim { padding: 0 var(--s4); font-size: 12px; line-height: 1.45; }
+.start-card:active { transform: translateY(-1px); transition-duration: var(--tap); }
+.start-card strong { padding:var(--s3) var(--s4) 0; font-size: 14px; color: var(--text-strong); }
+.start-card .dim { padding:0 var(--s4); font-size: 11px; letter-spacing: 0; line-height: 1.45; }
 /* The art sits in a WELL, not on the card. A broadcast graphic is transparent,
    and a still of one has to read against something — this is the same void the
    stage uses, so a card and the editor agree about what "nothing" looks like. */
@@ -206,12 +204,12 @@
   background:
     radial-gradient(120% 100% at 50% 0%, rgb(255 255 255 / 0.045), transparent 62%),
     var(--canvas-void);
-  border-bottom: 1px solid var(--line);
+  border-bottom:1px solid var(--line);
 }
 .start-art::after {
   /* A hairline inside the well. Without it the art bleeds into the card and
      the tile loses its edge at the exact moment the card lifts. */
-  content: ""; position: absolute; inset: 0; pointer-events: none;
+  content: ""; position: absolute; inset:0; pointer-events: none;
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.035);
 }
 .start-art .preview { width: 100%; height: 100%; display: block; }
@@ -219,7 +217,7 @@
    fill a tile is a lower third with its name cut off. */
 .art-still {
   width: 100%; height: 100%; display: block; object-fit: contain;
-  animation: art-in var(--settle) var(--ease) both;
+  animation: art-in var(--move) var(--press) both;
 }
 @keyframes art-in { from { opacity: 0; } to { opacity: 1; } }
 
@@ -236,24 +234,24 @@
    ========================================================================== */
 .art { position: relative; display: block; overflow: hidden; }
 .art-live {
-  position: absolute; inset: 0; width: 100%; height: 100%;
+  position: absolute; inset:0; width: 100%; height: 100%;
   display: block; object-fit: contain;
   opacity: 0; pointer-events: none;
-  transition: opacity 140ms var(--ease);
+  transition: opacity var(--reveal) var(--press);
 }
 .art-live.on { opacity: 1; }
 /* The placeholder, and the pack swatch Production falls back to. */
-.art-swatch { position: absolute; inset: 0; display: block; }
+.art-swatch { position: absolute; inset:0; display: block; }
 
 /* A tile that can play says so before you point at it — the corner mark of a
    transport, drawn in the card rather than printed on the picture. */
 .art::after {
-  content: ""; position: absolute; right: 8px; bottom: 8px;
+  content: ""; position: absolute; right:8px; bottom:8px;
   width: 0; height: 0; pointer-events: none;
-  border-left: 8px solid rgb(255 255 255 / 0.5);
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  opacity: 0; transition: opacity 140ms var(--ease);
+  border-left:8px solid rgb(255 255 255 / 0.5);
+  border-top:var(--s1) solid transparent;
+  border-bottom:var(--s1) solid transparent;
+  opacity: 0; transition: opacity var(--reveal) var(--press);
 }
 .start-card:hover .art::after, .scene-tile:hover .art::after { opacity: 0; }
 .start-card .art::after, .scene-tile .art::after { opacity: 0.55; }
@@ -271,11 +269,11 @@
 .blank-art {
   display: grid; place-items: center; font-size: 30px; color: var(--dim); font-weight: 300;
   background: none;
-  border-bottom: 0;
+  border-bottom:0;
 }
 .blank-art::after { box-shadow: none; }
 .start-card.blank .start-art {
-  margin: var(--s3) var(--s3) 0; border-radius: var(--radius-sm);
+  margin:var(--s3) var(--s3) 0; border-radius: var(--radius-sm);
   border: 1px dashed var(--line-strong, var(--line));
   background: none;
 }
@@ -283,65 +281,77 @@
 
 /* --- Row lists ------------------------------------------------------------ */
 
-.row-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.row-list { list-style: none; margin:0; padding:0; display: flex; flex-direction: column; gap:2px; }
 .row-list button, .row-list .learn {
-  width: 100%; display: flex; flex-direction: column; gap: 2px; text-align: left;
-  padding: var(--s3); border: 0; border-radius: var(--radius-sm);
+  width: 100%; display: flex; flex-direction: column; gap:2px; text-align: left;
+  padding:var(--s3); border: 0; border-radius: var(--radius-sm);
   background: none; color: var(--text); cursor: pointer;
-  transition: background var(--fast) var(--ease);
+  transition: background var(--reveal) var(--press);
 }
 .row-list .learn { cursor: default; }
 .row-list button:hover { background: var(--panel-2); }
 .row-list strong { font-size: 13px; font-weight: 550; color: var(--text-strong); }
 .row-list .dim { font-size: 11px; }
-.row-list.quiet .learn { padding-left: 0; }
+.row-list.quiet .learn { padding-left:0; }
 
 /* --- Packs ---------------------------------------------------------------- */
 
-.chips { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.chips { display: flex; gap:var(--s2); flex-wrap: wrap; }
 .chip.on, .chip.primary {
   background: var(--accent-bg); border-color: var(--accent); color: var(--accent);
 }
 .chip.primary { font-weight: 550; }
 
-.pack-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: var(--s4); }
+.pack-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap:var(--s4); }
 .pack-card {
   display: flex; flex-direction: column; overflow: hidden;
   border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
-  transition: border-color var(--fast) var(--ease);
+  transition: border-color var(--reveal) var(--press);
 }
 .pack-card:hover { border-color: var(--line-strong); }
-.pack-art { display: block; height: 92px; }
+/* THE PACK'S PICTURE SITS IN A WELL.
+   A broadcast graphic is transparent, so a still of one needs something to read
+   against — the same void the scene tiles and Home cards already use. A WELL is
+   the approved material for "content the product does not own"; it is a recess,
+   not another raised card, so the flush card grid stays flush. */
+.pack-art {
+  display: block; height: 92px;
+  background: var(--well);
+  box-shadow: var(--recess);
+}
+.pack-art .art-still, .pack-art .art-live { padding: var(--s2); box-sizing: border-box; }
+/* Held while the still is rendering, so the grid never reflows when it lands. */
+.pack-art-pending { display: block; width: 100%; height: 100%; }
 .pack-art.plain { background: linear-gradient(135deg, var(--panel-2), var(--line)); }
-.pack-body { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s4); }
-.pack-title { display: flex; align-items: center; gap: var(--s2); }
-.pack-title strong { font-size: 14px; color: var(--text-strong); }
-.pack-body .dim { font-size: 12px; line-height: 1.45; }
+.pack-body { display: flex; flex-direction: column; gap:var(--s1); padding:var(--s4); }
+.pack-title { display: flex; align-items: center; gap:var(--s2); }
+.pack-title strong { font-size: 11px; color: var(--text-strong); }
+.pack-body .dim { font-size: 11px; line-height: 1.45; }
 .tiny { font-size: 11px; }
-.pack-actions { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s2); }
+.pack-actions { display: flex; align-items: center; gap:var(--s2); flex-wrap: wrap; margin-top:var(--s2); }
 
 /* --- Assets and facts ----------------------------------------------------- */
 
-.swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--s3); }
-.swatch-tile { display: flex; flex-direction: column; gap: 3px; }
+.swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap:var(--s3); }
+.swatch-tile { display: flex; flex-direction: column; gap:3px; }
 .swatch-tile .tile { height: 52px; border-radius: var(--radius-sm); border: 1px solid var(--line); }
-.swatch-tile strong { font-size: 12px; color: var(--text-strong); }
-.font-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: var(--s3); }
+.swatch-tile strong { font-size: 11px; color: var(--text-strong); }
+.font-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap:var(--s3); }
 .font-tile {
-  display: flex; flex-direction: column; gap: 2px;
-  padding: var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel);
+  display: flex; flex-direction: column; gap:2px;
+  padding:var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel);
 }
 .font-tile strong { font-size: 13px; color: var(--text-strong); }
 
 /* SCENES — the things you drag onto the stage. A card, not a list row: what
    you are picking up is a graphic, and it should look like one. `cursor: grab`
    is the affordance; without it nobody discovers the drag. */
-.scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: var(--s3); }
+.scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap:var(--s3); }
 .scene-tile {
-  display: flex; flex-direction: column; gap: 3px; text-align: left;
-  padding: var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  display: flex; flex-direction: column; gap:3px; text-align: left;
+  padding:var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--panel); color: inherit; font: inherit; cursor: grab;
-  transition: border-color 120ms ease, transform 120ms ease;
+  transition: border-color var(--reveal) var(--press), transform var(--reveal) var(--press);
 }
 .scene-tile:hover { border-color: var(--accent); transform: translateY(-1px); }
 .scene-tile:active { cursor: grabbing; transform: none; }
@@ -350,34 +360,34 @@
    remembered picture, and a letterbox is what they remember. */
 .scene-tile .scene-art {
   display: block; aspect-ratio: 16 / 9; overflow: hidden;
-  border-radius: var(--radius-sm); margin-bottom: 6px;
+  border-radius: var(--radius-sm); margin-bottom:var(--s1);
   background: var(--canvas-void);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.04);
 }
 .scene-tile .scene-art img {
   width: 100%; height: 100%; display: block; object-fit: contain;
-  animation: art-in var(--settle) var(--ease) both;
+  animation: art-in var(--move) var(--press) both;
 }
 .scene-tile strong { font-size: 13px; color: var(--text-strong); }
 
-.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: var(--s3); margin: 0; }
-.facts > div { display: flex; flex-direction: column; gap: 2px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap:var(--s3); margin:0; }
+.facts > div { display: flex; flex-direction: column; gap:2px; }
 .facts dt { font-size: 11px; color: var(--dim); }
-.facts dd { margin: 0; font-size: 15px; color: var(--text-strong); }
+.facts dd { margin:0; font-size: 15px; color: var(--text-strong); }
 .facts.mono dd { font-variant-numeric: tabular-nums; }
 .dump {
-  margin: 0; padding: var(--s3); background: var(--bg);
+  margin:0; padding:var(--s3); background: var(--bg);
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   font-size: 11px; overflow: auto; max-height: 260px;
 }
 
 .setting-row {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--s5);
-  padding: var(--s4) 0; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap:var(--s5);
+  padding:var(--s4) 0; border-bottom:1px solid var(--line);
 }
-.setting-row > span:first-child { display: flex; flex-direction: column; gap: 2px; max-width: 60ch; }
-.setting-row strong { font-size: 13px; color: var(--text-strong); }
-.setting-row .dim { font-size: 12px; line-height: 1.45; }
+.setting-row > span:first-child { display: flex; flex-direction: column; gap:2px; max-width: 60ch; }
+.setting-row strong { font-size: 11px; color: var(--text-strong); }
+.setting-row .dim { font-size: 11px; line-height: 1.45; }
 
 /* --- Reduced motion ------------------------------------------------------- */
 
@@ -389,26 +399,26 @@
 /* --- Fatal fallback ------------------------------------------------------- */
 
 .fatal {
-  position: fixed; inset: 0; display: grid; place-items: center;
-  background: var(--bg); color: var(--text); padding: var(--s6); z-index: 1000;
+  position: fixed; inset:0; display: grid; place-items: center;
+  background: var(--bg); color: var(--text); padding:var(--s6); z-index: 1000;
 }
-.fatal-body { max-width: 60ch; display: flex; flex-direction: column; gap: var(--s3); }
-.fatal h1 { margin: 0; font-size: 22px; color: var(--text-strong); }
-.fatal p { margin: 0; color: var(--dim); }
+.fatal-body { max-width: 60ch; display: flex; flex-direction: column; gap:var(--s3); }
+.fatal h1 { margin:0; font-size: 20px; color: var(--text-strong); }
+.fatal p { margin:0; color: var(--dim); }
 .fatal .chip { align-self: flex-start; }
-.fatal summary { cursor: pointer; color: var(--dim); font-size: 12px; }
+.fatal summary { cursor: pointer; color: var(--dim); font-size: 20px; }
 
 .banner {
-  padding: var(--s2) var(--s4); flex: none;
-  background: var(--accent-bg); border-top: 1px solid var(--accent);
-  color: var(--text); font-size: 12px;
+  padding:var(--s2) var(--s4); flex: none;
+  background: var(--accent-bg); border-top:1px solid var(--accent);
+  color: var(--text); font-size: 13px;
 }
 
 /* GO LIVE. The only red in the interface, because on air is the only state
    that cannot be undone by pressing something else. */
-.air-foot { display: flex; flex-direction: column; gap: 4px; padding: var(--s3); border-top: 1px solid var(--line); }
+.air-foot { display: flex; flex-direction: column; gap:4px; padding:var(--s3); border-top:1px solid var(--line); }
 .air-foot .air {
-  display: block; width: 100%; padding: 9px 12px; font: inherit; font-weight: 600;
+  display: block; width: 100%; padding:var(--s2) 12px; font: inherit; font-weight: 600;
   border-radius: var(--radius-sm); border: 1px solid var(--line);
   background: var(--panel); color: var(--text-strong); cursor: pointer;
 }
@@ -423,12 +433,12 @@
    under the status bar and stop being clickable. Found by a test that could
    no longer click a layer, which is exactly what a user would have hit. */
 .scene-strip {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap:4px;
   max-height: 168px; overflow-y: auto;
 }
 .scene-chip {
-  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  padding: 6px 8px; font: inherit; font-size: 12px; cursor: grab;
+  display: flex; align-items: center; gap:8px; width: 100%; text-align: left;
+  padding:var(--s1) 8px; font: inherit; font-size: 13px; cursor: grab;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--panel); color: var(--text-strong);
 }
@@ -438,16 +448,16 @@
 
 /* THE VIEW CONTROL. Five angles, grouped so they read as one instrument
    rather than five loose buttons. */
-.views { display: inline-flex; gap: 2px; margin-right: var(--s2); }
-.views .chip { padding: 3px 8px; font-size: 11px; }
+.views { display: inline-flex; gap:2px; margin-right:var(--s2); }
+.views .chip { padding:3px 8px; font-size: 13px; }
 .views .chip.on { background: var(--accent); border-color: var(--accent); color: var(--key-ink); }
 
 /* QUALITY. Cards, not a dropdown: this is a choice with consequences a user
    should be able to read before making, and a select hides its options. */
-.quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s3); margin-bottom: var(--s3); }
+.quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:var(--s3); margin-bottom:var(--s3); }
 .quality-card {
-  display: flex; flex-direction: column; gap: 3px; text-align: left;
-  padding: var(--s3); font: inherit; cursor: pointer; color: inherit;
+  display: flex; flex-direction: column; gap:3px; text-align: left;
+  padding:var(--s3); font: inherit; cursor: pointer; color: inherit;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel);
 }
 .quality-card:hover { border-color: var(--accent); }
@@ -478,15 +488,15 @@
     grid-row: 2; grid-column: 1;
     flex-direction: row; width: auto; height: 56px;
     justify-content: space-around; align-items: center;
-    border-right: 0; border-top: 1px solid var(--line);
-    padding: 0 var(--s2);
+    border-right:0; border-top:1px solid var(--line);
+    padding:0 var(--s2);
   }
   /* The mark is a logo, not a destination. On a phone every millimetre of
      that bar is navigation. */
   .rail-mark { display: none; }
   .rail-item {
-    flex: 1 1 0; min-width: 0; gap: 2px; padding: 4px 2px;
-    font-size: 10px;
+    flex: 1 1 0; min-width: 0; gap:2px; padding:4px 2px;
+    font-size: 11px;
   }
   /* Labels are clipped rather than allowed to collide. A run of touching
      words ("TemplatesMarketplace") reads as a rendering fault; a truncated
@@ -500,7 +510,7 @@
   .rulers { display: none; }
   /* The tally is the one thing that must never be crowded out: an operator
      has to see at a glance whether they are on air. */
-  .rail-tally { position: static; margin: 0; flex: none; font-size: 9px; padding: 4px 6px; }
+  .rail-tally { position: static; margin:0; flex: none; font-size: 9px; padding:4px var(--s1); }
 
   /* Stage above, content below — the flex row that holds them on a desk
      becomes a column, and the dock stops being a fixed width. */
@@ -508,7 +518,7 @@
   .stage { flex: none; height: 34vh; min-height: 200px; }
   .dock.right {
     width: auto !important; flex: 1;
-    border-left: 0; border-top: 1px solid var(--line);
+    border-left:0; border-top:1px solid var(--line);
   }
   .divider { display: none; }
 
@@ -517,7 +527,7 @@
      layer count. */
   .statusbar { display: none; }
 
-  .section-page { padding: var(--s3); }
+  .section-page { padding:var(--s3); }
   .section-head h1 { font-size: 22px; }
   .pack-grid, .scene-grid, .start-grid, .quality-grid {
     grid-template-columns: 1fr;
@@ -543,39 +553,39 @@
 /* SOUND. The voices are auditionable, because a sound you cannot hear before
    enabling is a sound you cannot judge. */
 .sound-switch {
-  display: flex; align-items: flex-start; gap: var(--s3);
-  padding: var(--s3); margin-bottom: var(--s3);
+  display: flex; align-items: flex-start; gap:var(--s3);
+  padding:var(--s3); margin-bottom:var(--s3);
   border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer;
 }
-.sound-switch > span { display: flex; flex-direction: column; gap: 2px; }
+.sound-switch > span { display: flex; flex-direction: column; gap:2px; }
 .sound-switch strong { font-size: 13px; color: var(--text-strong); }
-.voice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s2); }
+.voice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:var(--s2); }
 .voice {
-  display: flex; flex-direction: column; gap: 1px; text-align: left;
-  padding: 7px 9px; font: inherit; cursor: pointer; color: inherit;
+  display: flex; flex-direction: column; gap:1px; text-align: left;
+  padding:var(--s2) var(--s2); font: inherit; cursor: pointer; color: inherit;
   border: 0; border-radius: var(--r-xs);
   background: linear-gradient(180deg, var(--control-hi), var(--control));
   box-shadow: var(--edge-key), var(--cast);
-  transition: transform 0.09s var(--press);
+  transition: transform var(--tap) var(--press);
 }
 .voice:active:not(:disabled) { transform: translateY(1px); box-shadow: var(--edge-key); }
 .voice:disabled { opacity: 0.38; cursor: default; box-shadow: inset 0 0 0 1px var(--line); background: none; }
-.voice strong { font-size: 12px; color: var(--text-strong); }
+.voice strong { font-size: 13px; color: var(--text-strong); }
 
 /* THE BOTTOM DOCK — headers, not tabs. Every panel is visibly present and
    shows whether it is open or collapsed; nothing hides behind a sibling. */
-.dock-heads { display: flex; align-items: center; gap: 2px; padding: 4px 6px; border-bottom: 1px solid var(--line); flex: none; }
+.dock-heads { display: flex; align-items: center; gap:2px; padding:4px var(--s1); border-bottom:1px solid var(--line); flex: none; }
 .dock-head {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 9px; font: inherit; font-size: 11px; cursor: pointer;
+  display: inline-flex; align-items: center; gap:var(--s1);
+  padding:4px var(--s2); font: inherit; font-size: 11px; cursor: pointer;
   border: 0; border-radius: var(--r-xs); background: none; color: var(--ink-3);
 }
 .dock-head:hover { color: var(--ink); }
 .dock-head.open { color: var(--ink); background: rgba(255, 255, 255, 0.045); }
 .dock-head .caret { font-size: 9px; opacity: 0.7; }
 .dock-stack { display: flex; flex: 1; min-height: 0; overflow: hidden; }
-.dock-stack > * { flex: 1; min-width: 0; min-height: 0; overflow: auto; border-left: 1px solid var(--line); }
-.dock-stack > *:first-child { border-left: 0; }
+.dock-stack > * { flex: 1; min-width: 0; min-height: 0; overflow: auto; border-left:1px solid var(--line); }
+.dock-stack > *:first-child { border-left:0; }
 
 /* 2D | 3D reads as ONE control with two positions, so it is seamed rather
    than spaced — a gap between them would make them two buttons that happen to
@@ -584,14 +594,14 @@
 .views .seg .chip { border-radius: 0; }
 .views .seg .chip:first-child { border-radius: var(--r-xs) 0 0 var(--r-xs); }
 .views .seg .chip:last-child { border-radius: 0 var(--r-xs) var(--r-xs) 0; }
-.views .modes { display: inline-flex; gap: 2px; margin-left: var(--s3); }
+.views .modes { display: inline-flex; gap:2px; margin-left:var(--s3); }
 
 /* PRODUCTION. The state of the transmission is stated at the top of the page
    that controls it — a tally an operator has to hunt for is a tally that gets
    misread. */
 .air-state {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 6px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  display: inline-flex; align-items: center; gap:var(--s2);
+  padding:var(--s1) 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
   border: 1px solid var(--line); border-radius: var(--r-xs); color: var(--ink-3);
 }
 .air-state.live { color: #fff; background: var(--live); border-color: var(--live); }
@@ -599,13 +609,13 @@
 /* An operator who cued a graphic and then had somebody edit it is about to air
    something they did not check. Silence is the expensive option. */
 .air-state .stale {
-  margin-left: 8px; padding-left: 8px; border-left: 1px solid currentColor;
+  margin-left:8px; padding-left:8px; border-left:1px solid currentColor;
   font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--warn);
 }
-.checks { margin: 0; padding-left: var(--s4); display: flex; flex-direction: column; gap: 4px; }
-.checks li { font-size: 12px; }
+.checks { margin:0; padding-left:var(--s4); display: flex; flex-direction: column; gap:4px; }
+.checks li { font-size: 11px; }
 .note.ok { color: var(--ok); }
-.production .program-row { margin-top: var(--s4); }
+.production .program-row { margin-top:var(--s4); }
 
 /* ==========================================================================
    PREVIEW AND PROGRAM
@@ -614,7 +624,7 @@
    the largest thing on this page because they are what the page is for. */
 
 .monitors {
-  margin: var(--s5) 0 var(--s6);
+  margin:var(--s5) 0 var(--s6);
   border-radius: var(--r-md);
   overflow: hidden;
   background: linear-gradient(180deg, var(--panel-hi), var(--panel));
@@ -629,12 +639,12 @@
   /* TWO COLUMNS, aligned with the two monitors below — and a 1px gutter, the
      same seam the pictures share, so the label sits over its own picture and
      nothing has to be worked out. */
-  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-  padding: 0; height: 28px; flex: none;
+  display: grid; grid-template-columns: 1fr 1fr; gap:1px;
+  padding:0; height: 28px; flex: none;
   font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
   color: var(--dim);
   box-shadow: inset 0 -1px 0 var(--seam);
-  transition: background 0.5s var(--weight), box-shadow 0.5s var(--weight);
+  transition: background var(--decay) var(--weight), box-shadow var(--decay) var(--weight);
 }
 .monitors.live .mon-strip {
   background: linear-gradient(180deg, rgba(255, 59, 48, 0.22), transparent);
@@ -646,21 +656,21 @@
    "which" and the right for "what", and a centred pair makes both a search. */
 .mon-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 var(--s3); min-width: 0;
+  padding:0 var(--s3); min-width: 0;
 }
 /* When only Program remains — after a show has ended — it keeps its own half
    rather than stretching across a monitor that is no longer there. */
 .mon-strip .mon-head:only-child { grid-column: 1 / -1; }
-.mon-label { display: inline-flex; align-items: center; gap: 6px; }
+.mon-label { display: inline-flex; align-items: center; gap:var(--s1); }
 .mon-state { color: var(--preview); }
 .mon-strip .sp { flex: 1; }
 .mon-clock {
-  font-family: var(--meta); letter-spacing: 0.06em; font-size: 10px;
+  font-family: var(--meta); letter-spacing: 0.16em; font-size: 9px;
   color: var(--dim);
 }
 .monitors.live .mon-clock { color: var(--live); }
 
-.mon-row { display: flex; gap: 1px; background: var(--seam); }
+.mon-row { display: flex; gap:1px; background: var(--seam); }
 .mon {
   flex: 1; min-width: 0; position: relative; aspect-ratio: 16 / 9;
   /* Capped so that a single monitor — the state after a show ends — does not
@@ -670,16 +680,16 @@
   /* The edge is the state. Transparent by default so that gaining one is a
      visible event rather than a colour change. */
   box-shadow: inset 0 0 0 1px transparent;
-  transition: box-shadow 0.28s var(--press), opacity 0.28s var(--press);
+  transition: box-shadow var(--move) var(--press), opacity var(--move) var(--press);
 }
 /* THE PICTURE SITS IN A WELL.
    A broadcast monitor is a screen in a housing, and the housing is what makes
    the picture read as a feed rather than as a region of the page. The inner
    shading is the housing; it is subtle enough that nobody notices it and
    absent enough, without it, that the monitor looks like a hole. */
-.mon-face { position: absolute; inset: 0; display: grid; place-items: center; }
+.mon-face { position: absolute; inset:0; display: grid; place-items: center; }
 .mon-face::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
+  content: ""; position: absolute; inset:0; pointer-events: none;
   box-shadow:
     inset 0 0 0 1px rgb(255 255 255 / 0.04),
     inset 0 22px 44px rgb(0 0 0 / 0.45);
@@ -700,23 +710,23 @@
 .monitors.live .mon.preview { opacity: 0.55; }
 
 .mon-note {
-  position: absolute; left: 8px; bottom: 8px;
-  padding: 4px 8px; border-radius: var(--r-xs);
-  font-size: 10px; background: rgba(8, 10, 14, 0.9);
+  position: absolute; left:8px; bottom:8px;
+  padding:4px 8px; border-radius: var(--r-xs);
+  font-size: 11px; background: rgba(8, 10, 14, 0.9);
 }
 .mon-note.warn { color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
 
 /* THE KEY, on the monitor it acts on. One primary control on the screen,
    sitting over Program because that is where the consequence lands. */
 .take-key {
-  position: absolute; right: var(--s4); bottom: var(--s4);
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 38px; padding: 0 var(--s5); border: 0; border-radius: var(--r-sm);
-  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+  position: absolute; right:var(--s4); bottom:var(--s4);
+  display: inline-flex; align-items: center; gap:8px;
+  height: 38px; padding:0 var(--s5); border: 0; border-radius: var(--r-sm);
+  font: inherit; font-size: 13px; font-weight: 700; letter-spacing: -0.004em;
   color: var(--key-ink); cursor: pointer;
   background: linear-gradient(180deg, var(--key), var(--key-2));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), var(--cast-lg);
-  transition: transform 0.08s var(--press), filter 0.16s var(--press);
+  transition: transform var(--tap) var(--press), filter var(--reveal) var(--press);
 }
 .take-key:hover { filter: brightness(1.05); }
 /* 1px of travel. The cut has already happened on keydown; this is the key
@@ -726,14 +736,14 @@
 
 .mon-controls,
 .mon-closure {
-  display: flex; align-items: center; gap: var(--s3);
-  padding: var(--s3) var(--s4);
+  display: flex; align-items: center; gap:var(--s3);
+  padding:var(--s3) var(--s4);
   box-shadow: inset 0 1px 0 var(--hair);
 }
 .mon-controls .sp { flex: 1; }
 .mon-controls .offair {
-  height: 27px; padding: 0 var(--s4); border: 0; border-radius: var(--r-xs);
-  font: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  height: 27px; padding:0 var(--s4); border: 0; border-radius: var(--r-xs);
+  font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0;
   color: #fff; cursor: pointer;
   background: linear-gradient(180deg, #ff5f55, #cd271e);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), var(--cast);
@@ -745,13 +755,13 @@
 
 /* CLOSURE. What the show actually did, counted by the thing that did it. */
 .mon-closure { justify-content: space-between; align-items: flex-end; }
-.mon-closure strong { display: block; font-size: 15px; letter-spacing: -0.02em; }
-.closure-facts { display: flex; gap: var(--s7); margin: 0; }
-.closure-facts div { display: flex; flex-direction: column; gap: 2px; }
+.mon-closure strong { display: block; font-size: 11px; letter-spacing: 0; }
+.closure-facts { display: flex; gap:var(--s7); margin:0; }
+.closure-facts div { display: flex; flex-direction: column; gap:2px; }
 .closure-facts dt {
-  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
+  font-size: 11px; letter-spacing: 0; text-transform: uppercase; color: var(--dim);
 }
-.closure-facts dd { margin: 0; font-size: 15px; color: var(--text-strong); }
+.closure-facts dd { margin:0; font-size: 11px; color: var(--text-strong); }
 
 @media (max-width: 900px) {
   .mon-row { flex-direction: column; }

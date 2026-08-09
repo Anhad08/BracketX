@@ -61,3 +61,37 @@ test("no card carries a rating, a star or a score", async ({ page }) => {
   const body = (await page.getByTestId("marketplace").textContent()) ?? "";
   expect(body).not.toMatch(/★|⭐|\b\d(\.\d)?\s*\/\s*5\b|\breviews?\b|\brating\b/i);
 });
+
+test("a pack that ships templates shows the REAL graphic, never a swatch gradient", async ({
+  page,
+}) => {
+  await marketplace(page);
+
+  // `art.tsx` states the intent: "Home, Templates, the Marketplace and
+  // Production's scene rail all show the same graphics." The Marketplace was the
+  // one surface never wired to it, and showed a two-tone `pack.swatch` gradient
+  // in place of artwork that already existed.
+  const withTemplates = page.locator('[data-testid^="pack-"]', {
+    has: page.locator(".pack-art .art-still"),
+  });
+  await expect(
+    withTemplates.first(),
+    "no pack rendered a real still",
+  ).toBeVisible({ timeout: 30_000 });
+
+  // THE REGRESSION THAT MATTERS: a card holding a real preview must not also be
+  // falling back to the gradient. `data-preview="swatch"` marks the fallback, so
+  // the two are distinguishable rather than a matter of inspection.
+  await expect(withTemplates.first().locator('[data-preview="swatch"]')).toHaveCount(0);
+
+  // And the still is a real rasterised image, not a 1x1 or a broken src.
+  const size = await withTemplates
+    .first()
+    .locator(".pack-art .art-still")
+    .evaluate((el) => {
+      const img = el as HTMLImageElement;
+      return { w: img.naturalWidth, h: img.naturalHeight };
+    });
+  expect(size.w, "the still has no pixels").toBeGreaterThan(32);
+  expect(size.h, "the still has no pixels").toBeGreaterThan(32);
+});
