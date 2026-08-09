@@ -205,6 +205,17 @@ for (const size of [
     // brief names: a grid of cards that are identical because the artwork is
     // decoration rather than content. Comparing the stills' sources proves each
     // tile rendered a different template, not one shared picture.
+    // Wait for EVERY tile to have its still. The stills are rendered
+    // asynchronously and arrive one at a time, so comparing before they have all
+    // landed compares a partial set — which passed alone and failed inside the
+    // full run. Waiting on the data is the fix; a tolerance would have hidden it.
+    const tileCount = await tiles.count();
+    await expect
+      .poll(async () => section.locator(".mk-tile-art .art-still").count(), {
+        timeout: 30_000,
+      })
+      .toBe(tileCount);
+
     const sources = await section.locator(".mk-tile-art .art-still").evaluateAll(
       (els) => els.map((el) => (el as HTMLImageElement).currentSrc),
     );

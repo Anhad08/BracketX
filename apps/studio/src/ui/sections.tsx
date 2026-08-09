@@ -277,15 +277,75 @@ export function Marketplace({
           Focus is USER-DRIVEN. Nothing advances on a timer. */}
       {hero !== undefined ? (
         <section className="mk-hero glass" data-testid="mk-hero" aria-label="Featured">
-          <div className="mk-hero-art">
-            <TemplateArt
-              className="mk-hero-preview"
-              templateId={previewOf(hero)!}
-              still={art.get(previewOf(hero)!)}
-              onPlay={onPlay}
-              onStop={onStop}
-              placeholder={<span className="pack-art-pending" aria-hidden />}
-            />
+          {/* ================================================================
+              THE DECK IS THE HERO'S ARTWORK
+              ================================================================
+              Reference pattern: Cinematic Card Deck. The focused pack is
+              DOMINANT and forward; its neighbours are smaller, offset, partially
+              occluded and receding behind it. Changing focus REORGANISES the
+              composition — every card moves — rather than sliding a highlight
+              along a row of equals.
+
+              The previous version was a row of three identical 132px
+              thumbnails under a separate hero image: a grid with a border on the
+              selected one, and the same graphic shown twice. Now there is one
+              stage, and the focused card IS the hero's picture.
+
+              Depth comes from scale, offset and occlusion — not from a shadow
+              per card, which would be the floating-card soup the Design OS
+              refuses. Motion is `move`/`press`: no spring, no overshoot,
+              nothing autoplays. */}
+          <div className="mk-stage" data-testid="mk-stage" role="tablist" aria-label="Featured packs">
+            {showable.map((pack, index) => {
+              const offset = index - featured;
+              const focusedCard = offset === 0;
+              /**
+               * Position among the cards BEHIND, not signed distance.
+               *
+               * `Math.abs(offset)` put the card before the focused one and the
+               * card after it at the same depth, so they stacked exactly and the
+               * deck showed one sliver where there should have been two. Rank is
+               * the reading order of what is left once the focused card is
+               * removed, which is what "the cards behind" actually means.
+               */
+              const rank = showable
+                .map((_, i) => i)
+                .filter((i) => i !== featured)
+                .indexOf(index);
+              return (
+                <button
+                  key={pack.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={focusedCard}
+                  tabIndex={focusedCard ? 0 : -1}
+                  className={`mk-deck-card ${focusedCard ? "on" : ""}`}
+                  data-testid={`mk-deck-${pack.id}`}
+                  data-offset={offset}
+                  style={{
+                    // The deck's arithmetic, as custom properties so the CSS owns
+                    // the look and this owns only the ordering.
+                    ["--offset" as string]: String(offset),
+                    ["--depth" as string]: String(rank + 1),
+                    zIndex: 20 - (rank + 1),
+                  }}
+                  title={pack.name}
+                  onClick={() => setFeatured(index)}
+                >
+                  <TemplateArt
+                    className={focusedCard ? "mk-hero-preview" : "mk-deck-art"}
+                    templateId={previewOf(pack)!}
+                    still={art.get(previewOf(pack)!)}
+                    onPlay={focusedCard ? onPlay : undefined}
+                    onStop={focusedCard ? onStop : undefined}
+                    placeholder={<span className="pack-art-pending" aria-hidden />}
+                  />
+                  {/* Only the cards behind carry a name; the focused one is
+                      titled by the copy column beside it. */}
+                  {focusedCard ? null : <span className="mk-deck-name">{pack.name}</span>}
+                </button>
+              );
+            })}
           </div>
 
           <div className="mk-hero-copy">
@@ -322,37 +382,6 @@ export function Marketplace({
             </div>
           </div>
 
-          {/* THE DECK. One card dominant, its neighbours legible beside it, and
-              the user moves between them — the Cinematic Card Deck idea, with
-              Volume One's motion instead of its physics. Real buttons in a
-              tablist, so the keyboard reaches them without a roving-tabindex
-              scheme of my own invention. */}
-          {showable.length > 1 ? (
-            <div className="mk-deck" role="tablist" aria-label="Featured packs">
-              {showable.map((pack, index) => (
-                <button
-                  key={pack.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={index === featured}
-                  className={`mk-deck-card ${index === featured ? "on" : ""}`}
-                  data-testid={`mk-deck-${pack.id}`}
-                  title={pack.name}
-                  onClick={() => setFeatured(index)}
-                >
-                  <TemplateArt
-                    className="mk-deck-art"
-                    templateId={previewOf(pack)!}
-                    still={art.get(previewOf(pack)!)}
-                    onPlay={undefined}
-                    onStop={undefined}
-                    placeholder={<span className="pack-art-pending" aria-hidden />}
-                  />
-                  <span className="mk-deck-name">{pack.name}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
         </section>
       ) : null}
 

@@ -823,35 +823,85 @@
 .mk-facts { margin: 0; font-size: 11px; letter-spacing: 0; color: var(--dim); }
 .mk-hero-actions { display: flex; gap: var(--s2); margin-top: var(--s2); }
 
-/* THE DECK. Neighbours legible, the focused one dominant. Flush — these are
-   list surfaces, not floating cards, so the seam does the work. */
-.mk-deck {
-  grid-area: deck; display: flex; gap: var(--s2);
-  overflow-x: auto; padding-bottom: var(--s1);
+/* ==========================================================================
+   THE DECK — Cinematic Card Deck, translated
+   ==========================================================================
+   Reference pattern, stated plainly so it is not lost: the focused card is
+   DOMINANT and forward; its neighbours are smaller, pushed to one side,
+   partially occluded, and dimmed by depth. Changing focus reorganises every
+   card, not just a border.
+
+   Depth is scale + offset + occlusion + z-index. NOT a shadow per card, which
+   would be the floating-card soup Volume One refuses — the recess each preview
+   already sits in supplies the only depth cue that casts anything.
+
+   `--offset` is signed distance from focus, `--depth` its magnitude; the
+   component sets both and this file decides entirely what they look like. */
+.mk-stage {
+  grid-area: art;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-width: 0;
+  /* Room to the right for the receding cards to sit in without leaving the
+     stage — the deck reads as depth, not as an overflow. */
+  padding-right: 18%;
 }
 .mk-deck-card {
-  flex: 0 0 auto; width: 132px;
-  display: flex; flex-direction: column; gap: var(--s1);
-  padding: var(--s1); border: 1px solid transparent; border-radius: var(--radius-sm);
-  background: none; color: var(--dim); font: inherit; cursor: pointer; text-align: left;
-  /* `reveal` on the focus change, `press` easing. No spring, no overshoot. */
+  position: absolute;
+  display: block; padding: 0;
+  border: 0; background: none; color: var(--dim);
+  font: inherit; text-align: left; cursor: pointer;
+  /* The reorganisation. `move` because cards travel, `press` so they arrive and
+     stop. No spring, no overshoot. */
   transition:
-    border-color var(--reveal) var(--press),
-    color var(--reveal) var(--press),
-    opacity var(--reveal) var(--press);
-  opacity: 0.62;
+    transform var(--move) var(--press),
+    opacity var(--move) var(--press),
+    filter var(--move) var(--press),
+    width var(--move) var(--press);
 }
-.mk-deck-card:hover, .mk-deck-card:focus-visible { opacity: 0.85; }
+/* THE FOCUSED CARD fills the stage, leaving the right edge for the deck behind. */
 .mk-deck-card.on {
-  opacity: 1; color: var(--text-strong);
-  border-color: var(--accent-line);
+  inset: 0 18% 0 0;
+  opacity: 1; filter: none; transform: none;
+  color: var(--text-strong); cursor: default;
 }
+/* THE CARDS BEHIND are right-anchored SLIVERS, not full cards hidden underneath.
+   ==========================================================================
+   This is the fix for a real defect and a better translation of the reference at
+   the same time. The first version left each neighbour full-size beneath the
+   focused card: it looked like a deck and could not be operated, because the
+   focused card covered every neighbour's centre and swallowed the click —
+   Playwright reported "subtree intercepts pointer events", which is exactly what
+   a person's cursor would have hit.
+   Anchored to the right and narrow, they are genuinely PARTIALLY VISIBLE — which
+   is what a deck is — and their visible strip is their hit area. */
+.mk-deck-card:not(.on) {
+  top: 8%; bottom: 8%; right: 0; left: auto;
+  width: 17%;
+  /* Each step further back slides left behind its neighbour and shrinks. */
+  transform:
+    translateX(calc((var(--depth) - 1) * -46%))
+    scale(calc(1 - ((var(--depth) - 1) * 0.08)));
+  opacity: calc(1 - ((var(--depth) - 1) * 0.28));
+  filter: saturate(0.75);
+}
+.mk-deck-card:not(.on):hover, .mk-deck-card:not(.on):focus-visible {
+  opacity: 1; filter: none;
+}
+
+/* A WELL, as everywhere a graphic is shown. The recess is the only thing here
+   that casts, and the focused card gets a key edge so the front of the deck is
+   unambiguous. */
 .mk-deck-art {
-  display: block; width: 100%; aspect-ratio: 16 / 9;
-  background: var(--well); border-radius: 4px; box-shadow: var(--recess);
+  display: block; width: 100%; height: 100%;
+  background: var(--well); border-radius: var(--radius-sm);
+  box-shadow: var(--recess), var(--edge);
 }
-.mk-deck-art .art-still { padding: 3px; box-sizing: border-box; }
+.mk-deck-art .art-still { padding: var(--s2); box-sizing: border-box; }
 .mk-deck-name {
+  position: absolute; left: var(--s2); bottom: var(--s2);
+  max-width: calc(100% - var(--s4));
   font-size: 11px; letter-spacing: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -980,4 +1030,11 @@
   /* Wraps rather than shrinking the search box until nobody can read it. */
   .mk-bar { flex-wrap: wrap; }
   .mk-search { flex-basis: 100%; order: 3; }
+}
+
+/* The focused card's preview fills the stage; the hero no longer has a separate
+   picture above a row of thumbnails. */
+.mk-stage .mk-hero-preview {
+  width: 100%; height: 100%; aspect-ratio: auto;
+  border: 1px solid var(--accent-line);
 }
