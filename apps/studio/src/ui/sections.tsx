@@ -616,6 +616,83 @@ export function Marketplace({
       ) : null}
 
       {/* ==================================================================
+          FEATURED PACKS — a plain, strong band. No new interaction system.
+          ==================================================================
+          The hero features ONE pack at a time. This states the shortlist: every
+          pack that ships graphics, side by side, with the one thing a broadcaster
+          needs to decide — what it gives them, what it costs, and how to get it.
+
+          Flush cards, existing tokens, staggered entrance at 40ms. Nothing here
+          invents a control: a pack you own opens its first graphic, one you do
+          not offers to add it, and there is no third state to draw. */}
+      {showable.length > 0 ? (
+        <section className="mk-section" data-testid="mk-featured" aria-label="Featured packs">
+          <div className="mk-section-head">
+            <h2 className="mk-section-title">Featured packs</h2>
+            <p className="note">
+              Complete looks, ready to install. Point at a preview to watch it move.
+            </p>
+          </div>
+
+          <div className="mk-feature-row">
+            {showable.map((pack, index) => {
+              const owned = installed.has(pack.id);
+              const first = (pack.templates ?? [])[0];
+              return (
+                <article
+                  className="mk-feature"
+                  key={pack.id}
+                  data-testid={`mk-feature-${pack.id}`}
+                  style={{ ["--i" as string]: String(index) }}
+                >
+                  <TemplateArt
+                    className="mk-feature-art"
+                    templateId={previewOf(pack)!}
+                    still={art.get(previewOf(pack)!)}
+                    onPlay={onPlay}
+                    onStop={onStop}
+                    placeholder={<span className="pack-art-pending" aria-hidden />}
+                  />
+                  <div className="mk-feature-body">
+                    <div className="mk-feature-head">
+                      <h3 className="mk-feature-name">{pack.name}</h3>
+                      <span className="badge">{KIND_LABEL[pack.kind]}</span>
+                    </div>
+                    {/* The pack's own words — already production language. */}
+                    <p className="mk-feature-claim">{pack.description}</p>
+                    {/* Cost on the box. Mono, because these compare across cards. */}
+                    <p className="mk-facts mono">
+                      {pack.author} · Free · {(pack.templates ?? []).length}{" "}
+                      {(pack.templates ?? []).length === 1 ? "graphic" : "graphics"}
+                    </p>
+                    {owned && first !== undefined ? (
+                      <button
+                        type="button"
+                        className="chip primary"
+                        data-testid={`mk-feature-open-${pack.id}`}
+                        onClick={() => onUseTemplate(first)}
+                      >
+                        Open {first.name}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="chip primary"
+                        data-testid={`mk-feature-add-${pack.id}`}
+                        onClick={() => onInstall(pack)}
+                      >
+                        Add to library
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {/* ==================================================================
           THE DISCOVERY BAR — compact, and every item leads somewhere
           ==================================================================
           A dropdown rather than a rail of chips or a sidebar: the category list

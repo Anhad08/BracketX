@@ -1199,3 +1199,51 @@
 @media (max-width: 1180px) {
   .mk-story-stage { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ==========================================================================
+   FEATURED PACKS — a plain, strong band
+   ==========================================================================
+   Deliberately ordinary. The hero carries the drama; this is the shortlist, and
+   it needs to be scannable rather than clever. Flush cards, a border and a seam,
+   no shadow, no glass, no perspective — all of which belong to the two sections
+   above it and would be noise here. */
+.mk-feature-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--s4);
+}
+.mk-feature {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+  transition: border-color var(--reveal) var(--press);
+  /* 40ms between siblings, capped at six. */
+  animation: tile-in var(--move) var(--press) backwards;
+  animation-delay: calc(var(--stagger) * min(var(--i), 5));
+}
+.mk-feature:hover { border-color: var(--accent-line); }
+/* The artwork leads, in a WELL — a broadcast graphic is transparent and needs
+   something to read against. A recess, so the card itself stays flush. */
+.mk-feature-art {
+  display: block; width: 100%; aspect-ratio: 16 / 9;
+  background: var(--well);
+  box-shadow: var(--recess);
+}
+.mk-feature-art .art-still, .mk-feature-art .art-live {
+  padding: var(--s2); box-sizing: border-box;
+}
+.mk-feature-body {
+  display: flex; flex-direction: column; gap: var(--s1);
+  padding: var(--s3) var(--s3) var(--s4);
+}
+.mk-feature-head { display: flex; align-items: center; gap: var(--s2); }
+.mk-feature-name {
+  margin: 0; font-size: 14px; letter-spacing: -0.018em; color: var(--text-strong);
+}
+.mk-feature-claim {
+  margin: 0; font-size: 13px; letter-spacing: -0.004em; color: var(--text);
+}
+.mk-feature-body .chip { align-self: flex-start; margin-top: var(--s2); }
+
+@media (prefers-reduced-motion: reduce) { .mk-feature { animation: none; } }

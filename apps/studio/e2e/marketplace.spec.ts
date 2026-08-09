@@ -505,3 +505,79 @@ test("the story survives motion being switched off", async ({ page }) => {
     .evaluate((el) => getComputedStyle(el).filter);
   expect(behind, "depth disappeared with the motion").toContain("blur");
 });
+
+for (const size of [
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+]) {
+  test(`the Featured band is real, distinct and actionable — ${size.width}x${size.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await marketplace(page);
+
+    const featured = page.getByTestId("mk-featured");
+    await expect(featured).toBeVisible();
+    const cards = page.locator('[data-testid^="mk-feature-"]').filter({ has: page.locator(".mk-feature-art") });
+    const count = await cards.count();
+    expect(count, "nothing is featured").toBeGreaterThan(1);
+
+    // REAL ARTWORK, and a different graphic on each card. The failure guarded
+    // here is a band of cards that look identical because the picture is
+    // decoration rather than content.
+    await expect
+      .poll(async () => featured.locator(".mk-feature-art .art-still").count(), {
+        timeout: 30_000,
+      })
+      .toBe(count);
+    const sources = await featured
+      .locator(".mk-feature-art .art-still")
+      .evaluateAll((els) => els.map((el) => (el as HTMLImageElement).currentSrc));
+    expect(new Set(sources).size, "featured cards share one picture").toBe(count);
+    const px = await featured
+      .locator(".mk-feature-art .art-still")
+      .first()
+      .evaluate((el) => (el as HTMLImageElement).naturalWidth);
+    expect(px, "the featured still has no pixels").toBeGreaterThan(64);
+
+    // No generic gradient stands in where real artwork exists.
+    await expect(featured.locator('[data-preview="swatch"]')).toHaveCount(0);
+
+    // FLUSH: a border and a seam, no shadow, no glass. Those belong to the hero.
+    const style = await cards.first().evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { shadow: s.boxShadow, glass: s.backdropFilter };
+    });
+    expect(style.glass, "glass leaked into the Featured band").toBe("none");
+    expect(style.shadow, "a featured card casts a shadow").toBe("none");
+
+    // Cost on the box, and production copy rather than an inventory.
+    await expect(featured.locator(".mk-facts").first()).toContainText("Free");
+    await expect(featured.locator(".mk-feature-claim").first()).not.toHaveText("");
+
+    // EXACTLY ONE action per card, and never a disabled one.
+    for (let i = 0; i < count; i += 1) {
+      const card = cards.nth(i);
+      await expect(card.locator("button"), "a featured card has no single action").toHaveCount(1);
+      await expect(card.locator("button[disabled]")).toHaveCount(0);
+    }
+
+    // No ratings anywhere in the band.
+    const text = (await featured.textContent()) ?? "";
+    expect(text).not.toMatch(/★|⭐|\b\d(\.\d)?\s*\/\s*5\b|\breviews?\b|\brating\b/i);
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, "horizontal overflow").toBeLessThanOrEqual(1);
+  });
+}
+
+test("a featured pack's action opens its graphic in Design", async ({ page }) => {
+  await marketplace(page);
+  const open = page.locator('[data-testid^="mk-feature-open-"]').first();
+  await expect(open, "no owned pack offered to open").toBeVisible();
+  await open.click();
+  await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
+  await expect(page.locator(".scene-surface canvas").first()).toBeVisible({ timeout: 30_000 });
+});
