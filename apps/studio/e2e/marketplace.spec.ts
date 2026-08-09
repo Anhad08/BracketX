@@ -253,3 +253,101 @@ test("using a featured graphic opens it in Design", async ({ page }) => {
   await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
   await expect(page.locator(".scene-surface canvas").first()).toBeVisible({ timeout: 30_000 });
 });
+
+test("every visible category returns results — no dead navigation", async ({ page }) => {
+  await marketplace(page);
+  await page.getByTestId("mk-nav").click();
+  const pop = page.getByTestId("mk-nav-pop");
+  await expect(pop).toBeVisible();
+
+  const items = pop.locator('[data-testid^="mk-cat-"]');
+  const total = await items.count();
+  expect(total, "no categories were derived").toBeGreaterThan(3);
+
+  // L6, enforced. Each item carries the count it will produce, rendered from the
+  // same derivation that decides whether the item exists at all — so a count of
+  // zero on screen is a dead control, and the derivation is what would have to
+  // be wrong for it to happen.
+  const counts = await items.locator(".mono").evaluateAll((els) =>
+    els.map((el) => Number((el.textContent ?? "0").trim())),
+  );
+  expect(counts.length).toBe(total);
+  for (const [index, count] of counts.entries()) {
+    const id = await items.nth(index).getAttribute("data-testid");
+    expect(count, `${id} advertises zero results`).toBeGreaterThan(0);
+  }
+
+  // And the badge is not merely self-consistent: selecting a category must
+  // actually produce that many tiles. Checked on three, reopening the menu each
+  // time — enough to prove the derivation drives the grid, without a ten-round
+  // open/close loop that races its own re-render.
+  const sample: string[] = [];
+  for (let i = 0; i < total && sample.length < 3; i += 1) {
+    const id = await items.nth(i).getAttribute("data-testid");
+    if (id !== null && id !== "mk-cat-all") sample.push(id);
+  }
+
+  for (const id of sample) {
+    if (!(await pop.isVisible().catch(() => false))) {
+      await page.getByTestId("mk-nav").click();
+      await expect(pop).toBeVisible();
+    }
+    const advertised = Number(
+      (await page.getByTestId(id).locator(".mono").textContent()) ?? "0",
+    );
+    await page.getByTestId(id).click();
+    await expect(pop).toHaveCount(0);
+    await expect(
+      page.locator('[data-testid^="mk-template-"]'),
+      `${id} returned a different number of graphics than it advertised`,
+    ).toHaveCount(advertised);
+  }
+});
+
+test("category and search compose, and clear independently", async ({ page }) => {
+  await marketplace(page);
+  const all = await page.locator('[data-testid^="mk-template-"]').count();
+
+  // Narrow by category.
+  await page.getByTestId("mk-nav").click();
+  await page.getByTestId("mk-cat-scoreboard").click();
+  const inCategory = await page.locator('[data-testid^="mk-template-"]').count();
+  expect(inCategory, "the category did not narrow anything").toBeLessThan(all);
+  expect(inCategory).toBeGreaterThan(0);
+
+  // Then a query INSIDE it. Composition, not replacement.
+  await page.getByLabel("Search the Marketplace").fill("zzqqxx");
+  await expect(page.locator('[data-testid^="mk-template-"]')).toHaveCount(0);
+
+  // Clearing the query leaves the category standing.
+  await page.getByLabel("Search the Marketplace").fill("");
+  await expect(page.locator('[data-testid^="mk-template-"]')).toHaveCount(inCategory);
+
+  // Clearing the category restores everything.
+  await page.getByTestId("mk-clear-category").click();
+  await expect(page.locator('[data-testid^="mk-template-"]')).toHaveCount(all);
+});
+
+test("the dropdown is keyboard reachable and Escape closes it", async ({ page }) => {
+  await marketplace(page);
+  const trigger = page.getByTestId("mk-nav");
+  await trigger.focus();
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  const pop = page.getByTestId("mk-nav-pop");
+  await expect(pop).toHaveRole("menu");
+
+  // Items are real menuitems and take focus, so the global key-handler fix will
+  // make them activatable without anything changing here.
+  const first = pop.locator('[data-testid^="mk-cat-"]').first();
+  await first.focus();
+  await expect(first).toBeFocused();
+
+  // Escape is the one key the menu owns outright.
+  await first.press("Escape");
+  await expect(pop).toHaveCount(0);
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+});

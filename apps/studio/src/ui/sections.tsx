@@ -51,6 +51,33 @@ import { friendlyDate } from "./home";
  * a designer put first is the one that represents it. Picking "the most
  * interesting" would need a judgement the data does not carry.
  */
+/**
+ * Whether a graphic belongs to a category.
+ *
+ * Matched against the template's OWN name and description, not its pack's. A
+ * pack tagged "lower third, title, sponsor" carries three different graphics,
+ * and matching on the pack would put all three in every one of those
+ * categories — which is how a filter comes to look broken.
+ */
+function matchesCategory(template: PackTemplate, tag: string): boolean {
+  return `${template.name} ${template.description}`.toLowerCase().includes(tag.toLowerCase());
+}
+
+/** "lower third" -> "Lower Thirds". The label a broadcaster reads. */
+function categoryLabel(tag: string): string {
+  // Split/join rather than a regex: two attempts lost the word-boundary
+  // escape passing through tooling and silently became "uppercase everything".
+  const titled = tag
+    .split(" ")
+    .map((word) => (word === "" ? word : word[0]!.toUpperCase() + word.slice(1)))
+    .join(" ");
+  // NOT pluralised. A naive `+ "s"` turned the "breaking" tag into "Breakings",
+  // because these tags are a mix of nouns and adjectives and no single rule
+  // fits both. Title Case alone reads correctly for every one of them — Lower
+  // Third, Ticker, Scoreboard, Breaking, Sponsor — and invents no grammar.
+  return titled;
+}
+
 function previewOf(pack: Pack): string | undefined {
   return (pack.templates ?? [])[0]?.id;
 }
@@ -104,6 +131,9 @@ export function Marketplace({
    * advanced by itself would be a violation, not a flourish.
    */
   const [featured, setFeatured] = useState(0);
+  /** Null is "every graphic", not a category called "all". */
+  const [category, setCategory] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
 
   /**
    * Packs that actually ship graphics, and therefore have something to show.
@@ -129,9 +159,74 @@ export function Marketplace({
   const graphics = PACKS.flatMap((pack) =>
     (pack.templates ?? []).map((template) => ({ pack, template })),
   );
+
+  /**
+   * The production categories the catalogue can actually honour.
+   *
+   * ========================================================================
+   * DERIVED FROM BOTH SIDES, SO A DEAD CATEGORY CANNOT EXIST
+   * ========================================================================
+   * The VOCABULARY comes from pack tags — real metadata a pack author wrote,
+   * already used by search, and already production language: "lower third",
+   * "ticker", "scoreboard", "breaking", "countdown". No second category
+   * database to keep in agreement with the catalogue.
+   *
+   * MEMBERSHIP comes from the template itself: a tag is a category only if some
+   * graphic's own name or description carries it. That is what prunes the tags
+   * that describe a PACK rather than a graphic — "starter", "dark", "esports" —
+   * without anybody maintaining an exclusion list.
+   *
+   * The consequence is the one L6 demands: a category is on screen only when
+   * selecting it returns something. New content grows the list automatically;
+   * there is no six-category ceiling written down anywhere.
+   */
+  const categories = (() => {
+    // Only from packs that CONTAIN GRAPHICS. A theme pack is tagged "dark",
+    // "daytime"; a motion pack "slide", "fade", "loop". None of those is a
+    // production category for browsing graphics — "Slides" appeared as one on
+    // the first run, because a template description says "Slides in from the
+    // left". Narrowing the SOURCE removes that whole class rather than
+    // blacklisting words one at a time.
+    const vocabulary = new Set(
+      PACKS.filter((pack) => (pack.templates ?? []).length > 0).flatMap((pack) => pack.tags),
+    );
+    const counted = [...vocabulary]
+      .map((tag) => ({
+        tag,
+        count: graphics.filter(({ template }) => matchesCategory(template, tag)).length,
+      }))
+      .filter((entry) => entry.count > 0);
+    // Commonest first, then alphabetical — a stable order, and the useful ones
+    // reachable without reading the whole list.
+    counted.sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    return counted;
+  })();
+
+  const inCategory =
+    category === null
+      ? graphics
+      : graphics.filter(({ template }) => matchesCategory(template, category));
+
   const hero = showable[Math.min(featured, Math.max(0, showable.length - 1))];
 
   const needle = query.trim().toLowerCase();
+
+  /**
+   * Category and search COMPOSE. Neither replaces the other.
+   *
+   * Declared AFTER `needle` deliberately: it was above it once, and reading a
+   * `const` before its initialiser is a TDZ ReferenceError — the whole
+   * application refused to boot with "Streamatrix could not start". Cheap to
+   * fix, invisible to typecheck, and caught only by opening the page.
+   */
+  const featuredGraphics = inCategory.filter(({ pack, template }) =>
+    needle.length === 0
+      ? true
+      : [template.name, template.description, pack.name, ...pack.tags]
+          .join(" ")
+          .toLowerCase()
+          .includes(needle),
+  );
   const shown = PACKS.filter((pack) => {
     if (kind !== "all" && pack.kind !== kind) return false;
     if (needle.length === 0) return true;
@@ -262,6 +357,107 @@ export function Marketplace({
       ) : null}
 
       {/* ==================================================================
+          THE DISCOVERY BAR — compact, and every item leads somewhere
+          ==================================================================
+          A dropdown rather than a rail of chips or a sidebar: the category list
+          grows with the catalogue, and a row of chips that wraps to three lines
+          has stopped being navigation. Compact enough that it does not compete
+          with the hero above it.
+
+          Real <button>s throughout. The global Enter/Space defect — both keys
+          are transport bindings, so neither activates a focused control
+          anywhere in Studio — is NOT worked around here. Correct semantics
+          means the one global fix will repair this along with everything else.
+          Escape closes, which is the one key the menu owns outright. */}
+      <nav className="mk-bar" aria-label="Browse the Marketplace">
+        <div className="mk-nav">
+          <button
+            type="button"
+            className={`mk-nav-trigger ${navOpen ? "on" : ""}`}
+            data-testid="mk-nav"
+            aria-expanded={navOpen}
+            aria-haspopup="true"
+            onClick={() => setNavOpen((open) => !open)}
+          >
+            <span className="mk-nav-label">
+              {category === null ? "Everything" : categoryLabel(category)}
+            </span>
+            <span className="mk-nav-count mono">
+              {featuredGraphics.length}
+            </span>
+          </button>
+
+          {navOpen ? (
+            <div
+              className="mk-nav-pop"
+              data-testid="mk-nav-pop"
+              role="menu"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.stopPropagation();
+                  setNavOpen(false);
+                }
+              }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className={`mk-nav-item ${category === null ? "on" : ""}`}
+                data-testid="mk-cat-all"
+                onClick={() => {
+                  setCategory(null);
+                  setNavOpen(false);
+                }}
+              >
+                Everything
+                <span className="mono">{graphics.length}</span>
+              </button>
+
+              {/* Derived. A category is here only because a real graphic
+                  answers to it, so none of these can lead nowhere. */}
+              {categories.map(({ tag, count }) => (
+                <button
+                  key={tag}
+                  type="button"
+                  role="menuitem"
+                  className={`mk-nav-item ${category === tag ? "on" : ""}`}
+                  data-testid={`mk-cat-${tag.replace(/\s+/g, "-")}`}
+                  onClick={() => {
+                    setCategory(tag);
+                    setNavOpen(false);
+                  }}
+                >
+                  {categoryLabel(tag)}
+                  <span className="mono">{count}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Search stays beside the categories, because they compose: a query
+            narrows within whatever category is showing. */}
+        <input
+          className="field mk-search"
+          placeholder="Search the Marketplace"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          aria-label="Search the Marketplace"
+        />
+
+        {category !== null ? (
+          <button
+            type="button"
+            className="link"
+            data-testid="mk-clear-category"
+            onClick={() => setCategory(null)}
+          >
+            Clear category
+          </button>
+        ) : null}
+      </nav>
+
+      {/* ==================================================================
           FEATURED GRAPHICS — individual graphics, not production identities
           ==================================================================
           Deliberately a different shape from the pack deck above it. A pack is
@@ -284,7 +480,7 @@ export function Marketplace({
           </div>
 
           <div className="mk-grid">
-            {graphics.map(({ pack, template }) => {
+            {featuredGraphics.map(({ pack, template }) => {
               const owned = installed.has(pack.id);
               return (
                 <article
