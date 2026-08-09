@@ -866,3 +866,58 @@
 .mk-topline { margin-bottom: var(--s4); }
 .mk-topline h1 { margin: 0 0 var(--s1); }
 .mk-browse-title { margin: 0; font-size: 14px; letter-spacing: -0.018em; }
+
+/* ==========================================================================
+   FEATURED GRAPHICS — scannable, flush, artwork-led
+   ==========================================================================
+   A different shape from the deck above on purpose. The deck focuses ONE pack;
+   this scans MANY graphics. Same system, different job.
+
+   Flush throughout: seams and structure, no shadows, no glass. Volume One is
+   explicit that "a panel inside a panel is a seam, not another raised card",
+   and a grid where every tile floats is the card-soup this replaces. */
+.mk-section { margin-bottom: var(--s6); }
+.mk-section-head { margin-bottom: var(--s4); }
+/* Title role — larger than a tile's name, smaller than the hero's. The section
+   introduces the graphics; it does not compete with them. */
+.mk-section-title { margin: 0 0 var(--s1); font-size: 20px; letter-spacing: -0.028em; }
+
+.mk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: var(--s4);
+}
+.mk-tile {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+}
+/* The artwork is the whole top of the tile and the tallest thing in it. A WELL,
+   because a broadcast graphic is transparent and needs something to read
+   against — and a recess, so the tile itself stays flush. */
+.mk-tile-art {
+  display: block; width: 100%; aspect-ratio: 16 / 9;
+  background: var(--well);
+  box-shadow: var(--recess);
+}
+.mk-tile-art .art-still, .mk-tile-art .art-live { padding: var(--s2); box-sizing: border-box; }
+
+.mk-tile-body {
+  display: flex; flex-direction: column; gap: var(--s1);
+  padding: var(--s3) var(--s3) var(--s4);
+}
+.mk-tile-name { margin: 0; font-size: 14px; letter-spacing: -0.018em; color: var(--text-strong); }
+.mk-tile-claim { margin: 0; font-size: 13px; letter-spacing: -0.004em; color: var(--text); }
+.mk-tile-body .chip { align-self: flex-start; margin-top: var(--s2); }
+
+/* Staggered entrance, 40ms, capped at six — Volume One, both numbers. Beyond the
+   sixth every tile shares the sixth's delay: a tenth card waiting 400ms reads as
+   the interface being slow, not as choreography. */
+.mk-tile { animation: tile-in var(--move) var(--press) backwards; }
+.mk-tile:nth-child(2) { animation-delay: calc(var(--stagger) * 1); }
+.mk-tile:nth-child(3) { animation-delay: calc(var(--stagger) * 2); }
+.mk-tile:nth-child(4) { animation-delay: calc(var(--stagger) * 3); }
+.mk-tile:nth-child(5) { animation-delay: calc(var(--stagger) * 4); }
+.mk-tile:nth-child(n+6) { animation-delay: calc(var(--stagger) * 5); }
+@media (prefers-reduced-motion: reduce) { .mk-tile { animation: none; } }

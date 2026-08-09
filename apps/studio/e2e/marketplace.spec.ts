@@ -185,3 +185,71 @@ test("the deck is focusable, and its cards are real controls", async ({ page }) 
   await cards.nth(1).click();
   await expect(cards.nth(1)).toHaveAttribute("aria-selected", "true");
 });
+
+for (const size of [
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+]) {
+  test(`featured graphics are real, distinct, and offer the right action — ${size.width}x${size.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await marketplace(page);
+
+    const section = page.getByTestId("mk-templates");
+    await expect(section).toBeVisible();
+    const tiles = page.locator('[data-testid^="mk-template-"]');
+    expect(await tiles.count(), "no graphics featured").toBeGreaterThan(2);
+
+    // EVERY TILE SHOWS ITS OWN GRAPHIC. The failure this guards is the one the
+    // brief names: a grid of cards that are identical because the artwork is
+    // decoration rather than content. Comparing the stills' sources proves each
+    // tile rendered a different template, not one shared picture.
+    const sources = await section.locator(".mk-tile-art .art-still").evaluateAll(
+      (els) => els.map((el) => (el as HTMLImageElement).currentSrc),
+    );
+    expect(sources.length, "no tile rendered a still").toBeGreaterThan(2);
+    expect(new Set(sources).size, "tiles share one picture").toBe(sources.length);
+
+    // Real pixels, not a broken src.
+    const px = await section
+      .locator(".mk-tile-art .art-still")
+      .first()
+      .evaluate((el) => (el as HTMLImageElement).naturalWidth);
+    expect(px).toBeGreaterThan(64);
+
+    // FLUSH. Nothing in the grid floats, and glass stays in the hero.
+    const tile = tiles.first();
+    const style = await tile.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { shadow: s.boxShadow, glass: s.backdropFilter };
+    });
+    expect(style.glass, "glass leaked into the graphics grid").toBe("none");
+    expect(style.shadow, "a tile casts a shadow").toBe("none");
+
+    // THE ACTION NAMES THE RIGHT UNIT. A graphic arrives with its pack, so an
+    // uninstalled one offers the pack — never a disabled "Use", which L6 forbids.
+    const id = (await tiles.first().getAttribute("data-testid"))!.replace("mk-template-", "");
+    const use = page.getByTestId(`mk-use-${id}`);
+    const add = page.getByTestId(`mk-add-${id}`);
+    const usable = await use.count();
+    expect(usable + (await add.count()), "the tile offers no action at all").toBe(1);
+    await expect(page.locator(`[data-testid="mk-template-${id}"] button[disabled]`)).toHaveCount(0);
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, "horizontal overflow").toBeLessThanOrEqual(1);
+  });
+}
+
+test("using a featured graphic opens it in Design", async ({ page }) => {
+  await marketplace(page);
+  // The acquisition-to-use path, end to end: the section must not be a gallery
+  // with no way out of it.
+  const use = page.locator('[data-testid^="mk-use-"]').first();
+  await expect(use, "no installed graphic offered Use").toBeVisible();
+  await use.click();
+  await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
+  await expect(page.locator(".scene-surface canvas").first()).toBeVisible({ timeout: 30_000 });
+});

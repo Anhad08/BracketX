@@ -114,6 +114,21 @@ export function Marketplace({
    * renamed or removed.
    */
   const showable = PACKS.filter((pack) => previewOf(pack) !== undefined);
+
+  /**
+   * Every graphic in the catalogue, with the pack it belongs to.
+   *
+   * Flattened from real data. No fixture list: the Marketplace shows what the
+   * product actually ships, so a template added to a pack appears here without
+   * anybody remembering to register it in a second place.
+   *
+   * The pack travels with it because acquisition and use are different units —
+   * a graphic is what a designer opens, a pack is what they acquire — and the
+   * card has to know which of the two the button should do.
+   */
+  const graphics = PACKS.flatMap((pack) =>
+    (pack.templates ?? []).map((template) => ({ pack, template })),
+  );
   const hero = showable[Math.min(featured, Math.max(0, showable.length - 1))];
 
   const needle = query.trim().toLowerCase();
@@ -243,6 +258,83 @@ export function Marketplace({
               ))}
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {/* ==================================================================
+          FEATURED GRAPHICS — individual graphics, not production identities
+          ==================================================================
+          Deliberately a different shape from the pack deck above it. A pack is
+          a complete look a broadcaster acquires; a graphic is one thing they
+          open and put on air. Presenting both as the same card with a different
+          title would tell the designer they are the same kind of object.
+
+          So: a scannable grid rather than a focused deck, the rendered graphic
+          as the whole top of the card, and an action that says which of the two
+          units it operates on — Use the graphic, or add the pack that carries
+          it. Flush, seams only; nothing here floats. */}
+      {graphics.length > 0 ? (
+        <section className="mk-section" data-testid="mk-templates" aria-label="Featured graphics">
+          <div className="mk-section-head">
+            <h2 className="mk-section-title">Graphics you can put on air today</h2>
+            <p className="note">
+              Every one is editable, animated and ready to take. Point at a
+              preview to watch it move.
+            </p>
+          </div>
+
+          <div className="mk-grid">
+            {graphics.map(({ pack, template }) => {
+              const owned = installed.has(pack.id);
+              return (
+                <article
+                  className="mk-tile"
+                  key={template.id}
+                  data-testid={`mk-template-${template.id}`}
+                >
+                  <TemplateArt
+                    className="mk-tile-art"
+                    templateId={template.id}
+                    still={art.get(template.id)}
+                    onPlay={onPlay}
+                    onStop={onStop}
+                    placeholder={<span className="pack-art-pending" aria-hidden />}
+                  />
+                  <div className="mk-tile-body">
+                    <h3 className="mk-tile-name">{template.name}</h3>
+                    <p className="mk-tile-claim">{template.description}</p>
+                    {/* The production context it belongs to, and its cost. Mono,
+                        because a person compares these across cards. */}
+                    <p className="mk-facts mono">
+                      {pack.name} · Free
+                    </p>
+                    {owned ? (
+                      <button
+                        type="button"
+                        className="chip primary"
+                        data-testid={`mk-use-${template.id}`}
+                        onClick={() => onUseTemplate(template)}
+                      >
+                        Use this graphic
+                      </button>
+                    ) : (
+                      /* NOT a disabled Use button. L6: never draw a control for
+                         something that cannot happen. The graphic arrives with
+                         its pack, so the honest action is to add the pack. */
+                      <button
+                        type="button"
+                        className="chip"
+                        data-testid={`mk-add-${template.id}`}
+                        onClick={() => onInstall(pack)}
+                      >
+                        Add {pack.name}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </section>
       ) : null}
 
