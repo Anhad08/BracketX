@@ -1038,3 +1038,85 @@
   width: 100%; height: 100%; aspect-ratio: auto;
   border: 1px solid var(--accent-line);
 }
+
+/* ==========================================================================
+   THE PACK STORY — ScrollSyncedText, translated
+   ==========================================================================
+   A tall track with a STICKY stage inside it. The reader scrolls the track; the
+   stage stays put and its composition changes. That is the whole pattern: the
+   words and the artwork progress together, driven by scroll position and by
+   nothing else.
+
+   The sentinels are zero-height markers down the track. They are the only thing
+   that decides the stage, so the visual can be retuned without touching the
+   logic. */
+.mk-story { position: relative; margin-bottom: var(--s7); }
+/* Four viewport-heights of travel: enough that each stage is READ rather than
+   flicked past, and short enough that the section does not become the page. */
+.mk-story-track { position: absolute; inset: 0; pointer-events: none; }
+.mk-mark { position: absolute; left: 0; width: 1px; height: 1px; }
+.mk-mark[data-mark="0"] { top: 12%; }
+.mk-mark[data-mark="1"] { top: 38%; }
+.mk-mark[data-mark="2"] { top: 64%; }
+.mk-mark[data-mark="3"] { top: 90%; }
+.mk-story { min-height: 300vh; }
+
+.mk-story-stage {
+  position: sticky; top: var(--s6);
+  display: grid; grid-template-columns: minmax(280px, 0.8fr) minmax(0, 2fr);
+  gap: var(--s5);
+  align-items: center;
+  min-height: 78vh;
+}
+
+.mk-story-copy { display: flex; flex-direction: column; gap: var(--s2); }
+/* Display role — the largest type on the page, because this is the one moment
+   the Marketplace is talking rather than listing. */
+.mk-story-title {
+  margin: 0; font-size: 30px; letter-spacing: -0.036em; color: var(--text-strong);
+  /* The words change with the stage, so they arrive rather than cut. */
+  animation: story-in var(--reveal) var(--press) both;
+}
+.mk-story-line {
+  margin: 0; font-size: 13px; letter-spacing: -0.004em; color: var(--text);
+  max-width: 46ch;
+  animation: story-in var(--reveal) var(--press) both;
+}
+@keyframes story-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* THE ARTWORK OPENS. One card until stage two, then the pack's graphics fan out
+   into a grid at a size worth inspecting — not six thumbnails crushed to fit. */
+.mk-story-art {
+  display: grid; gap: var(--s3);
+  grid-template-columns: 1fr;
+  transition: grid-template-columns var(--move) var(--press);
+}
+.mk-story-art[data-open="yes"] { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+/* Before it opens, only the first graphic is the pack's face; the rest are not
+   yet part of the conversation. */
+.mk-story-art[data-open="no"] .mk-story-card:not(:first-child) { display: none; }
+
+.mk-story-card {
+  display: flex; flex-direction: column; gap: var(--s2);
+  animation: tile-in var(--move) var(--press) backwards;
+  /* 40ms between siblings, capped at six. */
+  animation-delay: calc(var(--stagger) * min(var(--i), 5));
+}
+.mk-story-preview {
+  display: block; width: 100%; aspect-ratio: 16 / 9;
+  background: var(--well); border-radius: var(--radius-sm);
+  box-shadow: var(--recess), var(--edge);
+}
+.mk-story-preview .art-still, .mk-story-preview .art-live { padding: var(--s2); box-sizing: border-box; }
+.mk-story-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s2);
+  font-size: 13px; letter-spacing: -0.004em;
+}
+.mk-story-meta strong { color: var(--text-strong); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-story-title, .mk-story-line, .mk-story-card { animation: none; }
+}
+@media (max-width: 1180px) {
+  .mk-story-stage { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProviderStatus } from "../studio/storage";
 import type { SceneDocument, Transaction } from "@bracketx/engine-scene";
 import type { AssetRecord } from "@bracketx/engine-assets";
@@ -134,6 +134,50 @@ export function Marketplace({
   /** Null is "every graphic", not a category called "all". */
   const [category, setCategory] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+
+  /**
+   * How far through the pack story the reader has scrolled, as a stage index.
+   *
+   * ========================================================================
+   * SENTINELS AND AN OBSERVER, NOT A SCROLL HANDLER
+   * ========================================================================
+   * Studio scrolls inside an element rather than the document, so a `window`
+   * scroll listener would never fire and a handler on the right container means
+   * this component has to know which ancestor that is. Four sentinels crossing
+   * the viewport's midline answer the same question without knowing anything:
+   * `rootMargin: -50% 0 -50%` collapses the root to a line, and whichever
+   * sentinel is on it is the stage.
+   *
+   * Also cheaper: the browser reports crossings instead of this recomputing
+   * geometry on every frame of a scroll.
+   */
+  const [stage, setStage] = useState(0);
+  const marks = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const nodes = marks.current.filter((node): node is HTMLDivElement => node !== null);
+    if (nodes.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const index = Number((entry.target as HTMLElement).dataset.mark ?? 0);
+          setStage(index);
+        }
+      },
+      // A BAND, not a line. `-50%` on both edges collapses the root to zero
+      // height, and a 1px sentinel then has to land on that exact line — which
+      // scrolling almost never does, so the stage never advanced. A 20%-tall
+      // band in the middle of the viewport is forgiving enough to catch a
+      // sentinel and narrow enough that only one is ever in it.
+      { rootMargin: "-40% 0px -40% 0px", threshold: 0 },
+    );
+    for (const node of nodes) observer.observe(node);
+    return () => observer.disconnect();
+    // Keyed on the FOCUSED INDEX rather than the pack object: `featured` is
+    // declared above this, and `hero` is derived below it — reading it here was
+    // a use-before-declaration. Same trigger, correct order.
+  }, [featured]);
 
   /**
    * Packs that actually ship graphics, and therefore have something to show.
@@ -382,6 +426,124 @@ export function Marketplace({
             </div>
           </div>
 
+        </section>
+      ) : null}
+
+      {/* ==================================================================
+          THE PACK STORY — ScrollSyncedText, translated
+          ==================================================================
+          Reference pattern: the composition PROGRESSES with scroll position
+          rather than a paragraph sitting above a grid. Four stages, told about
+          the pack the deck is focused on:
+
+              one package -> what it gives you -> the graphics inside -> take one
+
+          A sticky stage holds the composition still while the reader scrolls
+          past it, so the words and the artwork change in place. The graphics
+          arrive at stage two at a size worth inspecting — not six thumbnails
+          crushed to fit.
+
+          Scroll DRIVES it; nothing plays on its own. Every transition is
+          `reveal`/`move` with `press`, and the graphics stagger in at 40ms. */}
+      {hero !== undefined && (hero.templates ?? []).length > 0 ? (
+        <section className="mk-story" data-testid="mk-story" data-stage={stage}>
+          {/* The scroll track. The sentinels sit down its length; whichever is
+              on the viewport's midline is the stage. */}
+          <div className="mk-story-track" aria-hidden>
+            {[0, 1, 2, 3].map((index) => (
+              <div
+                key={index}
+                data-mark={index}
+                data-testid={`mk-mark-${index}`}
+                className="mk-mark"
+                ref={(node) => {
+                  marks.current[index] = node;
+                }}
+              />
+            ))}
+          </div>
+
+          <div className="mk-story-stage">
+            <div className="mk-story-copy">
+              <span className="mk-eyebrow">
+                {stage === 0
+                  ? "One package"
+                  : stage === 1
+                    ? "What it gives you"
+                    : stage === 2
+                      ? "The graphics inside"
+                      : "Take one to air"}
+              </span>
+              {/* Real catalogue copy at every stage. Nothing here is written for
+                  the story — it is the pack's own name, its own description, and
+                  counts derived from what it actually contains. */}
+              <h2 className="mk-story-title" data-testid="mk-story-title">
+                {stage === 0 ? hero.name : stage === 1 ? hero.description : "Ready to use"}
+              </h2>
+              <p className="mk-story-line" data-testid="mk-story-line">
+                {stage === 0
+                  ? hero.description
+                  : stage === 1
+                    ? `${(hero.templates ?? []).length} graphics, every field editable, every move already built.`
+                    : stage === 2
+                      ? `All ${(hero.templates ?? []).length} of them, rendered by the same engine that will put them to air.`
+                      : installed.has(hero.id)
+                        ? "Open one and it is yours to edit."
+                        : `Add ${hero.name} and all ${(hero.templates ?? []).length} arrive together.`}
+              </p>
+              <p className="mk-facts mono">{hero.author} · Free</p>
+            </div>
+
+            {/* The artwork. Stage 0 and 1 show the pack as one thing; stage 2
+                opens it into the graphics it contains; stage 3 puts an action on
+                each. The SAME previews throughout — they grow into the grid
+                rather than being replaced by a different component. */}
+            <div className="mk-story-art" data-open={stage >= 2 ? "yes" : "no"}>
+              {(hero.templates ?? []).map((template, index) => (
+                <div
+                  className="mk-story-card"
+                  key={template.id}
+                  data-testid={`mk-story-${template.id}`}
+                  style={{ ["--i" as string]: String(index) }}
+                >
+                  <TemplateArt
+                    className="mk-story-preview"
+                    templateId={template.id}
+                    still={art.get(template.id)}
+                    onPlay={onPlay}
+                    onStop={onStop}
+                    placeholder={<span className="pack-art-pending" aria-hidden />}
+                  />
+                  {stage >= 2 ? (
+                    <div className="mk-story-meta">
+                      <strong>{template.name}</strong>
+                      {stage >= 3 ? (
+                        installed.has(hero.id) ? (
+                          <button
+                            type="button"
+                            className="chip primary"
+                            data-testid={`mk-story-use-${template.id}`}
+                            onClick={() => onUseTemplate(template)}
+                          >
+                            Use
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="chip"
+                            data-testid={`mk-story-add-${template.id}`}
+                            onClick={() => onInstall(hero)}
+                          >
+                            Add pack
+                          </button>
+                        )
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
       ) : null}
 

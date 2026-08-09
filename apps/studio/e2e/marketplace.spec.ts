@@ -362,3 +362,71 @@ test("the dropdown is keyboard reachable and Escape closes it", async ({ page })
   await expect(pop).toHaveCount(0);
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
 });
+
+for (const size of [
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+]) {
+  test(`scrolling the pack story changes the composition — ${size.width}x${size.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await marketplace(page);
+
+    const story = page.getByTestId("mk-story");
+    await expect(story).toBeVisible();
+    // Stage 0: one package. The graphics it contains are NOT yet shown — the
+    // section opens by introducing the pack, not by listing its contents.
+    await expect(story).toHaveAttribute("data-stage", "0");
+    const cards = story.locator('[data-testid^="mk-story-"][data-testid*="tpl_"]');
+    const visibleAtStart = await story.locator(".mk-story-card:visible").count();
+    expect(visibleAtStart, "the story opened already fanned out").toBe(1);
+
+    const openingTitle = await page.getByTestId("mk-story-title").textContent();
+
+    // SCROLL DRIVES IT. Walk the sentinels and require the stage to advance.
+    const toMark = async (n: number) =>
+      page
+        .getByTestId(`mk-mark-${n}`)
+        .evaluate((el) => el.scrollIntoView({ block: "center" }));
+
+    await toMark(1);
+    await expect(story).toHaveAttribute("data-stage", "1");
+    // The words changed with it, so the text is scroll-linked and not decorative.
+    await expect(page.getByTestId("mk-story-title")).not.toHaveText(openingTitle ?? "");
+
+    // Stage 2 opens the pack into its actual graphics, all of them.
+    await toMark(2);
+    await expect(story).toHaveAttribute("data-stage", "2");
+    await expect
+      .poll(async () => story.locator(".mk-story-card:visible").count(), { timeout: 15_000 })
+      .toBeGreaterThan(1);
+    expect(await cards.count(), "the story showed no real graphics").toBeGreaterThan(1);
+
+    // And they are REAL stills, large enough to inspect rather than thumbnails.
+    const box = await story.locator(".mk-story-preview").first().boundingBox();
+    expect(box!.width, "the graphics are too small to inspect").toBeGreaterThan(180);
+    const px = await story
+      .locator(".mk-story-preview .art-still")
+      .first()
+      .evaluate((el) => (el as HTMLImageElement).naturalWidth);
+    expect(px).toBeGreaterThan(64);
+
+    // Stage 3 puts an action on each graphic — the way out of the story.
+    await toMark(3);
+    await expect(story).toHaveAttribute("data-stage", "3");
+    const actions = story.locator(
+      '[data-testid^="mk-story-use-"], [data-testid^="mk-story-add-"]',
+    );
+    expect(await actions.count(), "the story offered no action").toBeGreaterThan(0);
+
+    // Reversible: scrolling back returns the composition.
+    await toMark(0);
+    await expect(story).toHaveAttribute("data-stage", "0");
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, "horizontal overflow").toBeLessThanOrEqual(1);
+  });
+}
