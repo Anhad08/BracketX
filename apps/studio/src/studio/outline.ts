@@ -28,6 +28,15 @@ export interface OutlineRow {
   readonly locked: boolean;
   /** True when this node has a repeat, so the outline can say so. */
   readonly repeats: boolean;
+  /**
+   * V-1: the object has no more of itself inside the frame than a snap-back
+   * leaves. §03 — "the layer is flagged off frame".
+   *
+   * DERIVED from bounds by the caller, never stored on the node: an object
+   * dragged back into shot must lose the flag without anyone remembering to
+   * clear it.
+   */
+  readonly offFrame: boolean;
 }
 
 export interface OutlineOptions {
@@ -35,6 +44,14 @@ export interface OutlineOptions {
   readonly locked?: ReadonlySet<string>;
   /** Case-insensitive match on name, id, or component type. */
   readonly filter?: string;
+  /**
+   * Ids the caller has found to be off frame. V-1.
+   *
+   * Passed IN rather than computed here, because deciding it needs world
+   * bounds — which come from the mirror, not the document — and the outline
+   * must stay a pure reading of the tree.
+   */
+  readonly offFrame?: ReadonlySet<string>;
 }
 
 /** What kind of thing a node is, for the row's badge. */
@@ -105,6 +122,7 @@ export function outline(
       expanded,
       locked: locked.has(node.id),
       repeats: node.repeat !== undefined,
+      offFrame: options.offFrame?.has(node.id) === true,
     });
 
     if (!expanded) return;

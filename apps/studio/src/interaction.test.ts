@@ -15,7 +15,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ZOOM_ANIMATION_MS,
   ZOOM_STEPS,
+  press,
+  tweenViewport,
   nearestStep,
   pointerIntent,
   scrolled,
@@ -220,5 +223,73 @@ describe("one gesture, one meaning", () => {
 
   it("never returns a zoom with no direction to zoom in", () => {
     expect(wheelIntent(input({ mod: true, deltaY: 0 })).kind).toBe("none");
+  });
+});
+
+// ===========================================================================
+// §03 · "Zoom animation — 120 ms · press. Disabled entirely under reduced
+//        motion, with no loss."
+// ===========================================================================
+
+describe("the zoom animation", () => {
+  it("is 120ms, the duration the spec names", () => {
+    expect(ZOOM_ANIMATION_MS).toBe(120);
+  });
+
+  it("uses the Design OS press curve, not one of its own", () => {
+    // `cubic-bezier(0.3, 0.7, 0.4, 1)` — "decelerates hard so things arrive
+    // and stop". Checked at its ends and by its shape rather than by sampling
+    // the coefficients back out.
+    expect(press(0)).toBeCloseTo(0, 6);
+    expect(press(1)).toBeCloseTo(1, 6);
+    // Front-loaded: more than half the distance is covered in the first
+    // quarter of the time, which is what "arrives and stops" looks like.
+    expect(press(0.25)).toBeGreaterThan(0.5);
+    // And monotonic — broadcast equipment does not wobble, so it must never
+    // overshoot or go backwards.
+    let previous = -1;
+    for (let step = 0; step <= 20; step += 1) {
+      const value = press(step / 20);
+      expect(value).toBeGreaterThanOrEqual(previous);
+      expect(value).toBeLessThanOrEqual(1.0000001);
+      previous = value;
+    }
+  });
+
+  it("starts where it started and lands exactly on the target", () => {
+    const from: Viewport = { zoom: 1, panX: 0, panY: 0 };
+    const to: Viewport = { zoom: 4, panX: -200, panY: 100 };
+
+    expect(tweenViewport(from, to, 0)).toEqual(from);
+    const landed = tweenViewport(from, to, 1);
+    // EXACT at the end. A zoom that merely approaches 400% leaves the viewport
+    // off a rung, and "is this 1:1?" is the question the ladder answers.
+    expect(landed.zoom).toBeCloseTo(4, 10);
+    expect(landed.panX).toBeCloseTo(-200, 10);
+    expect(landed.panY).toBeCloseTo(100, 10);
+  });
+
+  it("travels through zoom in log space, because zoom is a ratio", () => {
+    const half = tweenViewport({ zoom: 1, panX: 0, panY: 0 }, { zoom: 8, panX: 0, panY: 0 }, 0.5);
+    // Linear interpolation would put the midpoint at 450%, which is nowhere
+    // near the middle of the journey and makes the first half of a zoom-out
+    // crawl. Eased and logarithmic, it is well past the geometric middle by
+    // half-time — but nowhere near the linear one.
+    expect(half.zoom).toBeLessThan(8);
+    expect(half.zoom).toBeGreaterThan(1);
+  });
+
+  it("never produces a zoom outside the two it travels between", () => {
+    // No overshoot: an interface that springs past its target and comes back
+    // is exactly what the motion system prohibits by name.
+    for (let step = 0; step <= 20; step += 1) {
+      const value = tweenViewport(
+        { zoom: 1, panX: 0, panY: 0 },
+        { zoom: 0.25, panX: 0, panY: 0 },
+        step / 20,
+      );
+      expect(value.zoom).toBeLessThanOrEqual(1.0000001);
+      expect(value.zoom).toBeGreaterThanOrEqual(0.25 - 1e-6);
+    }
   });
 });

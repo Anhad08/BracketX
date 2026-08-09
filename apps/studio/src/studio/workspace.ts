@@ -226,6 +226,31 @@ export interface Workspace {
   /** Seconds visible in the timeline editor. Zoom, not a clock. */
   readonly timelineZoom: number;
 
+  /**
+   * CAMERA MEMORY. `studio-specification.html` §03.
+   *
+   * "Per graphic, restored on open, including zoom step and centre. Returning
+   * to a graphic you were working on at 400 % on the left third and being
+   * shown Fit is a small theft of context, forty times a day."
+   *
+   * Keyed by document id, holding exactly what the spec names — the zoom rung
+   * and where the view is centred. Three numbers, and nothing a renderer has
+   * ever heard of.
+   *
+   * WHY IT LIVES HERE AND NOT IN THE DOCUMENT. The document is what goes to
+   * air; the workspace is how a designer happens to be looking at it. Pan and
+   * zoom are deliberately not a camera — see the header of `viewport.ts` — so
+   * putting them in the document would mean that zooming in to nudge a corner
+   * had changed the broadcast.
+   *
+   * ORBIT IS NOT HERE, and that is not an omission. Turning the camera in 3D
+   * writes `transform.position` and `transform.rotation` on the camera NODE,
+   * which is content and already persists with the scene. Remembering it here
+   * as well would make two sources of truth for where the camera points, one
+   * of which goes to air.
+   */
+  readonly cameras: Readonly<Record<string, { zoom: number; panX: number; panY: number }>>;
+
   // -- Scene view toggles ---------------------------------------------------
   readonly showSafeAreas: boolean;
   readonly showGrid: boolean;
@@ -276,6 +301,7 @@ export interface Workspace {
 }
 
 export const DEFAULT_WORKSPACE: Workspace = {
+  cameras: {},
   theme: "dark",
   quality: "auto",
   renderer: "three",
@@ -346,7 +372,38 @@ function sanitize(value: unknown): Workspace {
       )
     : DEFAULT_WORKSPACE.installedPacks;
 
+  /**
+   * Camera memory, read defensively.
+   *
+   * A stale or hostile store must not put a NaN zoom into the viewport — the
+   * picture would vanish and the only way out would be clearing storage, which
+   * is the failure mode this whole sanitiser exists to prevent. Every entry
+   * must be three finite numbers with a positive zoom; anything else is
+   * dropped rather than repaired, because a half-remembered camera is not
+   * worth restoring.
+   */
+  const cameras: Record<string, { zoom: number; panX: number; panY: number }> = {};
+  if (raw.cameras !== null && typeof raw.cameras === "object") {
+    for (const [id, value] of Object.entries(raw.cameras as Record<string, unknown>)) {
+      const camera = value as { zoom?: unknown; panX?: unknown; panY?: unknown } | null;
+      if (
+        camera !== null &&
+        typeof camera === "object" &&
+        typeof camera.zoom === "number" &&
+        Number.isFinite(camera.zoom) &&
+        camera.zoom > 0 &&
+        typeof camera.panX === "number" &&
+        Number.isFinite(camera.panX) &&
+        typeof camera.panY === "number" &&
+        Number.isFinite(camera.panY)
+      ) {
+        cameras[id] = { zoom: camera.zoom, panX: camera.panX, panY: camera.panY };
+      }
+    }
+  }
+
   return {
+    cameras,
     theme: raw.theme === "light" ? "light" : "dark",
     // An unknown renderer falls back to the default rather than throwing: a
     // corrupt preference must never leave the editor unable to draw.

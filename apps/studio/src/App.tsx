@@ -379,6 +379,40 @@ export function App() {
     [selection],
   );
 
+  /**
+   * Remembers where a graphic was left. §03 camera memory.
+   *
+   * Written into the WORKSPACE rather than the document: this is how a
+   * designer is looking at the graphic, not what the graphic contains. An
+   * unchanged view is not rewritten, so opening a file and closing it does not
+   * churn storage.
+   */
+  const rememberCamera = useCallback(
+    (documentId: string, view: Viewport) => {
+      setWorkspace((current) => {
+        const existing = current.cameras[documentId];
+        if (
+          existing !== undefined &&
+          existing.zoom === view.zoom &&
+          existing.panX === view.panX &&
+          existing.panY === view.panY
+        ) {
+          return current;
+        }
+        const next: Workspace = {
+          ...current,
+          cameras: {
+            ...current.cameras,
+            [documentId]: { zoom: view.zoom, panX: view.panX, panY: view.panY },
+          },
+        };
+        saveWorkspace(next);
+        return next;
+      });
+    },
+    [],
+  );
+
   const askViewport = useCallback((action: ViewportAction) => {
     setViewportRequest((current) => ({ action, nonce: (current?.nonce ?? 0) + 1 }));
   }, []);
@@ -939,7 +973,10 @@ export function App() {
         setExpanded(expandedOnOpen(parsed));
         setLocked(new Set());
         setRevision((value) => value + 1);
-        askViewport({ kind: "fit" });
+        // CAMERA MEMORY. §03: "Per graphic, restored on open, including zoom
+        // step and centre." A graphic you left at 400% on the left third comes
+        // back that way; one you have never opened is Fit, as it always was.
+        askViewport({ kind: "recallCamera", documentId: parsed.id });
         setNotice(`Opened ${parsed.meta.name}`);
       } catch (error) {
         // Refused at the door, with the document that was open left intact.
@@ -2474,6 +2511,8 @@ export function App() {
             viewport={viewport}
             onViewport={setViewport}
             viewportRequest={viewportRequest}
+            cameras={workspace.cameras}
+            onRememberCamera={rememberCamera}
             /* The SAME command objects the palette and keyboard run. */
             menuCommands={menuCommands}
             /* Clicking a ball looks down that axis. It reuses the named-view

@@ -244,7 +244,15 @@ export type ViewportAction =
   /** Recall a stored camera. `studio-specification.html` §03, ⌥1–⌥6. */
   | { readonly kind: "recall"; readonly slot: number }
   /** Store the current camera into a slot. ⌥⇧1–⌥⇧6. */
-  | { readonly kind: "store"; readonly slot: number };
+  | { readonly kind: "store"; readonly slot: number }
+  /**
+   * Restore a GRAPHIC's remembered view, or Fit if it has none. §03.
+   *
+   * Distinct from `recall`, which is a numbered slot a designer filled on
+   * purpose. This is the view they simply left behind, and it is per document
+   * rather than per key.
+   */
+  | { readonly kind: "recallCamera"; readonly documentId: string };
 
 export interface ViewportRequest {
   readonly action: ViewportAction;
@@ -292,4 +300,81 @@ export function zoomedStepCentred(
   direction: 1 | -1,
 ): Viewport {
   return zoomedStep(viewport, { x: element.width / 2, y: element.height / 2 }, direction);
+}
+
+// ===========================================================================
+// Zoom animation
+// ===========================================================================
+
+/**
+ * How long a zoom takes. `studio-specification.html` §03: "120 ms · press".
+ *
+ * ==========================================================================
+ * WHY A NUMBER HERE AND NOT A TOKEN IN THE LADDER
+ * ==========================================================================
+ * The Design OS motion ladder is 0 · 90 · 180 · 320 · 520 · 900, and it is
+ * deliberately short — the file that defines it says an invented system "is
+ * gone rather than reconciled". 120 is not on it, and adding a seventh rung
+ * for one interaction would grow the general system to serve a specific case.
+ *
+ * §03 names this duration for THIS interaction, so it lives with the
+ * interaction. The CURVE is not invented: `press` is the Design OS's own,
+ * "decelerates hard so things arrive and stop", which is what a zoom that
+ * lands on a known rung should do.
+ */
+export const ZOOM_ANIMATION_MS = 120;
+
+/**
+ * The Design OS `press` curve, in arithmetic.
+ *
+ * `cubic-bezier(0.3, 0.7, 0.4, 1)`, solved by the usual Newton step. Copied in
+ * value rather than in spirit, so the zoom eases exactly as every other
+ * arriving thing in the product does — a viewport that moved on its own curve
+ * would read as a different piece of software.
+ */
+export function press(t: number): number {
+  const clamped = Math.min(1, Math.max(0, t));
+  // x(s) and y(s) for the cubic Bézier with p1 = (0.3, 0.7), p2 = (0.4, 1).
+  const bezier = (a: number, b: number, s: number): number => {
+    const inverse = 1 - s;
+    return 3 * inverse * inverse * s * a + 3 * inverse * s * s * b + s * s * s;
+  };
+  let s = clamped;
+  for (let step = 0; step < 6; step += 1) {
+    const x = bezier(0.3, 0.4, s) - clamped;
+    const slope =
+      3 * (1 - s) * (1 - s) * 0.3 + 6 * (1 - s) * s * (0.4 - 0.3) + 3 * s * s * (1 - 0.4);
+    if (Math.abs(slope) < 1e-6) break;
+    s -= x / slope;
+  }
+  return bezier(0.7, 1, Math.min(1, Math.max(0, s)));
+}
+
+/**
+ * A viewport part-way between two others.
+ *
+ * Zoom is interpolated in LOG space, for the same reason the ladder's nearest
+ * rung is chosen there: zoom is a ratio. Linearly, half way between 100% and
+ * 800% is 450%, which is nowhere near the middle of that journey and makes the
+ * first half of every zoom-out crawl.
+ */
+export function tweenViewport(from: Viewport, to: Viewport, t: number): Viewport {
+  const eased = press(t);
+  return {
+    zoom: Math.exp(Math.log(from.zoom) + (Math.log(to.zoom) - Math.log(from.zoom)) * eased),
+    panX: from.panX + (to.panX - from.panX) * eased,
+    panY: from.panY + (to.panY - from.panY) * eased,
+  };
+}
+
+/**
+ * Does this person want less motion?
+ *
+ * Asked of the SYSTEM, every time, rather than cached at boot: a preference
+ * changed mid-session should take effect without a reload, and someone turning
+ * it on is usually doing so because something is already making them unwell.
+ */
+export function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

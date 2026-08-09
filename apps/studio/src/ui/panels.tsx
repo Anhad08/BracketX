@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { claimEscape } from "../studio/cancellation";
 import {
@@ -25,6 +25,8 @@ import {
   type ToolboxSection,
 } from "../studio/editing";
 import { dropTarget, outline, type OutlineRow } from "../studio/outline";
+import { isOffFrame } from "../studio/offframe";
+import { canvasSize, nodeBounds, orthographicSize } from "../studio/viewport";
 import type { IdFactory } from "../studio/ids";
 import { contentSurface, preflight, type IssueKind } from "../studio/preflight";
 import type { SurfaceField } from "../studio/surface";
@@ -277,7 +279,30 @@ export function Hierarchy({
     return command === undefined ? [] : [{ separator: false as const, key: id, command }];
   });
 
-  const rows = outline(session.document, { expanded, locked, filter });
+  /**
+   * Which objects are off frame. V-1, §03: "the layer is flagged off frame".
+   *
+   * Computed from WORLD BOUNDS every render rather than stored on the node, so
+   * dragging an object back into shot clears the flag with nothing to
+   * remember, and an animation that carries one out sets it with nothing to
+   * update. The threshold is the snap-back's own quarter, so an ordinary
+   * bleeding graphic — which §03 explicitly permits — is not flagged.
+   */
+  const offFrame = useMemo(() => {
+    const halfHeight = orthographicSize(session.document);
+    const output = canvasSize(session.document);
+    const frame = { halfHeight, halfWidth: halfHeight * (output.width / output.height) };
+    const flagged = new Set<string>();
+    for (const entry of nodeBounds(session.document, (id) => session.worldMatrixOf(id))) {
+      if (isOffFrame(entry.rect, frame)) flagged.add(entry.nodeId);
+    }
+    return flagged;
+    // Keyed on the DOCUMENT, which changes on every edit including the
+    // snap-back itself. The flag follows where an object is authored, which is
+    // the thing §03 is asking the tree to report.
+  }, [session, session.document]);
+
+  const rows = outline(session.document, { expanded, locked, filter, offFrame });
   const flattened = rows.map((row) => row.id);
 
   const toggleExpand = (id: string) => {
@@ -396,6 +421,10 @@ export function Hierarchy({
                 <span>{row.name}</span>
                 <span className="badge">{row.kind}</span>
                 {row.repeats ? <span className="badge repeat">repeat</span> : null}
+                {/* V-1. The same badge shape as `repeat`, in the warning
+                    colour the product already uses for a preflight issue —
+                    this is a state to notice, not a new visual language. */}
+                {row.offFrame ? <span className="badge off-frame">off frame</span> : null}
               </button>
             )}
 

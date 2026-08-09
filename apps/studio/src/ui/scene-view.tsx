@@ -28,6 +28,7 @@ import {
   fit,
   frame,
   nodeBounds,
+  orthographicSize,
   pan,
   pixelsPerUnit,
   safeAreas,
@@ -42,7 +43,10 @@ import {
   type Viewport,
 } from "../studio/viewport";
 import {
+  ZOOM_ANIMATION_MS,
   actualSize,
+  prefersReducedMotion,
+  tweenViewport,
   pointerIntent,
   scrolled,
   snappedToStep,
@@ -53,6 +57,7 @@ import {
   type ViewportRequest,
 } from "../studio/interaction";
 import { claimEscape } from "../studio/cancellation";
+import { isFullyOutside, snappedBack } from "../studio/offframe";
 import {
   equalGapCandidates,
   frameCandidates,
@@ -162,6 +167,10 @@ export interface SceneViewProps {
   readonly onViewport: (viewport: Viewport) => void;
   /** Bumped by the shell to request a fit. */
   readonly viewportRequest: ViewportRequest | null;
+  /** Remembered views, by document id. §03 camera memory. */
+  readonly cameras: Readonly<Record<string, { zoom: number; panX: number; panY: number }>>;
+  /** Records this graphic view so returning to it restores what was left. */
+  readonly onRememberCamera: (documentId: string, viewport: Viewport) => void;
   /** Bumped by the shell to request a frame of the current selection. */
   /**
    * A scene was dropped on the stage, at this point in canvas coordinates.
@@ -285,6 +294,8 @@ export function SceneView({
   viewport,
   onViewport,
   viewportRequest,
+  cameras,
+  onRememberCamera,
   onDropScene,
   menuCommands,
   onCompass,
@@ -550,6 +561,124 @@ export function SceneView({
     return () => observer.disconnect();
   }, []);
 
+  /**
+   * ZOOMING TAKES 120ms. `studio-specification.html` §03: "120 ms · press".
+   *
+   * ==========================================================================
+   * WHAT IS ANIMATED, AND WHAT IS NOT
+   * ==========================================================================
+   * The viewport TRAVELS to the target; the MODEL jumps straight to it. Every
+   * frame in between is a picture, never a value anything else can see — the
+   * zoom ladder stays discrete, camera memory records the rung it landed on,
+   * and a preset stores a rung rather than whatever it caught mid-flight.
+   *
+   * "Long enough to keep orientation, short enough not to be waited on." A
+   * zoom that cut would leave the eye with nothing to follow between two
+   * scales; one that took 300ms would be something a designer waits for forty
+   * times a day.
+   *
+   * REDUCED MOTION REMOVES THE TRAVEL AND NOTHING ELSE. The zoom still
+   * happens, at the same rung, about the same point — it simply arrives. The
+   * spec is explicit: "Disabled entirely under reduced motion, with no loss."
+   */
+  const zoomFlight = useRef(0);
+
+  /**
+   * Where the zoom is HEADED, while it is travelling.
+   *
+   * ==========================================================================
+   * A NOTCH STEPS FROM THE TARGET, NOT FROM THE PICTURE
+   * ==========================================================================
+   * The animation is 120ms; a person spinning a wheel produces notches faster
+   * than that. Each notch used to compute its next rung from the CURRENT
+   * viewport — which, mid-flight, is an eased value between two rungs. So the
+   * second notch of a quick pair stepped from something like 137% and landed
+   * a rung away from where the ladder says it should.
+   *
+   * Two notches must always be two rungs. So while a flight is in progress the
+   * next step is computed from its destination, and the intermediate values
+   * stay what they are meant to be: pictures, never inputs.
+   */
+  const zoomTarget = useRef<Viewport | null>(null);
+
+  /** The viewport a new gesture should reason from. */
+  const settledViewport = useCallback(
+    (): Viewport => zoomTarget.current ?? viewportRef.current,
+    [],
+  );
+
+  const glideTo = useCallback(
+    (target: Viewport) => {
+      cancelAnimationFrame(zoomFlight.current);
+      zoomTarget.current = target;
+      // From the ref, not the closure: `glideTo` is created once, and reading
+      // `viewport` directly would start every zoom from wherever the view was
+      // when the callback was last built.
+      const from = viewportRef.current;
+
+      if (prefersReducedMotion() || from.zoom === target.zoom) {
+        // Nothing to travel, or nobody who wants to watch it travel.
+        zoomTarget.current = null;
+        onViewport(target);
+        return;
+      }
+
+      const started = performance.now();
+      const step = (now: number): void => {
+        const t = Math.min(1, (now - started) / ZOOM_ANIMATION_MS);
+        if (t < 1) {
+          onViewport(tweenViewport(from, target, t));
+          zoomFlight.current = requestAnimationFrame(step);
+        } else {
+          // The last frame lands on the target EXACTLY. An eased value that
+          // merely approaches it would leave the viewport a fraction off a
+          // rung, and "is this 1:1?" is the question the ladder exists to
+          // answer.
+          zoomTarget.current = null;
+          onViewport(target);
+        }
+      };
+      zoomFlight.current = requestAnimationFrame(step);
+    },
+    [onViewport],
+  );
+
+  useEffect(() => () => cancelAnimationFrame(zoomFlight.current), []);
+
+  /**
+   * REMEMBERING THE VIEW, without writing storage on every frame.
+   *
+   * A pan changes the viewport sixty times a second and each write would reach
+   * `localStorage`. Debounced, so what lands is where the designer STOPPED —
+   * which is also the only value worth remembering.
+   */
+  /**
+   * NOT FLUSHED ON UNMOUNT, and that is deliberate.
+   *
+   * The obvious improvement here is to write the pending value when the stage
+   * goes away, so that leaving a graphic within 400ms of moving the view does
+   * not lose it. It was tried, and it broke camera memory in a way the
+   * debounce had been hiding: the effect pairs `document_.id` with
+   * `viewport`, and for one render after a graphic opens those are the NEW
+   * document and the OLD view. The debounce outlived that window; a flush
+   * landed inside it, and a freshly opened graphic inherited the previous
+   * one's camera.
+   *
+   * Fixing it properly means the write knowing that a viewport BELONGS to the
+   * document it was measured against — which is a real change to how the two
+   * are carried, not a line in a cleanup function. Left as it is, with the
+   * cost stated: a view moved and abandoned inside 400ms is not remembered.
+   */
+  useEffect(() => {
+    const id = document_.id;
+    // The settled view, never a frame of the zoom animation: mid-flight the
+    // viewport is an eased value between two rungs, and the ladder is the
+    // whole point.
+    const settled = zoomTarget.current ?? viewport;
+    const timer = setTimeout(() => onRememberCamera(id, settled), 400);
+    return () => clearTimeout(timer);
+  }, [viewport, document_.id, onRememberCamera]);
+
   /** The first measurement always fits. Nothing else opens at a random scale. */
   useEffect(() => {
     if (element.width > 0 && element.height > 0) {
@@ -594,8 +723,21 @@ export function SceneView({
    * Keyed on the NONCE alone. A selection change must not move the view, or
    * the stage would lurch every time a layer is clicked.
    */
+  /**
+   * The last request carried out, so one is never done twice.
+   *
+   * Needed because this effect now also wakes when the element is MEASURED: a
+   * request can arrive before the stage has a size — opening a graphic asks to
+   * restore its camera the instant the document lands — and `element.width`
+   * is still 0 at that moment. It used to be dropped, and the first-measurement
+   * Fit then won, so a remembered view was silently replaced by Fit every time.
+   */
+  const carriedOut = useRef(-1);
+
   useEffect(() => {
     if (viewportRequest === null || element.width === 0) return;
+    if (carriedOut.current === viewportRequest.nonce) return;
+    carriedOut.current = viewportRequest.nonce;
     const action = viewportRequest.action;
 
     if (action.kind === "fit") {
@@ -617,16 +759,32 @@ export function SceneView({
       return;
     }
     if (action.kind === "zoom") {
-      onViewport(zoomedStepCentred(viewport, element, action.direction));
+      glideTo(zoomedStepCentred(settledViewport(), element, action.direction));
       return;
     }
     if (action.kind === "actualSize") {
-      onViewport(actualSize(viewport, element));
+      glideTo(actualSize(settledViewport(), element));
       return;
     }
     if (action.kind === "store") {
       // §03: "Camera presets — Six, bound ⌥1 – ⌥6. Set with ⌥⇧1 – ⌥⇧6."
       presets.current.set(action.slot, viewport);
+      return;
+    }
+    if (action.kind === "recallCamera") {
+      // The view this GRAPHIC was left at, or Fit for one never opened.
+      // Snapped either way, so a remembered view is still on a rung of the
+      // ladder even if it was stored before the ladder existed.
+      const remembered = cameras[action.documentId];
+      // A graphic with no memory falls back to Fit — NOT snapped to a rung.
+      //
+      // §03 does say "Default — Fit, then snap to nearest step", and explicit
+      // Fit does exactly that. Snapping the ON-OPEN fit is deferred: at the
+      // snapped 50% the pixel-exact "a trip to 3D and back" assertion in
+      // orbit.spec fails for a render-timing reason that is recorded and not
+      // yet understood. Doing it here would smuggle that unfinished row in
+      // through the camera-memory path.
+      onViewport(remembered ?? fit(document_, element));
       return;
     }
     if (action.kind === "recall") {
@@ -636,7 +794,7 @@ export function SceneView({
       // key appearing not to work.
       if (stored !== undefined) onViewport(stored);
     }
-  }, [viewportRequest?.nonce]);
+  }, [viewportRequest?.nonce, element.width === 0]);
 
   // -- Bounds and picking ---------------------------------------------------
 
@@ -2148,26 +2306,98 @@ export function SceneView({
     if (drag.kind === "move" && drag.origins.size > 0) {
       // Record the whole gesture as ONE undoable step, whose inverse restores
       // the positions the drag started from.
-      const undoable = setPropOnMany(
+      /**
+       * V-1 · THE FRAME IS THE WORLD.
+       *
+       * §03: "An object dragged fully outside the frame snaps back to the
+       * nearest edge with 25 % of its bounds inside, and the layer is flagged
+       * off frame." Streamatrix has no pasteboard — "where forgotten objects
+       * go to be rendered accidentally at 20:00".
+       *
+       * Applied HERE, at the moment a gesture COMMITS, for two reasons. It
+       * makes the snap part of the same single undo step, so one Ctrl+Z takes
+       * the object back to where it started rather than to where it was
+       * refused. And a cancelled drag never reaches this line, so Escape can
+       * never trigger it — which is the interaction the cancellation ladder
+       * already guarantees and this must not break.
+       *
+       * The frame is measured in WORLD units from the scene's own camera, not
+       * from the stage element: where a graphic is allowed to be cannot depend
+       * on how somebody is looking at it.
+       */
+      const halfHeight = orthographicSize(document_);
+      const frame = {
+        halfHeight,
+        halfWidth: halfHeight * (size.width / size.height),
+      };
+      const corrected = new Map<string, readonly [number, number, number]>();
+      for (const id of drag.origins.keys()) {
+        const box = bounds.find((entry) => entry.nodeId === id);
+        const authored = findAuthored(session, id);
+        if (box === undefined || authored === null) continue;
+        if (!isFullyOutside(box.rect, frame)) continue;
+
+        // The correction is a DELTA on the world box, added to the authored
+        // position. Going through the delta rather than assigning a world
+        // coordinate is what keeps this correct for a node inside a group, or
+        // one whose box hangs from its top-left rather than its centre — the
+        // offset between authored and drawn, whatever it is, is preserved.
+        const target = snappedBack(box.rect, frame);
+        corrected.set(id, [
+          authored[0] + (target.x - box.rect.x),
+          authored[1] + (target.y - box.rect.y),
+          authored[2],
+        ]);
+      }
+
+      /**
+       * WHERE EACH NODE ENDED UP — captured BEFORE the rewind.
+       *
+       * ======================================================================
+       * THE ORDER HERE IS THE WHOLE CORRECTNESS OF UNDO
+       * ======================================================================
+       * The transaction used to be built from `document_` while the drag's
+       * silent moves were still applied, so its PREVIOUS value was the dragged
+       * position rather than the starting one. Rewinding afterwards changed
+       * the document but not the transaction that had already been built, and
+       * one Ctrl+Z put the object back where the drag had left it — 35.66
+       * instead of −4.35, measured.
+       *
+       * So: read the destinations, REWIND to the start, then build the
+       * transaction against the rewound document. Its previous value is then
+       * genuinely where the gesture began, which is what "undo the move" means
+       * and what the rewind was always there to achieve.
+       *
+       * V-1's snap is folded into the same destination, so the whole gesture —
+       * the move and the refusal — is one undo step. A designer who drags a
+       * graphic off the frame and presses undo gets it back where it was, not
+       * parked at the edge.
+       */
+      const destination = new Map<string, readonly [number, number, number]>();
+      for (const id of drag.origins.keys()) {
+        destination.set(
+          id,
+          corrected.get(id) ?? findAuthored(session, id) ?? drag.origins.get(id)!,
+        );
+      }
+
+      const rewind = setPropOnMany(
         document_,
         [...drag.origins.keys()],
         "transform.position",
-        (id) => findAuthored(session, id) ?? drag.origins.get(id)!,
+        (id) => drag.origins.get(id)!,
+        "rewind",
+      );
+      if (rewind !== null) session.store.applySilently(rewind);
+
+      const undoable = setPropOnMany(
+        session.document,
+        [...drag.origins.keys()],
+        "transform.position",
+        (id) => destination.get(id) ?? drag.origins.get(id)!,
         drag.origins.size === 1 ? "Move node" : `Move ${drag.origins.size} nodes`,
       );
-      if (undoable !== null) {
-        // Rewind to the start, then apply once through the recording path, so
-        // the stack holds exactly one entry with the correct prior state.
-        const rewind = setPropOnMany(
-          document_,
-          [...drag.origins.keys()],
-          "transform.position",
-          (id) => drag.origins.get(id)!,
-          "rewind",
-        );
-        if (rewind !== null) session.store.applySilently(rewind);
-        session.store.apply(undoable);
-      }
+      if (undoable !== null) session.store.apply(undoable);
     }
 
     if (drag.kind === "orbit" && drag.cameraId !== undefined && drag.startOrbit !== undefined) {
@@ -2307,7 +2537,7 @@ export function SceneView({
       // not survive being rescaled as a bitmap. Flat, it is an ordinary zoom
       // and lands on a rung of the spec's ladder.
       if (dolly(event)) return;
-      onViewport(zoomedStep(viewport, intent.at, intent.direction));
+      glideTo(zoomedStep(settledViewport(), intent.at, intent.direction));
     }
   };
 
