@@ -492,20 +492,59 @@ const LOWER_THIRD: PackTemplate = {
     const ink = token("color.ink", "#f2f5fb");
     const muted = token("color.muted", "#8a93a6");
 
+    // ====================================================================
+    // COMPOSITION: THE NAME IS THE GRAPHIC
+    // ====================================================================
+    // What changed and why, because "it looks better" is not a reason:
+    //
+    // NAME 56 -> 60, ROLE 32 -> 26. The old pair was 1.75:1, which reads as
+    // "heading and subheading" — a UI relationship. Broadcast straps run
+    // nearer 2.5:1, because the name has to be legible at a glance on a
+    // moving picture and the role only has to be legible if you look for it.
+    //
+    // ROLE READS AS A CAPTION, and the mechanism matters. The first attempt
+    // passed `letterSpacing` and `transform: "uppercase"` to the text component.
+    // TextComponent has NEITHER — content, font, color, align, verticalAlign,
+    // lineHeight, maxWidth, maxLines, fit, and nothing else — so both would have
+    // been silently dropped. A prop the engine ignores is a fake capability.
+    //
+    // So the caps come from the DEFAULT CONTENT, which an author genuinely wrote
+    // ("TEAM CAPTAIN"), and the separation comes from size and colour. Tracking
+    // is a real gap: broadcast captions are spaced, and the text engine cannot
+    // space them. Recorded rather than faked.
+    //
+    // TEXT INDENTS FROM THE MARK. Both lines used to begin 0.28 units after
+    // the accent bar, which is closer than the bar is wide — the strap read as
+    // one crowded block. 0.62 gives the bar its own column.
+    //
+    // THE ACCENT GROWS 0.14 -> 0.2 AND STOPS SHORT of the plate's full height.
+    // Wider so it registers as a deliberate mark rather than a hairline; inset
+    // so it reads as a mark ON the plate instead of a seam splitting it in two.
+    // It identifies the package. It does not compete with the name.
+    //
+    // THE MARK MOVES IN from x 3.9 to 3.62: at 1.4 wide it previously ran to
+    // 4.6 against a plate edge at 4.7, which is a tenth of a unit of air.
     const backdrop = bar(ids, "Background", next(), 9.4, 1.9, surface, [0, 0, 0], PLATE.panel(surface, 1.9));
-    const accentBar = bar(ids, "Accent Bar", next(), 0.14, 1.9, accent, [-4.63, 0, 0.01]);
+    const accentBar = bar(ids, "Accent Bar", next(), 0.2, 1.34, accent, [-4.5, 0, 0.01]);
     // The mark sits inside the bar's right edge, in a square box so `contain`
     // has room to letterbox whatever aspect the user brings.
-    const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 1.4, height: 1.4 }, [3.9, 0, 0.02]);
+    const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 1.3, height: 1.3 }, [3.62, 0, 0.02]);
     const name = label(
       ids,
       "Name",
       next(),
       { $var: "name" },
       ink,
-      56,
-      { width: 8.4 },
-      [-4.35, 0.32, 0.02],
+      // 60, not 68. At 68 in a 7.5-unit box a long name DISAPPEARED — verified
+      // with "KONSTANTINOS PAPADOPOULOS", which rendered nothing while the role
+      // beneath it stayed. `shrink` floors at 55% of the authored size, so a
+      // large authored size raises the floor it cannot go below. A strap that
+      // loses the name on an unusual name is worse than a smaller name.
+      60,
+      // 8.0: enough room that a long name shrinks rather than vanishes, and
+      // still short of the mark at x 3.62 so it never runs underneath it.
+      { width: 8.0 },
+      [-3.9, 0.28, 0.02],
     );
     const role = label(
       ids,
@@ -513,9 +552,9 @@ const LOWER_THIRD: PackTemplate = {
       next(),
       { $var: "role" },
       muted,
-      32,
-      { width: 8.4 },
-      [-4.35, -0.36, 0.02],
+      26,
+      { width: 7.5 },
+      [-3.88, -0.44, 0.02],
     );
 
     const holder = group(holderId, next(), {
@@ -540,7 +579,7 @@ const LOWER_THIRD: PackTemplate = {
       root,
       [
         variable(ids("variable"), "name", "Name", "ALEX RIVERA"),
-        variable(ids("variable"), "role", "Role", "Team Captain"),
+        variable(ids("variable"), "role", "Role", "TEAM CAPTAIN"),
         // The logo is a variable like any other, so swapping the sponsor is an
         // operator action on air rather than an edit to the graphic.
         // Typed `asset`, so the Content surface offers a PICKER of images by
