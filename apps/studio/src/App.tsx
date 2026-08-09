@@ -43,7 +43,13 @@ import { hashBytes } from "@bracketx/engine-assets";
 import type { AssetRecord, AssetRegistry } from "@bracketx/engine-assets";
 import { DEFAULT_VIEWPORT, type Viewport } from "./studio/viewport";
 import { cancel, claimEscape } from "./studio/cancellation";
-import { PRESET_SLOTS, type ViewportAction, type ViewportRequest } from "./studio/interaction";
+import {
+  ORBIT_STEP,
+  PAN_STEP,
+  PRESET_SLOTS,
+  type ViewportAction,
+  type ViewportRequest,
+} from "./studio/interaction";
 import {
   fileNameFor,
   loadRecents,
@@ -1544,6 +1550,69 @@ export function App() {
         // one output pixel at 100%, and leaving the pan where it was slides
         // the frame off centre on the way.
         run: () => askViewport({ kind: "actualSize" }),
+      },
+
+      /**
+       * NAVIGATION AS COMMANDS.
+       *
+       * Pan, orbit and walk were private handlers inside the stage. Their
+       * gestures are unchanged — middle-drag and space-drag still pan,
+       * Alt-drag still orbits, Shift+` still walks — but the ACTION each one
+       * performs is now named, registered, and reachable from the View menu,
+       * the palette and the keyboard reference like every other viewport
+       * action.
+       *
+       * The gesture decides WHEN; the command describes WHAT. Neither holds
+       * the other's arithmetic: a drag carries its own delta, and these carry
+       * a step, and both end up in the same place in the stage.
+       */
+      {
+        id: "view.centre",
+        title: "Centre the view",
+        section: "View",
+        keywords: ["pan", "centre", "center", "recentre", "navigate"],
+        hint: "Brings the frame back to the middle without changing the zoom.",
+        run: () => askViewport({ kind: "centre" }),
+      },
+      ...(
+        [
+          ["Left", -PAN_STEP, 0],
+          ["Right", PAN_STEP, 0],
+          ["Up", 0, -PAN_STEP],
+          ["Down", 0, PAN_STEP],
+        ] as const
+      ).map(([where, dx, dy]) => ({
+        id: `view.pan${where}`,
+        title: `Pan ${where.toLowerCase()}`,
+        section: "View" as const,
+        keywords: ["pan", "navigate", "scroll", "view"],
+        run: () => askViewport({ kind: "panBy", dx, dy }),
+      })),
+      ...(
+        [
+          ["Left", -ORBIT_STEP, 0],
+          ["Right", ORBIT_STEP, 0],
+          ["Up", 0, ORBIT_STEP],
+          ["Down", 0, -ORBIT_STEP],
+        ] as const
+      ).map(([where, azimuth, elevation]) => ({
+        id: `view.orbit${where}`,
+        title: `Orbit ${where.toLowerCase()}`,
+        section: "View" as const,
+        keywords: ["orbit", "turn", "camera", "3d"],
+        // Only where there is something to orbit. The flat view is fixed.
+        enabled: spatial,
+        run: () => askViewport({ kind: "orbitBy", azimuth, elevation }),
+      })),
+      {
+        id: "view.walk",
+        title: "Walk the camera",
+        section: "View",
+        shortcut: shortcutFor("view.walk"),
+        keywords: ["walk", "fly", "wasd", "navigate", "3d"],
+        hint: "W A S D to move, Q and E for down and up, Escape to leave.",
+        enabled: spatial,
+        run: () => askViewport({ kind: "walk" }),
       },
 
       /**

@@ -1044,6 +1044,53 @@ describe("commands and keys", () => {
     expect(matchBinding(event("escape"), true)?.id).toBe("select.none");
   });
 
+  it("matches shifted chords by the key that was pressed, not the one it prints", () => {
+    // THE BUG THIS FIXES. `KeyboardEvent.key` is what the LAYOUT produced:
+    // Shift+1 is "!", Shift+` is "~". Every shifted binding declared by its
+    // unshifted character therefore never fired — the preset stores and walk
+    // mode among them — and nothing errored, the keys were simply dead.
+    const pressed = (
+      code: string,
+      key: string,
+      mods: Partial<{ shift: boolean; alt: boolean }> = {},
+    ) => ({
+      key,
+      code,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: mods.shift ?? false,
+      altKey: mods.alt ?? false,
+    });
+
+    // ⌥⇧1 — the character is "!", and the binding says "1".
+    expect(matchBinding(pressed("Digit1", "!", { shift: true, alt: true }), false)?.id).toBe(
+      "view.store1",
+    );
+    expect(matchBinding(pressed("Digit1", "1", { alt: true }), false)?.id).toBe("view.recall1");
+    // ⇧` — the character is "~".
+    expect(matchBinding(pressed("Backquote", "~", { shift: true }), false)?.id).toBe("view.walk");
+
+    // The modifiers still decide between twins on the same physical key: a
+    // code is a stricter key test, not a looser chord test.
+    expect(matchBinding(pressed("Digit1", "1"), false)?.id).not.toBe("view.recall1");
+
+    // An event with no code at all — a synthetic one — still matches on the
+    // unshifted character, so nothing that worked before stopped.
+    const noCode = { key: "1", ctrlKey: false, metaKey: false, shiftKey: false, altKey: true };
+    expect(matchBinding(noCode, false)?.id).toBe("view.recall1");
+  });
+
+  it("declares a code for every shifted binding whose character changes", () => {
+    // Stated as a rule rather than left to whoever adds the next one. A
+    // shifted digit or punctuation binding without a code is dead on arrival.
+    const CHANGES_UNDER_SHIFT = /^[0-9`\-=[\];',./\\]$/;
+    for (const binding of KEYMAP) {
+      if (binding.shift !== true) continue;
+      if (!CHANGES_UNDER_SHIFT.test(binding.key)) continue;
+      expect(binding.code, `${binding.id} would never fire`).toBeDefined();
+    }
+  });
+
   it("distinguishes shifted and modified twins", () => {
     const event = (key: string, mods: Partial<{ ctrl: boolean; shift: boolean }> = {}) => ({
       key,

@@ -252,7 +252,49 @@ export type ViewportAction =
    * purpose. This is the view they simply left behind, and it is per document
    * rather than per key.
    */
-  | { readonly kind: "recallCamera"; readonly documentId: string };
+  | { readonly kind: "recallCamera"; readonly documentId: string }
+  /**
+   * Pan the view by a screen delta. The drag's own execution, named.
+   *
+   * A DELTA rather than a destination, because that is what every route to it
+   * carries: a middle-drag, a space-drag and a two-finger scroll all say "this
+   * far, this way". The command that offers it from a menu supplies its own.
+   */
+  | {
+      readonly kind: "panBy";
+      /** Screen pixels the CONTENT should move by, as a drag would move it. */
+      readonly dx: number;
+      readonly dy: number;
+    }
+  /** Centre the frame in the viewport without changing the zoom. */
+  | { readonly kind: "centre" }
+  /**
+   * Turn the scene camera about what it is looking at, in radians.
+   *
+   * Unlike pan, this MOVES THE SCENE CAMERA — a document edit that changes
+   * what the output frames. Navigating the stage and aiming the camera are
+   * different acts and the product must not blur them, which is why they are
+   * different actions rather than one with a flag.
+   */
+  | { readonly kind: "orbitBy"; readonly azimuth: number; readonly elevation: number }
+  /** Enter or leave walk mode. §03 has no rule for it; Blender's Shift+`. */
+  | { readonly kind: "walk" };
+
+/**
+ * One orbit step, for the keyboard and the menu. Radians.
+ *
+ * Fifteen degrees: small enough that a few presses explore an angle, large
+ * enough that one press is visibly a move rather than a nudge.
+ */
+export const ORBIT_STEP = (15 * Math.PI) / 180;
+
+/**
+ * One pan step, in screen pixels, for the keyboard and the menu.
+ *
+ * A tenth of a 1080-line frame — far enough to be worth pressing, short enough
+ * that the graphic never leaves the viewport in one go.
+ */
+export const PAN_STEP = 108;
 
 export interface ViewportRequest {
   readonly action: ViewportAction;

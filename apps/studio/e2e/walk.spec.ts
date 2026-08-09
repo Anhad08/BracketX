@@ -38,7 +38,36 @@ async function cameraAt(page: Page): Promise<readonly number[]> {
   );
 }
 
-async function fly(page: Page, key: string, ms = 450): Promise<void> {
+/**
+ * Holds a key for a while, so the camera has frames to move in.
+ *
+ * 700ms rather than 450: movement accumulates PER ANIMATION FRAME, so a
+ * loaded browser delivers fewer of them and a short hold can travel less than
+ * the assertion expects. More wall clock does not change what is asserted —
+ * it gives the thing under test room to happen.
+ */
+/**
+ * Enters walk mode and waits until its INPUT is live.
+ *
+ * The overlay appears on the render that turns the mode on; the keydown
+ * listener that collects W A S D is attached by the effect that follows it. So
+ * for one frame the stage says "W A S D" and the keys do nothing, and a test
+ * that treats the overlay as the ready signal can press W into that gap — the
+ * key is never collected, and the camera reports zero travel with walk mode
+ * plainly enabled.
+ *
+ * This is not a sleep and not a tolerance. It waits for one animation frame,
+ * which is exactly the thing being waited for: the frame on which the mode
+ * finishes becoming real. The three tests that never saw this all happened to
+ * read the inspector between entering and flying, which spends several frames.
+ */
+async function enterWalk(page: Page): Promise<void> {
+  await page.keyboard.press("Shift+`");
+  await expect(page.getByTestId("ov-walking"), "walk mode was not entered").toBeVisible();
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(null))));
+}
+
+async function fly(page: Page, key: string, ms = 700): Promise<void> {
   await page.keyboard.down(key);
   await page.waitForTimeout(ms);
   await page.keyboard.up(key);
@@ -51,8 +80,7 @@ test("Shift+backtick enters walk mode, and it says so", async ({ page }) => {
   await open3D(page);
   await expect(page.getByTestId("ov-walking")).toHaveCount(0);
 
-  await page.keyboard.press("Shift+`");
-  await expect(page.getByTestId("ov-walking")).toBeVisible();
+  await enterWalk(page);
   // It has to name its own keys and its own exit, or it is a trap.
   await expect(page.getByTestId("ov-walking")).toContainText("W A S D");
   await expect(page.getByTestId("ov-walking")).toContainText("Esc");
@@ -60,8 +88,7 @@ test("Shift+backtick enters walk mode, and it says so", async ({ page }) => {
 
 test("escape leaves it", async ({ page }) => {
   await open3D(page);
-  await page.keyboard.press("Shift+`");
-  await expect(page.getByTestId("ov-walking")).toBeVisible();
+  await enterWalk(page);
 
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("ov-walking")).toHaveCount(0);
@@ -70,7 +97,7 @@ test("escape leaves it", async ({ page }) => {
 test("W moves the camera forward and S brings it back", async ({ page }) => {
   await open3D(page);
   const start = await cameraAt(page);
-  await page.keyboard.press("Shift+`");
+  await enterWalk(page);
 
   await fly(page, "w");
   const forward = await cameraAt(page);
@@ -79,6 +106,10 @@ test("W moves the camera forward and S brings it back", async ({ page }) => {
     forward[1]! - start[1]!,
     forward[2]! - start[2]!,
   );
+  // Both statements, deliberately: that the position CHANGED at all, and that
+  // it changed by a real amount. The first fails loudly when the mode is on
+  // but its input is not, which is the defect this test was blind to.
+  expect(forward, "the camera did not move at all").not.toEqual(start);
   expect(travelled, "W did not move the camera").toBeGreaterThan(0.2);
 
   // Forward means TOWARDS what the lens is pointing at, so the camera gets
@@ -94,7 +125,7 @@ test("W moves the camera forward and S brings it back", async ({ page }) => {
 
 test("A and D strafe, without changing height", async ({ page }) => {
   await open3D(page);
-  await page.keyboard.press("Shift+`");
+  await enterWalk(page);
   const start = await cameraAt(page);
 
   await fly(page, "d");
@@ -114,7 +145,7 @@ test("A and D strafe, without changing height", async ({ page }) => {
 
 test("E rises and Q descends", async ({ page }) => {
   await open3D(page);
-  await page.keyboard.press("Shift+`");
+  await enterWalk(page);
   const start = await cameraAt(page);
 
   await fly(page, "e");

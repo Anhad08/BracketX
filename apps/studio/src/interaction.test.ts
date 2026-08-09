@@ -15,6 +15,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ORBIT_STEP,
+  PAN_STEP,
   ZOOM_ANIMATION_MS,
   ZOOM_STEPS,
   press,
@@ -27,8 +29,9 @@ import {
   wheelIntent,
   zoomedStep,
   type InputEvent,
+  type ViewportAction,
 } from "./studio/interaction";
-import { DEFAULT_VIEWPORT, type Viewport } from "./studio/viewport";
+import { DEFAULT_VIEWPORT, pan, type Viewport } from "./studio/viewport";
 
 const at = { x: 100, y: 50 };
 const input = (patch: Partial<InputEvent> = {}): InputEvent => ({
@@ -291,5 +294,62 @@ describe("the zoom animation", () => {
       expect(value.zoom).toBeLessThanOrEqual(1.0000001);
       expect(value.zoom).toBeGreaterThanOrEqual(0.25 - 1e-6);
     }
+  });
+});
+
+// ===========================================================================
+// Navigation as named actions
+// ===========================================================================
+
+describe("pan, orbit and walk are actions the command layer can name", () => {
+  it("offers a pan step and an orbit step, not a hardcoded number at each site", () => {
+    // A tenth of a 1080-line frame, and fifteen degrees. Named, so the menu
+    // command and any future keyboard route cannot drift apart.
+    expect(PAN_STEP).toBe(108);
+    expect(ORBIT_STEP).toBeCloseTo((15 * Math.PI) / 180, 10);
+  });
+
+  it("pans by a delta, the way every route to it speaks", () => {
+    // A middle-drag, a space-drag and a two-finger scroll all say "this far,
+    // this way" — so the action takes a delta rather than a destination.
+    const action: ViewportAction = { kind: "panBy", dx: PAN_STEP, dy: 0 };
+    expect(action.kind).toBe("panBy");
+  });
+
+  it("keeps orbit distinct from pan, because one of them reaches air", () => {
+    // Panning moves the VIEW. Orbiting moves the scene CAMERA, which changes
+    // what the output frames. Two actions rather than one with a flag, so the
+    // difference cannot be lost in a boolean.
+    const pan: ViewportAction = { kind: "panBy", dx: 1, dy: 0 };
+    const orbit: ViewportAction = { kind: "orbitBy", azimuth: ORBIT_STEP, elevation: 0 };
+    expect(pan.kind).not.toBe(orbit.kind);
+  });
+
+  it("makes walk a toggle rather than two actions", () => {
+    // Entering and leaving are the same key and the same command; a pair of
+    // actions would let the menu and the keyboard disagree about which state
+    // the viewport is in.
+    const walk: ViewportAction = { kind: "walk" };
+    expect(walk.kind).toBe("walk");
+  });
+});
+
+describe("the pan primitive is shared, not re-implemented", () => {
+  it("moves the view by the delta it is given", () => {
+    // `panBy` and the drag both go through `pan`. If a second spelling of this
+    // arithmetic ever appears, this is the test that stops the two agreeing by
+    // luck.
+    const panned = pan(DEFAULT_VIEWPORT, PAN_STEP, -PAN_STEP);
+    expect(panned.panX).toBe(PAN_STEP);
+    expect(panned.panY).toBe(-PAN_STEP);
+    expect(panned.zoom, "panning changed the zoom").toBe(DEFAULT_VIEWPORT.zoom);
+  });
+
+  it("is the exact inverse of scrolling by the same amount", () => {
+    // The wheel scrolls, a drag pans, and they are the same movement with
+    // opposite signs. Asserted so nobody "simplifies" one into the other.
+    const panned = pan(DEFAULT_VIEWPORT, 40, 25);
+    const scrolledBack = scrolled(panned, 40, 25);
+    expect(scrolledBack).toEqual(DEFAULT_VIEWPORT);
   });
 });

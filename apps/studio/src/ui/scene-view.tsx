@@ -771,6 +771,35 @@ export function SceneView({
       presets.current.set(action.slot, viewport);
       return;
     }
+    if (action.kind === "panBy") {
+      // `pan`, the same primitive the drag uses. `scrolled` would give the
+      // identical result with the signs inverted, and two spellings of one
+      // operation is how they eventually disagree.
+      onViewport(pan(viewport, action.dx, action.dy));
+      return;
+    }
+    if (action.kind === "centre") {
+      // The frame, centred, with the zoom left alone. Fit changes the scale;
+      // this only changes where you are looking, which is what a designer who
+      // has panned off somewhere actually wants back.
+      const output = canvasSize(document_);
+      onViewport({
+        ...viewport,
+        panX: element.width / 2 - (output.width * viewport.zoom) / 2,
+        panY: element.height / 2 - (output.height * viewport.zoom) / 2,
+      });
+      return;
+    }
+    if (action.kind === "orbitBy") {
+      orbitCameraBy(action.azimuth, action.elevation);
+      return;
+    }
+    if (action.kind === "walk") {
+      // Refused where there is nothing to walk through. A lower third is
+      // designed square-on and stays square-on.
+      if (dimensional) setWalking((current) => !current);
+      return;
+    }
     if (action.kind === "recallCamera") {
       // The view this GRAPHIC was left at, or Fit for one never opened.
       // Snapped either way, so a remembered view is still on a rung of the
@@ -1962,6 +1991,10 @@ export function SceneView({
     const world = screenToWorld(document_, viewport, screen, view ?? undefined);
 
     if (drag.kind === "pan") {
+      // FROM THE GESTURE START, not incrementally — a drag that accumulated
+      // per-move deltas would drift over a long pan as rounding piled up.
+      // Same `pan` primitive the `panBy` action uses, so the middle-drag, the
+      // space-drag and the Pan commands cannot come apart.
       onViewport(
         pan(
           drag.startViewport,
@@ -2518,6 +2551,47 @@ export function SceneView({
    * The rule now lives in `interaction.ts` with a test naming its spec row.
    * This function's only job is to carry out the intent.
    */
+  /**
+   * Turns the scene camera about what it is looking at.
+   *
+   * The SAME arithmetic the Alt-drag uses, reached from a command as well as
+   * from a gesture — which is the whole point of naming the action: one
+   * implementation, two routes to it, and no chance of the menu doing
+   * something subtly different from the drag.
+   *
+   * Silent, like the drag: an orbit is a change of view. It writes to the
+   * camera node because that is where a camera lives, and it saves with the
+   * graphic, but it does not take a step in the history.
+   */
+  const orbitCameraBy = useCallback(
+    (azimuth: number, elevation: number) => {
+      if (!dimensional) return;
+      const camera = cameraNode(session.document);
+      if (camera === null) return;
+      const position = camera.transform?.position ?? [0, 0, 10];
+      const pivot: Vec3 = { x: 0, y: 0, z: 0 };
+      const current = orbitOf({ x: position[0]!, y: position[1]!, z: position[2]! }, pivot);
+      const turned = {
+        radius: current.radius,
+        azimuth: current.azimuth + azimuth,
+        elevation: current.elevation + elevation,
+      };
+      const moved = positionFor(turned, pivot);
+      const rotation = lookAtRotation(moved, pivot);
+      const step = setProps(
+        session.document,
+        camera.id,
+        new Map<string, unknown>([
+          ["transform.position", [round(moved.x), round(moved.y), round(moved.z)]],
+          ["transform.rotation", [round(rotation[0]), round(rotation[1]), round(rotation[2])]],
+        ]),
+        "Orbit",
+      );
+      if (step !== null) session.store.applySilently(step);
+    },
+    [dimensional, session],
+  );
+
   const onWheel = (event: React.WheelEvent) => {
     const intent = wheelIntent({
       alt: event.altKey,
@@ -2669,31 +2743,15 @@ export function SceneView({
   }, [dimensional, walking]);
 
   /**
-   * Shift+` enters walk mode — the same key Blender uses, for the same thing.
+   * WALK MODE HAS NO LISTENER OF ITS OWN.
    *
-   * Only in the dimensional view, and never while typing: a backtick belongs
-   * to whoever has the caret.
+   * Shift+` used to be a private `keydown` on this component — a second input
+   * system beside the keymap, invisible to the menu bar, the palette and the
+   * keyboard reference, and impossible to rebind. It is now the `view.walk`
+   * command, bound in the keymap like everything else, and it arrives here as
+   * an ordinary viewport action.
    */
-  useEffect(() => {
-    if (!dimensional) return;
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== "`" && event.key !== "~") return;
-      if (!event.shiftKey) return;
-      const target = event.target as HTMLElement | null;
-      if (
-        target !== null &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-      event.preventDefault();
-      setWalking((current) => !current);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [dimensional]);
+
 
   // -- Chrome ---------------------------------------------------------------
 

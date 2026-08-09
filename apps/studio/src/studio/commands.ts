@@ -41,6 +41,16 @@ export interface KeyBinding {
   readonly id: string;
   /** Matched against `KeyboardEvent.key`, lowercased. */
   readonly key: string;
+  /**
+   * The PHYSICAL key, matched instead of `key` when present.
+   *
+   * `KeyboardEvent.key` is what the layout produces, not what was pressed:
+   * Shift+1 is "!", Shift+` is "~". A binding that declares a shifted chord by
+   * its unshifted character therefore never matches — silently, because
+   * nothing errors, the key simply does nothing. Every shifted binding here
+   * (the ⌥⇧ preset stores, walk) carries a code for that reason.
+   */
+  readonly code?: string;
   readonly mod?: boolean;
   readonly shift?: boolean;
   readonly alt?: boolean;
@@ -86,10 +96,13 @@ export const KEYMAP: readonly KeyBinding[] = [
   // because that is what a designer's hands already do in every other tool.
   { id: "arrange.group", key: "g", mod: true, label: "Ctrl/⌘ G", description: "Group selection" },
   { id: "arrange.ungroup", key: "g", mod: true, shift: true, label: "Ctrl/⌘ ⇧ G", description: "Ungroup" },
-  { id: "arrange.front", key: "]", mod: true, shift: true, label: "Ctrl/⌘ ⇧ ]", description: "Bring to front" },
+  // The two shifted brackets carry a code for the same reason walk and the
+  // preset stores do: Shift+] prints "}", so these two never fired. Found by
+  // the keymap rule added with that fix, not by anybody pressing them.
+  { id: "arrange.front", key: "]", code: "BracketRight", mod: true, shift: true, label: "Ctrl/⌘ ⇧ ]", description: "Bring to front" },
   { id: "arrange.forward", key: "]", mod: true, label: "Ctrl/⌘ ]", description: "Bring forward" },
   { id: "arrange.backward", key: "[", mod: true, label: "Ctrl/⌘ [", description: "Send backward" },
-  { id: "arrange.back", key: "[", mod: true, shift: true, label: "Ctrl/⌘ ⇧ [", description: "Send to back" },
+  { id: "arrange.back", key: "[", code: "BracketLeft", mod: true, shift: true, label: "Ctrl/⌘ ⇧ [", description: "Send to back" },
   // ==========================================================================
   // THE THREE TRANSFORMS
   // ==========================================================================
@@ -116,6 +129,31 @@ export const KEYMAP: readonly KeyBinding[] = [
   { id: "view.zoomIn", key: "=", label: "=", description: "Zoom in" },
   { id: "view.zoomOut", key: "-", label: "-", description: "Zoom out" },
   { id: "view.actualSize", key: "0", label: "0", description: "Zoom to 100%" },
+
+  /**
+   * NAVIGATION, DECLARED LIKE EVERYTHING ELSE.
+   *
+   * Walk mode's Shift+` used to be a private `keydown` inside the stage — a
+   * second input system beside this one, invisible to the menu bar, the
+   * palette and the keyboard reference, and impossible to rebind. The binding
+   * is unchanged; only its home is.
+   *
+   * Pan and orbit have no §03 binding and are given none. They are reachable
+   * from the View menu and the palette, which is what makes an action
+   * discoverable without inventing a chord the specification never asked for.
+   */
+  {
+    id: "view.walk",
+    key: "`",
+    // PHYSICAL, because Shift+` reports "~" on most layouts and a binding
+    // declared as "`" would never match — the same failure the shifted-digit
+    // presets had. The private listener this replaced accepted both spellings;
+    // the code is how that is expressed once rather than per-key.
+    code: "Backquote",
+    shift: true,
+    label: "⇧`",
+    description: "Walk the camera",
+  },
 
   /**
    * CAMERA PRESETS. `studio-specification.html` §03 — six, ⌥1–⌥6, set with
@@ -198,7 +236,15 @@ export const KEYMAP: readonly KeyBinding[] = [
  * nothing, which is worse than not having it.
  */
 export function matchBinding(
-  event: { key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean },
+  event: {
+    key: string;
+    /** Optional so callers and tests may omit it; a binding with a code needs it. */
+    code?: string;
+    ctrlKey: boolean;
+    metaKey: boolean;
+    shiftKey: boolean;
+    altKey: boolean;
+  },
   typing: boolean,
   available?: (id: string) => boolean,
 ): KeyBinding | null {
@@ -206,7 +252,12 @@ export function matchBinding(
   const mod = event.ctrlKey || event.metaKey;
 
   for (const binding of KEYMAP) {
-    if (binding.key !== key) continue;
+    // The physical key wins where one is declared. `key` is still checked as a
+    // fallback so a synthetic event carrying only a character — a test, a
+    // remote control — matches the unshifted spelling as it always did.
+    if (binding.code !== undefined) {
+      if (event.code !== undefined ? binding.code !== event.code : binding.key !== key) continue;
+    } else if (binding.key !== key) continue;
     if ((binding.mod ?? false) !== mod) continue;
     if ((binding.shift ?? false) !== event.shiftKey) continue;
     if ((binding.alt ?? false) !== event.altKey) continue;
