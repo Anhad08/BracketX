@@ -64,10 +64,18 @@ test("a style reaches the picture, not just the panel", async ({ page }) => {
   const styles = page.getByTestId("graphic-styles");
   await expect(styles).toBeVisible();
 
-  // Flat is what a template ships as, so it is what the picker should show lit.
+  // A TEMPLATE NO LONGER SHIPS FLAT, and this expectation changed with it.
+  // The shipped graphics now carry a plate paint of their own — gradient,
+  // rounded corners, rim and shadow — because a flat rectangle is what a
+  // placeholder looks like. So Flat must NOT be lit on open.
+  //
+  // Nothing is lit at all: the shipped paint is authored for the plate's role
+  // rather than being one of the seven named styles, which `paintOf` correctly
+  // reports as "adjusted by hand". Choosing a style still replaces it, which the
+  // rest of this test exercises.
   await expect(page.getByTestId("graphic-style-flat")).toHaveAttribute(
     "aria-pressed",
-    "true",
+    "false",
   );
 
   const before = await picture(page);

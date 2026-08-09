@@ -44,6 +44,7 @@ import {
   generateKeyBetween,
   makeSetDocProp,
   type SceneDocument,
+  type PaintSpecDoc,
   type SceneNode,
   type SceneToken,
   type VariableBinding,
@@ -156,6 +157,24 @@ export function bar(
   height: number,
   fill: unknown,
   position: readonly [number, number, number],
+  /**
+   * The plate's PAINT. Optional, and every shipped graphic should pass one.
+   *
+   * ========================================================================
+   * A FLAT RECTANGLE IS WHAT A PLACEHOLDER LOOKS LIKE
+   * ========================================================================
+   * The engine has gained gradients, rounded corners, strokes and shadows, and
+   * for a while none of the shipped graphics used any of them: every plate in
+   * every template was one flat hex. That is exactly the "generic card
+   * pretending to be a graphic" problem, and it was in the CONTENT rather than
+   * in the renderer the whole time.
+   *
+   * Passed per plate rather than defaulted here, because the right paint differs
+   * by role: a lower third's plate is elevated furniture, an accent flag is
+   * deliberately flat so it reads as a flag, and a ticker strip wants almost no
+   * radius because it runs to the frame edge.
+   */
+  paint?: PaintSpecDoc,
 ): SceneNode {
   return {
     id: ids("node"),
@@ -164,10 +183,126 @@ export function bar(
     transform: { position: [...position] as [number, number, number], rotation: [0, 0, 0], scale: [1, 1, 1] },
     size: { width, height },
     components: [
-      { id: ids("component"), type: "rect", props: { width, height, fill } },
+      {
+        id: ids("component"),
+        type: "rect",
+        props: { width, height, fill, ...(paint === undefined ? {} : { paint }) },
+      },
     ],
   };
 }
+
+/**
+ * The paints the shipped graphics are built from.
+ *
+ * Named by the role they play in a broadcast frame, not by their parameters —
+ * the same rule `finishes.ts` and `paints.ts` follow. Distances are in world
+ * units and are chosen per plate size, because a corner radius that reads
+ * correctly on a 9-unit strap is a pill on a 3-unit chip.
+ */
+export const PLATE = {
+  /** Furniture that sits above the picture: a strap, a card, a scoreboard. */
+  panel: (fill: unknown, side: number): PaintSpecDoc => ({
+    cornerRadius: side * 0.1,
+    ...ramp(fill, 78, -0.18, 0.09),
+    stroke: {
+      color: "#ffffff",
+      width: Math.max(0.004, side * 0.012),
+      opacity: 0.14,
+      gradient: {
+        kind: "linear",
+        angle: 90,
+        stops: [
+          { at: 0, color: "#ffffff", opacity: 0.02 },
+          { at: 1, color: "#ffffff", opacity: 0.55 },
+        ],
+      },
+    },
+    shadow: { color: "#000000", blur: side * 0.36, offsetY: -side * 0.09, opacity: 0.5 },
+  }),
+
+  /** A full-width strip. Almost no radius: it runs to the frame edge. */
+  strip: (fill: unknown, side: number): PaintSpecDoc => ({
+    cornerRadius: side * 0.04,
+    ...ramp(fill, 90, -0.2, 0.06),
+    shadow: { color: "#000000", blur: side * 0.5, offsetY: -side * 0.12, opacity: 0.45 },
+  }),
+
+  /**
+   * An urgent flag: a kicker, a score block. Lit so it pulls the eye first.
+   *
+   * Its glow is the flag's OWN colour, which only exists when the fill is a
+   * literal. A bound flag keeps its geometry and no glow — never a glow in a
+   * colour this had to guess.
+   */
+  urgent: (fill: unknown, side: number): PaintSpecDoc => {
+    const colour = literal(fill);
+    return {
+      cornerRadius: side * 0.06,
+      ...ramp(fill, 78, 0.12, -0.16),
+      ...(colour === null
+        ? {}
+        : { shadow: { color: colour, blur: side * 0.55, opacity: 0.5 } }),
+    };
+  },
+} as const;
+
+/**
+ * A gradient derived from the plate's colour — or NOTHING, if there isn't one.
+ *
+ * ==========================================================================
+ * A BOUND FILL GETS NO GRADIENT, RATHER THAN A GUESSED ONE
+ * ==========================================================================
+ * A pack's fills are `{ $var: "color.primary" }` so a theme can restyle them,
+ * and a gradient stop cannot hold a binding. The first version of this fell back
+ * to a dark literal when it could not resolve one — which painted the Breaking
+ * News kicker, an accent-RED flag, in near-black. The graphic looked broken and
+ * the cause was a fallback pretending to know a colour.
+ *
+ * So an unresolvable fill returns no gradient at all. The plate keeps its
+ * geometry and its shadow, the flat bound fill shows through unchanged, and the
+ * theme still owns the colour. Less decoration, and never the wrong one.
+ */
+function ramp(
+  fill: unknown,
+  angle: number,
+  from: number,
+  to: number,
+): Pick<PaintSpecDoc, "gradient"> | Record<string, never> {
+  const colour = literal(fill);
+  if (colour === null) return {};
+  return {
+    gradient: {
+      kind: "linear",
+      angle,
+      stops: [
+        { at: 0, color: shade(colour, from) },
+        { at: 1, color: shade(colour, to) },
+      ],
+    },
+  };
+}
+
+/** The fill as a colour, or null when it is a binding. */
+function literal(fill: unknown): string | null {
+  return typeof fill === "string" && /^#[0-9a-fA-F]{3,8}$/.test(fill) ? fill : null;
+}
+
+/** Lightens or darkens a literal hex. */
+function shade(hex: string, amount: number): string {
+  const value = hex.replace(/^#/, "");
+  if (value.length < 6) return hex;
+  const to = amount >= 0 ? 255 : 0;
+  const t = Math.abs(amount);
+  const part = (at: number): string => {
+    const channel = parseInt(value.slice(at, at + 2), 16);
+    const mixed = Math.round(channel + (to - channel) * t);
+    return Math.max(0, Math.min(255, mixed)).toString(16).padStart(2, "0");
+  };
+  return `#${part(0)}${part(2)}${part(4)}`;
+}
+
+
 
 export function label(
   ids: IdFactory,
@@ -357,7 +492,7 @@ const LOWER_THIRD: PackTemplate = {
     const ink = token("color.ink", "#f2f5fb");
     const muted = token("color.muted", "#8a93a6");
 
-    const backdrop = bar(ids, "Background", next(), 9.4, 1.9, surface, [0, 0, 0]);
+    const backdrop = bar(ids, "Background", next(), 9.4, 1.9, surface, [0, 0, 0], PLATE.panel(surface, 1.9));
     const accentBar = bar(ids, "Accent Bar", next(), 0.14, 1.9, accent, [-4.63, 0, 0.01]);
     // The mark sits inside the bar's right edge, in a square box so `contain`
     // has room to letterbox whatever aspect the user brings.
@@ -481,8 +616,8 @@ const SCOREBOARD: PackTemplate = {
     const ink = token("color.ink", "#f2f5fb");
 
     const holderId = ids("node");
-    const backdrop = bar(ids, "Background", next(), 7.2, 1.05, surface, [0, 0, 0]);
-    const scoreBlock = bar(ids, "Score Block", next(), 2.0, 1.05, accent, [0, 0, 0.01]);
+    const backdrop = bar(ids, "Background", next(), 7.2, 1.05, surface, [0, 0, 0], PLATE.panel(surface, 1.05));
+    const scoreBlock = bar(ids, "Score Block", next(), 2.0, 1.05, accent, [0, 0, 0.01], PLATE.urgent(accent, 1.05));
     const home = label(ids, "Home Team", next(), { $var: "home" }, ink, 46, { width: 2.4 }, [-3.4, 0, 0.02]);
     const away = label(ids, "Away Team", next(), { $var: "away" }, ink, 46, { width: 2.4 }, [1.1, 0, 0.02]);
     const score = label(

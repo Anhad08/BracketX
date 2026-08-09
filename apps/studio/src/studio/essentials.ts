@@ -27,6 +27,7 @@ import { IDENTITY_TRANSFORM, generateKeyBetween, type SceneNode } from "@bracket
 import type { IdFactory } from "./ids";
 import { STUDIO_IMAGES } from "./images";
 import {
+  PLATE,
   bar,
   camera,
   document_,
@@ -67,7 +68,7 @@ export const TICKER: PackTemplate = {
     const ink = token("color.ink", "#f2f5fb");
 
     const holderId = ids("node");
-    const strip = bar(ids, "Strip", next(), 17.78, 0.9, surface, [0, 0, 0]);
+    const strip = bar(ids, "Strip", next(), 17.78, 0.9, surface, [0, 0, 0], PLATE.strip(surface, 0.9));
     const flag = bar(ids, "Flag", next(), 3.1, 0.9, accent, [-7.34, 0, 0.01]);
     const category = label(
       ids, "Category", next(), { $var: "category" }, ink, 34,
@@ -142,8 +143,8 @@ export const BREAKING: PackTemplate = {
     const ink = token("color.ink", "#f2f5fb");
 
     const holderId = ids("node");
-    const backdrop = bar(ids, "Background", next(), 16.4, 1.5, surface, [0, 0, 0]);
-    const kickerBar = bar(ids, "Kicker Bar", next(), 4.6, 0.58, accent, [-5.9, 1.02, 0.01]);
+    const backdrop = bar(ids, "Background", next(), 16.4, 1.5, surface, [0, 0, 0], PLATE.panel(surface, 1.5));
+    const kickerBar = bar(ids, "Kicker Bar", next(), 4.6, 0.58, accent, [-5.9, 1.02, 0.01], PLATE.urgent(accent, 0.58));
     const kicker = label(
       ids, "Kicker", next(), { $var: "kicker" }, ink, 30,
       { width: 4.2 }, [-7.9, 1.02, 0.02],
@@ -303,7 +304,7 @@ export const SPONSOR: PackTemplate = {
     const muted = token("color.muted", "#8a93a6");
 
     const holderId = ids("node");
-    const backdrop = bar(ids, "Background", next(), 6.4, 1.8, surface, [0, 0, 0]);
+    const backdrop = bar(ids, "Background", next(), 6.4, 1.8, surface, [0, 0, 0], PLATE.panel(surface, 1.8));
     const edge = bar(ids, "Edge", next(), 6.4, 0.08, accent, [0, -0.86, 0.01]);
     const courtesy = label(
       ids, "Courtesy", next(), { $var: "courtesy" }, muted, 26,
@@ -370,7 +371,7 @@ export const LEADERBOARD: PackTemplate = {
     const muted = token("color.muted", "#8a93a6");
 
     const holderId = ids("node");
-    const backdrop = bar(ids, "Background", next(), 8.6, 5.4, surface, [0, 0, 0]);
+    const backdrop = bar(ids, "Background", next(), 8.6, 5.4, surface, [0, 0, 0], PLATE.panel(surface, 2.2));
     const titleBar = bar(ids, "Title Bar", next(), 8.6, 0.9, accent, [0, 2.25, 0.01]);
     const title = label(
       ids, "Title", next(), { $var: "title" }, ink, 42,
