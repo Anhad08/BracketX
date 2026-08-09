@@ -339,7 +339,30 @@ export function Marketplace({
               per card, which would be the floating-card soup the Design OS
               refuses. Motion is `move`/`press`: no spring, no overshoot,
               nothing autoplays. */}
-          <div className="mk-stage" data-testid="mk-stage" role="tablist" aria-label="Featured packs">
+          <div
+            className="mk-stage"
+            data-testid="mk-stage"
+            role="tablist"
+            aria-label="Featured packs"
+            onPointerMove={(event) => {
+              // CURSOR RESPONSE ON THE ACTIVE CARD. Written as CSS custom
+              // properties on the element rather than through state: this fires
+              // on every frame of a pointer move, and a React render per frame
+              // across a deck of previews is a render per frame.
+              const stage = event.currentTarget;
+              const box = stage.getBoundingClientRect();
+              const x = (event.clientX - box.left) / box.width - 0.5;
+              const y = (event.clientY - box.top) / box.height - 0.5;
+              // Small. The card acknowledges the cursor; it does not chase it.
+              stage.style.setProperty("--tilt-y", `${(x * 5).toFixed(2)}deg`);
+              stage.style.setProperty("--tilt-x", `${(-y * 3.5).toFixed(2)}deg`);
+            }}
+            onPointerLeave={(event) => {
+              const stage = event.currentTarget;
+              stage.style.setProperty("--tilt-y", "0deg");
+              stage.style.setProperty("--tilt-x", "0deg");
+            }}
+          >
             {showable.map((pack, index) => {
               const offset = index - featured;
               const focusedCard = offset === 0;
@@ -360,9 +383,22 @@ export function Marketplace({
                 <button
                   key={pack.id}
                   type="button"
-                  role="tab"
-                  aria-selected={focusedCard}
-                  tabIndex={focusedCard ? 0 : -1}
+                  /* ==========================================================
+                     THE DECK IS A VIEW; THE PROGRESS ROW IS THE CONTROL
+                     ==========================================================
+                     Real depth means the cards overlap heavily, so the front card
+                     covers every other card's centre and swallows the click —
+                     twice now, reported as "subtree intercepts pointer events",
+                     which is exactly what a cursor would hit.
+                     The previous fix shrank the cards behind into narrow slivers
+                     so they could be clicked. That bought operability by throwing
+                     away the depth: a sliver has no perspective to read.
+                     So the deck keeps its depth and stops pretending each card is
+                     a button. Focus moves through the progress row, which is a
+                     real tablist with one labelled control per pack — reachable,
+                     announceable, and impossible to occlude. */
+                  aria-hidden={!focusedCard}
+                  tabIndex={-1}
                   className={`mk-deck-card ${focusedCard ? "on" : ""}`}
                   data-testid={`mk-deck-${pack.id}`}
                   data-offset={offset}
@@ -374,7 +410,6 @@ export function Marketplace({
                     zIndex: 20 - (rank + 1),
                   }}
                   title={pack.name}
-                  onClick={() => setFeatured(index)}
                 >
                   <TemplateArt
                     className={focusedCard ? "mk-hero-preview" : "mk-deck-art"}
@@ -390,6 +425,25 @@ export function Marketplace({
                 </button>
               );
             })}
+            {/* PROGRESS. Which card of how many, and a way to step through them.
+                Not decoration: a deck whose cards recede behind one another hides
+                its own length, and this is the only thing that states it. */}
+            {showable.length > 1 ? (
+              <div className="mk-progress" role="tablist" aria-label="Featured packs" data-testid="mk-progress">
+                {showable.map((pack, index) => (
+                  <button
+                    key={pack.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={index === featured}
+                    aria-label={pack.name}
+                    className={`mk-progress-seg ${index === featured ? "on" : ""}`}
+                    data-testid={`mk-progress-${index}`}
+                    onClick={() => setFeatured(index)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="mk-hero-copy">

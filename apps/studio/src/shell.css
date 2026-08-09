@@ -837,68 +837,117 @@
 
    `--offset` is signed distance from focus, `--depth` its magnitude; the
    component sets both and this file decides entirely what they look like. */
+/* ==========================================================================
+   THE DECK — depth, not z-index
+   ==========================================================================
+   The previous version was a stack of 17%-wide slivers at reduced opacity. That
+   is a list drawn on top of itself; it had no depth, and switching focus changed
+   a paint order. This is the rebuild, against the described mechanics:
+
+     perspective  · a real 3D frustum, so cards further back are foreshortened
+     progressive scale · each step back is smaller by a fixed ratio
+     blur separation   · depth of field. The eye reads blur as distance before
+                         it reads size, which is what makes this cinematic
+                         rather than merely small
+     peel         · the front card lifts and rotates away as focus passes it,
+                    rather than vanishing
+     cursor       · the active card acknowledges the pointer, 5deg maximum
+     progress     · the deck states its own length
+
+   Motion is `move` + `press` throughout. No spring, no overshoot — the physical
+   feeling comes from the transform, not from the easing. */
 .mk-stage {
   grid-area: art;
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   min-width: 0;
-  /* Room to the right for the receding cards to sit in without leaving the
-     stage — the deck reads as depth, not as an overflow. */
-  padding-right: 18%;
+  /* Room to the right for the receding cards to occupy. */
+  padding-right: 14%;
+  /* THE FRUSTUM. Everything below is a real z-translation inside it. */
+  perspective: 1400px;
+  perspective-origin: 30% 50%;
+  transform-style: preserve-3d;
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
 }
 .mk-deck-card {
-  position: absolute;
+  position: absolute; inset: 0 14% 0 0;
   display: block; padding: 0;
   border: 0; background: none; color: var(--dim);
-  font: inherit; text-align: left; cursor: pointer;
-  /* The reorganisation. `move` because cards travel, `press` so they arrive and
-     stop. No spring, no overshoot. */
+  font: inherit; text-align: left;
+  transform-style: preserve-3d;
+  transform-origin: 15% 50%;
   transition:
     transform var(--move) var(--press),
     opacity var(--move) var(--press),
-    filter var(--move) var(--press),
-    width var(--move) var(--press);
-}
-/* THE FOCUSED CARD fills the stage, leaving the right edge for the deck behind. */
-.mk-deck-card.on {
-  inset: 0 18% 0 0;
-  opacity: 1; filter: none; transform: none;
-  color: var(--text-strong); cursor: default;
-}
-/* THE CARDS BEHIND are right-anchored SLIVERS, not full cards hidden underneath.
-   ==========================================================================
-   This is the fix for a real defect and a better translation of the reference at
-   the same time. The first version left each neighbour full-size beneath the
-   focused card: it looked like a deck and could not be operated, because the
-   focused card covered every neighbour's centre and swallowed the click —
-   Playwright reported "subtree intercepts pointer events", which is exactly what
-   a person's cursor would have hit.
-   Anchored to the right and narrow, they are genuinely PARTIALLY VISIBLE — which
-   is what a deck is — and their visible strip is their hit area. */
-.mk-deck-card:not(.on) {
-  top: 8%; bottom: 8%; right: 0; left: auto;
-  width: 17%;
-  /* Each step further back slides left behind its neighbour and shrinks. */
-  transform:
-    translateX(calc((var(--depth) - 1) * -46%))
-    scale(calc(1 - ((var(--depth) - 1) * 0.08)));
-  opacity: calc(1 - ((var(--depth) - 1) * 0.28));
-  filter: saturate(0.75);
-}
-.mk-deck-card:not(.on):hover, .mk-deck-card:not(.on):focus-visible {
-  opacity: 1; filter: none;
+    filter var(--move) var(--press);
 }
 
-/* A WELL, as everywhere a graphic is shown. The recess is the only thing here
-   that casts, and the focused card gets a key edge so the front of the deck is
-   unambiguous. */
+/* THE ACTIVE CARD holds the frustum's centre and answers the cursor. */
+.mk-deck-card.on {
+  z-index: 30;
+  opacity: 1;
+  filter: none;
+  cursor: default;
+  color: var(--text-strong);
+  transform: translate3d(0, 0, 0) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+}
+
+/* THE CARDS BEHIND recede along Z. Depth does the work: each step is pushed
+   back, slid right, rotated slightly away and BLURRED. Blur is the depth cue
+   that opacity cannot fake — a dimmed card looks switched off, a blurred one
+   looks further away. */
+.mk-deck-card:not(.on) {
+  /* Scenery. It cannot be clicked, so it cannot steal the front card's pointer. */
+  pointer-events: none;
+  z-index: calc(20 - var(--depth));
+  transform:
+    translate3d(calc(var(--depth) * 12%), 0, calc(var(--depth) * -180px))
+    rotateY(-14deg);
+  opacity: calc(1 - (var(--depth) * 0.16));
+  filter: blur(calc(var(--depth) * 1.6px)) saturate(calc(1 - (var(--depth) * 0.22)));
+}
+/* THE PEEL. A card the focus has already passed lifts and rotates AWAY rather
+   than dropping behind — so moving through the deck reads as turning past
+   something, not as a list re-sorting. */
+.mk-deck-card[data-offset^="-"]:not(.on) {
+  transform:
+    translate3d(calc(var(--depth) * -9%), calc(var(--depth) * -4%), calc(var(--depth) * -140px))
+    rotateY(16deg) rotateZ(-2deg);
+  transform-origin: 85% 50%;
+}
+
 .mk-deck-art {
   display: block; width: 100%; height: 100%;
   background: var(--well); border-radius: var(--radius-sm);
   box-shadow: var(--recess), var(--edge);
 }
 .mk-deck-art .art-still { padding: var(--s2); box-sizing: border-box; }
+
+/* PROGRESS. Segments, not dots: they read as a length. */
+.mk-progress {
+  position: absolute; left: 0; bottom: calc(var(--s3) * -1);
+  display: flex; gap: var(--s1); z-index: 40;
+}
+.mk-progress-seg {
+  width: 26px; height: 2px; border-radius: 1px; padding: 0;
+  border: 0; cursor: pointer; appearance: none;
+  background: var(--line);
+  transition: background var(--reveal) var(--press), width var(--reveal) var(--press);
+}
+.mk-progress-seg:hover { background: var(--dim); }
+.mk-progress-seg.on { width: 44px; background: var(--accent); cursor: default; }
+/* The hit area is bigger than the mark: two pixels of line is a target nobody
+   can hit, so the control extends above and below what it draws. */
+.mk-progress { padding: var(--s2) 0; }
+.mk-progress-seg { box-sizing: content-box; border-block: var(--s2) solid transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Depth stays — it is composition, not motion. Only the travel goes. */
+  .mk-deck-card { transition: none; }
+}
+
 .mk-deck-name {
   position: absolute; left: var(--s2); bottom: var(--s2);
   max-width: calc(100% - var(--s4));

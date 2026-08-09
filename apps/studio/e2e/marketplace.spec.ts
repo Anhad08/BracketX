@@ -143,13 +143,20 @@ for (const size of [
       before!,
     );
 
-    const others = page.locator('.mk-deck-card:not(.on)');
-    if ((await others.count()) > 0) {
-      const target = await others.first().getAttribute("data-testid");
-      await others.first().click();
-      await expect(page.locator(".mk-deck-card.on")).toHaveAttribute("data-testid", target!);
-      // The headline followed the focus, so the copy belongs to the graphic.
-      await expect(hero.locator(".mk-hero-title")).not.toHaveText("");
+    // Focus moves through the PROGRESS ROW. The deck itself is scenery: with real
+    // depth the cards overlap, so making each one a button meant the front card
+    // occluded the rest and swallowed every click.
+    const segments = page.locator(".mk-progress-seg");
+    if ((await segments.count()) > 1) {
+      const openingTitle = await hero.locator(".mk-hero-title").textContent();
+      await segments.nth(1).click();
+      await expect(segments.nth(1)).toHaveAttribute("aria-selected", "true");
+      // The composition followed: a different pack is at the front of the deck,
+      // and the copy beside it changed with it.
+      await expect(hero.locator(".mk-hero-title")).not.toHaveText(openingTitle ?? "");
+      const front = page.locator(".mk-deck-card.on");
+      await expect(front).toHaveCount(1);
+      await expect(front).toHaveAttribute("data-offset", "0");
     }
 
     const overflow = await page.evaluate(
@@ -159,31 +166,45 @@ for (const size of [
   });
 }
 
-test("the deck is focusable, and its cards are real controls", async ({ page }) => {
+test("the deck states its length, and every card is reachable", async ({ page }) => {
   await marketplace(page);
+  const segments = page.locator(".mk-progress-seg");
   const cards = page.locator(".mk-deck-card");
-  if ((await cards.count()) < 2) return;
+  // One control per card: the deck cannot hide a pack behind another one.
+  expect(await segments.count()).toBe(await cards.count());
 
-  // Real <button>s in a tablist, so they take focus without a roving-tabindex
-  // scheme of our own invention.
-  await cards.nth(1).focus();
-  await expect(cards.nth(1)).toBeFocused();
-  await expect(cards.nth(1)).toHaveRole("tab");
+  // Real controls in a tablist, each announcing which pack it selects — so the
+  // depth costs nothing in reachability.
+  await expect(segments.first()).toHaveRole("tab");
+  for (let i = 0; i < (await segments.count()); i += 1) {
+    const label = await segments.nth(i).getAttribute("aria-label");
+    expect(label, "a deck control has no name").toBeTruthy();
+  }
 
-  // ==========================================================================
-  // A DEFECT THIS TEST DELIBERATELY DOES NOT PAPER OVER
-  // ==========================================================================
-  // Neither Enter nor Space activates a focused control anywhere in Studio,
-  // because BOTH are global transport bindings: Enter is Take — "⏎ takes,
-  // unconditionally, even from a focused field" — and Space is Play. Both are
-  // deliberate, and together they mean a keyboard user cannot press a button.
-  //
-  // That is a product-wide accessibility defect, not a Marketplace one, and the
-  // fix belongs in the global key handler rather than here. So this test asserts
-  // what is genuinely true today — the card is focusable and is a real control —
-  // and the activation gap is reported rather than hidden behind a click.
-  await cards.nth(1).click();
-  await expect(cards.nth(1)).toHaveAttribute("aria-selected", "true");
+  await segments.last().focus();
+  await expect(segments.last()).toBeFocused();
+  await segments.last().click();
+  await expect(segments.last()).toHaveAttribute("aria-selected", "true");
+});
+
+test("the cards behind are separated by depth, not merely dimmed", async ({ page }) => {
+  await marketplace(page);
+  const behind = page.locator(".mk-deck-card:not(.on)").first();
+  await expect(behind).toBeAttached();
+
+  const style = await behind.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { transform: s.transform, filter: s.filter };
+  });
+  // A real Z translation inside a perspective frustum: a 3D matrix, not matrix().
+  expect(style.transform, "the deck has no depth — this is a 2D stack").toContain("matrix3d");
+  // Blur is the depth cue opacity cannot fake. Its absence was the whole reason
+  // the first two versions read as a list drawn on top of itself.
+  expect(style.filter, "no depth-of-field separation").toContain("blur");
+
+  const front = page.locator(".mk-deck-card.on");
+  const frontStyle = await front.evaluate((el) => getComputedStyle(el).filter);
+  expect(frontStyle, "the focused card is blurred").not.toContain("blur(");
 });
 
 for (const size of [
