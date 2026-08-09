@@ -484,32 +484,40 @@ export function Marketplace({
       ) : null}
 
       {/* ==================================================================
-          THE PACK STORY — ScrollSyncedText, translated
+          THE PACK STORY — ScrollSyncedText, properly this time
           ==================================================================
-          Reference pattern: the composition PROGRESSES with scroll position
-          rather than a paragraph sitting above a grid. Four stages, told about
-          the pack the deck is focused on:
+          The previous version faded a headline and un-hid a grid. Freeze the
+          animation and it was a paragraph above some cards.
 
-              one package -> what it gives you -> the graphics inside -> take one
+          What the reference actually describes:
 
-          A sticky stage holds the composition still while the reader scrolls
-          past it, so the words and the artwork change in place. The graphics
-          arrive at stage two at a size worth inspecting — not six thumbnails
-          crushed to fit.
+            a PERSISTENT PREFIX that never moves
+            an ACTIVE PHRASE that is the focal point
+            the ALTERNATIVES still perceptible around it, dimmed — not hidden
+            scroll position choosing which phrase is active
+            the graphic changing WITH the phrase, recomposing rather than
+              being swapped for a different element
 
-          Scroll DRIVES it; nothing plays on its own. Every transition is
-          `reveal`/`move` with `press`, and the graphics stagger in at 40ms. */}
-      {hero !== undefined && (hero.templates ?? []).length > 0 ? (
+          The phrases are not written for the story. They are the pack's actual
+          graphics, so the sentence the reader assembles — "Broadcast Starter
+          gives you / a lower third" — is a fact about the catalogue.
+
+          THE GRAPHICS USE THE DECK'S DEPTH LANGUAGE. Same frustum, same blur,
+          same forward-card grammar. That is deliberate: two different depth
+          treatments would be two effects, and one repeated is a vocabulary.
+
+          Motion off, this still reads: a list with one line lit, and a stack
+          with one graphic sharp at the front of it. */}
+      {hero !== undefined && (hero.templates ?? []).length > 1 ? (
         <section className="mk-story" data-testid="mk-story" data-stage={stage}>
-          {/* The scroll track. The sentinels sit down its length; whichever is
-              on the viewport's midline is the stage. */}
           <div className="mk-story-track" aria-hidden>
-            {[0, 1, 2, 3].map((index) => (
+            {(hero.templates ?? []).map((template, index) => (
               <div
-                key={index}
+                key={template.id}
                 data-mark={index}
                 data-testid={`mk-mark-${index}`}
                 className="mk-mark"
+                style={{ top: `${12 + index * (76 / Math.max(1, (hero.templates ?? []).length - 1))}%` }}
                 ref={(node) => {
                   marks.current[index] = node;
                 }}
@@ -519,83 +527,89 @@ export function Marketplace({
 
           <div className="mk-story-stage">
             <div className="mk-story-copy">
-              <span className="mk-eyebrow">
-                {stage === 0
-                  ? "One package"
-                  : stage === 1
-                    ? "What it gives you"
-                    : stage === 2
-                      ? "The graphics inside"
-                      : "Take one to air"}
-              </span>
-              {/* Real catalogue copy at every stage. Nothing here is written for
-                  the story — it is the pack's own name, its own description, and
-                  counts derived from what it actually contains. */}
-              <h2 className="mk-story-title" data-testid="mk-story-title">
-                {stage === 0 ? hero.name : stage === 1 ? hero.description : "Ready to use"}
-              </h2>
-              <p className="mk-story-line" data-testid="mk-story-line">
-                {stage === 0
-                  ? hero.description
-                  : stage === 1
-                    ? `${(hero.templates ?? []).length} graphics, every field editable, every move already built.`
-                    : stage === 2
-                      ? `All ${(hero.templates ?? []).length} of them, rendered by the same engine that will put them to air.`
-                      : installed.has(hero.id)
-                        ? "Open one and it is yours to edit."
-                        : `Add ${hero.name} and all ${(hero.templates ?? []).length} arrive together.`}
+              {/* THE PREFIX NEVER MOVES. It is the fixed half of the sentence,
+                  and it is what makes the changing half read as a substitution
+                  rather than as a new headline. */}
+              <p className="mk-prefix" data-testid="mk-prefix">
+                <span className="mk-eyebrow">{hero.name}</span>
+                gives you
               </p>
-              <p className="mk-facts mono">{hero.author} · Free</p>
+
+              {/* THE ALTERNATIVES STAY. Every graphic in the pack is listed; the
+                  active one is the focal point and the rest are dim but legible.
+                  Hiding them was the generic implementation — with them present,
+                  the reader can see what else is coming and the section states
+                  the pack's contents even standing still. */}
+              <ol className="mk-phrases" data-testid="mk-phrases">
+                {(hero.templates ?? []).map((template, index) => (
+                  <li
+                    key={template.id}
+                    className={`mk-phrase ${index === stage ? "on" : ""}`}
+                    data-testid={`mk-phrase-${template.id}`}
+                    aria-current={index === stage ? "true" : undefined}
+                  >
+                    {template.name}
+                  </li>
+                ))}
+              </ol>
+
+              <p className="mk-story-line" data-testid="mk-story-line">
+                {(hero.templates ?? [])[stage]?.description ?? hero.description}
+              </p>
+
+              <div className="mk-story-actions">
+                {installed.has(hero.id) ? (
+                  <button
+                    type="button"
+                    className="chip primary"
+                    data-testid="mk-story-use"
+                    onClick={() => onUseTemplate((hero.templates ?? [])[stage]!)}
+                  >
+                    Use {(hero.templates ?? [])[stage]?.name}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="chip primary"
+                    data-testid="mk-story-add"
+                    onClick={() => onInstall(hero)}
+                  >
+                    Add {hero.name}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* The artwork. Stage 0 and 1 show the pack as one thing; stage 2
-                opens it into the graphics it contains; stage 3 puts an action on
-                each. The SAME previews throughout — they grow into the grid
-                rather than being replaced by a different component. */}
-            <div className="mk-story-art" data-open={stage >= 2 ? "yes" : "no"}>
-              {(hero.templates ?? []).map((template, index) => (
-                <div
-                  className="mk-story-card"
-                  key={template.id}
-                  data-testid={`mk-story-${template.id}`}
-                  style={{ ["--i" as string]: String(index) }}
-                >
-                  <TemplateArt
-                    className="mk-story-preview"
-                    templateId={template.id}
-                    still={art.get(template.id)}
-                    onPlay={onPlay}
-                    onStop={onStop}
-                    placeholder={<span className="pack-art-pending" aria-hidden />}
-                  />
-                  {stage >= 2 ? (
-                    <div className="mk-story-meta">
-                      <strong>{template.name}</strong>
-                      {stage >= 3 ? (
-                        installed.has(hero.id) ? (
-                          <button
-                            type="button"
-                            className="chip primary"
-                            data-testid={`mk-story-use-${template.id}`}
-                            onClick={() => onUseTemplate(template)}
-                          >
-                            Use
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="chip"
-                            data-testid={`mk-story-add-${template.id}`}
-                            onClick={() => onInstall(hero)}
-                          >
-                            Add pack
-                          </button>
-                        )
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
+            {/* THE GRAPHICS RECOMPOSE. All of them are always mounted and always
+                in the frustum; scroll changes which one is at the front. Nothing
+                is added or removed, so there is no swap to cross-fade. */}
+            <div className="mk-story-art">
+              {(hero.templates ?? []).map((template, index) => {
+                const rank = index - stage;
+                return (
+                  <div
+                    className={`mk-story-card ${index === stage ? "on" : ""}`}
+                    key={template.id}
+                    data-testid={`mk-story-${template.id}`}
+                    data-rank={rank}
+                    aria-hidden={index !== stage}
+                    style={{
+                      ["--rank" as string]: String(rank),
+                      ["--away" as string]: String(Math.abs(rank)),
+                      zIndex: 30 - Math.abs(rank),
+                    }}
+                  >
+                    <TemplateArt
+                      className="mk-story-preview"
+                      templateId={template.id}
+                      still={art.get(template.id)}
+                      onPlay={index === stage ? onPlay : undefined}
+                      onStop={index === stage ? onStop : undefined}
+                      placeholder={<span className="pack-art-pending" aria-hidden />}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>

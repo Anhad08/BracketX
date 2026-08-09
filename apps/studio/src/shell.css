@@ -1089,82 +1089,112 @@
 }
 
 /* ==========================================================================
-   THE PACK STORY — ScrollSyncedText, translated
+   THE PACK STORY — persistent prefix, live alternatives, one depth vocabulary
    ==========================================================================
-   A tall track with a STICKY stage inside it. The reader scrolls the track; the
-   stage stays put and its composition changes. That is the whole pattern: the
-   words and the artwork progress together, driven by scroll position and by
-   nothing else.
+   Sticky stage inside a tall track. The reader scrolls the track; the stage holds
+   and its composition changes underneath them.
 
-   The sentinels are zero-height markers down the track. They are the only thing
-   that decides the stage, so the visual can be retuned without touching the
-   logic. */
-.mk-story { position: relative; margin-bottom: var(--s7); }
-/* Four viewport-heights of travel: enough that each stage is READ rather than
-   flicked past, and short enough that the section does not become the page. */
+   The graphics reuse the DECK's depth grammar — frustum, Z travel, blur, forward
+   card. Repeating one treatment is a vocabulary; inventing a second would be two
+   effects. */
+.mk-story { position: relative; min-height: 320vh; margin-bottom: var(--s7); }
 .mk-story-track { position: absolute; inset: 0; pointer-events: none; }
 .mk-mark { position: absolute; left: 0; width: 1px; height: 1px; }
-.mk-mark[data-mark="0"] { top: 12%; }
-.mk-mark[data-mark="1"] { top: 38%; }
-.mk-mark[data-mark="2"] { top: 64%; }
-.mk-mark[data-mark="3"] { top: 90%; }
-.mk-story { min-height: 300vh; }
 
 .mk-story-stage {
   position: sticky; top: var(--s6);
-  display: grid; grid-template-columns: minmax(280px, 0.8fr) minmax(0, 2fr);
-  gap: var(--s5);
+  display: grid; grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.6fr);
+  gap: var(--s6);
   align-items: center;
-  min-height: 78vh;
+  min-height: 74vh;
 }
 
-.mk-story-copy { display: flex; flex-direction: column; gap: var(--s2); }
-/* Display role — the largest type on the page, because this is the one moment
-   the Marketplace is talking rather than listing. */
-.mk-story-title {
-  margin: 0; font-size: 30px; letter-spacing: -0.036em; color: var(--text-strong);
-  /* The words change with the stage, so they arrive rather than cut. */
-  animation: story-in var(--reveal) var(--press) both;
+/* THE FIXED HALF OF THE SENTENCE. It never moves, which is what makes the other
+   half read as a substitution rather than as a new heading each time. */
+.mk-story-copy { display: flex; flex-direction: column; gap: var(--s3); }
+.mk-prefix {
+  margin: 0; display: flex; flex-direction: column; gap: var(--s1);
+  font-size: 14px; letter-spacing: -0.018em; color: var(--dim);
 }
+
+/* THE ALTERNATIVES, ALL PRESENT. The active line is the focal point; the others
+   stay legible so the reader can see what the pack holds and what is coming.
+   Hiding them was the generic version. */
+.mk-phrases { list-style: none; margin: 0; padding: 0; }
+.mk-phrase {
+  font-size: 30px; letter-spacing: -0.036em; line-height: 1.15;
+  color: var(--dim);
+  opacity: 0.32;
+  /* A quiet rule that grows on the active line: the eye finds the focal point
+     from the mark before it reads the brightness. */
+  padding-left: var(--s3);
+  border-left: 2px solid transparent;
+  transition:
+    opacity var(--reveal) var(--press),
+    color var(--reveal) var(--press),
+    border-color var(--reveal) var(--press),
+    padding-left var(--reveal) var(--press);
+}
+.mk-phrase.on {
+  opacity: 1; color: var(--text-strong);
+  border-left-color: var(--accent);
+  padding-left: var(--s4);
+}
+
 .mk-story-line {
   margin: 0; font-size: 13px; letter-spacing: -0.004em; color: var(--text);
-  max-width: 46ch;
-  animation: story-in var(--reveal) var(--press) both;
+  max-width: 46ch; min-height: 2.6em;
 }
-@keyframes story-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.mk-story-actions { display: flex; gap: var(--s2); }
 
-/* THE ARTWORK OPENS. One card until stage two, then the pack's graphics fan out
-   into a grid at a size worth inspecting — not six thumbnails crushed to fit. */
+/* THE GRAPHICS. Every one mounted, every one in the frustum, scroll choosing
+   which is at the front. Nothing is added or removed, so there is no swap to
+   cross-fade — the composition recomposes. */
 .mk-story-art {
-  display: grid; gap: var(--s3);
-  grid-template-columns: 1fr;
-  transition: grid-template-columns var(--move) var(--press);
+  position: relative;
+  width: 100%; aspect-ratio: 16 / 9;
+  perspective: 1500px;
+  perspective-origin: 45% 45%;
+  transform-style: preserve-3d;
 }
-.mk-story-art[data-open="yes"] { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-/* Before it opens, only the first graphic is the pack's face; the rest are not
-   yet part of the conversation. */
-.mk-story-art[data-open="no"] .mk-story-card:not(:first-child) { display: none; }
-
 .mk-story-card {
-  display: flex; flex-direction: column; gap: var(--s2);
-  animation: tile-in var(--move) var(--press) backwards;
-  /* 40ms between siblings, capped at six. */
-  animation-delay: calc(var(--stagger) * min(var(--i), 5));
+  position: absolute; inset: 0;
+  transform-style: preserve-3d;
+  transition:
+    transform var(--move) var(--press),
+    opacity var(--move) var(--press),
+    filter var(--move) var(--press);
+  /* Behind: pushed back along Z, offset by signed rank so the ones already read
+     go one way and the ones still coming go the other, and blurred by distance. */
+  transform:
+    translate3d(calc(var(--rank) * 9%), calc(var(--away) * 5%), calc(var(--away) * -260px))
+    rotateY(calc(var(--rank) * -7deg));
+  opacity: calc(1 - (var(--away) * 0.34));
+  filter: blur(calc(var(--away) * 2.2px));
+}
+.mk-story-card.on {
+  transform: none;
+  opacity: 1;
+  filter: none;
 }
 .mk-story-preview {
-  display: block; width: 100%; aspect-ratio: 16 / 9;
+  display: block; width: 100%; height: 100%;
   background: var(--well); border-radius: var(--radius-sm);
   box-shadow: var(--recess), var(--edge);
 }
-.mk-story-preview .art-still, .mk-story-preview .art-live { padding: var(--s2); box-sizing: border-box; }
-.mk-story-meta {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--s2);
-  font-size: 13px; letter-spacing: -0.004em;
+.mk-story-preview .art-still, .mk-story-preview .art-live {
+  padding: var(--s3); box-sizing: border-box;
 }
-.mk-story-meta strong { color: var(--text-strong); }
+
+@media (max-width: 1180px) {
+  .mk-story-stage { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
+  .mk-phrase { font-size: 20px; letter-spacing: -0.028em; }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .mk-story-title, .mk-story-line, .mk-story-card { animation: none; }
+  /* The depth and the dimmed alternatives stay — they are composition. Only the
+     travel between states goes. */
+  .mk-story-card, .mk-phrase { transition: none; }
 }
 @media (max-width: 1180px) {
   .mk-story-stage { grid-template-columns: minmax(0, 1fr); }

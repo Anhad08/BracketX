@@ -388,7 +388,7 @@ for (const size of [
   { width: 1440, height: 900 },
   { width: 1280, height: 800 },
 ]) {
-  test(`scrolling the pack story changes the composition — ${size.width}x${size.height}`, async ({
+  test(`the pack story is scroll-synced, and legible frozen — ${size.width}x${size.height}`, async ({
     page,
   }) => {
     await page.setViewportSize(size);
@@ -396,54 +396,90 @@ for (const size of [
 
     const story = page.getByTestId("mk-story");
     await expect(story).toBeVisible();
-    // Stage 0: one package. The graphics it contains are NOT yet shown — the
-    // section opens by introducing the pack, not by listing its contents.
-    await expect(story).toHaveAttribute("data-stage", "0");
-    const cards = story.locator('[data-testid^="mk-story-"][data-testid*="tpl_"]');
-    const visibleAtStart = await story.locator(".mk-story-card:visible").count();
-    expect(visibleAtStart, "the story opened already fanned out").toBe(1);
 
-    const openingTitle = await page.getByTestId("mk-story-title").textContent();
+    // THE PREFIX IS PERSISTENT. It is the fixed half of the sentence.
+    const prefix = page.getByTestId("mk-prefix");
+    const prefixText = await prefix.textContent();
+    expect(prefixText).toBeTruthy();
 
-    // SCROLL DRIVES IT. Walk the sentinels and require the stage to advance.
+    // THE ALTERNATIVES ARE PRESENT, NOT HIDDEN. This is the difference between
+    // this and the generic version: every graphic in the pack is listed, and the
+    // reader can see what else is coming while standing still.
+    const phrases = story.locator(".mk-phrase");
+    const count = await phrases.count();
+    expect(count, "the story lists no alternatives").toBeGreaterThan(1);
+    for (let i = 0; i < count; i += 1) {
+      await expect(phrases.nth(i), "an alternative is hidden").toBeVisible();
+    }
+    // Exactly one is the focal point.
+    await expect(story.locator(".mk-phrase.on")).toHaveCount(1);
+
     const toMark = async (n: number) =>
-      page
-        .getByTestId(`mk-mark-${n}`)
-        .evaluate((el) => el.scrollIntoView({ block: "center" }));
+      page.getByTestId(`mk-mark-${n}`).evaluate((el) => el.scrollIntoView({ block: "center" }));
 
+    // SCROLL CHOOSES THE ACTIVE PHRASE.
+    const firstActive = await story.locator(".mk-phrase.on").textContent();
     await toMark(1);
     await expect(story).toHaveAttribute("data-stage", "1");
-    // The words changed with it, so the text is scroll-linked and not decorative.
-    await expect(page.getByTestId("mk-story-title")).not.toHaveText(openingTitle ?? "");
+    await expect(story.locator(".mk-phrase.on")).not.toHaveText(firstActive ?? "");
+    // The prefix did NOT change with it.
+    await expect(prefix).toHaveText(prefixText!);
+    // And the supporting line followed the phrase.
+    await expect(page.getByTestId("mk-story-line")).not.toHaveText("");
 
-    // Stage 2 opens the pack into its actual graphics, all of them.
-    await toMark(2);
-    await expect(story).toHaveAttribute("data-stage", "2");
+    // THE GRAPHIC RECOMPOSES RATHER THAN BEING REPLACED. Every card stays
+    // mounted at every stage — nothing is added or removed, so there is no swap.
+    const cards = story.locator(".mk-story-card");
+    expect(await cards.count()).toBe(count);
+    await expect(story.locator(".mk-story-card.on")).toHaveCount(1);
+    const frontId = await story.locator(".mk-story-card.on").getAttribute("data-testid");
+
+    // The one at the front matches the active phrase's graphic, and the ones
+    // behind are separated by DEPTH — a 3D transform and a blur, the same
+    // vocabulary the deck uses.
+    // Both POLLED for the same reason as the front card: transform and filter are
+    // transitioning on `move`, and a card mid-flight can momentarily read as
+    // unblurred on its way to being blurred.
+    const behind = story.locator('.mk-story-card:not(.on)').first();
     await expect
-      .poll(async () => story.locator(".mk-story-card:visible").count(), { timeout: 15_000 })
-      .toBeGreaterThan(1);
-    expect(await cards.count(), "the story showed no real graphics").toBeGreaterThan(1);
+      .poll(async () => behind.evaluate((el) => getComputedStyle(el).transform), {
+        timeout: 10_000,
+      })
+      .toContain("matrix3d");
+    await expect
+      .poll(async () => behind.evaluate((el) => getComputedStyle(el).filter), {
+        timeout: 10_000,
+      })
+      .toContain("blur");
+    // POLLED, not read once: `filter` is transitioning on `move`, so reading it
+    // immediately after a stage change catches an interpolated value mid-flight —
+    // blur(1.4px) on a card that settles at none.
+    await expect
+      .poll(
+        async () =>
+          story.locator(".mk-story-card.on").evaluate((el) => getComputedStyle(el).filter),
+        { timeout: 10_000 },
+      )
+      .not.toContain("blur(");
 
-    // And they are REAL stills, large enough to inspect rather than thumbnails.
-    const box = await story.locator(".mk-story-preview").first().boundingBox();
-    expect(box!.width, "the graphics are too small to inspect").toBeGreaterThan(180);
-    const px = await story
-      .locator(".mk-story-preview .art-still")
-      .first()
-      .evaluate((el) => (el as HTMLImageElement).naturalWidth);
-    expect(px).toBeGreaterThan(64);
-
-    // Stage 3 puts an action on each graphic — the way out of the story.
-    await toMark(3);
-    await expect(story).toHaveAttribute("data-stage", "3");
-    const actions = story.locator(
-      '[data-testid^="mk-story-use-"], [data-testid^="mk-story-add-"]',
+    // Moving on changes which card is at the front — the composition, not a swap.
+    await toMark(count - 1);
+    await expect(story).toHaveAttribute("data-stage", String(count - 1));
+    await expect(story.locator(".mk-story-card.on")).not.toHaveAttribute(
+      "data-testid",
+      frontId!,
     );
-    expect(await actions.count(), "the story offered no action").toBeGreaterThan(0);
+    expect(await cards.count(), "cards were unmounted between stages").toBe(count);
 
-    // Reversible: scrolling back returns the composition.
+    // Reversible.
     await toMark(0);
     await expect(story).toHaveAttribute("data-stage", "0");
+
+    // The action follows the active graphic.
+    const action = page.locator(
+      '[data-testid="mk-story-use"], [data-testid="mk-story-add"]',
+    );
+    await expect(action).toHaveCount(1);
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -451,3 +487,21 @@ for (const size of [
     expect(overflow, "horizontal overflow").toBeLessThanOrEqual(1);
   });
 }
+
+test("the story survives motion being switched off", async ({ page }) => {
+  // The test that ec6c720 established. Frozen, the relationship between phrase
+  // and graphic must still be readable: a list with one line lit, and a stack
+  // with one graphic sharp at the front of it.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await marketplace(page);
+  const story = page.getByTestId("mk-story");
+  await expect(story.locator(".mk-phrase.on")).toHaveCount(1);
+  await expect(story.locator(".mk-story-card.on")).toHaveCount(1);
+  // Every alternative still legible, and the depth still present.
+  for (const p of await story.locator(".mk-phrase").all()) await expect(p).toBeVisible();
+  const behind = await story
+    .locator('.mk-story-card:not(.on)')
+    .first()
+    .evaluate((el) => getComputedStyle(el).filter);
+  expect(behind, "depth disappeared with the motion").toContain("blur");
+});
