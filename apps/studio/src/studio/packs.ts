@@ -557,11 +557,17 @@ const LOWER_THIRD: PackTemplate = {
     // is nudged. That is what makes this graphic and the other seven look like
     // one package — they are all measured from `col()` and `sp()` rather than
     // from each other.
-    const x0 = col(1); // one column inside title-safe
-    const tabW = 1.36;
-    const bandH = sp(120); // the name band
-    const subH = sp(58); // the role shelf, near half
-    const floorY = -3.62; // the assembly's baseline
+    // OFF THE LEFT FRAME EDGE, not one column inside title-safe. The strap used
+    // to be a 12-unit object floating in a 17.8-unit frame with air on both
+    // sides, and air on the entering side is what made it read as a widget: a
+    // broadcast strap is CUT by the edge it came from. The tab now starts beyond
+    // the frame and the frame crops it, which costs nothing and is most of the
+    // difference in presence.
+    const x0 = -9.3;
+    const tabW = 2.2;
+    const bandH = sp(150); // the name band
+    const subH = sp(72); // the role shelf, near half
+    const floorY = -3.9; // the assembly's baseline
     const seamY = floorY + subH; // where the step happens
     const topY = seamY + bandH;
     const bodyX = x0 + tabW; // both bands start at the tab's edge
@@ -573,17 +579,17 @@ const LOWER_THIRD: PackTemplate = {
       ids,
       "Background",
       next(),
-      10.6,
+      15.0,
       bandH,
       surface,
-      [bodyX + 5.3, seamY + bandH / 2, 0],
+      [bodyX + 7.5, seamY + bandH / 2, 0],
       // NO SHADOW ON A SCRIM, and the first render is why. A drop shadow is a
       // blur of the rect's SILHOUETTE, and a scrim's silhouette is the whole
       // rectangle including the part that has already faded to nothing — so the
       // band cast a hard-edged blurry ghost of itself across the picture, well
       // past where the plate was visible. A dissolving edge has nothing to cast
       // a shadow. Depth comes from the tab, which is solid and does.
-      scrimSpec(PALETTE.surface, bandH, { width: 10.6, height: bandH }),
+      scrimSpec(PALETTE.surface, bandH, { width: 15.0, height: bandH }),
       { id: "scrim", from: PALETTE.surface },
     );
 
@@ -594,10 +600,10 @@ const LOWER_THIRD: PackTemplate = {
       ids,
       "Role Band",
       next(),
-      5.9,
+      7.4,
       subH,
       surfaceLift,
-      [bodyX + 2.95, floorY + subH / 2, 0],
+      [bodyX + 3.7, floorY + subH / 2, 0],
       // SOLID, where the band above it dissolves — and that contrast is the
       // point rather than an inconsistency. A shelf is small furniture carrying
       // two pieces of type at BOTH its ends, so it needs backing all the way
@@ -631,10 +637,10 @@ const LOWER_THIRD: PackTemplate = {
       ids,
       "Accent Rule",
       next(),
-      8.4,
-      sp(4),
+      11.4,
+      sp(6),
       accent,
-      [bodyX + 4.2, topY - sp(2), 0.02],
+      [bodyX + 5.7, topY - sp(3), 0.02],
       rule(PALETTE.primary, 0.95),
     );
 
@@ -646,24 +652,29 @@ const LOWER_THIRD: PackTemplate = {
       ids,
       "Seam",
       next(),
-      5.9,
+      7.4,
       sp(2),
       ink,
-      [bodyX + 2.95, seamY + sp(1), 0.02],
+      [bodyX + 3.7, seamY + sp(1), 0.02],
       rule(PALETTE.ink, 0.45),
     );
 
-    const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 0.82, height: 0.82 }, [
-      x0 + tabW / 2,
+    // Centred in the VISIBLE part of the tab, not in the tab itself: the frame
+    // crops its left edge, so a mark centred on the full block sits off-centre in
+    // the only part anybody sees.
+    const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 1.16, height: 1.16 }, [
+      (-8.89 + x0 + tabW) / 2,
       (floorY + topY) / 2,
       0.03,
     ]);
 
     const name = type_(ids, "Name", next(), { $var: "name" }, {
       face: FACE.display,
-      size: 100,
+      // 130. The name is what this graphic is for, and at 100 in a frame this
+      // size it was one of several things on screen rather than the subject.
+      size: 130,
       colour: ink,
-      box: { width: 8.2 },
+      box: { width: 9.2 },
       // Left edge and optical centre. Nudged up by a hair because Bebas has no
       // descenders to balance its caps, so a mathematically centred line of it
       // sits visibly low in a band.
@@ -672,9 +683,9 @@ const LOWER_THIRD: PackTemplate = {
 
     const role = type_(ids, "Role", next(), { $var: "role" }, {
       face: FACE.text,
-      size: 32,
+      size: 38,
       colour: muted,
-      box: { width: 3.5 },
+      box: { width: 4.4 },
       at: [textX, floorY + subH / 2, 0.02],
     });
 
@@ -688,16 +699,16 @@ const LOWER_THIRD: PackTemplate = {
     // anything against, and putting type over the wash would undo it.
     const context = type_(ids, "Context", next(), { $var: "context" }, {
       face: FACE.context,
-      size: 26,
+      size: 30,
       colour: muted,
-      box: { width: 2.1 },
+      box: { width: 2.6 },
       align: "end",
-      at: [bodyX + 5.9 - 2.1 - sp(26), floorY + subH / 2, 0.02],
+      at: [bodyX + 7.4 - 2.6 - sp(26), floorY + subH / 2, 0.02],
     });
 
     const holder = group(holderId, next(), {
       position: [0, 0, 0],
-      size: { width: 10.6 + tabW, height: bandH + subH },
+      size: { width: 15.0 + tabW, height: bandH + subH },
       // In CREATION order, which is also ascending order-key order — the
       // engine rejects a parent whose children are not sorted, and the array is
       // the paint order, so the two have to be decided together.
@@ -772,7 +783,7 @@ const LOWER_THIRD: PackTemplate = {
               keyframes: [
                 // Left edge held at `bodyX`: centre = bodyX + scale * width / 2.
                 { time: 0, value: bodyX, easing: "easeOutCubic" },
-                { time: 0.42, value: bodyX + 4.2 },
+                { time: 0.42, value: bodyX + 5.7 },
               ],
             },
           ],
