@@ -1,4 +1,4 @@
-# BracketX
+# Streamatrix
 
 An AI-first, browser-first live production platform for broadcast graphics —
 esports, sports, podcasts, and live events.
