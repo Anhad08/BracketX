@@ -1517,6 +1517,18 @@ export function App() {
         run: () => askViewport({ kind: "fit" }),
       },
       {
+        id: "view.reset",
+        title: "Reset view",
+        section: "View",
+        hint: spatial
+          ? "Back to the opening inspection angle"
+          : "Fit the graphic in the view",
+        // The way back when the camera has been flown somewhere useless. Fit
+        // keeps the angle you chose and only changes distance; Reset returns
+        // the angle too. Neither touches the Scene — both write the camera.
+        run: () => askViewport({ kind: "resetView" }),
+      },
+      {
         id: "view.frameSelected",
         title: "Frame selection",
         section: "View",

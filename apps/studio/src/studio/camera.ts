@@ -464,3 +464,92 @@ export function lookAtRotation(position: Vec3, pivot: Vec3): readonly [number, n
   const pitch = Math.atan2(dy, horizontal);
   return [(-pitch * 180) / Math.PI, (yaw * 180) / Math.PI, 0];
 }
+
+/**
+ * How far back a camera must sit to hold a box inside its frustum.
+ *
+ * ==========================================================================
+ * WHY THIS IS ARITHMETIC AND NOT A NUMBER SOMEBODY LIKED
+ * ==========================================================================
+ * A fixed camera distance is only ever right for the set it was written
+ * against. Streamatrix graphics are authored at wildly different world scales
+ * — a lower third is a couple of units across, a virtual set is tens — so a
+ * distance that frames one leaves the other either microscopic or clipped.
+ *
+ * The frustum is what decides it. A perspective camera sees a vertical angle
+ * `fov` and a horizontal angle derived from it by the viewport's aspect, so
+ * the distance needed to contain a box is whichever of the two constraints
+ * binds harder. Both are computed and the larger wins; using only the vertical
+ * is why wide content spills off the sides of a landscape viewport.
+ *
+ * `depth` is added rather than ignored: the camera frames the box's FRONT, and
+ * a deep object whose centre is framed correctly still has its near face
+ * pushed into the lens.
+ *
+ * `margin` is the breathing room around the content — 1 would put the object's
+ * edges exactly on the frame, which reads as clipped even when it is not.
+ */
+export function framingRadius(
+  extent: { readonly width: number; readonly height: number; readonly depth: number },
+  fovDegrees: number,
+  aspect: number,
+  margin = 1.2,
+): number {
+  // A degenerate box still has to produce a usable view rather than a camera
+  // sitting exactly on the pivot, where the projection has nothing to say.
+  const width = Math.max(Math.abs(extent.width), 0.001);
+  const height = Math.max(Math.abs(extent.height), 0.001);
+  const depth = Math.max(Math.abs(extent.depth), 0);
+  const fov = Math.max(1, Math.min(179, fovDegrees));
+  const ratio = aspect > 0 && Number.isFinite(aspect) ? aspect : 1;
+
+  const vertical = (fov * Math.PI) / 180;
+  // Three's convention: `fov` is VERTICAL, and the horizontal angle widens
+  // with the viewport. A tall, narrow viewport therefore binds on width.
+  const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * ratio);
+
+  const forHeight = height / 2 / Math.tan(vertical / 2);
+  const forWidth = width / 2 / Math.tan(horizontal / 2);
+
+  return (Math.max(forHeight, forWidth) + depth / 2) * margin;
+}
+
+/**
+ * The camera that frames a box, keeping the angle you are already looking from.
+ *
+ * Framing is a change of DISTANCE, not of viewpoint. Snapping back to a canned
+ * three-quarter angle every time somebody pressed Fit would throw away the
+ * orientation they had just chosen, which is the opposite of what the command
+ * is for. Only when there is no meaningful angle yet — a camera sitting on its
+ * pivot — is a default used.
+ */
+export function framedOrbit(
+  current: Orbit,
+  extent: { readonly width: number; readonly height: number; readonly depth: number },
+  fovDegrees: number,
+  aspect: number,
+  margin = 1.2,
+): Orbit {
+  const radius = framingRadius(extent, fovDegrees, aspect, margin);
+  const settled = current.radius > 0.0001;
+  return {
+    radius,
+    azimuth: settled ? current.azimuth : DEFAULT_ORBIT.azimuth,
+    elevation: settled ? current.elevation : DEFAULT_ORBIT.elevation,
+  };
+}
+
+/**
+ * The view a 3D scene should open at, and the one Reset returns to.
+ *
+ * Three-quarters and slightly above: the angle that shows a face, a side and
+ * the top at once, so the first frame answers "what shape is this" rather than
+ * presenting a silhouette that could be anything. The radius is a placeholder
+ * — every caller replaces it by framing against real bounds — and is kept
+ * non-zero so the azimuth and elevation survive `orbitOf` round-tripping.
+ */
+export const DEFAULT_ORBIT: Orbit = {
+  radius: 1,
+  azimuth: Math.PI / 4,
+  elevation: (20 * Math.PI) / 180,
+};

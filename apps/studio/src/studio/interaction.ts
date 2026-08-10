@@ -283,6 +283,8 @@ export function snappedToStep(
  */
 export type ViewportAction =
   | { readonly kind: "fit" }
+  /** Back to the opening inspection view. The Scene is not touched. */
+  | { readonly kind: "resetView" }
   | { readonly kind: "frame" }
   | { readonly kind: "zoom"; readonly direction: 1 | -1 }
   | { readonly kind: "actualSize" }

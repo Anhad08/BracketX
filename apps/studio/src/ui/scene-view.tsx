@@ -96,6 +96,8 @@ import {
   type AxisId,
 } from "../studio/axis";
 import {
+  DEFAULT_ORBIT,
+  framedOrbit,
   lookAtRotation,
   orbitBy,
   orbitOf,
@@ -741,6 +743,10 @@ export function SceneView({
     const action = viewportRequest.action;
 
     if (action.kind === "fit") {
+      // IN A SCENE, FIT MOVES THE CAMERA. Scaling the canvas as a flat image
+      // is meaningless in perspective — see the dolly comment — so the
+      // dimensional branch frames by distance and the flat one by zoom.
+      if (dimensional && frameCamera(bounds.map((entry) => entry.nodeId))) return;
       // "Default — Fit, then snap to nearest step. Opening at an arbitrary
       // 87 % teaches nothing." §03.
       onViewport(snappedToStep(fit(document_, element), element));
@@ -750,12 +756,29 @@ export function SceneView({
       // Falls back to the whole scene when nothing is selected, which is what
       // every editor does and what makes one key enough.
       const union = selectionBounds(bounds, selection.ids);
+      if (
+        dimensional &&
+        frameCamera(
+          selection.ids.length > 0 ? [...selection.ids] : bounds.map((entry) => entry.nodeId),
+        )
+      ) {
+        return;
+      }
       onViewport(
         snappedToStep(
           union === null ? fit(document_, element) : frame(document_, union, element),
           element,
         ),
       );
+      return;
+    }
+    if (action.kind === "resetView") {
+      // RESET IS AN ANGLE, FIT IS A DISTANCE. Reset returns to the opening
+      // three-quarter view; Fit keeps whatever angle you chose and only pulls
+      // back far enough to hold the content. Both leave the Scene untouched —
+      // they write the camera node and nothing else.
+      if (dimensional && frameCamera(bounds.map((entry) => entry.nodeId), true)) return;
+      onViewport(snappedToStep(fit(document_, element), element));
       return;
     }
     if (action.kind === "zoom") {
@@ -841,6 +864,8 @@ export function SceneView({
     // Recomputed when the document changes or a frame moved something.
     [document_, revision, session],
   );
+
+
 
   /**
    * Where a node ACTUALLY APPEARS on screen, silhouette and all.
@@ -1009,6 +1034,89 @@ export function SceneView({
     // Off the Z axis by more than a hair in either direction.
     return Math.abs(position.x) > 0.05 || Math.abs(position.y) > 0.05;
   }, [view]);
+
+  /**
+   * Frames a set of nodes by MOVING THE CAMERA, and says whether it applied.
+   *
+   * ==========================================================================
+   * ONE SCENE, TWO VIEWERS — AND FIT MEANS DIFFERENT ARITHMETIC IN EACH
+   * ==========================================================================
+   * A flat graphic is fitted by changing `viewport.zoom`, which scales the
+   * engine's canvas as an image. That is meaningless in perspective: the same
+   * gesture left the camera exactly where it was and shrank a bitmap, which is
+   * the bug the dolly comment below records at length.
+   *
+   * So the dimensional branch derives a DISTANCE from the content's real world
+   * bounds and the camera's own lens, and writes the camera node. It returns
+   * false in a flat view, so the caller falls through to the zoom-based fit
+   * rather than this having to know about both.
+   *
+   * The Scene is not rebuilt, reloaded or duplicated — a camera node's
+   * transform is the only thing that changes, which is what keeps 2D and 3D
+   * two views of one document rather than two documents.
+   *
+   * `toDefaultAngle` is Reset: same framing distance, but the opening
+   * three-quarter angle rather than the one currently in use.
+   */
+  const frameCamera = useCallback(
+    (ids: readonly string[], toDefaultAngle = false): boolean => {
+      if (view === null || !dimensional) return false;
+      const camera = cameraNode(document_);
+      if (camera === null) return false;
+
+      // The camera never frames itself: it has no size worth looking at, and
+      // including it would drag the union out to wherever it happens to sit.
+      const union = selectionBounds(
+        bounds,
+        ids.filter((id) => id !== camera.id),
+      );
+      if (union === null) return false;
+
+      const position = camera.transform?.position ?? [0, 0, 10];
+      const pivot: Vec3 = { x: union.x, y: union.y, z: 0 };
+      const current = orbitOf(
+        { x: position[0]!, y: position[1]!, z: position[2]! },
+        pivot,
+      );
+
+      const props = ((camera.components ?? []).find((c) => c.type === "camera")?.props ??
+        {}) as Readonly<Record<string, unknown>>;
+      // Three's default lens, used only when the document does not state one.
+      const lens = props["fov"];
+      const fov = typeof lens === "number" ? lens : 50;
+      // THE REAL VIEWPORT, not a constant. Aspect decides which of the two
+      // frustum constraints binds, so a hard-coded 16:9 would frame correctly
+      // on one window size and clip on every other.
+      const aspect = element.height > 0 ? element.width / element.height : 1;
+
+      const framed = framedOrbit(
+        toDefaultAngle ? { ...DEFAULT_ORBIT, radius: current.radius } : current,
+        // `nodeBounds` is a flat rectangle — the header above says so — so the
+        // union carries no depth. Passing 0 frames the silhouette, which is
+        // what these bounds can honestly answer; the moment a depth-carrying
+        // bounds query exists, it belongs here and nowhere else.
+        { width: union.width, height: union.height, depth: 0 },
+        fov,
+        aspect,
+      );
+
+      const moved = positionFor(framed, pivot);
+      const step = setProps(
+        session.document,
+        camera.id,
+        new Map<string, unknown>([
+          ["transform.position", [round(moved.x), round(moved.y), round(moved.z)]],
+          ["transform.rotation", [...lookAtRotation(moved, pivot)]],
+        ]),
+        "Frame",
+      );
+      // Silent: framing is a change of view, and the undo stack is for changes
+      // to the work.
+      if (step !== null) session.store.applySilently(step);
+      return true;
+    },
+    [bounds, dimensional, document_, element.height, element.width, session, view],
+  );
 
   const ground = useMemo(
     () => (view === null || !dimensional ? [] : groundGrid(view, { extent: 24, spacing: 1 })),
