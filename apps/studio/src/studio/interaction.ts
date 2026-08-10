@@ -126,7 +126,7 @@ export interface InputEvent {
  * on every two-finger gesture — which is also, per the same table, one of the
  * three sanctioned ways to PAN.
  */
-export function wheelIntent(event: InputEvent): ViewportIntent {
+export function wheelIntent(event: InputEvent, dimensional = false): ViewportIntent {
   const dx = event.deltaX ?? 0;
   const dy = event.deltaY ?? 0;
   if (event.mod) {
@@ -135,6 +135,23 @@ export function wheelIntent(event: InputEvent): ViewportIntent {
     return { kind: "zoom", direction: dy < 0 ? 1 : -1, at: event.at };
   }
   if (event.shift) return { kind: "scroll", dx: dy !== 0 ? dy : dx, dy: 0 };
+  // ==========================================================================
+  // IN A 3D SCENE THE BARE WHEEL DOLLIES. IT DOES NOT SCROLL THE PAGE.
+  // ==========================================================================
+  // A flat graphic is a document: the wheel scrolls it, the way it scrolls
+  // every other document, and §03 says so. A 3D scene is not a document — it
+  // has no edges to scroll to — and there the wheel is the one input every 3D
+  // editor spends on distance.
+  //
+  // Leaving both on `scroll` is what made the viewport feel two-dimensional:
+  // turning the wheel slid the whole scene up and down the screen instead of
+  // moving the camera through it, so the only way to get closer to anything was
+  // a modifier nobody guesses. The gesture was never missing; it was spent on
+  // the wrong verb.
+  if (dimensional) {
+    if (dy === 0) return { kind: "none" };
+    return { kind: "zoom", direction: dy < 0 ? 1 : -1, at: event.at };
+  }
   return { kind: "scroll", dx, dy };
 }
 
@@ -151,7 +168,22 @@ export function wheelIntent(event: InputEvent): ViewportIntent {
  * — so an Alt-drag there falls through to selection rather than silently
  * turning the camera a designer cannot see they have turned.
  */
-export function pointerIntent(event: InputEvent, dimensional: boolean): ViewportIntent {
+export function pointerIntent(
+  event: InputEvent,
+  dimensional: boolean,
+  /**
+   * Is something under the pointer that a drag would act ON?
+   *
+   * The one fact that separates "navigate the scene" from "move that object",
+   * and the reason orbit can have the plain left button in 3D without stealing
+   * anything. Empty space in a 3D scene has no other job — there is nothing
+   * there to select or drag — so a drag that starts on it turns the camera.
+   * A drag that starts on an object still moves the object, exactly as before.
+   *
+   * Defaults false so every existing caller and test keeps its meaning.
+   */
+  onObject = false,
+): ViewportIntent {
   // THE RIGHT BUTTON BELONGS TO THE MENU, AND TO NOTHING ELSE.
   //
   // It used to fall through to selection: a right-click on empty stage began a
@@ -164,6 +196,19 @@ export function pointerIntent(event: InputEvent, dimensional: boolean): Viewport
   if (event.button === 1) return { kind: "pan" };
   if (event.space === true) return { kind: "pan" };
   if (event.alt && dimensional) return { kind: "orbit" };
+  // ==========================================================================
+  // THE PLAIN DRAG ORBITS, WHERE THERE IS A SCENE AND NOTHING UNDER THE HAND.
+  // ==========================================================================
+  // Alt+drag stays — it is Blender's own emulate-three-button binding and the
+  // hands that know it should keep it. But requiring a modifier to turn the
+  // camera is what made this read as a 2D canvas with 3D objects sitting in it:
+  // the first thing anybody does in a 3D scene is drag to look around, and
+  // dragging did nothing but start a marquee over empty air.
+  //
+  // Deliberately NOT taken from a flat graphic. A lower third is designed
+  // square-on and stays square-on, so there the plain drag keeps marquee
+  // selection, which is the only thing it could usefully mean.
+  if (dimensional && !onObject) return { kind: "orbit" };
   return { kind: "select" };
 }
 

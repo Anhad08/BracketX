@@ -12,7 +12,7 @@ import {
   selectOnly,
   toggle,
 } from "../studio/selection";
-import { setProp, setPropOnMany, setProps } from "../studio/editing";
+import { setProp, setPropOnMany, setProps, topmost } from "../studio/editing";
 import {
   handleAt,
   handleDirection,
@@ -940,6 +940,23 @@ export function SceneView({
    * Last match wins, matching `pick`: `bounds` is emitted depth-first, so the
    * last node containing the point is the one drawn most recently.
    */
+  /**
+   * Which of the selected nodes a GESTURE should actually write to.
+   *
+   * A transform on a parent already carries its children. So a selection holding
+   * both a group and something inside it must move, scale and rotate the group
+   * only — write to both and the child gets the parent's delta AND its own, and
+   * travels twice as far as the pointer.
+   *
+   * This was reachable before only by ctrl-clicking a group and a child in the
+   * Layers list. It became reachable by MARQUEE the moment groups gained bounds
+   * — a group had no size, so `nodeBounds` skipped it and no rubber band could
+   * catch it. One geometry fix, one gesture fix; they are the same defect seen
+   * from two ends, which is why they are in the same change.
+   */
+  const dragTargets = (ids: readonly string[]): readonly string[] =>
+    topmost(session.document, ids);
+
   const pickOnScreen = (screen: Point): string | null => {
     let hit: string | null = null;
     for (const entry of bounds) {
@@ -1685,7 +1702,57 @@ export function SceneView({
     //
     // The way into 3D is the view control, which is deliberate and named. The
     // way back is Front, which is exact rather than approximately-square-on.
-    if (view !== null && dimensional && event.button === 0 && event.altKey) {
+    /**
+     * IS THE HAND ON SOMETHING, OR ON THE SCENE?
+     *
+     * The only question that separates "turn the camera" from "grab that". In a
+     * dimensional view `handleAt` is never consulted — see the hover block,
+     * where `rect` is null whenever `dimensional` — so the two things a drag
+     * could land on are a gizmo arm and a node.
+     *
+     * Computed here rather than inside the branch because `pointerIntent` needs
+     * it to decide, and the model deciding is the point: the alternative is
+     * another condition in this handler that the next person has to find.
+     */
+    const onSomething = ((): boolean => {
+      if (!dimensional) return false;
+      const canvas = screenToCanvas(viewport, screen);
+      if (arms.length > 0 && (pickAxis(arms, canvas, HANDLE_TOLERANCE)?.id ?? null) !== null) {
+        return true;
+      }
+      if (rings.length > 0 && pickRing(rings, canvas) !== null) return true;
+      if (stretchers.length > 0 && pickScaleHandle(stretchers, canvas) !== null) return true;
+      // THE SELECTION, not any geometry.
+      //
+      // Measured: gating on "is anything under the pointer" left orbit dead,
+      // because a scene has a GROUND, and the ground answers yes almost
+      // everywhere. Requiring a hit meant the plain drag orbited only in the
+      // slice of sky above the horizon — which is indistinguishable from the
+      // 2D canvas this is replacing.
+      //
+      // A drag on the thing you are already working on moves it. A drag on
+      // anything else — the floor, an unselected prop, empty air — turns the
+      // camera, which is what a 3D editor does and what makes the view
+      // navigable from anywhere on screen. Clicking still selects, because a
+      // click is a press with no travel and never becomes a drag.
+      const hit = pickOnScreen(screen);
+      return hit !== null && [...selection.ids].includes(hit);
+    })();
+
+    const intent = pointerIntent(
+      {
+        button: event.button,
+        alt: event.altKey,
+        shift: event.shiftKey,
+        mod: event.ctrlKey || event.metaKey,
+        at: screen,
+        space: spaceHeld.current,
+      },
+      dimensional,
+      onSomething,
+    );
+
+    if (view !== null && dimensional && event.button === 0 && intent.kind === "orbit") {
       const camera = cameraNode(document_);
       if (camera !== null) {
         const position = camera.transform?.position ?? [0, 0, 10];
@@ -1693,10 +1760,25 @@ export function SceneView({
         // the origin otherwise. Orbiting about the origin while working on a
         // corner of the set is the single most irritating thing a 3D editor
         // can do.
-        const union = selectionBounds(bounds, selection.ids);
+        // The camera is never its own pivot — see the dolly path for what
+        // selecting it in the tree used to do to both gestures.
+        const union = selectionBounds(bounds, [...selection.ids].filter((id) => id !== camera.id));
         const pivot: Vec3 = union === null
           ? { x: 0, y: 0, z: 0 }
           : { x: union.x, y: union.y, z: 0 };
+        // A PRESS STILL SELECTS, EVEN WHEN IT GOES ON TO ORBIT.
+        //
+        // Orbit taking the plain button meant the press was consumed before
+        // the select path ran, so clicking an object stopped selecting it and
+        // clicking empty space stopped clearing — measured, by the picking
+        // suite, immediately. Selection is decided here on the press exactly as
+        // the select path decides it; the drag that follows turns the camera.
+        // Click and drag therefore both keep the meaning they had.
+        if (!event.altKey) {
+          const pressed = pickOnScreen(screen);
+          const pickable = pressed !== null && !lockedIds.has(pressed) ? pressed : null;
+          onSelection(pickable === null ? EMPTY_SELECTION : selectOnly(pickable));
+        }
         setDrag({
           kind: "orbit",
           startScreen: screen,
@@ -1717,11 +1799,7 @@ export function SceneView({
     // The right button is the context menu’s, per `pointerIntent`. Falling
     // through to selection began a marquee whose release cleared the selection
     // the menu was about to act on.
-    if (pointerIntent({ button: event.button, alt: event.altKey, shift: event.shiftKey,
-      mod: event.ctrlKey || event.metaKey, at: screen,
-      space: spaceHeld.current }, dimensional).kind === "menu") {
-      return;
-    }
+    if (intent.kind === "menu") return;
 
     // PAN — the middle button, or space with the left. Two of the three routes
     // `studio-specification.html` §03 names; the third, two-finger scroll,
@@ -1760,7 +1838,7 @@ export function SceneView({
         const origins = new Map<string, readonly [number, number, number]>();
         const startScales = new Map<string, readonly [number, number, number]>();
         const startEulers = new Map<string, readonly [number, number, number]>();
-        for (const id of selection.ids) {
+        for (const id of dragTargets(selection.ids)) {
           const position = findAuthored(session, id);
           const transform = findTransform(session, id);
           if (position !== null) origins.set(id, position);
@@ -1800,7 +1878,7 @@ export function SceneView({
         const origins = new Map<string, readonly [number, number, number]>();
         const startScales = new Map<string, readonly [number, number, number]>();
         const startEulers = new Map<string, readonly [number, number, number]>();
-        for (const id of selection.ids) {
+        for (const id of dragTargets(selection.ids)) {
           const position = findAuthored(session, id);
           const transform = findTransform(session, id);
           if (position !== null) origins.set(id, position);
@@ -1869,7 +1947,7 @@ export function SceneView({
         );
         if (startParam !== null) {
           const origins = new Map<string, readonly [number, number, number]>();
-          for (const id of selection.ids) {
+          for (const id of dragTargets(selection.ids)) {
             const position = findAuthored(session, id);
             if (position !== null) origins.set(id, position);
           }
@@ -1937,7 +2015,7 @@ export function SceneView({
     onSelection(next);
 
     const origins = new Map<string, readonly [number, number, number]>();
-    for (const id of next.ids) {
+    for (const id of dragTargets(next.ids)) {
       const node = findAuthored(session, id);
       if (node !== null) origins.set(id, node);
     }
@@ -2513,7 +2591,14 @@ export function SceneView({
     if (camera === null) return false;
 
     const position = camera.transform?.position ?? [0, 0, 10];
-    const union = selectionBounds(bounds, selection.ids);
+    // THE CAMERA IS NEVER ITS OWN PIVOT.
+    //
+    // The pivot is "what you are looking at", and a camera cannot look at
+    // itself. Selecting it in the tree — the ordinary way to check where it
+    // is — collapsed the orbit radius to nearly zero, so orbiting spun on the
+    // spot and the wheel had no distance left to close. Both gestures went
+    // dead for the one selection a person makes while inspecting the camera.
+    const union = selectionBounds(bounds, [...selection.ids].filter((id) => id !== camera.id));
     const pivot: Vec3 =
       union === null ? { x: 0, y: 0, z: 0 } : { x: union.x, y: union.y, z: 0 };
 
@@ -2600,7 +2685,7 @@ export function SceneView({
       deltaX: event.deltaX,
       deltaY: event.deltaY,
       at: pointOf(event),
-    });
+    }, dimensional);
 
     if (intent.kind === "scroll") {
       onViewport(scrolled(viewport, intent.dx, intent.dy));

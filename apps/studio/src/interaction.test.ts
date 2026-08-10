@@ -202,8 +202,18 @@ describe("the pointer", () => {
   });
 
   it("selects on a plain click", () => {
-    expect(pointerIntent(input({ button: 0 }), true).kind).toBe("select");
-    expect(pointerIntent(input({ button: 0 }), false).kind).toBe("select");
+    // ON SOMETHING. The third argument is what a drag would land on, and a
+    // plain press on an object means that object in both views.
+    //
+    // This test used to assert that a plain press ALWAYS selects, dimensional
+    // or not. That was the rule that made the 3D view feel like a flat canvas:
+    // with no object under the pointer there was nothing to select, so the
+    // gesture opened a marquee over empty air and the camera never moved. The
+    // empty-space case is now orbit and is asserted below.
+    expect(pointerIntent(input({ button: 0 }), true, true).kind).toBe("select");
+    expect(pointerIntent(input({ button: 0 }), false, true).kind).toBe("select");
+    // Flat has no scene to turn, so empty space still starts a marquee.
+    expect(pointerIntent(input({ button: 0 }), false, false).kind).toBe("select");
   });
 });
 
@@ -351,5 +361,92 @@ describe("the pan primitive is shared, not re-implemented", () => {
     const panned = pan(DEFAULT_VIEWPORT, 40, 25);
     const scrolledBack = scrolled(panned, 40, 25);
     expect(scrolledBack).toEqual(DEFAULT_VIEWPORT);
+  });
+});
+
+// ===========================================================================
+// A 3D SCENE IS NOT A DOCUMENT
+// ===========================================================================
+// The viewport read as "a 2D editor with 3D objects in it" because both of the
+// gestures a person reaches for first were spent on flat-document verbs: the
+// wheel scrolled the scene up and down the screen instead of moving the camera
+// through it, and a plain drag started a marquee over empty air instead of
+// looking around. Neither gesture was missing. Both were pointed at the wrong
+// noun.
+describe("the wheel means distance in a scene and scrolling in a document", () => {
+  const input = (over: Partial<Parameters<typeof wheelIntent>[0]>) => ({
+    button: 0,
+    alt: false,
+    shift: false,
+    mod: false,
+    at: { x: 100, y: 100 },
+    ...over,
+  });
+
+  it("dollies on a bare wheel in a dimensional view", () => {
+    const away = wheelIntent(input({ deltaX: 0, deltaY: 120 }), true);
+    expect(away.kind).toBe("zoom");
+    // Wheel down is out, the same direction the modifier already meant — one
+    // gesture cannot reverse itself depending on which view is open.
+    expect(away.kind === "zoom" && away.direction).toBe(-1);
+    expect(wheelIntent(input({ deltaX: 0, deltaY: -120 }), true).kind === "zoom" &&
+      (wheelIntent(input({ deltaX: 0, deltaY: -120 }), true) as { direction: number }).direction,
+    ).toBe(1);
+  });
+
+  it("still scrolls a flat graphic, which is a document and has edges", () => {
+    expect(wheelIntent(input({ deltaX: 0, deltaY: 120 }), false).kind).toBe("scroll");
+    // And with no argument at all, so nothing that already called it changed.
+    expect(wheelIntent(input({ deltaX: 0, deltaY: 120 })).kind).toBe("scroll");
+  });
+
+  it("keeps the modifier meaning zoom in both", () => {
+    expect(wheelIntent(input({ mod: true, deltaY: -120 }), true).kind).toBe("zoom");
+    expect(wheelIntent(input({ mod: true, deltaY: -120 }), false).kind).toBe("zoom");
+  });
+
+  it("does not dolly on a wheel that carries no vertical delta", () => {
+    // A horizontal trackpad swipe is not a request to move the camera.
+    expect(wheelIntent(input({ deltaX: 120, deltaY: 0 }), true).kind).toBe("none");
+  });
+});
+
+describe("a plain drag turns the camera when there is nothing under it", () => {
+  const input = (over: Record<string, unknown>) => ({
+    button: 0,
+    alt: false,
+    shift: false,
+    mod: false,
+    at: { x: 10, y: 10 },
+    ...over,
+  });
+
+  it("orbits on empty space in a scene", () => {
+    expect(pointerIntent(input({}), true, false).kind).toBe("orbit");
+  });
+
+  it("still selects what it lands on", () => {
+    // The whole reason orbit can have the plain button: a drag that starts on
+    // an object is unambiguously about that object.
+    expect(pointerIntent(input({}), true, true).kind).toBe("select");
+  });
+
+  it("leaves the flat view alone", () => {
+    // A lower third is designed square-on. Marquee over empty space is the only
+    // thing a plain drag could usefully mean there.
+    expect(pointerIntent(input({}), false, false).kind).toBe("select");
+  });
+
+  it("keeps alt orbiting even with something under the pointer", () => {
+    // Blender's emulate-three-button binding is explicit, so it outranks the
+    // object — otherwise the one deliberate way to orbit would fail exactly
+    // when the scene is full.
+    expect(pointerIntent(input({ alt: true }), true, true).kind).toBe("orbit");
+  });
+
+  it("does not let orbit outrank the other buttons", () => {
+    expect(pointerIntent(input({ button: 2 }), true, false).kind).toBe("menu");
+    expect(pointerIntent(input({ button: 1 }), true, false).kind).toBe("pan");
+    expect(pointerIntent(input({ space: true }), true, false).kind).toBe("pan");
   });
 });
