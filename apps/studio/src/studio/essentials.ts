@@ -263,49 +263,237 @@ function stage(ids: IdFactory, name: string, holder: SceneNode): SceneNode {
     children: [camera(ids, nextOrder(null)), holder],
   };
 }
-
-// ---------------------------------------------------------------------------
-// News
-// ---------------------------------------------------------------------------
-
+/**
+ * THE TICKER.
+ *
+ * ==========================================================================
+ * AN INFORMATION SYSTEM, WHICH MEANS CELLS AND A READING ORDER
+ * ==========================================================================
+ * What was here was one strip with a headline in it. A news strap is the densest
+ * graphic in any package and the only one carrying four unrelated facts at once,
+ * so the design problem is not the strip — it is deciding what is read first and
+ * making that decision visible.
+ *
+ * The order is fixed left to right, and each cell is given exactly the weight its
+ * job needs:
+ *
+ *   STATE      "LIVE", in dark type on a lit accent flag. First, smallest, most
+ *              saturated, and the ONLY glow in the whole package — rule 7 keeps
+ *              it for things that are genuinely transmitting. If this graphic is
+ *              on screen, that is the fact the viewer needs before any other.
+ *
+ *   CATEGORY   On a lifted cell of its own, in the display face at the smallest
+ *              size. It is a filing label, not a sentence, so it gets a box
+ *              rather than a line of type.
+ *
+ *   HEADLINE   The widest cell by far, in Barlow Condensed Bold — the only face
+ *              in the set that holds twelve words of mixed-case copy at a
+ *              legible size. Rule 5: mixed case comes from the face, and a
+ *              headline in caps is a headline nobody can scan.
+ *
+ *   TIME       Right-anchored on the title-safe line, in the display face
+ *              because its figures are TABULAR. A clock whose digits change
+ *              width shifts the cell every minute; it is the reason the display
+ *              face was chosen by measurement.
+ *
+ * ==========================================================================
+ * WHY IT DOES NOT CRAWL
+ * ==========================================================================
+ * A crawl is a position animation, which the timeline can do. What it cannot do
+ * is clip: without a mask the headline would run straight over the category cell
+ * on one side and the clock on the other, and a crawl that overprints its own
+ * furniture is worse than no crawl. So this is a static strap — which is what
+ * most broadcasters actually cut to for a single story — and the crawl waits for
+ * the masking capability rather than being faked.
+ *
+ * The strip is solid and runs off BOTH frame edges, so it has no ends to soften.
+ * Rule 1 is about furniture that stops inside the picture; this does not.
+ */
 export const TICKER: PackTemplate = {
   id: "tpl_ticker",
   name: "Ticker",
-  description: "A full-width strip with a category flag. Slides up, slides away.",
+  description: "State, category, headline and clock, in one strap. Reads left to right.",
   build: (ids, token, now) => {
+    const holderId = ids("node");
     let order: string | null = null;
     const next = (): string => (order = nextOrder(order));
 
-    const surface = token("color.surface", "#101319");
-    const accent = token("color.primary", "#2f6feb");
-    const ink = token("color.ink", "#f2f5fb");
+    const surface = token("color.surface", PALETTE.surface);
+    const surfaceLift = token("color.surfaceLift", PALETTE.surfaceLift);
+    const accent = token("color.primary", PALETTE.primary);
+    const ink = token("color.ink", PALETTE.ink);
+    const muted = token("color.muted", PALETTE.muted);
+    const onAccent = token("color.onAccent", PALETTE.onAccent);
 
-    const holderId = ids("node");
-    const strip = bar(ids, "Strip", next(), 17.78, 0.9, surface, [0, 0, 0], PLATE.strip(surface, 0.9));
-    const flag = bar(ids, "Flag", next(), 3.1, 0.9, accent, [-7.34, 0, 0.01]);
-    const category = label(
-      ids, "Category", next(), { $var: "category" }, ink, 34,
-      { width: 2.8 }, [-8.74, 0, 0.02], { align: "center" },
-    );
-    const headline = label(
-      ids, "Headline", next(), { $var: "headline" }, ink, 36,
-      { width: 13.4 }, [-5.6, 0, 0.02],
+    // The strip's band. Its centre is chosen so the type inside it stays within
+    // the bottom title-safe line rather than the strip merely touching it — a
+    // ticker whose words are outside title-safe is a ticker a fifth of the
+    // audience cannot read.
+    const stripH = 0.92;
+    const midY = -4.28;
+    const topY = midY + stripH / 2;
+
+    // Bleeding past both frame edges, so neither end is ever visible.
+    const strip = plane(
+      ids,
+      "Background",
+      next(),
+      18.6,
+      stripH,
+      surface,
+      [0, midY, 0],
+      flagSpec(PALETTE.surface),
+      { id: "flag", from: PALETTE.surface },
     );
 
-    const holder = group(holderId, next(), {
-      position: [0, -4.2, 0],
-      size: { width: 17.78, height: 0.9 },
-      children: [strip, flag, category, headline],
+    const edge = plane(ids, "Edge", next(), 18.6, sp(3), accent, [0, topY, 0.01]);
+
+    // LIVE, on the title-safe left line. Full strip height: a state badge that
+    // floats inside the strip reads as a chip; one that fills it reads as part of
+    // the system.
+    const stateW = 1.46;
+    const stateFlag = plane(
+      ids,
+      "Live Flag",
+      next(),
+      stateW,
+      stripH,
+      accent,
+      [SAFE.left + stateW / 2, midY, 0.02],
+      litFlagSpec(PALETTE.primary),
+    );
+    const state = type_(ids, "State", next(), { $var: "state" }, {
+      face: FACE.display,
+      size: 34,
+      colour: onAccent,
+      box: { width: stateW - sp(20) },
+      align: "center",
+      at: [SAFE.left + sp(10), midY, 0.03],
     });
 
+    // The category cell, butted against the state flag with a hairline of gap.
+    const categoryX = SAFE.left + stateW;
+    const categoryW = 2.34;
+    const categoryCell = plane(
+      ids,
+      "Category Cell",
+      next(),
+      categoryW,
+      stripH,
+      surfaceLift,
+      [categoryX + categoryW / 2, midY, 0.02],
+      flagSpec(PALETTE.surfaceLift),
+      { id: "flag", from: PALETTE.surfaceLift },
+    );
+    const category = type_(ids, "Category", next(), { $var: "category" }, {
+      face: FACE.display,
+      size: 30,
+      // INK, not muted. A filing label at 30px in muted grey on the lifted cell
+      // measured as the least legible thing in the package — and a category a
+      // viewer has to work at is a category doing no work. Its subordination
+      // comes from size and from the cell around it, both of which are already
+      // doing that job; taking the contrast as well was one signal too many.
+      colour: ink,
+      box: { width: categoryW - sp(36) },
+      align: "center",
+      at: [categoryX + sp(18), midY, 0.03],
+    });
+
+    // The headline. Everything between the category cell and the clock, which is
+    // most of the frame — the widest cell, for the only cell holding a sentence.
+    const clockW = 1.9;
+    const clockX = SAFE.right - clockW;
+    const headlineX = categoryX + categoryW + sp(30);
+    const headline = type_(ids, "Headline", next(), { $var: "headline" }, {
+      face: FACE.headline,
+      size: 44,
+      colour: ink,
+      box: { width: clockX - headlineX - sp(40) },
+      // A LOWER SHRINK FLOOR THAN ANYTHING ELSE IN THE PACKAGE, because a
+      // headline is the one slot in the package whose length nobody controls. A
+      // name has a natural maximum and a score has three characters; a strap
+      // takes whatever the newsroom sends.
+      //
+      // 0.5 takes it to about 130 characters at a legible 22px, which is longer
+      // than any single-story strap a broadcaster cuts. Beyond that the string
+      // genuinely cannot be shown: without a mask there is no clipping and no
+      // ellipsis to design with, so the floor is the only lever there is.
+      //
+      // (An earlier version of this comment blamed the floor for a headline that
+      // rendered nothing. That was wrong — see the edited-text defect in
+      // `e2e/design-review.spec.ts`. Lowering the floor was measured against
+      // authored strings afterwards and kept on its own merits.)
+      floor: 0.5,
+      at: [headlineX, midY, 0.03],
+    });
+
+    // A hairline before the clock, so the time reads as a separate fact rather
+    // than as the end of the headline.
+    const divide = plane(
+      ids,
+      "Divider",
+      next(),
+      sp(2),
+      stripH - sp(30),
+      muted,
+      [clockX - sp(14), midY, 0.02],
+    );
+
+    const clock = type_(ids, "Time", next(), { $var: "time" }, {
+      face: FACE.display,
+      size: 44,
+      colour: ink,
+      box: { width: clockW },
+      align: "end",
+      at: [clockX, midY, 0.03],
+    });
+
+    const holder = group(holderId, next(), {
+      position: [0, 0, 0],
+      size: { width: 18.6, height: stripH },
+      children: [
+        strip,
+        edge,
+        stateFlag,
+        state,
+        categoryCell,
+        category,
+        headline,
+        divide,
+        clock,
+      ],
+    });
+
+    const root: SceneNode = {
+      id: ids("node"),
+      name: "Ticker",
+      order: generateKeyBetween(null, null),
+      transform: IDENTITY_TRANSFORM,
+      size: { width: 17.78, height: 10 },
+      children: [camera(ids, nextOrder(null)), { ...holder, name: "Ticker" }],
+    };
+
     return document_(
-      ids, "Ticker", now, stage(ids, "Ticker", { ...holder, name: "Ticker" }),
+      ids,
+      "Ticker",
+      now,
+      root,
       [
-        variable(ids("variable"), "category", "Category", "LIVE"),
-        variable(ids("variable"), "headline", "Headline", "Markets close higher for a third straight session"),
+        variable(ids("variable"), "state", "State", "LIVE"),
+        variable(ids("variable"), "category", "Category", "PREMIER LEAGUE"),
+        variable(
+          ids("variable"),
+          "headline",
+          "Headline",
+          "Liverpool take the lead at Anfield through a second-half header",
+        ),
+        variable(ids("variable"), "time", "Time", "21:04"),
       ],
       [
         {
+          // The strap rises out of the bottom of frame and the cells are already
+          // in it. Staggering them would animate the FURNITURE, and a viewer has
+          // no reason to watch a strap assemble — they are here for the sentence.
           id: ids("timeline"),
           name: "In",
           duration: 0.6,
@@ -314,26 +502,23 @@ export const TICKER: PackTemplate = {
               target: holderId,
               path: "transform.position.1",
               keyframes: [
-                { time: 0, value: -5.4, easing: "easeOutCubic" },
-                { time: 0.5, value: -4.2 },
+                { time: 0, value: -stripH - 0.3, easing: "easeOutCubic" },
+                { time: 0.45, value: 0 },
               ],
             },
           ],
         },
         {
-          // A ticker is the one graphic an operator genuinely leaves up and
-          // takes down, so it ships with the exit its workflow needs rather
-          // than making them build one.
           id: ids("timeline"),
           name: "Out",
-          duration: 0.5,
+          duration: 0.4,
           tracks: [
             {
               target: holderId,
               path: "transform.position.1",
               keyframes: [
-                { time: 0, value: -4.2, easing: "easeInCubic" },
-                { time: 0.4, value: -5.4 },
+                { time: 0, value: 0, easing: "easeInCubic" },
+                { time: 0.4, value: -stripH - 0.3 },
               ],
             },
           ],
@@ -342,6 +527,7 @@ export const TICKER: PackTemplate = {
     );
   },
 };
+
 
 export const BREAKING: PackTemplate = {
   id: "tpl_breaking",

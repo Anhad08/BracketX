@@ -183,3 +183,103 @@ test("Sponsor Bar — as designed", async ({ page }) => {
   await shoot(page, "sponsor-1-designed");
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+test("Ticker — as designed and with a headline that overruns", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  await open(page, "tpl_ticker");
+  await shoot(page, "ticker-1-designed");
+  await setField(
+    page,
+    "Headline",
+    "Konstantinos Papadopoulos signs a four-year deal at Anfield as the window closes on a record-breaking day",
+  );
+  await shoot(page, "ticker-2-overrun");
+  expect(errors, errors.join("\n")).toEqual([]);
+});
+
+/**
+ * ONE DEFECT, TWO SYMPTOMS: EDITED TEXT IS BARELY DRAWN.
+ *
+ * ==========================================================================
+ * THE MEASUREMENT
+ * ==========================================================================
+ * Lit pixels across the middle of the ticker's strap — the headline's own band,
+ * excluding the LIVE flag and the clock so neither can mask it going missing:
+ *
+ *   AUTHORED, 62 characters, never edited ....... 14269
+ *   edited to  47 characters ....................     0
+ *   edited to  63 characters ....................     0
+ *   edited to  79 characters ....................     0
+ *   edited to  95 characters ....................     0
+ *   edited to 111 characters ....................     0
+ *   edited to 127 characters ....................     0
+ *
+ * LENGTH IS NOT THE VARIABLE. A 47-character headline is SHORTER than the
+ * authored default that draws perfectly, and it draws nothing. The only thing
+ * the failing cases share is that they were typed into the Content panel.
+ *
+ * ==========================================================================
+ * WHY IT LOOKED LIKE TWO DIFFERENT BUGS
+ * ==========================================================================
+ * The same defect presents differently by type size, which is why it has been
+ * mis-diagnosed twice:
+ *
+ *   AT 168px  the title card's headline survives at 8.8% of its authored
+ *             luminance — visible, and obviously wrong: mid-grey instead of
+ *             near-white.
+ *   AT 44px   the ticker's headline falls below visibility altogether and reads
+ *             as "the text vanished".
+ *
+ * It also explains the older report that "long text makes a lower-third name
+ * disappear", which was investigated as a fit-and-shrink problem and never
+ * reproduced against length. It was never about length.
+ *
+ * Not colour resolution either: setting the title to a LITERAL ink colour rather
+ * than the `color.ink` binding produced byte-identical measurements. And only the
+ * RE-SHAPED node degrades — its neighbours are untouched in the same frame —
+ * which puts it in the glyph or atlas path after a re-shape.
+ *
+ * Text rendering lifecycle is engineering-owned and off this track, so it is
+ * measured, located and handed over. `test.fail()` for the reason `tokens.test.ts`
+ * uses: the assertion states what the product should do, it runs on every build,
+ * and it starts failing the day somebody fixes it.
+ *
+ * CONSEQUENCE FOR DESIGN REVIEW, and it is not a small one: no graphic can be
+ * judged from a screenshot taken after a content edit. Extreme-content checking
+ * has to change the template's DEFAULT in code and re-render.
+ */
+test("a headline still draws after it is edited", async ({ page }) => {
+  test.fail();
+  await open(page, "tpl_ticker");
+
+  const ink = async (): Promise<number> =>
+    page.locator(".scene-surface canvas").first().evaluate((el) => {
+      const canvas = el as HTMLCanvasElement;
+      const gl = (canvas.getContext("webgl2") ??
+        canvas.getContext("webgl")) as WebGLRenderingContext;
+      const pixels = new Uint8Array(canvas.width * canvas.height * 4);
+      gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      let sum = 0;
+      const from = Math.floor(canvas.width * 0.28);
+      const to = Math.floor(canvas.width * 0.78);
+      const rows = Math.floor(canvas.height * 0.09);
+      for (let y = 0; y < rows; y += 1) {
+        for (let x = from; x < to; x += 1) {
+          const i = (y * canvas.width + x) * 4;
+          const value = (pixels[i]! + pixels[i + 1]! + pixels[i + 2]!) / 3;
+          if (value > 110) sum += 1;
+        }
+      }
+      return sum;
+    });
+
+  const authored = await ink();
+  expect(authored, "the authored headline must draw at all").toBeGreaterThan(2000);
+
+  // SHORTER than the default, so nothing about fit or shrink is in play.
+  await setField(page, "Headline", "Liverpool lead at Anfield");
+  const edited = await ink();
+  console.log(`authored=${authored} lit px   edited=${edited} lit px`);
+  expect(edited, "an edited headline is barely drawn").toBeGreaterThan(authored * 0.5);
+});
