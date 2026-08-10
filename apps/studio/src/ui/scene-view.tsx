@@ -2606,7 +2606,31 @@ export function SceneView({
     // Multiplicative, so a notch moves the same PROPORTION of the way in at
     // every distance. A fixed step crawls when far out and slams into the
     // pivot when close.
-    const radius = Math.min(500, Math.max(0.2, orbit.radius * Math.pow(1.0015, event.deltaY)));
+    // ========================================================================
+    // THE LIMITS COME FROM THE SCENE, NOT FROM TWO NUMBERS THAT SUITED ONE SET.
+    // ========================================================================
+    // 0.2 and 500 were world units, so they meant entirely different things
+    // depending on what was being inspected. A set built at broadcast scale
+    // could not be backed away from far enough to see whole; a small prop
+    // could be pushed hundreds of units out and be long gone before the limit
+    // was reached. A clamp that does not know the size of the thing it is
+    // protecting is not protecting anything.
+    //
+    // Derived from the scene's own extent instead: always able to come in to a
+    // fraction of it — close enough to read a surface — and out to a few times
+    // it, which frames the whole thing and no further. The object stays
+    // recoverable at both ends, which is the only reason the clamp exists.
+    const whole = selectionBounds(
+      bounds,
+      bounds.map((entry) => entry.nodeId),
+    );
+    const extent = whole === null ? 10 : Math.max(whole.width, whole.height, 1);
+    const nearest = Math.max(0.05, extent * 0.05);
+    const furthest = Math.max(nearest * 4, extent * 12);
+    const radius = Math.min(
+      furthest,
+      Math.max(nearest, orbit.radius * Math.pow(1.0015, event.deltaY)),
+    );
     if (radius === orbit.radius) return true;
 
     const moved = positionFor({ ...orbit, radius }, pivot);
