@@ -447,6 +447,41 @@ export function scrimSpec(
 }
 
 /**
+ * A VEIL — the scrim's other axis.
+ *
+ * `scrimSpec` fades along the LONG axis, which is right for furniture: a strap
+ * dissolves off the end it entered from. A full-frame wash is the opposite case.
+ * It is wide because it spans the picture, and it has to fade UPWARD, out of the
+ * bottom of frame — fading it sideways would darken one half of the image and
+ * leave the other bright, which is a mistake, not a look.
+ *
+ * So the two materials differ by axis and nothing else, and both are
+ * parameterless and reproducible for the same reason — see `scrimSpec`.
+ *
+ * Square corners always. A veil reaches the frame edge; a radius on it would
+ * draw a rounded rectangle around the whole picture.
+ */
+export function veilSpec(
+  fill: string,
+  _shorterSide: number,
+  box: { readonly width: number; readonly height: number },
+): PaintSpecDoc {
+  const upward = box.width >= box.height;
+  return {
+    corners: [0, 0, 0, 0],
+    gradient: {
+      kind: "linear",
+      angle: upward ? 90 : 0,
+      stops: [
+        { at: 0, color: shade(fill, -0.35), opacity: 0.93 },
+        { at: 0.34, color: fill, opacity: 0.78 },
+        { at: 1, color: fill, opacity: 0 },
+      ],
+    },
+  };
+}
+
+/**
  * RULE 3 — A FLAG.
  *
  * A solid accent block that holds something: a kicker, a position, a score.

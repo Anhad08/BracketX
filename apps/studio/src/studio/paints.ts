@@ -53,7 +53,7 @@ import {
 import { parseSrgb } from "@bracketx/engine-reconciler";
 
 import { transaction } from "./editing";
-import { flagSpec, scrimSpec } from "./broadcast";
+import { flagSpec, scrimSpec, veilSpec } from "./broadcast";
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -139,6 +139,12 @@ export const PAINTS: readonly Paint[] = [
     label: "Scrim",
     hint: "Dissolves into the picture instead of ending at an edge.",
     build: (fill, side, box) => scrimSpec(fill, side, box),
+  },
+  {
+    id: "veil",
+    label: "Veil",
+    hint: "A wash across the picture, fading out of frame.",
+    build: (fill, side, box) => veilSpec(fill, side, box),
   },
   {
     id: "flag",

@@ -75,6 +75,7 @@ import {
   plane,
   rule,
   scrimSpec,
+  veilSpec,
   sp,
   type_,
 } from "./broadcast";
@@ -871,56 +872,182 @@ const SCOREBOARD: PackTemplate = {
   },
 };
 
-/** A full-frame title card. The simplest useful graphic, and a good first open. */
+/**
+ * THE TITLE CARD.
+ *
+ * ==========================================================================
+ * IT IS NOT A BIGGER LOWER THIRD, AND THAT IS A COMPOSITIONAL DECISION
+ * ==========================================================================
+ * What was here was a centred headline with a standfirst under it, on a plate,
+ * in the middle of frame — which is the lower third's construction at a larger
+ * size in a different place. Two graphics built the same way do not become a
+ * family by being different sizes.
+ *
+ * A title card has a job the strap does not: it OPENS something. Nothing else is
+ * on screen, it holds for two or three seconds, and it has to feel composed
+ * rather than positioned. So it is built as an editorial page:
+ *
+ *   THE VEIL     A wash across the whole frame that fades UPWARD, out of the
+ *                bottom. The strap dissolves sideways because it is furniture
+ *                entering from one side; a title card is the picture itself
+ *                being dimmed so type can sit on it, and dimming one side of an
+ *                image is a mistake rather than a look. Same material, other
+ *                axis — see `veilSpec`.
+ *
+ *   THE KICKER   The programme, in dark type on a solid accent block. Rule 3: a
+ *                flag with a job. It is the smallest element and the most
+ *                saturated, so it is read first and read as a label — which is
+ *                what a competition name is.
+ *
+ *   THE TITLE    Set at 168, which is nearly twice the lower third's name and
+ *                the largest type in the package. Rule 6 applied to a word
+ *                rather than a number: this graphic exists to say one thing.
+ *
+ *   THE RULE     A hairline under the title, as wide as the context beneath it
+ *                rather than as wide as the title. Rule 4 — it separates two
+ *                orders of information, so it belongs to the smaller one.
+ *
+ *   THE MARK     Diagonally opposite the type, top right. The whole block is
+ *                anchored bottom-left, so the frame's other corner is where the
+ *                eye finishes; putting the mark anywhere near the title would
+ *                make two things compete to be the identity.
+ *
+ * ==========================================================================
+ * THE ASYMMETRY IS THE POINT
+ * ==========================================================================
+ * Rule 7. Everything is on the left margin, stacked, with the upper right two
+ * thirds of the frame left as picture. A centred title card has to fill the
+ * frame to look deliberate; an anchored one is allowed to leave most of it
+ * empty, which is what makes room for whatever is behind it.
+ */
 const TITLE_CARD: PackTemplate = {
   id: "tpl_title_card",
   name: "Title Card",
-  description: "A headline and a standfirst, centred. Fades up.",
+  description: "A programme flag, a full-frame title and its context. Opens a show.",
   build: (ids, token, now) => {
+    const rootId = ids("node");
+    const holderId = ids("node");
     let order: string | null = null;
     const next = (): string => (order = nextOrder(order));
 
-    const accent = token("color.primary", "#2f6feb");
-    const ink = token("color.ink", "#f2f5fb");
-    const muted = token("color.muted", "#8a93a6");
+    const surface = token("color.surface", PALETTE.surface);
+    const accent = token("color.primary", PALETTE.primary);
+    const ink = token("color.ink", PALETTE.ink);
+    const muted = token("color.muted", PALETTE.muted);
+    const onAccent = token("color.onAccent", PALETTE.onAccent);
 
-    const holderId = ids("node");
-    const rule = bar(ids, "Rule", next(), 3.2, 0.06, accent, [0, -0.72, 0.01]);
-    const headline = label(
+    // The left margin every element in the stack starts from. One column inside
+    // title-safe, the same line the lower third's tab stands on — which is what
+    // makes two completely different compositions feel like one package.
+    const marginX = col(1);
+    const kickerH = sp(62);
+
+    // Full frame and a little beyond, so the wash has no visible edge anywhere.
+    // Fading up, it is opaque along the bottom where the type sits and gone by
+    // the upper third where the picture should still be a picture.
+    const veil = plane(
       ids,
-      "Headline",
+      "Veil",
       next(),
-      { $var: "headline" },
+      17.78,
+      8.4,
+      surface,
+      [0, -0.8, 0],
+      veilSpec(PALETTE.surface, 8.4, { width: 17.78, height: 8.4 }),
+      { id: "veil", from: PALETTE.surface },
+    );
+
+    const kickerFlag = plane(
+      ids,
+      "Programme Flag",
+      next(),
+      // 2.9 rather than 3.5. A flag is a label, and a label with an inch of
+      // empty colour after the word reads as a button that failed to fit its
+      // text. Wide enough to hold "UEFA CHAMPIONS LEAGUE" once it shrinks a
+      // step, which is the longest competition name this slot will see.
+      2.9,
+      kickerH,
+      accent,
+      [marginX + 1.45, -0.62, 0.01],
+      flagSpec(PALETTE.primary),
+      { id: "flag", from: PALETTE.primary },
+    );
+
+    const kicker = type_(ids, "Programme", next(), { $var: "programme" }, {
+      face: FACE.display,
+      size: 34,
+      // Dark on the flag, never white. See the palette note: white on saturated
+      // orange vibrates and fails contrast, and dark type on a bright block is
+      // the most recognisable label in sports broadcast.
+      colour: onAccent,
+      box: { width: 2.5 },
+      at: [marginX + sp(22), -0.62, 0.02],
+    });
+
+    // 168 in a box that runs to x 4.4 — inside title-safe, and wide enough that
+    // "MATCH OF THE DAY" sets at full size with a character to spare.
+    const title = type_(ids, "Title", next(), { $var: "title" }, {
+      face: FACE.display,
+      size: SIZE.mega,
+      colour: ink,
+      // 12.4, and the reason is legibility rather than layout. A title that
+      // SHRINKS renders visibly thinner and greyer than one that does not — the
+      // strokes lose coverage — so a 23-character title at 73% looked washed out
+      // beside a 16-character one at full size. Widening the box is what keeps a
+      // real segment name setting at its authored weight; only something far
+      // longer than "THE CHAMPIONSHIP RUN-IN" now shrinks at all.
+      box: { width: 12.4 },
+      maxLines: 2,
+      floor: 0.8,
+      at: [marginX, -2.05, 0.02],
+    });
+
+    const under = plane(
+      ids,
+      "Rule",
+      next(),
+      4.6,
+      sp(3),
       ink,
-      100,
-      { width: 12 },
-      [-6, 0.2, 0.02],
-      { align: "center" },
+      [marginX + 2.3, -3.02, 0.02],
+      rule(PALETTE.ink, 0.34),
     );
-    const standfirst = label(
-      ids,
-      "Standfirst",
-      next(),
-      { $var: "standfirst" },
-      muted,
-      39,
-      { width: 10 },
-      [-5, -1.3, 0.02],
-      { align: "center" },
-    );
+
+    const context = type_(ids, "Context", next(), { $var: "context" }, {
+      face: FACE.text,
+      size: SIZE.body,
+      colour: muted,
+      box: { width: 8.0 },
+      at: [marginX, -3.56, 0.02],
+    });
+
+    // READ BACK from the nodes rather than restated, because `type_` moves a text
+    // node's origin: the box hangs downward from it, so the node sits half a box
+    // above the optical centre the caller asked for. A timeline written against
+    // the authored centre would jump the title half its own height on the first
+    // frame — the kind of bug that looks like an easing mistake.
+    const titleY = title.transform!.position[1]!;
+    const contextY = context.transform!.position[1]!;
+
+    const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 1.15, height: 1.15 }, [
+      col(11.1),
+      3.62,
+      0.02,
+    ]);
 
     const holder = group(holderId, next(), {
-      size: { width: 12, height: 3 },
-      children: [rule, headline, standfirst],
+      position: [0, 0, 0],
+      size: { width: 17.78, height: 10 },
+      children: [veil, kickerFlag, kicker, title, under, context, mark],
     });
 
     const root: SceneNode = {
-      id: ids("node"),
+      id: rootId,
       name: "Title Card",
       order: generateKeyBetween(null, null),
       transform: IDENTITY_TRANSFORM,
       size: { width: 17.78, height: 10 },
-      children: [camera(ids, nextOrder(null)), { ...holder, name: "Title" }],
+      children: [camera(ids, nextOrder(null)), { ...holder, name: "Title Card" }],
     };
 
     return document_(
@@ -929,29 +1056,104 @@ const TITLE_CARD: PackTemplate = {
       now,
       root,
       [
-        variable(ids("variable"), "headline", "Headline", "MATCH OF THE DAY"),
-        variable(ids("variable"), "standfirst", "Standfirst", "Round 24 · Highlights"),
+        variable(ids("variable"), "programme", "Programme", "PREMIER LEAGUE"),
+        variable(ids("variable"), "title", "Title", "MATCH OF THE DAY"),
+        variable(ids("variable"), "context", "Context", "Saturday 21:00 · Studio 4"),
+        variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId, "asset"),
       ],
       [
         {
+          // ============================================================
+          // THE REVEAL: THE PAGE ASSEMBLES, IT DOES NOT SLIDE
+          // ============================================================
+          // A strap slides in because it arrives from off-frame. A title card is
+          // already the whole frame, so there is nowhere for it to come from —
+          // sliding it would look like a slide.
+          //
+          // Instead the veil rises (a wipe upward: scale on Y with the position
+          // compensated to hold the bottom edge still), the programme flag wipes
+          // open from the left margin, and the title and its context TRAVEL a
+          // short distance up into place, staggered. Travel is small on purpose:
+          // this is the largest type in the package, and large type moving far
+          // reads as a transition rather than as an entrance.
           id: ids("timeline"),
           name: "In",
-          duration: 0.8,
+          duration: 1.1,
           tracks: [
             {
-              target: headline.id,
-              path: "transform.position.1",
+              target: veil.id,
+              path: "transform.scale.1",
               keyframes: [
-                { time: 0, value: -0.1, easing: "easeOutCubic" },
-                { time: 0.6, value: 0.2 },
+                { time: 0, value: 0, easing: "easeOutCubic" },
+                { time: 0.5, value: 1 },
               ],
             },
             {
-              target: rule.id,
+              target: veil.id,
+              path: "transform.position.1",
+              keyframes: [
+                // Bottom edge held at -5: centre = -5 + scale * height / 2.
+                { time: 0, value: -5, easing: "easeOutCubic" },
+                { time: 0.5, value: -0.8 },
+              ],
+            },
+            {
+              target: kickerFlag.id,
               path: "transform.scale.0",
+              delay: 0.26,
               keyframes: [
                 { time: 0, value: 0, easing: "easeOutCubic" },
-                { time: 0.7, value: 1 },
+                { time: 0.36, value: 1 },
+              ],
+            },
+            {
+              target: kickerFlag.id,
+              path: "transform.position.0",
+              delay: 0.26,
+              keyframes: [
+                { time: 0, value: marginX, easing: "easeOutCubic" },
+                { time: 0.36, value: marginX + 1.45 },
+              ],
+            },
+            {
+              target: title.id,
+              path: "transform.position.1",
+              delay: 0.34,
+              keyframes: [
+                { time: 0, value: titleY - 0.34, easing: "easeOutCubic" },
+                { time: 0.44, value: titleY },
+              ],
+            },
+            {
+              target: context.id,
+              path: "transform.position.1",
+              delay: 0.46,
+              keyframes: [
+                { time: 0, value: contextY - 0.24, easing: "easeOutCubic" },
+                { time: 0.44, value: contextY },
+              ],
+            },
+          ],
+        },
+        {
+          id: ids("timeline"),
+          name: "Out",
+          duration: 0.5,
+          tracks: [
+            {
+              target: veil.id,
+              path: "transform.scale.1",
+              keyframes: [
+                { time: 0, value: 1, easing: "easeInCubic" },
+                { time: 0.5, value: 0 },
+              ],
+            },
+            {
+              target: veil.id,
+              path: "transform.position.1",
+              keyframes: [
+                { time: 0, value: -0.8, easing: "easeInCubic" },
+                { time: 0.5, value: -5 },
               ],
             },
           ],
@@ -960,7 +1162,6 @@ const TITLE_CARD: PackTemplate = {
     );
   },
 };
-
 // ---------------------------------------------------------------------------
 // The packs
 // ---------------------------------------------------------------------------
