@@ -180,7 +180,7 @@ export const SPONSOR: PackTemplate = {
     const markColumn = plateW / 2 - divideX;
     const mark = logo(
       ids,
-      "Logo",
+      "Partner Logo",
       next(),
       { $var: "logo" },
       { width: markColumn - sp(48), height: 0.92 },
@@ -972,115 +972,318 @@ export const COUNTDOWN: PackTemplate = {
     );
   },
 };
-
-// ---------------------------------------------------------------------------
-// Sport and esports
-// ---------------------------------------------------------------------------
-
+/**
+ * THE LEADERBOARD.
+ *
+ * ==========================================================================
+ * RANKING IS READ DOWN A COLUMN, NOT ACROSS A CARD
+ * ==========================================================================
+ * The brief's warning is the right one: the danger is that making the leader
+ * important turns the graphic into one giant card with a list underneath it. The
+ * leader is not a different KIND of thing from fourth place — it is the same row,
+ * first.
+ *
+ * ==========================================================================
+ * AND IT STAYS ONE AUTHORED ROW, REPEATED
+ * ==========================================================================
+ * The first redesign of this graphic hand-authored five rows and ten variables. It
+ * composed better and it was a straight capability regression: the template it
+ * replaced carried `repeat`, so five entries in one list variable became five rows
+ * and twenty became twenty, and adding a team was a data edit rather than a
+ * redesign. `essentials.spec.ts` caught it — it is the only starter graphic that
+ * proves repeat works, which is exactly why it asserts the authored tree has ONE
+ * row in it.
+ *
+ * That constraint then decided the design, and this is the interesting part: a
+ * repeated row renders identical instances, so "the leader gets brighter type"
+ * is not available. It cannot be — there is one row authored and the engine
+ * stamps it out.
+ *
+ * So the emphasis is moved OUT of the row and into the board behind it:
+ *
+ *   THE LEADER'S BACKING   A lifted plate and a solid accent tab, placed at the
+ *                          first row's position in board space and drawn UNDER
+ *                          the repeated rows. Static furniture marking a place,
+ *                          not a restyled row.
+ *
+ *   EVERY ROW IN FULL INK  Once the leader is marked by the board, the rows no
+ *                          longer have to be dimmed to make it stand out — which
+ *                          is better anyway: a ranking whose lower places are
+ *                          hard to read is a ranking that only answers one
+ *                          question.
+ *
+ *   THE POSITION COLUMN    Right-aligned in a column of its own, in the display
+ *                          face, tabular. Ranking is scanned down that column, so
+ *                          it is the one thing here aligned perfectly vertically,
+ *                          and a "10" cannot push a name sideways.
+ *
+ *   THE ROW RULE           A hairline along each row's bottom edge, inside the
+ *                          repeated row so it arrives with it. Rule 4 — and never
+ *                          alternating fills, which is a spreadsheet.
+ *
+ * ==========================================================================
+ * WHY IT IS ANCHORED RIGHT, AND WHY IT IS SOLID
+ * ==========================================================================
+ * Every other graphic in the family has taken a different stance — the strap and
+ * title card on the left margin, the billboard centred, the scoreboard top
+ * centre, the alert full bleed. A tall list on the RIGHT is the one position none
+ * of them occupies, and it is where athletics and golf put standings: against the
+ * edge the eye returns to, clear of the action.
+ *
+ * It is also the one graphic here with no dissolve. A scrim fades along its length
+ * and a veil out of frame; a board of numbers has to be legible in every cell, and
+ * a list whose bottom rows are fading has stopped being a ranking.
+ */
 export const LEADERBOARD: PackTemplate = {
   id: "tpl_leaderboard",
   name: "Leaderboard",
-  description: "A standings table driven by a list. Add teams without redesigning.",
+  description: "A ranked list from one variable, with the leader marked. Right edge.",
   build: (ids, token, now) => {
+    const holderId = ids("node");
     let order: string | null = null;
     const next = (): string => (order = nextOrder(order));
 
-    const surface = token("color.surface", "#101319");
-    const accent = token("color.primary", "#2f6feb");
-    const ink = token("color.ink", "#f2f5fb");
-    const muted = token("color.muted", "#8a93a6");
+    const surface = token("color.surface", PALETTE.surface);
+    const surfaceLift = token("color.surfaceLift", PALETTE.surfaceLift);
+    const accent = token("color.primary", PALETTE.primary);
+    const ink = token("color.ink", PALETTE.ink);
+    const muted = token("color.muted", PALETTE.muted);
 
-    const holderId = ids("node");
-    const backdrop = bar(ids, "Background", next(), 8.6, 5.4, surface, [0, 0, 0], PLATE.panel(surface, 2.2));
-    const titleBar = bar(ids, "Title Bar", next(), 8.6, 0.9, accent, [0, 2.25, 0.01]);
-    const title = label(
-      ids, "Title", next(), { $var: "title" }, ink, 42,
-      { width: 7.8 }, [-3.9, 2.25, 0.02],
+    const boardW = 6.8;
+    const rowH = 0.66;
+    const headerH = 0.54;
+    // Five is what the shipped list holds; the board is sized for it and the
+    // repeat will render whatever the list actually has.
+    const visibleRows = 5;
+    const rightX = SAFE.right;
+    const leftX = rightX - boardW;
+    const centreX = leftX + boardW / 2;
+    const topY = 3.76;
+    const bodyTop = topY - headerH;
+    const bodyH = rowH * visibleRows;
+
+    const board = plane(
+      ids,
+      "Background",
+      next(),
+      boardW,
+      headerH + bodyH,
+      surface,
+      [centreX, topY - (headerH + bodyH) / 2, 0],
+      flagSpec(PALETTE.surface),
+      { id: "flag", from: PALETTE.surface },
     );
 
-    // ONE row, repeated. `{ $var: "row.<field>" }` resolves per instance, so a
-    // list of five renders five rows and a list of twenty renders twenty —
-    // nothing is authored twice and adding a team is a data edit.
+    const header = plane(
+      ids,
+      "Header",
+      next(),
+      boardW,
+      headerH,
+      surfaceLift,
+      [centreX, topY - headerH / 2, 0.01],
+      flagSpec(PALETTE.surfaceLift),
+      { id: "flag", from: PALETTE.surfaceLift },
+    );
+
+    const title = type_(ids, "Title", next(), { $var: "title" }, {
+      face: FACE.display,
+      size: 28,
+      colour: ink,
+      box: { width: 4.0 },
+      at: [leftX + sp(24), topY - headerH / 2, 0.02],
+    });
+
+    const stage = type_(ids, "Stage", next(), { $var: "stage" }, {
+      face: FACE.context,
+      size: 24,
+      colour: muted,
+      box: { width: 2.2 },
+      align: "end",
+      at: [rightX - 2.2 - sp(24), topY - headerH / 2, 0.02],
+    });
+
+    // ---- The leader's marks, in BOARD space ---------------------------------
+    // Placed where the first row lands rather than inside it, because a repeated
+    // row cannot differ from its siblings. The layout below is deterministic —
+    // vertical, no gap, rows of a known height — so the first row's centre is
+    // knowable at author time, which is what makes this honest rather than a
+    // guess that drifts.
+    const leaderY = bodyTop - rowH / 2;
+    const leaderBacking = plane(
+      ids,
+      "Leader Backing",
+      next(),
+      boardW,
+      rowH,
+      surfaceLift,
+      [centreX, leaderY, 0.01],
+      flagSpec(PALETTE.surfaceLift),
+      { id: "flag", from: PALETTE.surfaceLift },
+    );
+    const leaderTab = plane(
+      ids,
+      "Leader Tab",
+      next(),
+      sp(9),
+      rowH,
+      accent,
+      [leftX + sp(4.5), leaderY, 0.02],
+      flagSpec(PALETTE.primary),
+      { id: "flag", from: PALETTE.primary },
+    );
+
+    // ---- One row, repeated --------------------------------------------------
+    // `{ $var: "row.<field>" }` resolves per instance. Coordinates inside a row
+    // are relative to the row's own centre.
+    const rowW = boardW - sp(44);
+    const rowLeft = -rowW / 2;
+    const posW = 0.74;
+    const valueW = 1.85;
+
     let rowOrder: string | null = null;
     const rowNext = (): string => (rowOrder = nextOrder(rowOrder));
-    const rank = label(
-      ids, "Rank", rowNext(), { $var: "row.rank" }, muted, 32,
-      { width: 0.7 }, [-3.85, 0, 0.02],
+
+    const underline = plane(
+      ids,
+      "Row Rule",
+      rowNext(),
+      rowW,
+      sp(2),
+      ink,
+      [0, -rowH / 2, 0.01],
+      {
+        gradient: {
+          kind: "linear",
+          angle: 0,
+          stops: [
+            { at: 0, color: PALETTE.ink, opacity: 0.26 },
+            { at: 0.8, color: PALETTE.ink, opacity: 0.14 },
+            { at: 1, color: PALETTE.ink, opacity: 0 },
+          ],
+        },
+      },
     );
-    const team = label(
-      ids, "Team", rowNext(), { $var: "row.team" }, ink, 32,
-      { width: 5.4 }, [-2.95, 0, 0.02],
-    );
-    const points = label(
-      ids, "Points", rowNext(), { $var: "row.points" }, ink, 32,
-      { width: 1.1 }, [2.7, 0, 0.02], { align: "end" },
-    );
+    const rank = type_(ids, "Rank", rowNext(), { $var: "row.rank" }, {
+      face: FACE.display,
+      size: 34,
+      colour: muted,
+      box: { width: posW },
+      align: "end",
+      at: [rowLeft, 0, 0.02],
+    });
+    const team = type_(ids, "Team", rowNext(), { $var: "row.team" }, {
+      face: FACE.display,
+      size: 36,
+      colour: ink,
+      box: { width: rowW - posW - valueW - sp(52) },
+      at: [rowLeft + posW + sp(26), 0, 0.02],
+    });
+    const points = type_(ids, "Points", rowNext(), { $var: "row.points" }, {
+      face: FACE.display,
+      size: 36,
+      colour: ink,
+      box: { width: valueW },
+      align: "end",
+      at: [rowLeft + rowW - valueW, 0, 0.02],
+    });
 
     const row: SceneNode = {
       id: ids("node"),
       name: "Row",
       order: next(),
       transform: IDENTITY_TRANSFORM,
-      size: { width: 8.2, height: 0.62 },
-      children: [rank, team, points],
+      size: { width: rowW, height: rowH },
+      children: [underline, rank, team, points],
     };
 
     const rows: SceneNode = {
       id: ids("node"),
       name: "Standings",
       order: next(),
-      transform: { position: [0, -0.55, 0.01], rotation: [0, 0, 0], scale: [1, 1, 1] },
-      size: { width: 8.2, height: 3.9 },
-      layout: { mode: "vertical", gap: 0.08, align: "stretch" },
+      transform: {
+        position: [centreX, bodyTop - bodyH / 2, 0.02],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
+      },
+      size: { width: rowW, height: bodyH },
+      // No gap: the rows are divided by their own hairlines, and a gap as well
+      // would separate them twice.
+      layout: { mode: "vertical", gap: 0, align: "stretch" },
       repeat: { source: "standings", as: "row", key: "rank" },
       children: [row],
     };
 
     const holder = group(holderId, next(), {
-      position: [-4.2, 0.4, 0],
-      size: { width: 8.6, height: 5.4 },
-      children: [backdrop, titleBar, title, rows],
+      position: [0, 0, 0],
+      size: { width: boardW, height: headerH + bodyH },
+      children: [board, header, title, stage, leaderBacking, leaderTab, rows],
     });
 
+    const root: SceneNode = {
+      id: ids("node"),
+      name: "Leaderboard",
+      order: generateKeyBetween(null, null),
+      transform: IDENTITY_TRANSFORM,
+      size: { width: 17.78, height: 10 },
+      children: [camera(ids, nextOrder(null)), { ...holder, name: "Leaderboard" }],
+    };
+
     return document_(
-      ids, "Leaderboard", now, stage(ids, "Leaderboard", { ...holder, name: "Leaderboard" }),
+      ids,
+      "Leaderboard",
+      now,
+      root,
       [
-        variable(ids("variable"), "title", "Title", "STANDINGS"),
+        variable(ids("variable"), "title", "Title", "MEN'S 100M FINAL"),
+        variable(ids("variable"), "stage", "Stage", "Round 2"),
         variable(
           ids("variable"),
           "standings",
           "Standings",
           [
-            { rank: "1", team: "Northgate United", points: "72" },
-            { rank: "2", team: "Riverside FC", points: "68" },
-            { rank: "3", team: "Kingsbury Athletic", points: "64" },
-            { rank: "4", team: "Elmwood Rovers", points: "61" },
-            { rank: "5", team: "Harbour City", points: "57" },
+            { rank: "1", team: "RIVERA", points: "9.86" },
+            { rank: "2", team: "PAPADOPOULOS", points: "9.91" },
+            { rank: "3", team: "OKONKWO", points: "9.94" },
+            { rank: "4", team: "TANAKA", points: "10.02" },
+            { rank: "5", team: "MÜLLER", points: "10.08" },
           ],
           "list",
         ),
       ],
       [
         {
+          // IT SLIDES IN FROM THE EDGE IT IS ANCHORED TO, as one board.
+          //
+          // Staggering the rows was considered and rejected: a ranking that
+          // assembles asks a viewer to watch positions arrive one at a time,
+          // which is a game show rather than a scoreboard. Standings are a fact,
+          // and a fact appears.
           id: ids("timeline"),
           name: "In",
-          duration: 0.8,
+          duration: 0.7,
           tracks: [
             {
               target: holderId,
               path: "transform.position.0",
               keyframes: [
-                { time: 0, value: -11.6, easing: "easeOutCubic" },
-                { time: 0.6, value: -4.2 },
+                { time: 0, value: boardW + 1.4, easing: "easeOutCubic" },
+                { time: 0.5, value: 0 },
               ],
             },
+          ],
+        },
+        {
+          id: ids("timeline"),
+          name: "Out",
+          duration: 0.45,
+          tracks: [
             {
-              target: titleBar.id,
-              path: "transform.scale.0",
-              delay: 0.2,
+              target: holderId,
+              path: "transform.position.0",
               keyframes: [
-                { time: 0, value: 0, easing: "easeOutCubic" },
-                { time: 0.45, value: 1 },
+                { time: 0, value: 0, easing: "easeInCubic" },
+                { time: 0.45, value: boardW + 1.4 },
               ],
             },
           ],
@@ -1089,6 +1292,8 @@ export const LEADERBOARD: PackTemplate = {
     );
   },
 };
+
+
 
 /** Everything this file adds, in the order a starter library should read. */
 export const ESSENTIALS: readonly PackTemplate[] = [

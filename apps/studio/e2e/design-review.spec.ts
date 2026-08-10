@@ -307,3 +307,11 @@ test("Countdown — as designed", async ({ page }) => {
   await shoot(page, "countdown-1-designed");
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+test("Leaderboard — as designed", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  await open(page, "tpl_leaderboard");
+  await shoot(page, "leaderboard-1-designed");
+  expect(errors, errors.join("\n")).toEqual([]);
+});
