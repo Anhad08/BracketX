@@ -283,3 +283,11 @@ test("a headline still draws after it is edited", async ({ page }) => {
   console.log(`authored=${authored} lit px   edited=${edited} lit px`);
   expect(edited, "an edited headline is barely drawn").toBeGreaterThan(authored * 0.5);
 });
+
+test("Breaking News — as designed", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  await open(page, "tpl_breaking");
+  await shoot(page, "breaking-1-designed");
+  expect(errors, errors.join("\n")).toEqual([]);
+});

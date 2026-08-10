@@ -649,7 +649,7 @@ const LOWER_THIRD: PackTemplate = {
       sp(2),
       ink,
       [bodyX + 2.95, seamY + sp(1), 0.02],
-      rule(PALETTE.ink, 0.3),
+      rule(PALETTE.ink, 0.45),
     );
 
     const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 0.82, height: 0.82 }, [
@@ -1010,7 +1010,7 @@ const TITLE_CARD: PackTemplate = {
       sp(3),
       ink,
       [marginX + 2.3, -3.02, 0.02],
-      rule(PALETTE.ink, 0.34),
+      rule(PALETTE.ink, 0.5),
     );
 
     const context = type_(ids, "Context", next(), { $var: "context" }, {

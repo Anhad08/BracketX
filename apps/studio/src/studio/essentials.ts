@@ -527,78 +527,209 @@ export const TICKER: PackTemplate = {
     );
   },
 };
-
-
+/**
+ * BREAKING NEWS.
+ *
+ * ==========================================================================
+ * URGENCY IS STRUCTURAL. RED IS THE SMALLEST PART OF IT
+ * ==========================================================================
+ * What was here was a lower third with a red kicker on it. That is the trap this
+ * graphic sets: red is the easiest thing to reach for, it is the first thing that
+ * stops meaning anything once every graphic has some, and a red chip on a
+ * normal-sized strap communicates a category rather than an emergency.
+ *
+ * Four structural decisions carry the urgency here, and the colour is the fifth:
+ *
+ *   MASS         The assembly is a third of the frame and runs off both edges and
+ *                off the bottom. Every other graphic in this package is furniture
+ *                sitting in a picture; this one TAKES the picture. A viewer
+ *                registers the change in how much screen is spoken for before
+ *                they read a word.
+ *
+ *   HARD EDGES   No scrim, no dissolve, no relieved corner. Rule 1 is for
+ *                furniture that stops inside the frame — this deliberately does
+ *                not soften, because a softened edge reads as calm.
+ *
+ *   SCALE        The headline is set at 82 against the ticker's 44 and the lower
+ *                third's role at 32. It is the second-largest type in the whole
+ *                package, behind only the title card.
+ *
+ *   DENSITY      Leading of 0.98 — tighter than a single line is tall, and the
+ *                only place in the package where type is set tighter than 1.0.
+ *                Packed lines read as pressure. Loose ones read as a poster.
+ *
+ *   THEN COLOUR  A full-bleed band of `color.urgent`, held back from every other
+ *                graphic in the family precisely so it still means something
+ *                here. Dark type on it, not white — see the palette note.
+ *
+ * The band also carries the TIME, right-anchored. A breaking strap without a
+ * timestamp is a strap that is still breaking an hour later, and putting the
+ * clock in the red band rather than in the body is what makes it read as "this is
+ * when", not "this is another fact".
+ */
 export const BREAKING: PackTemplate = {
   id: "tpl_breaking",
   name: "Breaking News",
-  description: "An urgent banner with a kicker. Wipes open, then the headline arrives.",
+  description: "A full-bleed alert: the band, the headline and when it happened.",
   build: (ids, token, now) => {
+    const holderId = ids("node");
     let order: string | null = null;
     const next = (): string => (order = nextOrder(order));
 
-    const surface = token("color.surface", "#101319");
-    const accent = token("color.primary", "#2f6feb");
-    const ink = token("color.ink", "#f2f5fb");
+    const surface = token("color.surface", PALETTE.surface);
+    const urgent = token("color.urgent", PALETTE.urgent);
+    const ink = token("color.ink", PALETTE.ink);
+    const muted = token("color.muted", PALETTE.muted);
+    const onAccent = token("color.onAccent", PALETTE.onAccent);
 
-    const holderId = ids("node");
-    const backdrop = bar(ids, "Background", next(), 16.4, 1.5, surface, [0, 0, 0], PLATE.panel(surface, 1.5));
-    const kickerBar = bar(ids, "Kicker Bar", next(), 4.6, 0.58, accent, [-5.9, 1.02, 0.01], PLATE.urgent(accent, 0.58));
-    const kicker = label(
-      ids, "Kicker", next(), { $var: "kicker" }, ink, 30,
-      { width: 4.2 }, [-7.9, 1.02, 0.02],
-    );
-    const headline = label(
-      ids, "Headline", next(), { $var: "headline" }, ink, 62,
-      { width: 15.4 }, [-7.7, 0, 0.02],
+    // Bleeding past both frame edges. Nothing here has a visible end.
+    const bleed = 18.6;
+    const bandH = 0.68;
+    const bandY = -1.24;
+    const blockTop = bandY - bandH / 2;
+    const blockH = blockTop + 5;
+
+    const block = plane(
+      ids,
+      "Background",
+      next(),
+      bleed,
+      blockH,
+      surface,
+      [0, blockTop - blockH / 2, 0],
+      flagSpec(PALETTE.surface),
+      { id: "flag", from: PALETTE.surface },
     );
 
-    const holder = group(holderId, next(), {
-      position: [0, -2.6, 0],
-      size: { width: 16.4, height: 1.5 },
-      children: [backdrop, kickerBar, kicker, headline],
+    const band = plane(
+      ids,
+      "Alert Band",
+      next(),
+      bleed,
+      bandH,
+      urgent,
+      [0, bandY, 0.01],
+      flagSpec(PALETTE.urgent),
+      { id: "flag", from: PALETTE.urgent },
+    );
+
+    const kicker = type_(ids, "Kicker", next(), { $var: "kicker" }, {
+      face: FACE.display,
+      size: 46,
+      colour: onAccent,
+      box: { width: 6.0 },
+      at: [SAFE.left, bandY, 0.02],
     });
 
+    const stamp = type_(ids, "Time", next(), { $var: "time" }, {
+      face: FACE.display,
+      size: 34,
+      colour: onAccent,
+      box: { width: 2.6 },
+      align: "end",
+      at: [SAFE.right - 2.6, bandY, 0.02],
+    });
+
+    const headline = type_(ids, "Headline", next(), { $var: "headline" }, {
+      face: FACE.headline,
+      size: 82,
+      colour: ink,
+      box: { width: 15.4 },
+      maxLines: 2,
+      // The one place in the package set tighter than a line is tall.
+      lineHeight: 0.98,
+      floor: 0.55,
+      at: [SAFE.left, -2.5, 0.02],
+    });
+
+    const under = plane(
+      ids,
+      "Rule",
+      next(),
+      6.2,
+      sp(3),
+      ink,
+      [SAFE.left + 3.1, -3.26, 0.02],
+      // 0.55, not 0.32. At a third of ink on a near-black block a three-pixel
+      // rule is not subtle, it is absent — it did not appear in the render at
+      // all. Rule 4 says a rule separates two orders of information; one nobody
+      // can see is decoration that failed to draw.
+      rule(PALETTE.ink, 0.55),
+    );
+
+    const context = type_(ids, "Context", next(), { $var: "context" }, {
+      face: FACE.text,
+      size: SIZE.body,
+      colour: muted,
+      box: { width: 11.0 },
+      at: [SAFE.left, -3.66, 0.02],
+    });
+
+    const holder = group(holderId, next(), {
+      position: [0, 0, 0],
+      size: { width: bleed, height: blockH + bandH },
+      children: [block, band, kicker, stamp, headline, under, context],
+    });
+
+    const root: SceneNode = {
+      id: ids("node"),
+      name: "Breaking News",
+      order: generateKeyBetween(null, null),
+      transform: IDENTITY_TRANSFORM,
+      size: { width: 17.78, height: 10 },
+      children: [camera(ids, nextOrder(null)), { ...holder, name: "Breaking News" }],
+    };
+
     return document_(
-      ids, "Breaking News", now, stage(ids, "Breaking News", { ...holder, name: "Breaking" }),
+      ids,
+      "Breaking News",
+      now,
+      root,
       [
-        variable(ids("variable"), "kicker", "Kicker", "BREAKING"),
-        variable(ids("variable"), "headline", "Headline", "Parliament passes the budget"),
+        variable(ids("variable"), "kicker", "Kicker", "BREAKING NEWS"),
+        variable(
+          ids("variable"),
+          "headline",
+          "Headline",
+          "Anfield stoppage-time winner sends Liverpool top of the table",
+        ),
+        variable(ids("variable"), "context", "Context", "Live at Anfield · Reporter, Alex Rivera"),
+        variable(ids("variable"), "time", "Time", "21:04"),
       ],
       [
         {
+          // IT ARRIVES IN ONE MOVE, FAST, and nothing about it is staggered.
+          //
+          // A cue this graphic answers is not a reveal, it is an interruption:
+          // the whole block comes up from the bottom of frame in under half a
+          // second and stops dead. Staggering the parts would make a viewer watch
+          // it assemble, and the one thing an alert must not look like is
+          // something that took its time.
           id: ids("timeline"),
           name: "In",
-          duration: 0.8,
+          duration: 0.55,
           tracks: [
-            // Staggered rather than simultaneous: the bar opens, the flash
-            // lands, then the words arrive. Everything moving at once reads as
-            // one shape sliding, which is the difference between a graphic that
-            // looks authored and one that looks generated.
             {
-              target: backdrop.id,
-              path: "transform.scale.0",
+              target: holderId,
+              path: "transform.position.1",
               keyframes: [
-                { time: 0, value: 0, easing: "easeOutCubic" },
-                { time: 0.5, value: 1 },
+                { time: 0, value: -6.4, easing: "easeOutCubic" },
+                { time: 0.42, value: 0 },
               ],
             },
+          ],
+        },
+        {
+          id: ids("timeline"),
+          name: "Out",
+          duration: 0.45,
+          tracks: [
             {
-              target: kickerBar.id,
-              path: "transform.scale.0",
-              delay: 0.12,
+              target: holderId,
+              path: "transform.position.1",
               keyframes: [
-                { time: 0, value: 0, easing: "easeOutCubic" },
-                { time: 0.35, value: 1 },
-              ],
-            },
-            {
-              target: headline.id,
-              path: "transform.position.0",
-              delay: 0.24,
-              keyframes: [
-                { time: 0, value: -9.1, easing: "easeOutCubic" },
-                { time: 0.45, value: -7.7 },
+                { time: 0, value: 0, easing: "easeInCubic" },
+                { time: 0.45, value: -6.4 },
               ],
             },
           ],
@@ -607,6 +738,7 @@ export const BREAKING: PackTemplate = {
     );
   },
 };
+
 
 // ---------------------------------------------------------------------------
 // Events
