@@ -27,6 +27,22 @@ import { IDENTITY_TRANSFORM, generateKeyBetween, type SceneNode } from "@bracket
 import type { IdFactory } from "./ids";
 import { STUDIO_IMAGES } from "./images";
 import {
+  FACE,
+  PALETTE,
+  SAFE,
+  SIZE,
+  col,
+  flagSpec,
+  litFlagSpec,
+  plane,
+  recessed,
+  rule,
+  scrimSpec,
+  sp,
+  type_,
+  veilSpec,
+} from "./broadcast";
+import {
   PLATE,
   bar,
   camera,
@@ -38,6 +54,203 @@ import {
   variable,
   type PackTemplate,
 } from "./packs";
+
+/**
+ * THE SPONSOR BAR.
+ *
+ * ==========================================================================
+ * A SPONSORSHIP TREATMENT, NOT THE WORD "SPONSOR" IN A RECTANGLE
+ * ==========================================================================
+ * What was here: a 6.4 x 1.8 panel, an accent line along the bottom, a courtesy
+ * line and a mark. It said the right words and it was built like every other
+ * plate in the set.
+ *
+ * A sponsor billboard is a different KIND of graphic from a strap, and the
+ * difference is whose graphic it is. A lower third belongs to the broadcaster and
+ * is anchored to their margin. A sponsor bar is a contractual object: the
+ * partner's mark has to be the largest thing in it, it has to be unmistakably
+ * separate from editorial content, and it has to look like it was placed rather
+ * than fitted in.
+ *
+ * So this is the one graphic in the family that is CENTRED, and that is the whole
+ * compositional idea:
+ *
+ *   THE STANCE    Centred on the frame and sitting on the bottom title-safe
+ *                 line. Every other graphic here is anchored to the left margin;
+ *                 a billboard that shares their stance reads as more editorial
+ *                 furniture. Centring is what makes it read as an interruption.
+ *
+ *   THE SPLIT     Courtesy and programme on the left, the partner's mark on the
+ *                 right, with a hairline between them. Two columns rather than a
+ *                 stack, because the two halves are saying things on behalf of
+ *                 two different parties and should not read as one sentence.
+ *
+ *   THE MARK      Given a box 2.9 units wide against 40-pixel type beside it, so
+ *                 the partner is the largest element by a wide margin. `contain`
+ *                 always: a stretched brand mark is the most visible mistake this
+ *                 component can make, and the one a partner will notice.
+ *
+ *   THE EDGE      A solid accent line along the TOP, drawn with a flat bound
+ *                 fill and no paint at all. A three-pixel line needs no gradient,
+ *                 and leaving it flat keeps it bound to the brand token — which a
+ *                 gradient, whose stops cannot hold a binding, would break.
+ *
+ * The veil fades UP, out of the bottom of frame, so the billboard has no bottom
+ * edge to read. A centred plate cannot dissolve sideways without lying about
+ * which side it belongs to.
+ */
+export const SPONSOR: PackTemplate = {
+  id: "tpl_sponsor",
+  name: "Sponsor Bar",
+  description: "A partner's mark, credited and kept separate. Sits on the frame edge.",
+  build: (ids, token, now) => {
+    const holderId = ids("node");
+    let order: string | null = null;
+    const next = (): string => (order = nextOrder(order));
+
+    const surface = token("color.surface", PALETTE.surface);
+    const accent = token("color.primary", PALETTE.primary);
+    const ink = token("color.ink", PALETTE.ink);
+    const muted = token("color.muted", PALETTE.muted);
+
+    const plateW = 9.2;
+    const plateH = 1.85;
+    // RUNNING OFF THE BOTTOM OF FRAME, not sitting on the title-safe line. The
+    // first render put the plate's bottom edge at -4.5 and it read as a bar
+    // floating above the frame edge with a hard line under it. A billboard rises
+    // out of the bottom of the picture; giving it no bottom edge at all is what
+    // makes it look placed rather than pasted.
+    const floorY = -5;
+    const midY = floorY + plateH / 2;
+    const leftX = -plateW / 2;
+    const divideX = 0.55;
+
+    const backdrop = plane(
+      ids,
+      "Background",
+      next(),
+      plateW,
+      plateH,
+      surface,
+      [0, midY, 0],
+      // SOLID, not a veil. A veil's fade is scaled to a full-frame wash, and over
+      // 1.85 units it had already given up most of its opacity by the time it
+      // reached the type — a billboard has to carry a partner's mark at full
+      // contrast. It needs no dissolve: its bottom edge is off-frame and its top
+      // edge is the accent line, so there is no edge left to soften.
+      flagSpec(PALETTE.surface),
+      { id: "flag", from: PALETTE.surface },
+    );
+
+    // Flat, bound, and deliberately unpainted — see the note above.
+    const edge = plane(ids, "Edge", next(), plateW, sp(3), accent, [0, floorY + plateH, 0.01]);
+
+    const courtesy = type_(ids, "Courtesy", next(), { $var: "courtesy" }, {
+      face: FACE.display,
+      size: 28,
+      colour: muted,
+      box: { width: 4.4 },
+      at: [leftX + sp(30), midY + sp(28), 0.02],
+    });
+
+    const programme = type_(ids, "Programme", next(), { $var: "programme" }, {
+      face: FACE.headline,
+      size: 40,
+      colour: ink,
+      box: { width: 4.4 },
+      at: [leftX + sp(30), midY - sp(20), 0.02],
+    });
+
+    // The divider. Short of the plate's full height on both sides, so it reads as
+    // a division between two columns rather than as the plate being cut in half.
+    const divide = plane(
+      ids,
+      "Divider",
+      next(),
+      sp(2),
+      plateH - sp(38),
+      muted,
+      [divideX, midY, 0.02],
+    );
+
+    // CENTRED IN THE COLUMN IT OWNS — from the divider to the plate's right edge
+    // — rather than in a box that happened to be 2.9 wide. `contain` centres the
+    // mark inside its box, so a box that does not fill the column puts the mark
+    // off-centre in the space a viewer actually sees.
+    const markColumn = plateW / 2 - divideX;
+    const mark = logo(
+      ids,
+      "Logo",
+      next(),
+      { $var: "logo" },
+      { width: markColumn - sp(48), height: 0.92 },
+      [divideX + markColumn / 2, midY, 0.02],
+    );
+
+    const holder = group(holderId, next(), {
+      position: [0, 0, 0],
+      size: { width: plateW, height: plateH },
+      children: [backdrop, edge, courtesy, programme, divide, mark],
+    });
+
+    const root: SceneNode = {
+      id: ids("node"),
+      name: "Sponsor Bar",
+      order: generateKeyBetween(null, null),
+      transform: IDENTITY_TRANSFORM,
+      size: { width: 17.78, height: 10 },
+      children: [camera(ids, nextOrder(null)), { ...holder, name: "Sponsor Bar" }],
+    };
+
+    return document_(
+      ids,
+      "Sponsor Bar",
+      now,
+      root,
+      [
+        variable(ids("variable"), "courtesy", "Courtesy", "PRESENTED BY"),
+        variable(ids("variable"), "programme", "Programme", "Match of the Day"),
+        variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId, "asset"),
+      ],
+      [
+        {
+          // A billboard RISES rather than slides. It is centred, so there is no
+          // side for it to come from — and a centred object entering sideways
+          // looks like it missed its mark and corrected. One wipe upward,
+          // holding the bottom edge, and the accent edge arrives with it.
+          id: ids("timeline"),
+          name: "In",
+          duration: 0.7,
+          tracks: [
+            {
+              target: holderId,
+              path: "transform.position.1",
+              keyframes: [
+                { time: 0, value: -plateH - 0.2, easing: "easeOutCubic" },
+                { time: 0.5, value: 0 },
+              ],
+            },
+          ],
+        },
+        {
+          id: ids("timeline"),
+          name: "Out",
+          duration: 0.45,
+          tracks: [
+            {
+              target: holderId,
+              path: "transform.position.1",
+              keyframes: [
+                { time: 0, value: 0, easing: "easeInCubic" },
+                { time: 0.45, value: -plateH - 0.2 },
+              ],
+            },
+          ],
+        },
+      ],
+    );
+  },
+};
 
 /** The stage every graphic is composed on. 16:9 at Studio's unit scale. */
 function stage(ids: IdFactory, name: string, holder: SceneNode): SceneNode {
@@ -286,73 +499,6 @@ export const COUNTDOWN: PackTemplate = {
     );
   },
 };
-
-// ---------------------------------------------------------------------------
-// Sponsorship
-// ---------------------------------------------------------------------------
-
-export const SPONSOR: PackTemplate = {
-  id: "tpl_sponsor",
-  name: "Sponsor Bar",
-  description: "A partner mark with a courtesy line. Uses any logo you import.",
-  build: (ids, token, now) => {
-    let order: string | null = null;
-    const next = (): string => (order = nextOrder(order));
-
-    const surface = token("color.surface", "#101319");
-    const accent = token("color.primary", "#2f6feb");
-    const muted = token("color.muted", "#8a93a6");
-
-    const holderId = ids("node");
-    const backdrop = bar(ids, "Background", next(), 6.4, 1.8, surface, [0, 0, 0], PLATE.panel(surface, 1.8));
-    const edge = bar(ids, "Edge", next(), 6.4, 0.08, accent, [0, -0.86, 0.01]);
-    const courtesy = label(
-      ids, "Courtesy", next(), { $var: "courtesy" }, muted, 26,
-      { width: 5.8 }, [-2.9, 0.58, 0.02], { align: "center" },
-    );
-    // The one starter graphic built AROUND an imported asset, so the asset
-    // system has somewhere obvious to be used from.
-    const mark = logo(
-      ids, "Partner Logo", next(), { $var: "logo" },
-      { width: 3.6, height: 1 }, [0, -0.16, 0.02],
-    );
-
-    const holder = group(holderId, next(), {
-      position: [5.2, -3.3, 0],
-      size: { width: 6.4, height: 1.8 },
-      children: [backdrop, edge, courtesy, mark],
-    });
-
-    return document_(
-      ids, "Sponsor Bar", now, stage(ids, "Sponsor Bar", { ...holder, name: "Sponsor" }),
-      [
-        variable(ids("variable"), "courtesy", "Courtesy line", "IN PARTNERSHIP WITH"),
-        // Typed `asset`, so the Content surface offers a PICKER of images by
-        // name. Left as a string it rendered the raw id in a text box, which
-        // is the clearest example there is of the engine leaking to a user.
-        variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId, "asset"),
-      ],
-      [
-        {
-          id: ids("timeline"),
-          name: "In",
-          duration: 0.65,
-          tracks: [
-            {
-              target: holderId,
-              path: "transform.position.0",
-              keyframes: [
-                { time: 0, value: 9.6, easing: "easeOutCubic" },
-                { time: 0.55, value: 5.2 },
-              ],
-            },
-          ],
-        },
-      ],
-    );
-  },
-};
-
 // ---------------------------------------------------------------------------
 // Sport and esports
 // ---------------------------------------------------------------------------

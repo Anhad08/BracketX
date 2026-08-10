@@ -175,3 +175,11 @@ test("edited text renders with the same weight as authored text", async ({ page 
   // Allowing a fifth either way for the one dropped character.
   expect(edited / authored, "edited text is drawn at a different weight").toBeGreaterThan(0.8);
 });
+
+test("Sponsor Bar — as designed", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  await open(page, "tpl_sponsor");
+  await shoot(page, "sponsor-1-designed");
+  expect(errors, errors.join("\n")).toEqual([]);
+});
