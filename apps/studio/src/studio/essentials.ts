@@ -113,8 +113,8 @@ export const SPONSOR: PackTemplate = {
     const ink = token("color.ink", PALETTE.ink);
     const muted = token("color.muted", PALETTE.muted);
 
-    const plateW = 9.2;
-    const plateH = 1.85;
+    const plateW = 12.2;
+    const plateH = 2.3;
     // RUNNING OFF THE BOTTOM OF FRAME, not sitting on the title-safe line. The
     // first render put the plate's bottom edge at -4.5 and it read as a bar
     // floating above the frame edge with a hard line under it. A billboard rises
@@ -123,7 +123,7 @@ export const SPONSOR: PackTemplate = {
     const floorY = -5;
     const midY = floorY + plateH / 2;
     const leftX = -plateW / 2;
-    const divideX = 0.55;
+    const divideX = 1.1;
 
     const backdrop = plane(
       ids,
@@ -147,18 +147,21 @@ export const SPONSOR: PackTemplate = {
 
     const courtesy = type_(ids, "Courtesy", next(), { $var: "courtesy" }, {
       face: FACE.display,
-      size: 28,
+      size: 36,
       colour: muted,
-      box: { width: 4.4 },
-      at: [leftX + sp(30), midY + sp(28), 0.02],
+      box: { width: 5.4 },
+      at: [leftX + sp(34), midY + sp(46), 0.02],
     });
 
     const programme = type_(ids, "Programme", next(), { $var: "programme" }, {
       face: FACE.headline,
-      size: 40,
+      size: 58,
       colour: ink,
-      box: { width: 4.4 },
-      at: [leftX + sp(30), midY - sp(20), 0.02],
+      box: { width: 5.4 },
+      // Raised: at 58 the programme line put its descenders through the bottom
+      // title-safe line, and the one rule a billboard cannot break is being
+      // readable on a set that overscans.
+      at: [leftX + sp(34), midY - sp(14), 0.02],
     });
 
     // The divider. Short of the plate's full height on both sides, so it reads as
@@ -183,7 +186,7 @@ export const SPONSOR: PackTemplate = {
       "Partner Logo",
       next(),
       { $var: "logo" },
-      { width: markColumn - sp(48), height: 0.92 },
+      { width: markColumn - sp(60), height: 1.24 },
       [divideX + markColumn / 2, midY, 0.02],
     );
 
@@ -329,19 +332,26 @@ export const TICKER: PackTemplate = {
     // the bottom title-safe line rather than the strip merely touching it — a
     // ticker whose words are outside title-safe is a ticker a fifth of the
     // audience cannot read.
-    const stripH = 0.92;
-    const midY = -4.28;
+    // Half again as tall, with the type scaled into it. At 0.92 with a 44-pixel
+    // headline the strap was a hairline across the bottom of a large frame —
+    // legible, and reading as a status bar rather than as the news.
+    const stripH = 1.26;
+    const midY = -4.16;
     const topY = midY + stripH / 2;
 
     // Bleeding past both frame edges, so neither end is ever visible.
+    // The RECT runs off the bottom of frame as well as off both sides, while the
+    // TYPE stays on `midY` inside title-safe. Sized to the type it left a 0.2-unit
+    // sliver of picture below the strap — a gap that reads as a graphic that
+    // missed the edge rather than one anchored to it.
     const strip = plane(
       ids,
       "Background",
       next(),
       18.6,
-      stripH,
+      stripH + 0.6,
       surface,
-      [0, midY, 0],
+      [0, midY - 0.3, 0],
       flagSpec(PALETTE.surface),
       { id: "flag", from: PALETTE.surface },
     );
@@ -351,7 +361,7 @@ export const TICKER: PackTemplate = {
     // LIVE, on the title-safe left line. Full strip height: a state badge that
     // floats inside the strip reads as a chip; one that fills it reads as part of
     // the system.
-    const stateW = 1.46;
+    const stateW = 2.4;
     const stateFlag = plane(
       ids,
       "Live Flag",
@@ -359,21 +369,25 @@ export const TICKER: PackTemplate = {
       stateW,
       stripH,
       accent,
-      [SAFE.left + stateW / 2, midY, 0.02],
+      // FROM BEYOND THE LEFT FRAME EDGE. The live indicator is cut by the frame
+      // like the strap's tab and the title card's flag — the third graphic to use
+      // that relationship, and the reason the package reads as one system without
+      // the accent doing the same job in each.
+      [-8.89 + stateW / 2 - 0.4, midY, 0.02],
       litFlagSpec(PALETTE.primary),
     );
     const state = type_(ids, "State", next(), { $var: "state" }, {
       face: FACE.display,
-      size: 34,
+      size: 50,
       colour: onAccent,
-      box: { width: stateW - sp(20) },
+      box: { width: 1.9 },
       align: "center",
-      at: [SAFE.left + sp(10), midY, 0.03],
+      at: [-8.4, midY, 0.03],
     });
 
     // The category cell, butted against the state flag with a hairline of gap.
-    const categoryX = SAFE.left + stateW;
-    const categoryW = 2.34;
+    const categoryX = -8.89 + stateW - 0.4;
+    const categoryW = 3.1;
     const categoryCell = plane(
       ids,
       "Category Cell",
@@ -387,7 +401,7 @@ export const TICKER: PackTemplate = {
     );
     const category = type_(ids, "Category", next(), { $var: "category" }, {
       face: FACE.display,
-      size: 30,
+      size: 40,
       // INK, not muted. A filing label at 30px in muted grey on the lifted cell
       // measured as the least legible thing in the package — and a category a
       // viewer has to work at is a category doing no work. Its subordination
@@ -401,12 +415,12 @@ export const TICKER: PackTemplate = {
 
     // The headline. Everything between the category cell and the clock, which is
     // most of the frame — the widest cell, for the only cell holding a sentence.
-    const clockW = 1.9;
+    const clockW = 2.5;
     const clockX = SAFE.right - clockW;
     const headlineX = categoryX + categoryW + sp(30);
     const headline = type_(ids, "Headline", next(), { $var: "headline" }, {
       face: FACE.headline,
-      size: 44,
+      size: 62,
       colour: ink,
       box: { width: clockX - headlineX - sp(40) },
       // A LOWER SHRINK FLOOR THAN ANYTHING ELSE IN THE PACKAGE, because a
@@ -441,7 +455,7 @@ export const TICKER: PackTemplate = {
 
     const clock = type_(ids, "Time", next(), { $var: "time" }, {
       face: FACE.display,
-      size: 44,
+      size: 58,
       colour: ink,
       box: { width: clockW },
       align: "end",
@@ -584,8 +598,13 @@ export const BREAKING: PackTemplate = {
 
     // Bleeding past both frame edges. Nothing here has a visible end.
     const bleed = 18.6;
-    const bandH = 0.68;
-    const bandY = -1.24;
+    // A BAND THAT HITS. At 0.68 with 46-pixel type it was a red stripe with a
+    // word in it; the alert state has to register before anything is read, and the
+    // band is the only thing carrying that. 1.08 tall with the kicker at 76 makes
+    // it the second-largest element in the graphic rather than a label above the
+    // real one.
+    const bandH = 1.08;
+    const bandY = -1.42;
     const blockTop = bandY - bandH / 2;
     const blockH = blockTop + 5;
 
@@ -615,41 +634,49 @@ export const BREAKING: PackTemplate = {
 
     const kicker = type_(ids, "Kicker", next(), { $var: "kicker" }, {
       face: FACE.display,
-      size: 46,
+      size: 76,
       colour: onAccent,
-      box: { width: 6.0 },
+      box: { width: 7.6 },
       at: [SAFE.left, bandY, 0.02],
     });
 
     const stamp = type_(ids, "Time", next(), { $var: "time" }, {
       face: FACE.display,
-      size: 34,
+      size: 48,
       colour: onAccent,
-      box: { width: 2.6 },
+      box: { width: 3.2 },
       align: "end",
-      at: [SAFE.right - 2.6, bandY, 0.02],
+      at: [SAFE.right - 3.2, bandY, 0.02],
     });
 
     const headline = type_(ids, "Headline", next(), { $var: "headline" }, {
       face: FACE.headline,
-      size: 82,
+      // 108. The band states the emergency; the headline has to be the thing you
+      // actually read from across a room, and at 82 it was competing with the
+      // band rather than following it.
+      size: 108,
       colour: ink,
       box: { width: 15.4 },
-      maxLines: 2,
+      // ONE LINE, deliberately. At 108 a second line is 0.98 units tall, which
+      // pushes the block up into the alert band and its rule down through the
+      // context — the stack has no room for it and nothing here can clip. A
+      // breaking headline is a single line on air anyway, and at this width it
+      // holds sixty characters before it even begins to shrink.
+      maxLines: 1,
       // The one place in the package set tighter than a line is tall.
       lineHeight: 0.98,
       floor: 0.55,
-      at: [SAFE.left, -2.5, 0.02],
+      at: [SAFE.left, -2.86, 0.02],
     });
 
     const under = plane(
       ids,
       "Rule",
       next(),
-      6.2,
-      sp(3),
+      7.6,
+      sp(4),
       ink,
-      [SAFE.left + 3.1, -3.26, 0.02],
+      [SAFE.left + 3.8, -3.76, 0.02],
       // 0.55, not 0.32. At a third of ink on a near-black block a three-pixel
       // rule is not subtle, it is absent — it did not appear in the render at
       // all. Rule 4 says a rule separates two orders of information; one nobody
@@ -659,10 +686,10 @@ export const BREAKING: PackTemplate = {
 
     const context = type_(ids, "Context", next(), { $var: "context" }, {
       face: FACE.text,
-      size: SIZE.body,
+      size: 40,
       colour: muted,
-      box: { width: 11.0 },
-      at: [SAFE.left, -3.66, 0.02],
+      box: { width: 12.0 },
+      at: [SAFE.left, -4.1, 0.02],
     });
 
     const holder = group(holderId, next(), {
@@ -811,8 +838,8 @@ export const COUNTDOWN: PackTemplate = {
     );
 
     // The status flag, above the clock and centred on it.
-    const flagW = 2.9;
-    const flagH = 0.52;
+    const flagW = 3.9;
+    const flagH = 0.68;
     const statusFlag = plane(
       ids,
       "Status Flag",
@@ -820,42 +847,45 @@ export const COUNTDOWN: PackTemplate = {
       flagW,
       flagH,
       accent,
-      [0, clockY + 1.72, 0.01],
+      [0, clockY + 2.06, 0.01],
       flagSpec(PALETTE.primary),
       { id: "flag", from: PALETTE.primary },
     );
     const status = type_(ids, "Status", next(), { $var: "status" }, {
       face: FACE.display,
-      size: 34,
+      size: 46,
       colour: onAccent,
       box: { width: flagW - sp(28) },
       align: "center",
-      at: [-flagW / 2 + sp(14), clockY + 1.72, 0.02],
+      at: [-flagW / 2 + sp(14), clockY + 2.06, 0.02],
     });
 
     // 320. The box is wide enough for HH:MM:SS as well as MM:SS, so a two-hour
     // pre-show hold and a two-minute break are the same graphic.
     const clock = type_(ids, "Clock", next(), { $var: "clock" }, {
       face: FACE.display,
-      size: 320,
+      // 400. It is the only graphic that is alone on air and the only one whose
+      // entire subject is four characters, so there is nothing for the figures to
+      // be considerate of.
+      size: 400,
       colour: ink,
-      box: { width: 13.0 },
+      box: { width: 15.0 },
       align: "center",
       // A high shrink floor: this is the one slot where shrinking is worse than
       // any alternative, because the figures ARE the graphic. HH:MM:SS at 320
       // fits, so nothing a clock can hold should ever reach the floor.
       floor: 0.85,
-      at: [-6.5, clockY, 0.02],
+      at: [-7.5, clockY, 0.02],
     });
 
     const under = plane(
       ids,
       "Rule",
       next(),
-      3.4,
-      sp(3),
+      4.6,
+      sp(4),
       ink,
-      [0, clockY - 1.72, 0.02],
+      [0, clockY - 2.04, 0.02],
       // Centred, so it fades symmetrically rather than dying off to one side the
       // way a strap's rule does.
       {
@@ -873,11 +903,11 @@ export const COUNTDOWN: PackTemplate = {
 
     const caption = type_(ids, "Caption", next(), { $var: "caption" }, {
       face: FACE.text,
-      size: SIZE.lead,
+      size: 54,
       colour: muted,
-      box: { width: 9.0 },
+      box: { width: 11.0 },
       align: "center",
-      at: [-4.5, clockY - 2.2, 0.02],
+      at: [-5.5, clockY - 2.52, 0.02],
     });
 
     const holder = group(holderId, next(), {
@@ -1049,16 +1079,26 @@ export const LEADERBOARD: PackTemplate = {
     const ink = token("color.ink", PALETTE.ink);
     const muted = token("color.muted", PALETTE.muted);
 
-    const boardW = 6.8;
-    const rowH = 0.66;
-    const headerH = 0.54;
+    // Half again as wide with rows a third taller. At 6.8 x 0.66 the board was a
+    // legible list and a small object: five names in a frame this size need the
+    // width to read as standings rather than as a widget.
+    const boardW = 8.9;
+    const rowH = 0.88;
+    const headerH = 0.7;
     // Five is what the shipped list holds; the board is sized for it and the
     // repeat will render whatever the list actually has.
     const visibleRows = 5;
-    const rightX = SAFE.right;
+    // PAST the right frame edge, so the board is cut by it — the same
+    // relationship the strap, the title card and the ticker all use, and the
+    // reason a list anchored to an edge reads as broadcast furniture.
+    // THE RECT bleeds past the right frame edge; the TYPE does not. The first
+    // attempt moved everything to 9.3 and took the times off-screen with it —
+    // cropping a plate is a composition, cropping the data is a bug.
+    const rightX = 9.3;
+    const contentRight = SAFE.right;
     const leftX = rightX - boardW;
     const centreX = leftX + boardW / 2;
-    const topY = 3.76;
+    const topY = 4.3;
     const bodyTop = topY - headerH;
     const bodyH = rowH * visibleRows;
 
@@ -1088,19 +1128,19 @@ export const LEADERBOARD: PackTemplate = {
 
     const title = type_(ids, "Title", next(), { $var: "title" }, {
       face: FACE.display,
-      size: 28,
+      size: 38,
       colour: ink,
-      box: { width: 4.0 },
+      box: { width: 5.0 },
       at: [leftX + sp(24), topY - headerH / 2, 0.02],
     });
 
     const stage = type_(ids, "Stage", next(), { $var: "stage" }, {
       face: FACE.context,
-      size: 24,
+      size: 30,
       colour: muted,
-      box: { width: 2.2 },
+      box: { width: 2.6 },
       align: "end",
-      at: [rightX - 2.2 - sp(24), topY - headerH / 2, 0.02],
+      at: [contentRight - 2.6, topY - headerH / 2, 0.02],
     });
 
     // ---- The leader's marks, in BOARD space ---------------------------------
@@ -1125,10 +1165,10 @@ export const LEADERBOARD: PackTemplate = {
       ids,
       "Leader Tab",
       next(),
-      sp(9),
+      sp(14),
       rowH,
       accent,
-      [leftX + sp(4.5), leaderY, 0.02],
+      [leftX + sp(7), leaderY, 0.02],
       flagSpec(PALETTE.primary),
       { id: "flag", from: PALETTE.primary },
     );
@@ -1136,10 +1176,10 @@ export const LEADERBOARD: PackTemplate = {
     // ---- One row, repeated --------------------------------------------------
     // `{ $var: "row.<field>" }` resolves per instance. Coordinates inside a row
     // are relative to the row's own centre.
-    const rowW = boardW - sp(44);
+    const rowW = contentRight - (leftX + sp(26));
     const rowLeft = -rowW / 2;
-    const posW = 0.74;
-    const valueW = 1.85;
+    const posW = 0.94;
+    const valueW = 2.3;
 
     let rowOrder: string | null = null;
     const rowNext = (): string => (rowOrder = nextOrder(rowOrder));
@@ -1166,7 +1206,10 @@ export const LEADERBOARD: PackTemplate = {
     );
     const rank = type_(ids, "Rank", rowNext(), { $var: "row.rank" }, {
       face: FACE.display,
-      size: 34,
+      // 46, and the rank column is the second-largest type on the board. Ranking
+      // is the question this graphic answers, so the numbers that carry it cannot
+      // be the smallest thing on it.
+      size: 46,
       colour: muted,
       box: { width: posW },
       align: "end",
@@ -1174,14 +1217,14 @@ export const LEADERBOARD: PackTemplate = {
     });
     const team = type_(ids, "Team", rowNext(), { $var: "row.team" }, {
       face: FACE.display,
-      size: 36,
+      size: 52,
       colour: ink,
       box: { width: rowW - posW - valueW - sp(52) },
       at: [rowLeft + posW + sp(26), 0, 0.02],
     });
     const points = type_(ids, "Points", rowNext(), { $var: "row.points" }, {
       face: FACE.display,
-      size: 36,
+      size: 52,
       colour: ink,
       box: { width: valueW },
       align: "end",
@@ -1202,7 +1245,7 @@ export const LEADERBOARD: PackTemplate = {
       name: "Standings",
       order: next(),
       transform: {
-        position: [centreX, bodyTop - bodyH / 2, 0.02],
+        position: [leftX + sp(26) + rowW / 2, bodyTop - bodyH / 2, 0.02],
         rotation: [0, 0, 0],
         scale: [1, 1, 1],
       },

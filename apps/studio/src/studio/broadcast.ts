@@ -469,6 +469,33 @@ export function veilSpec(
   const upward = box.width >= box.height;
   return {
     corners: [0, 0, 0, 0],
+    // ======================================================================
+    // 14 TEXELS PER UNIT, NOT THE DESIGN RESOLUTION OF 108
+    // ======================================================================
+    // Paint is rasterised in software at design resolution by default, which is
+    // right for anything with an edge in it and absurd for this. The countdown's
+    // veil is 17.9 x 10.1 units — 2.1 MILLION pixels of a smooth vertical ramp,
+    // generated one at a time, and it was the single largest cost in the package:
+    // the countdown took 870ms to reach its first frame and the title card 728ms,
+    // against 273ms for the sponsor bar, which has no veil.
+    //
+    // A veil has square corners and no edge anywhere: it is a linear ramp and
+    // nothing else, so it can be rasterised well below design resolution and
+    // stretched.
+    //
+    // 48, NOT 14, AND THE DIFFERENCE IS THE DITHER. The rasteriser dithers dark
+    // gradients on purpose — 8-bit linear has very few codes in the darks, and
+    // without it each channel bands at a different point and the ramp goes stripy
+    // in colour. That dither is calibrated for texels drawn at 1:1. At 14 per unit
+    // one texel covers nearly eight output pixels, so the +/- 1-code noise
+    // magnifies into blocks of visible green and purple mottling across the lower
+    // half of frame — which is what the render showed, and it is worse than the
+    // banding the dither exists to prevent.
+    //
+    // At 48 a texel covers a little over two pixels, the dither is back below the
+    // threshold of visibility, and the veil still costs a fifth of what it did at
+    // design resolution.
+    density: 48,
     gradient: {
       kind: "linear",
       angle: upward ? 90 : 0,
@@ -492,6 +519,17 @@ export function veilSpec(
 export function flagSpec(fill: string): PaintSpecDoc {
   return {
     corners: [0, 0, 0, 0],
+    // Low for the same reason a veil is, if less extremely. A flag is a linear
+    // gradient, square corners and a shadow blurred over half a unit — every
+    // feature in it is low-frequency, and the leaderboard's board, header, row
+    // backing and tab are all flags. 26 keeps them cheap without touching the
+    // one thing a flag has that a veil does not: a hard silhouette, which comes
+    // from the QUAD rather than from the texture.
+    //
+    // 40 for the same dither reason as the veil, and it matters less here: a
+    // flag's gradient spans a sixth of its own colour rather than running to
+    // transparent, so there is far less range for the noise to show in.
+    density: 40,
     gradient: {
       kind: "linear",
       angle: 74,
