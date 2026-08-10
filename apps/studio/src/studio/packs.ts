@@ -73,6 +73,7 @@ import {
   flagSpec,
   grounded,
   plane,
+  recessed,
   rule,
   scrimSpec,
   veilSpec,
@@ -795,45 +796,219 @@ const LOWER_THIRD: PackTemplate = {
     );
   },
 };
-
-/** A two-team scoreboard. Data-driven scores, on a bar. */
+/**
+ * THE SCOREBOARD.
+ *
+ * ==========================================================================
+ * THE SCORE IS THE GRAPHIC. EVERYTHING ELSE GETS OUT OF ITS WAY
+ * ==========================================================================
+ * What was here was a bar with two team names and two numbers on it, at sizes
+ * close enough that the eye had to choose — which is a lower third with numbers
+ * in it, the exact thing this had to stop being.
+ *
+ * Rule 6: when a graphic exists to carry a number, that number is set clear of
+ * everything else and the composition is built around it. Five decisions follow
+ * from that:
+ *
+ *   THE WELL     The score sits in a RECESSED block — an inner shadow, no fill of
+ *                its own — so it reads as set into the bug rather than printed on
+ *                it. It is the only recess in the package, which is what makes it
+ *                the place the eye lands. `recessed` existed as a material and
+ *                nothing had ever used it.
+ *
+ *   THE SPLIT    Home abbreviation, well, away abbreviation. Symmetrical about
+ *                the centre line, because a scoreboard is the one graphic here
+ *                whose subject genuinely has two equal halves — and the score
+ *                sits exactly on the axis they mirror about.
+ *
+ *   THE TOP      It lives at the TOP of frame while every other graphic in this
+ *                package lives at the bottom. That is how a viewer knows which
+ *                one to look at without reading either: a scoreboard is
+ *                persistent furniture and the bottom of frame belongs to
+ *                whatever is transient.
+ *
+ *   TABULAR      Both scores are set in the display face, whose figures are all
+ *                one width. A 1 narrower than a 4 would shift the dash — and
+ *                therefore the whole centre of the graphic — the moment somebody
+ *                scored. This is the graphic the face was chosen for.
+ *
+ *   THE CLOCK    On a small accent flag hanging below the well, dark on bright.
+ *                It is the only thing here that changes every second, so it is
+ *                given the one colour that says "now" and kept out of the score's
+ *                block entirely.
+ *
+ * The competition runs along the top of the bug on a lifted strip: it never
+ * changes during a match, so it takes the least contrast and the smallest size in
+ * the package, and it goes where a viewer looks last.
+ */
 const SCOREBOARD: PackTemplate = {
   id: "tpl_scoreboard",
   name: "Scoreboard",
-  description: "Two teams and a score. Every field is a variable.",
+  description: "Two teams, the score in a well, the competition and the clock.",
   build: (ids, token, now) => {
+    const rootId = ids("node");
+    const holderId = ids("node");
     let order: string | null = null;
     const next = (): string => (order = nextOrder(order));
 
-    const surface = token("color.surface", "#101319");
-    const accent = token("color.primary", "#2f6feb");
-    const ink = token("color.ink", "#f2f5fb");
+    const surface = token("color.surface", PALETTE.surface);
+    const surfaceLift = token("color.surfaceLift", PALETTE.surfaceLift);
+    const accent = token("color.primary", PALETTE.primary);
+    const ink = token("color.ink", PALETTE.ink);
+    const muted = token("color.muted", PALETTE.muted);
+    const onAccent = token("color.onAccent", PALETTE.onAccent);
 
-    const holderId = ids("node");
-    const backdrop = bar(ids, "Background", next(), 7.2, 1.05, surface, [0, 0, 0], PLATE.panel(surface, 1.05));
-    const scoreBlock = bar(ids, "Score Block", next(), 2.0, 1.05, accent, [0, 0, 0.01], PLATE.urgent(accent, 1.05));
-    const home = label(ids, "Home Team", next(), { $var: "home" }, ink, 46, { width: 2.4 }, [-3.4, 0, 0.02]);
-    const away = label(ids, "Away Team", next(), { $var: "away" }, ink, 46, { width: 2.4 }, [1.1, 0, 0.02]);
-    const score = label(
+    const barW = 7.8;
+    const barH = 1.12;
+    // Hung from just inside the top title-safe line, so the whole bug — including
+    // the clock flag beneath it — stays readable on a set that overscans.
+    const barTop = 4.4;
+    const barMid = barTop - barH / 2;
+    const stripH = 0.34;
+    const stripMid = barTop - stripH / 2;
+    // The row the score and the teams share, below the competition strip.
+    const rowMid = (barTop - stripH + (barTop - barH)) / 2;
+    const wellW = 2.4;
+    const wellH = 0.74;
+
+    const bar = plane(
       ids,
-      "Score",
+      "Background",
       next(),
-      { $var: "score" },
-      ink,
-      60,
-      { width: 1.9 },
-      [-0.95, 0, 0.02],
-      { align: "center" },
+      barW,
+      barH,
+      surface,
+      [0, barMid, 0],
+      flagSpec(PALETTE.surface),
+      { id: "flag", from: PALETTE.surface },
     );
 
+    const strip = plane(
+      ids,
+      "Competition Strip",
+      next(),
+      barW,
+      stripH,
+      surfaceLift,
+      [0, stripMid, 0.01],
+      flagSpec(PALETTE.surfaceLift),
+      { id: "flag", from: PALETTE.surfaceLift },
+    );
+
+    const competition = type_(ids, "Competition", next(), { $var: "competition" }, {
+      face: FACE.display,
+      // 24 in INK, not 22 in muted. At the smallest size in the package, on the
+      // lifted strip, muted grey rendered as texture rather than as words — and a
+      // competition nobody can read is a strip of noise across the top of the
+      // bug. Its subordination is already carried by size: 24 against the score's
+      // 76 is a third, which no amount of contrast could confuse.
+      size: 24,
+      colour: ink,
+      box: { width: barW - sp(40) },
+      align: "center",
+      at: [-barW / 2 + sp(20), stripMid, 0.02],
+    });
+
+    const well = plane(
+      ids,
+      "Score Well",
+      next(),
+      wellW,
+      wellH,
+      surface,
+      [0, rowMid, 0.01],
+      recessed(PALETTE.ink),
+    );
+
+    const home = type_(ids, "Home", next(), { $var: "home" }, {
+      face: FACE.display,
+      size: 58,
+      colour: ink,
+      box: { width: 2.4 },
+      align: "end",
+      at: [-barW / 2 + sp(26), rowMid, 0.02],
+    });
+
+    const homeScore = type_(ids, "Home Score", next(), { $var: "homeScore" }, {
+      face: FACE.display,
+      size: 76,
+      colour: ink,
+      box: { width: 0.92 },
+      align: "end",
+      at: [-1.16, rowMid, 0.02],
+    });
+
+    // A static dash, not a variable: it is punctuation between two numbers, and a
+    // field an operator can type into is a field an operator can empty.
+    const dash = type_(ids, "Dash", next(), "–", {
+      face: FACE.display,
+      size: 52,
+      colour: muted,
+      box: { width: 0.48 },
+      align: "center",
+      at: [-0.24, rowMid, 0.02],
+    });
+
+    const awayScore = type_(ids, "Away Score", next(), { $var: "awayScore" }, {
+      face: FACE.display,
+      size: 76,
+      colour: ink,
+      box: { width: 0.92 },
+      at: [0.24, rowMid, 0.02],
+    });
+
+    const away = type_(ids, "Away", next(), { $var: "away" }, {
+      face: FACE.display,
+      size: 58,
+      colour: ink,
+      box: { width: 2.4 },
+      at: [1.16 + sp(26), rowMid, 0.02],
+    });
+
+    // The clock, hanging below the bug on its own flag.
+    const clockW = 1.34;
+    const clockH = 0.44;
+    const clockMid = barTop - barH - clockH / 2;
+    const clockFlag = plane(
+      ids,
+      "Clock Flag",
+      next(),
+      clockW,
+      clockH,
+      accent,
+      [0, clockMid, 0.01],
+      flagSpec(PALETTE.primary),
+      { id: "flag", from: PALETTE.primary },
+    );
+    const clock = type_(ids, "Clock", next(), { $var: "clock" }, {
+      face: FACE.display,
+      size: 28,
+      colour: onAccent,
+      box: { width: clockW - sp(20) },
+      align: "center",
+      at: [-clockW / 2 + sp(10), clockMid, 0.02],
+    });
+
     const holder = group(holderId, next(), {
-      position: [0, 3.6, 0],
-      size: { width: 7.2, height: 1.05 },
-      children: [backdrop, scoreBlock, home, away, score],
+      position: [0, 0, 0],
+      size: { width: barW, height: barH + clockH },
+      children: [
+        bar,
+        strip,
+        competition,
+        well,
+        home,
+        homeScore,
+        dash,
+        awayScore,
+        away,
+        clockFlag,
+        clock,
+      ],
     });
 
     const root: SceneNode = {
-      id: ids("node"),
+      id: rootId,
       name: "Scoreboard",
       order: generateKeyBetween(null, null),
       transform: IDENTITY_TRANSFORM,
@@ -848,21 +1023,65 @@ const SCOREBOARD: PackTemplate = {
       root,
       [
         variable(ids("variable"), "home", "Home", "LIVERPOOL"),
+        variable(ids("variable"), "homeScore", "Home score", "2"),
         variable(ids("variable"), "away", "Away", "ARSENAL"),
-        variable(ids("variable"), "score", "Score", "2 – 1"),
+        variable(ids("variable"), "awayScore", "Away score", "1"),
+        variable(ids("variable"), "competition", "Competition", "PREMIER LEAGUE · MATCHWEEK 12"),
+        variable(ids("variable"), "clock", "Clock", "72'"),
       ],
       [
         {
+          // IT DROPS IN FROM ABOVE, because that is where it lives. A scoreboard
+          // that slid in from the side would have to travel across the picture to
+          // reach a position at the top of it.
+          //
+          // The clock flag follows a beat later on its own wipe, downward out of
+          // the bar — so the bug arrives as a unit and the one part that will keep
+          // changing announces itself separately.
           id: ids("timeline"),
           name: "In",
-          duration: 0.6,
+          duration: 0.85,
           tracks: [
             {
               target: holderId,
               path: "transform.position.1",
               keyframes: [
-                { time: 0, value: 6.2, easing: "easeOutCubic" },
-                { time: 0.5, value: 3.6 },
+                { time: 0, value: 1.9, easing: "easeOutCubic" },
+                { time: 0.5, value: 0 },
+              ],
+            },
+            {
+              target: clockFlag.id,
+              path: "transform.scale.1",
+              delay: 0.4,
+              keyframes: [
+                { time: 0, value: 0, easing: "easeOutCubic" },
+                { time: 0.32, value: 1 },
+              ],
+            },
+            {
+              target: clockFlag.id,
+              path: "transform.position.1",
+              delay: 0.4,
+              keyframes: [
+                // Top edge held: centre = top - scale * height / 2.
+                { time: 0, value: barTop - barH, easing: "easeOutCubic" },
+                { time: 0.32, value: clockMid },
+              ],
+            },
+          ],
+        },
+        {
+          id: ids("timeline"),
+          name: "Out",
+          duration: 0.45,
+          tracks: [
+            {
+              target: holderId,
+              path: "transform.position.1",
+              keyframes: [
+                { time: 0, value: 0, easing: "easeInCubic" },
+                { time: 0.45, value: 1.9 },
               ],
             },
           ],
@@ -871,6 +1090,7 @@ const SCOREBOARD: PackTemplate = {
     );
   },
 };
+
 
 /**
  * THE TITLE CARD.

@@ -738,77 +738,232 @@ export const BREAKING: PackTemplate = {
     );
   },
 };
-
-
-// ---------------------------------------------------------------------------
-// Events
-// ---------------------------------------------------------------------------
-
+/**
+ * THE COUNTDOWN.
+ *
+ * ==========================================================================
+ * A FULL-FRAME HOLD, NOT A CLOCK ON A PLATE
+ * ==========================================================================
+ * What was here was a large clock over a caption, on a panel, in the middle of
+ * frame. The clock was the biggest thing in it, which is right, and everything
+ * else about it was a plate — so it read as a widget rather than as the thing a
+ * channel puts up when it has nothing else to show.
+ *
+ * A countdown is the only graphic in the package that is ALONE on air. Nothing is
+ * behind it and nothing is competing with it, so it does not need a plate to
+ * separate it from anything — it needs to look composed at the scale of the whole
+ * frame. That changes every decision:
+ *
+ *   THE FIGURES  Set at 320, by a distance the largest thing in the package —
+ *                more than three times the lower third's name and nearly twice
+ *                the title card's title. Rule 6 taken to its limit: this graphic
+ *                is a number and admits it.
+ *
+ *   TABULAR      02:14 becomes 02:13 becomes 02:12, once a second, forever. With
+ *                proportional figures the whole graphic would twitch on every
+ *                tick — a 1 is 284 units wide against a 4 at 484 in the faces
+ *                that were rejected. At 320 that difference is over sixty pixels
+ *                of jump. This is the graphic the display face was chosen for.
+ *
+ *   CENTRED      Optically centred, and slightly above the frame's middle: a
+ *                block of type with a caption under it balances high, because the
+ *                caption and the space beneath it read as part of the mass.
+ *
+ *   THE FLAGS    A status flag above the clock and a caption below it, both
+ *                centred, both tiny against the figures. The whole hierarchy is
+ *                one enormous element and two labels — no third level, because a
+ *                third level would be something to read while waiting, and there
+ *                is nothing to read.
+ *
+ *   THE VEIL     A full-frame wash rather than a panel, so a station ident or a
+ *                studio shot behind it stays visible. Nothing here is furniture
+ *                over a picture; it IS the picture, dimmed.
+ */
 export const COUNTDOWN: PackTemplate = {
   id: "tpl_countdown",
   name: "Countdown",
-  description: "A large clock over a caption. For pre-show holds and breaks.",
+  description: "A held clock at frame scale, with its status and its caption.",
   build: (ids, token, now) => {
+    const holderId = ids("node");
     let order: string | null = null;
     const next = (): string => (order = nextOrder(order));
 
-    const accent = token("color.primary", "#2f6feb");
-    const ink = token("color.ink", "#f2f5fb");
-    const muted = token("color.muted", "#8a93a6");
+    const surface = token("color.surface", PALETTE.surface);
+    const accent = token("color.primary", PALETTE.primary);
+    const ink = token("color.ink", PALETTE.ink);
+    const muted = token("color.muted", PALETTE.muted);
+    const onAccent = token("color.onAccent", PALETTE.onAccent);
 
-    const holderId = ids("node");
-    const caption = label(
-      ids, "Caption", next(), { $var: "caption" }, muted, 40,
-      { width: 10 }, [-5, 1.6, 0.02], { align: "center" },
-    );
-    const clock = label(
-      ids, "Clock", next(), { $var: "clock" }, ink, 190,
-      { width: 10 }, [-5, -0.1, 0.02], { align: "center" },
-    );
-    const rule = bar(ids, "Rule", next(), 4.4, 0.05, accent, [0, -1.9, 0.01]);
+    // Balanced high: the caption and the air beneath it belong to the mass, so a
+    // clock on the geometric centre line reads as sitting low.
+    const clockY = 0.35;
 
-    const holder = group(holderId, next(), {
-      size: { width: 10, height: 4.6 },
-      children: [caption, clock, rule],
+    const veil = plane(
+      ids,
+      "Veil",
+      next(),
+      17.9,
+      10.1,
+      surface,
+      [0, 0, 0],
+      veilSpec(PALETTE.surface, 10.1, { width: 17.9, height: 10.1 }),
+      { id: "veil", from: PALETTE.surface },
+    );
+
+    // The status flag, above the clock and centred on it.
+    const flagW = 2.9;
+    const flagH = 0.52;
+    const statusFlag = plane(
+      ids,
+      "Status Flag",
+      next(),
+      flagW,
+      flagH,
+      accent,
+      [0, clockY + 1.72, 0.01],
+      flagSpec(PALETTE.primary),
+      { id: "flag", from: PALETTE.primary },
+    );
+    const status = type_(ids, "Status", next(), { $var: "status" }, {
+      face: FACE.display,
+      size: 34,
+      colour: onAccent,
+      box: { width: flagW - sp(28) },
+      align: "center",
+      at: [-flagW / 2 + sp(14), clockY + 1.72, 0.02],
     });
 
+    // 320. The box is wide enough for HH:MM:SS as well as MM:SS, so a two-hour
+    // pre-show hold and a two-minute break are the same graphic.
+    const clock = type_(ids, "Clock", next(), { $var: "clock" }, {
+      face: FACE.display,
+      size: 320,
+      colour: ink,
+      box: { width: 13.0 },
+      align: "center",
+      // A high shrink floor: this is the one slot where shrinking is worse than
+      // any alternative, because the figures ARE the graphic. HH:MM:SS at 320
+      // fits, so nothing a clock can hold should ever reach the floor.
+      floor: 0.85,
+      at: [-6.5, clockY, 0.02],
+    });
+
+    const under = plane(
+      ids,
+      "Rule",
+      next(),
+      3.4,
+      sp(3),
+      ink,
+      [0, clockY - 1.72, 0.02],
+      // Centred, so it fades symmetrically rather than dying off to one side the
+      // way a strap's rule does.
+      {
+        gradient: {
+          kind: "linear",
+          angle: 0,
+          stops: [
+            { at: 0, color: PALETTE.ink, opacity: 0 },
+            { at: 0.5, color: PALETTE.ink, opacity: 0.5 },
+            { at: 1, color: PALETTE.ink, opacity: 0 },
+          ],
+        },
+      },
+    );
+
+    const caption = type_(ids, "Caption", next(), { $var: "caption" }, {
+      face: FACE.text,
+      size: SIZE.lead,
+      colour: muted,
+      box: { width: 9.0 },
+      align: "center",
+      at: [-4.5, clockY - 2.2, 0.02],
+    });
+
+    const holder = group(holderId, next(), {
+      position: [0, 0, 0],
+      size: { width: 17.9, height: 10.1 },
+      children: [veil, statusFlag, status, clock, under, caption],
+    });
+
+    const root: SceneNode = {
+      id: ids("node"),
+      name: "Countdown",
+      order: generateKeyBetween(null, null),
+      transform: IDENTITY_TRANSFORM,
+      size: { width: 17.78, height: 10 },
+      children: [camera(ids, nextOrder(null)), { ...holder, name: "Countdown" }],
+    };
+
     return document_(
-      ids, "Countdown", now, stage(ids, "Countdown", { ...holder, name: "Countdown" }),
+      ids,
+      "Countdown",
+      now,
+      root,
       [
-        variable(ids("variable"), "caption", "Caption", "COVERAGE BEGINS IN"),
-        variable(ids("variable"), "clock", "Clock", "05:00"),
+        variable(ids("variable"), "status", "Status", "STARTING SOON"),
+        variable(ids("variable"), "clock", "Clock", "02:14"),
+        variable(ids("variable"), "caption", "Caption", "Match Day · Liverpool v Arsenal"),
       ],
       [
         {
+          // THE VEIL RISES AND THE FIGURES DO NOT MOVE.
+          //
+          // At 320 the clock cannot travel: type this large moving even a tenth of
+          // the frame reads as a transition between two graphics rather than as
+          // one arriving. So the wash comes up, the status flag wipes open, and
+          // the number is simply there — which is also how a countdown behaves,
+          // since it is on screen long before anybody looks at it.
           id: ids("timeline"),
           name: "In",
-          duration: 0.7,
+          duration: 0.9,
           tracks: [
-            // Scaled from just under 1 rather than from 0: a clock that grows
-            // from nothing reads as a logo sting. This reads as a settle.
             {
-              target: clock.id,
-              path: "transform.scale.0",
-              keyframes: [
-                { time: 0, value: 0.88, easing: "easeOutCubic" },
-                { time: 0.55, value: 1 },
-              ],
-            },
-            {
-              target: clock.id,
+              target: veil.id,
               path: "transform.scale.1",
               keyframes: [
-                { time: 0, value: 0.88, easing: "easeOutCubic" },
-                { time: 0.55, value: 1 },
+                { time: 0, value: 0, easing: "easeOutCubic" },
+                { time: 0.52, value: 1 },
               ],
             },
             {
-              target: rule.id,
+              target: veil.id,
+              path: "transform.position.1",
+              keyframes: [
+                { time: 0, value: -5.05, easing: "easeOutCubic" },
+                { time: 0.52, value: 0 },
+              ],
+            },
+            {
+              target: statusFlag.id,
               path: "transform.scale.0",
-              delay: 0.15,
+              delay: 0.34,
               keyframes: [
                 { time: 0, value: 0, easing: "easeOutCubic" },
-                { time: 0.5, value: 1 },
+                { time: 0.34, value: 1 },
+              ],
+            },
+          ],
+        },
+        {
+          id: ids("timeline"),
+          name: "Out",
+          duration: 0.5,
+          tracks: [
+            {
+              target: veil.id,
+              path: "transform.scale.1",
+              keyframes: [
+                { time: 0, value: 1, easing: "easeInCubic" },
+                { time: 0.5, value: 0 },
+              ],
+            },
+            {
+              target: veil.id,
+              path: "transform.position.1",
+              keyframes: [
+                { time: 0, value: 0, easing: "easeInCubic" },
+                { time: 0.5, value: -5.05 },
               ],
             },
           ],
@@ -817,6 +972,7 @@ export const COUNTDOWN: PackTemplate = {
     );
   },
 };
+
 // ---------------------------------------------------------------------------
 // Sport and esports
 // ---------------------------------------------------------------------------
