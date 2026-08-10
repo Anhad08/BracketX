@@ -31,6 +31,7 @@ import { testIdFactory } from "./studio/ids";
 import { STUDIO_FONTS } from "./studio/fonts";
 import { instantiateTemplate, templateById } from "./studio/packs";
 import { colourTokens, setToken } from "./studio/library";
+import { paintableIds, repaint } from "./studio/paints";
 
 const FONT = fileURLToPath(
   new URL("../../../packages/engine-text/fixtures/fonts/inter-latin-400.ttf", import.meta.url),
@@ -62,16 +63,42 @@ function open(document: SceneDocument): Rig {
   return { backend, studio };
 }
 
+interface Repainted {
+  /** Flat material colours the backend was told to paint, as "kind:r,g,b". */
+  readonly colours: readonly string[];
+  /** Paint textures uploaded. A textured plate changes colour THIS way. */
+  readonly textures: number;
+}
+
 /**
- * Rewrites one named colour, through exactly the path a swatch uses, and
- * reports the COLOURS the backend was actually told to paint.
+ * Rewrites one named colour, through exactly the path a swatch uses, and reports
+ * what the backend was actually told to draw.
  *
- * Counting `writes` was not enough and nearly hid this: a repaint shares its
- * projection with world matrices, visibility and layer masks, so a node that
- * moved for any reason at all makes the number go up. The first version of
- * this test passed against a renderer that never changed a single colour.
+ * ============================================================================
+ * WHY THIS NOW APPLIES A REPAINT TOO, AND WHY THAT IS NOT A WEAKENING
+ * ============================================================================
+ * It said "exactly the path a swatch uses" and had stopped being true. The
+ * swatch merges TWO things into one transaction — `setToken` and `repaint` —
+ * because a look is derived from its colour, so moving the colour has to rebuild
+ * the gradients that describe it. This drove only the first half, which made it
+ * a test of the document layer wearing a renderer's clothes.
+ *
+ * ============================================================================
+ * AND WHY IT COUNTS TEXTURES AS WELL AS COLOURS
+ * ============================================================================
+ * Counting `writes` was not enough and nearly hid the original defect: a
+ * projection shares its pass with world matrices, visibility and layer masks, so
+ * a node that moved for any reason makes the number go up. Hence colours, by
+ * kind, not counts.
+ *
+ * But a plate with a GRADIENT does not have a flat colour at all — its pixels
+ * live in a rasterised paint texture, and a recolour reaches the picture by
+ * uploading a new one. Watching `updateMaterial` alone therefore saw nothing
+ * when the lower third gained its scrim, and reported a working recolour as a
+ * broken one. Both routes are watched because the product legitimately has both:
+ * text carries a colour, painted furniture carries a texture.
  */
-function recolour(rig: Rig, name: string, value: string): string[] {
+function recolour(rig: Rig, name: string, value: string): Repainted {
   const token = colourTokens(rig.studio.document).find((entry) => entry.name === name);
   expect(token, `the template must declare ${name}`).toBeDefined();
   const change = setToken(rig.studio.document, { ...token!, value });
@@ -81,28 +108,43 @@ function recolour(rig: Rig, name: string, value: string): string[] {
   // They are the same object today; reaching for it through the projector says
   // so, and means a future host that wraps or swaps the backend cannot make
   // this test quietly stop watching anything.
-  const painted: string[] = [];
+  // The rebuild half of the swatch, against the value being written — the token
+  // has not been applied yet, so the override is how `repaint` learns it.
+  const rebuild = repaint(rig.studio.document, paintableIds(rig.studio.document), {
+    name,
+    value,
+  });
+
+  const colours: string[] = [];
+  let textures = 0;
   const projector = rig.studio.host.reconciler.projector as unknown as {
     backend: Record<string, (...args: never[]) => unknown>;
   };
-  const original = projector.backend.updateMaterial!.bind(projector.backend);
+  const material = projector.backend.updateMaterial!.bind(projector.backend);
+  const texture = projector.backend.createTexture!.bind(projector.backend);
   projector.backend.updateMaterial = ((...args: never[]) => {
     const descriptor = args[1] as unknown as { kind?: string; color?: readonly number[] };
     if (Array.isArray(descriptor?.color)) {
-      painted.push(
+      colours.push(
         `${descriptor.kind}:${descriptor.color
           .slice(0, 3)
           .map((channel) => Math.round(channel * 255))
           .join(",")}`,
       );
     }
-    return original(...args);
+    return material(...args);
+  }) as never;
+  projector.backend.createTexture = ((...args: never[]) => {
+    textures += 1;
+    return texture(...args);
   }) as never;
 
   rig.studio.store.apply(change);
+  if (rebuild !== null) rig.studio.store.apply(rebuild);
   rig.studio.render();
-  projector.backend.updateMaterial = original as never;
-  return painted;
+  projector.backend.updateMaterial = material as never;
+  projector.backend.createTexture = texture as never;
+  return { colours, textures };
 }
 
 describe("changing a brand colour", () => {
@@ -138,7 +180,10 @@ describe("changing a brand colour", () => {
     // the hex a person typed fails against a renderer doing exactly the right
     // thing. That mistake cost this file two rounds of "confirmed defect".
     const painted = recolour(rig, "color.primary", "#12f0a0");
-    expect(painted, "a rect must be repainted").not.toEqual([]);
+    // The accent tab is a PAINTED plate now, so the new colour reaches the
+    // picture as a freshly rasterised texture rather than as a material colour.
+    // Asserting the old way here would report a working recolour as broken.
+    expect(painted.textures, "the plate's paint must be rebuilt").toBeGreaterThan(0);
     rig.studio.dispose();
   });
 
@@ -152,7 +197,7 @@ describe("changing a brand colour", () => {
     const rig = open(lowerThird());
     const painted = recolour(rig, "color.ink", "#ff2d55");
     expect(
-      painted.filter((entry) => entry.startsWith("msdf-text")),
+      painted.colours.filter((entry) => entry.startsWith("msdf-text")),
       "the text material must be told the new colour",
     ).not.toEqual([]);
     rig.studio.dispose();

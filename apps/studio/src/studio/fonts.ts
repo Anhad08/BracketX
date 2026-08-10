@@ -68,8 +68,49 @@ export interface StudioFont {
   readonly deferred?: boolean;
 }
 
+/**
+ * ============================================================================
+ * THE BROADCAST FACES, AND WHY THERE ARE NOW MORE THAN ONE
+ * ============================================================================
+ * Until this change Studio shipped exactly ONE Latin face: Inter Regular. Every
+ * shipped graphic — name, role, score, clock, kicker — was drawn in the same
+ * weight at different sizes, and that is the whole reason they read as UI rather
+ * than as broadcast. Weight and width contrast is the primary tool of broadcast
+ * typography; size alone gives you a heading and a subheading.
+ *
+ * The engine has no `letterSpacing`, no `textTransform` and no OpenType feature
+ * selection, so the tools that remain are FACE, SIZE, CASE, COLOUR and
+ * COMPOSITION. Three of those five are chosen by picking the right file, which
+ * makes the font set a design decision rather than an asset-loading detail.
+ *
+ * TABULAR FIGURES DECIDED THE DISPLAY FACE. A clock counting 02:14 → 02:11 must
+ * not change width, and a score must not shift when it ticks. Without `tnum`
+ * the figures have to be tabular BY DEFAULT, and they usually are not: measured
+ * from the files, Barlow Condensed sets "1" at 284 against "4" at 484, Saira
+ * Condensed 310 against 469, Inter 833 against 1323. Bebas Neue sets every digit
+ * at 400. That is why it is here and the alternatives are not.
+ *
+ * Bebas is caps-only — its lowercase codepoints carry cap forms at identical
+ * advances — which is not a limitation for the role it holds. Broadcast names,
+ * scores, kickers and clocks are set in caps. It also means CASE can be a design
+ * tool without a `textTransform` the engine does not have: caps come from the
+ * face, and mixed case comes from choosing Barlow instead.
+ *
+ * Volume One G1 names the typeface as the Design OS's largest open gap —
+ * "needs commissioning, not designing" — and that gap is about the INTERFACE
+ * face. These are for the graphics that go to air. Both are OFL; the licences
+ * ship beside the files.
+ */
 export const STUDIO_FONTS: readonly StudioFont[] = [
   { assetId: "ast_studio_ui", label: "Inter", url: "/fonts/inter-latin-400.ttf", scripts: ["Latin"] },
+  // Display and numerals. Caps-only, condensed, and the only face in the set
+  // whose digits are all one width.
+  { assetId: "ast_display", label: "Bebas Neue", url: "/fonts/bebas-neue-400.ttf", scripts: ["Latin"] },
+  // Headlines and anything that needs mixed case in a hurry.
+  { assetId: "ast_headline", label: "Barlow Condensed Bold", url: "/fonts/barlow-condensed-700.ttf", scripts: ["Latin"] },
+  { assetId: "ast_kicker", label: "Barlow Condensed Medium", url: "/fonts/barlow-condensed-500.ttf", scripts: ["Latin"] },
+  // Sentence text: roles, context, sponsor lines.
+  { assetId: "ast_text", label: "Barlow Medium", url: "/fonts/barlow-500.ttf", scripts: ["Latin"] },
   { assetId: "ast_noto_arabic", label: "Noto Sans Arabic", url: "/fonts/noto-arabic-400.ttf", scripts: ["Arabic"], rtl: true },
   { assetId: "ast_noto_hebrew", label: "Noto Sans Hebrew", url: "/fonts/noto-hebrew-400.ttf", scripts: ["Hebrew"], rtl: true },
   { assetId: "ast_noto_devanagari", label: "Noto Sans Devanagari", url: "/fonts/noto-devanagari-400.ttf", scripts: ["Devanagari"] },

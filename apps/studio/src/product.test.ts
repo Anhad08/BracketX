@@ -350,7 +350,7 @@ describe("templates", () => {
       document_.tokens?.find((token) => token.name === "color.primary")?.value;
     expect(primaryOf(withMidnight)).toBe("#2f6feb");
     expect(primaryOf(withRed)).toBe("#d7263d");
-    expect(withRed.tokens).toHaveLength(4);
+    expect(withRed.tokens).toHaveLength(5);
   });
 
   it("declare the fonts and pre-warm they need", () => {
@@ -421,7 +421,7 @@ describe("themes", () => {
 
     expect(studio.store.depth).toBe(depth + 1);
     expect(txn.operations).toHaveLength(1);
-    expect(colourTokens(studio.document)).toHaveLength(4);
+    expect(colourTokens(studio.document)).toHaveLength(5);
 
     studio.store.undo();
     expect(colourTokens(studio.document)).toHaveLength(0);

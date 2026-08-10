@@ -53,6 +53,7 @@ import {
 import { parseSrgb } from "@bracketx/engine-reconciler";
 
 import { transaction } from "./editing";
+import { flagSpec, scrimSpec } from "./broadcast";
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -100,7 +101,18 @@ export interface Paint {
   readonly label: string;
   /** One line, shown under the picker. Says what it looks like. */
   readonly hint: string;
-  readonly build: (fill: string, shorterSide: number) => PaintSpecDoc | undefined;
+  /**
+   * `box` is the rect's full size, and it arrives because two of the looks below
+   * cannot be built without it. A scrim has to know WHICH WAY to dissolve, and
+   * that follows from the shape: a strap fades along its length, a column fades
+   * up. `shorterSide` stays because every distance in a paint is in world units
+   * and a radius that reads on a 9-unit strap is a pill on a 0.2-unit chip.
+   */
+  readonly build: (
+    fill: string,
+    shorterSide: number,
+    box: { readonly width: number; readonly height: number },
+  ) => PaintSpecDoc | undefined;
 }
 
 /** Corner radius as a fraction of the shorter side, so presets scale. */
@@ -116,6 +128,23 @@ export const PAINTS: readonly Paint[] = [
     // the cheap flat-fill path with no texture uploaded at all. Flat must cost
     // nothing, or "no effect" becomes the most expensive option.
     build: () => undefined,
+  },
+  {
+    // Straight after Flat, which stays first because "no paint at all" is the
+    // baseline every other look is read against. This is the family's default
+    // and the one that makes a graphic look like broadcast rather than like an
+    // interface; the shipped templates are built from this exact function, so a
+    // theme recolour rebuilds them. See `scrimSpec`.
+    id: "scrim",
+    label: "Scrim",
+    hint: "Dissolves into the picture instead of ending at an edge.",
+    build: (fill, side, box) => scrimSpec(fill, side, box),
+  },
+  {
+    id: "flag",
+    label: "Flag",
+    hint: "A solid accent block, square and lit from one side.",
+    build: (fill) => flagSpec(fill),
   },
   {
     id: "soft",
@@ -332,6 +361,7 @@ interface RectFacts {
   readonly index: number;
   readonly fill: string;
   readonly shorterSide: number;
+  readonly box: { readonly width: number; readonly height: number };
   readonly styleId: string | null;
   /**
    * The fill the stored paint was BUILT from, when it recorded one.
@@ -374,6 +404,7 @@ function rectFactsOf(
       index,
       fill,
       shorterSide: Math.max(0.02, Math.min(width, height)),
+      box: { width, height },
       styleId: typeof props.paintStyle === "string" ? props.paintStyle : null,
       builtFrom: typeof props.paintFrom === "string" ? props.paintFrom : null,
     };
@@ -416,7 +447,7 @@ export function paintOf(document: SceneDocument, nodeId: string): Paint | null {
   // Compared against the colour the paint was BUILT from. A paint left stale by
   // a recolour is still Soft — it is Soft and out of date, which `repaint`
   // fixes. Comparing against the current fill would report it as hand-edited.
-  const expected = claimed.build(facts.builtFrom ?? facts.fill, facts.shorterSide);
+  const expected = claimed.build(facts.builtFrom ?? facts.fill, facts.shorterSide, facts.box);
   return sameShape(props.paint, expected) ? claimed : null;
 }
 
@@ -529,7 +560,7 @@ export function applyPaint(
     const facts = rectFactsOf(document, node);
     if (facts === null) return [];
 
-    const built = paint.build(facts.fill, facts.shorterSide);
+    const built = paint.build(facts.fill, facts.shorterSide, facts.box);
     const prefix = `components.${facts.index}.props`;
     return [
       // Undefined REMOVES the prop, which is what puts a Flat rect back on the
@@ -586,14 +617,14 @@ export function repaint(
     // HAND-EDITED: the stored paint no longer matches what this look built from
     // the colour it recorded. Rebuilding would discard the edit, so it is left
     // exactly as it is and `paintOf` already reports no look selected.
-    if (!sameShape(props.paint, paint.build(source, facts.shorterSide))) return [];
+    if (!sameShape(props.paint, paint.build(source, facts.shorterSide, facts.box))) return [];
 
     // Already current.
     if (source === facts.fill) return [];
 
     const prefix = `components.${facts.index}.props`;
     return [
-      makeSetProp(document, id, `${prefix}.paint`, paint.build(facts.fill, facts.shorterSide)),
+      makeSetProp(document, id, `${prefix}.paint`, paint.build(facts.fill, facts.shorterSide, facts.box)),
       makeSetProp(document, id, `${prefix}.paintFrom`, facts.fill),
     ] satisfies SceneOperation[];
   });

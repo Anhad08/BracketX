@@ -64,16 +64,24 @@ import {
   SPONSOR,
   TICKER,
 } from "./essentials";
+import {
+  FACE,
+  PALETTE,
+  SIZE,
+  STAGE_PPU,
+  col,
+  flagSpec,
+  grounded,
+  plane,
+  rule,
+  scrimSpec,
+  sp,
+  type_,
+} from "./broadcast";
 import type { IdFactory } from "./ids";
 
-/**
- * Design pixels per world unit for every graphic in this file.
- *
- * The stage is 17.78 x 10 units and outputs 1920 x 1080, so 108 px/unit makes
- * a design pixel an output pixel exactly. Type sizes below are therefore what
- * a designer would type into any other tool — 56, not 0.52.
- */
-export const STAGE_PPU = 108;
+// Re-exported: the constant now lives with the design language that uses it.
+export { STAGE_PPU };
 
 
 export type PackKind = "theme" | "motion" | "graphics";
@@ -470,97 +478,228 @@ export function variable(
 // ---------------------------------------------------------------------------
 
 /**
- * A lower third. The graphic this whole product is measured against.
+ * THE LOWER THIRD.
  *
- * Two lines of text over an accent bar, entering from the left and leaving the
- * same way. Every colour is a design token, so applying a theme pack restyles
- * it without touching the layout; every string is a variable, so a data feed
- * or an operator drives it without touching the document.
+ * ==========================================================================
+ * THE COMPOSITION, AND WHAT IT REPLACED
+ * ==========================================================================
+ * What was here: one rounded rectangle 9.4 x 1.9, a 0.2-wide vertical stripe
+ * near its left edge, a name at 60 and a role at 26, both in Inter Regular, and
+ * a logo floating at the right end. Every criticism of it is structural rather
+ * than parametric — it is a card with two lines of text in it, and no adjustment
+ * to the radius, the stripe or the sizes changes that.
+ *
+ * What it is now, and why each part exists:
+ *
+ *   THE TAB      A solid accent block, full height of the assembly, holding the
+ *                brand mark. It is the identity, it anchors the composition at
+ *                the left, and it gives the name something to start against.
+ *                Rule 3 — a flag with a job, not a stripe.
+ *
+ *   THE STEP     Two bands of DIFFERENT HEIGHT AND DIFFERENT WIDTH, the lower
+ *                one about half the upper's height and half its length. That
+ *                step is the silhouette: it reads as a lower third from across
+ *                the room, before a word of it is legible, which is the actual
+ *                test a broadcast graphic has to pass.
+ *
+ *   THE SCRIM    Both bands dissolve to nothing before the right edge of frame.
+ *                Rule 1. There is no far edge to read, so the graphic sits IN
+ *                the picture instead of on top of it — and the name gets the
+ *                full contrast it needs without a box being drawn around it.
+ *
+ *   THE LIGHT    A four-pixel accent rule along the top of the name band,
+ *                fading out with the scrim. It ties the tab's colour into the
+ *                whole width and gives the flat top edge somewhere to end.
+ *
+ *   THE TYPE     Name in Bebas at 88 — caps, condensed, and 2.6x the role. Role
+ *                in Barlow Medium at 34, mixed case, in muted ink. Rule 5: the
+ *                caps/lowercase contrast comes from the FACE, so it is real
+ *                rather than a `textTransform` the engine would have dropped.
+ *
+ * ==========================================================================
+ * WHY THE CONDENSED FACE FIXED THE LONG-NAME PROBLEM
+ * ==========================================================================
+ * The old strap set the name at 60 rather than 68 because at 68 a long name
+ * VANISHED: `shrink` floors at a fraction of the authored size, so a large
+ * authored size raises the floor it cannot go under, and the layout gave up.
+ * The name is now set LARGER, at 88, and a long name still fits — because Bebas
+ * Condensed averages about 0.42 em per capital against Inter's 0.6. Measured on
+ * the real worst case: "KONSTANTINOS PAPADOPOULOS" is 25 characters, so about
+ * 925 px at 88, inside a 9.2-unit box that holds 993. It sets at full size with
+ * room to spare, and the shrink floor is never reached at all.
+ *
+ * Choosing the right face bought two whole steps of hierarchy that no amount of
+ * adjusting numbers could.
  */
 const LOWER_THIRD: PackTemplate = {
   id: "tpl_lower_third",
   name: "Lower Third",
-  description: "Name and role, over an accent bar. Slides in from the left.",
+  description: "A name, a role and a brand tab. Steps in from the left.",
   build: (ids, token, now) => {
     const rootId = ids("node");
     const holderId = ids("node");
     let order: string | null = null;
     const next = (): string => (order = nextOrder(order));
 
-    const surface = token("color.surface", "#101319");
-    const accent = token("color.primary", "#2f6feb");
-    const ink = token("color.ink", "#f2f5fb");
-    const muted = token("color.muted", "#8a93a6");
+    const surface = token("color.surface", PALETTE.surface);
+    const surfaceLift = token("color.surfaceLift", PALETTE.surfaceLift);
+    const accent = token("color.primary", PALETTE.primary);
+    const ink = token("color.ink", PALETTE.ink);
+    const muted = token("color.muted", PALETTE.muted);
 
     // ====================================================================
-    // COMPOSITION: THE NAME IS THE GRAPHIC
+    // THE GRID
     // ====================================================================
-    // What changed and why, because "it looks better" is not a reason:
-    //
-    // NAME 56 -> 60, ROLE 32 -> 26. The old pair was 1.75:1, which reads as
-    // "heading and subheading" — a UI relationship. Broadcast straps run
-    // nearer 2.5:1, because the name has to be legible at a glance on a
-    // moving picture and the role only has to be legible if you look for it.
-    //
-    // ROLE READS AS A CAPTION, and the mechanism matters. The first attempt
-    // passed `letterSpacing` and `transform: "uppercase"` to the text component.
-    // TextComponent has NEITHER — content, font, color, align, verticalAlign,
-    // lineHeight, maxWidth, maxLines, fit, and nothing else — so both would have
-    // been silently dropped. A prop the engine ignores is a fake capability.
-    //
-    // So the caps come from the DEFAULT CONTENT, which an author genuinely wrote
-    // ("TEAM CAPTAIN"), and the separation comes from size and colour. Tracking
-    // is a real gap: broadcast captions are spaced, and the text engine cannot
-    // space them. Recorded rather than faked.
-    //
-    // TEXT INDENTS FROM THE MARK. Both lines used to begin 0.28 units after
-    // the accent bar, which is closer than the bar is wide — the strap read as
-    // one crowded block. 0.62 gives the bar its own column.
-    //
-    // THE ACCENT GROWS 0.14 -> 0.2 AND STOPS SHORT of the plate's full height.
-    // Wider so it registers as a deliberate mark rather than a hairline; inset
-    // so it reads as a mark ON the plate instead of a seam splitting it in two.
-    // It identifies the package. It does not compete with the name.
-    //
-    // THE MARK MOVES IN from x 3.9 to 3.62: at 1.4 wide it previously ran to
-    // 4.6 against a plate edge at 4.7, which is a tenth of a unit of air.
-    const backdrop = bar(ids, "Background", next(), 9.4, 1.9, surface, [0, 0, 0], PLATE.panel(surface, 1.9));
-    const accentBar = bar(ids, "Accent Bar", next(), 0.2, 1.34, accent, [-4.5, 0, 0.01]);
-    // The mark sits inside the bar's right edge, in a square box so `contain`
-    // has room to letterbox whatever aspect the user brings.
-    const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 1.3, height: 1.3 }, [3.62, 0, 0.02]);
-    const name = label(
+    // Every number below is derived from five: where the assembly starts, how
+    // wide the tab is, how tall each band is, and where the floor sits. Nothing
+    // is nudged. That is what makes this graphic and the other seven look like
+    // one package — they are all measured from `col()` and `sp()` rather than
+    // from each other.
+    const x0 = col(1); // one column inside title-safe
+    const tabW = 1.36;
+    const bandH = sp(120); // the name band
+    const subH = sp(58); // the role shelf, near half
+    const floorY = -3.62; // the assembly's baseline
+    const seamY = floorY + subH; // where the step happens
+    const topY = seamY + bandH;
+    const bodyX = x0 + tabW; // both bands start at the tab's edge
+    const textX = bodyX + sp(34); // and the type insets from there
+
+    // The name band. 11.2 wide and gone by 88% of it, so the dissolve happens
+    // inside the frame rather than at its edge — which is the point.
+    const backdrop = plane(
       ids,
-      "Name",
+      "Background",
       next(),
-      { $var: "name" },
+      10.6,
+      bandH,
+      surface,
+      [bodyX + 5.3, seamY + bandH / 2, 0],
+      // NO SHADOW ON A SCRIM, and the first render is why. A drop shadow is a
+      // blur of the rect's SILHOUETTE, and a scrim's silhouette is the whole
+      // rectangle including the part that has already faded to nothing — so the
+      // band cast a hard-edged blurry ghost of itself across the picture, well
+      // past where the plate was visible. A dissolving edge has nothing to cast
+      // a shadow. Depth comes from the tab, which is solid and does.
+      scrimSpec(PALETTE.surface, bandH, { width: 10.6, height: bandH }),
+      { id: "scrim", from: PALETTE.surface },
+    );
+
+    // The role band: shorter, narrower, darker, and dissolving sooner. Three
+    // differences rather than one, so it subordinates without needing a rule
+    // drawn between them.
+    const subBand = plane(
+      ids,
+      "Role Band",
+      next(),
+      5.9,
+      subH,
+      surfaceLift,
+      [bodyX + 2.95, floorY + subH / 2, 0],
+      // SOLID, where the band above it dissolves — and that contrast is the
+      // point rather than an inconsistency. A shelf is small furniture carrying
+      // two pieces of type at BOTH its ends, so it needs backing all the way
+      // across; a scrim would have faded out under the context slot and left it
+      // floating. It also gives the silhouette a hard step to read, which a wash
+      // cannot. Big furniture dissolves, small furniture is cut.
+      flagSpec(PALETTE.surfaceLift),
+      { id: "flag", from: PALETTE.surfaceLift },
+    );
+
+    // The tab. Full height of both bands, so it reads as the thing the strap is
+    // hinged on. Named "Accent Bar" because that is what every test, preset and
+    // saved document already calls it.
+    const accentBar = plane(
+      ids,
+      "Accent Bar",
+      next(),
+      tabW,
+      // OVERSHOOTING THE BAND by a few pixels, so the tab reads as a post the
+      // bands hang from rather than as the third rectangle in a row of three.
+      // The whole composition is horizontal; this is the one mark that is not.
+      bandH + subH + sp(14),
+      accent,
+      [x0 + tabW / 2, (floorY + topY) / 2 + sp(7), 0.01],
+      flagSpec(PALETTE.primary),
+      { id: "flag", from: PALETTE.primary },
+    );
+
+    // The light line along the top of the name band, fading with the scrim.
+    const light = plane(
+      ids,
+      "Accent Rule",
+      next(),
+      8.4,
+      sp(4),
+      accent,
+      [bodyX + 4.2, topY - sp(2), 0.02],
+      rule(PALETTE.primary, 0.95),
+    );
+
+    // RULE 4 — the seam. A hairline where the step happens, so the two orders of
+    // information are separated even where the shelf's lift is too subtle to see
+    // it over a bright picture. It spans the SHELF, not the band, because that is
+    // the edge it belongs to.
+    const seam = plane(
+      ids,
+      "Seam",
+      next(),
+      5.9,
+      sp(2),
       ink,
-      // 60, not 68. At 68 in a 7.5-unit box a long name DISAPPEARED — verified
-      // with "KONSTANTINOS PAPADOPOULOS", which rendered nothing while the role
-      // beneath it stayed. `shrink` floors at 55% of the authored size, so a
-      // large authored size raises the floor it cannot go below. A strap that
-      // loses the name on an unusual name is worse than a smaller name.
-      60,
-      // 8.0: enough room that a long name shrinks rather than vanishes, and
-      // still short of the mark at x 3.62 so it never runs underneath it.
-      { width: 8.0 },
-      [-3.9, 0.28, 0.02],
+      [bodyX + 2.95, seamY + sp(1), 0.02],
+      rule(PALETTE.ink, 0.3),
     );
-    const role = label(
-      ids,
-      "Role",
-      next(),
-      { $var: "role" },
-      muted,
-      26,
-      { width: 7.5 },
-      [-3.88, -0.44, 0.02],
-    );
+
+    const mark = logo(ids, "Logo", next(), { $var: "logo" }, { width: 0.82, height: 0.82 }, [
+      x0 + tabW / 2,
+      (floorY + topY) / 2,
+      0.03,
+    ]);
+
+    const name = type_(ids, "Name", next(), { $var: "name" }, {
+      face: FACE.display,
+      size: 100,
+      colour: ink,
+      box: { width: 8.2 },
+      // Left edge and optical centre. Nudged up by a hair because Bebas has no
+      // descenders to balance its caps, so a mathematically centred line of it
+      // sits visibly low in a band.
+      at: [textX, seamY + bandH / 2 + sp(3), 0.02],
+    });
+
+    const role = type_(ids, "Role", next(), { $var: "role" }, {
+      face: FACE.text,
+      size: 32,
+      colour: muted,
+      box: { width: 3.5 },
+      at: [textX, floorY + subH / 2, 0.02],
+    });
+
+    // ANCHORED AT THE RIGHT END OF THE SHELF, and it is there for a compositional
+    // reason as much as an editorial one. A slot with type at both ends reads as
+    // measured; the same slot with type at one end and nothing at the other reads
+    // as unfinished, and that is the difference between air and dead space.
+    //
+    // It sits on the SHELF rather than on the name band because the band's whole
+    // right half is the dissolve — there is nothing opaque out there to anchor
+    // anything against, and putting type over the wash would undo it.
+    const context = type_(ids, "Context", next(), { $var: "context" }, {
+      face: FACE.context,
+      size: 26,
+      colour: muted,
+      box: { width: 2.1 },
+      align: "end",
+      at: [bodyX + 5.9 - 2.1 - sp(26), floorY + subH / 2, 0.02],
+    });
 
     const holder = group(holderId, next(), {
-      position: [0, -3.1, 0],
-      size: { width: 9.4, height: 1.9 },
-      children: [backdrop, accentBar, mark, name, role],
+      position: [0, 0, 0],
+      size: { width: 10.6 + tabW, height: bandH + subH },
+      // In CREATION order, which is also ascending order-key order — the
+      // engine rejects a parent whose children are not sorted, and the array is
+      // the paint order, so the two have to be decided together.
+      children: [backdrop, subBand, accentBar, light, seam, mark, name, role, context],
     });
 
     const root: SceneNode = {
@@ -579,44 +718,59 @@ const LOWER_THIRD: PackTemplate = {
       root,
       [
         variable(ids("variable"), "name", "Name", "ALEX RIVERA"),
-        variable(ids("variable"), "role", "Role", "TEAM CAPTAIN"),
-        // The logo is a variable like any other, so swapping the sponsor is an
-        // operator action on air rather than an edit to the graphic.
-        // Typed `asset`, so the Content surface offers a PICKER of images by
-        // name. Left as a string it rendered the raw id in a text box, which
-        // is the clearest example there is of the engine leaking to a user.
+        // MIXED CASE, because the face has it. The old default shouted "TEAM
+        // CAPTAIN" in caps to fake a caption, which is what you do when every
+        // line is set in the same face and you have no other way to separate
+        // them. Barlow has lowercase; use it.
+        variable(ids("variable"), "role", "Role", "Sports Analyst"),
+        variable(ids("variable"), "context", "Context", "MATCH OF THE DAY"),
         variable(ids("variable"), "logo", "Logo", STUDIO_IMAGES[0]!.assetId, "asset"),
       ],
       [
         {
+          // ============================================================
+          // THE REVEAL: THE STRAP ARRIVES, THEN THE LIGHT RUNS ALONG IT
+          // ============================================================
+          // The assembly comes in from off-frame left — off-frame, so nothing is
+          // ever half-drawn on the way — and settles. Then the accent rule WIPES
+          // open from the tab's edge, which is the one flourish this graphic
+          // gets. A wipe is a scale on one axis with the position compensated to
+          // hold the growing edge still, because a node scales about its centre;
+          // without the second track the line blooms out of its middle and reads
+          // as a zoom.
+          //
+          // Rule 7 applied to motion as well as to depth: one intentional
+          // gesture. Nothing bounces, nothing loops, and nothing about it has to
+          // be noticed for the strap to do its job.
           id: ids("timeline"),
           name: "In",
-          duration: 0.7,
+          duration: 0.9,
           tracks: [
             {
               target: holderId,
               path: "transform.position.0",
               keyframes: [
-                { time: 0, value: -12, easing: "easeOutCubic" },
-                { time: 0.55, value: 0 },
+                { time: 0, value: -14, easing: "easeOutCubic" },
+                { time: 0.52, value: 0 },
               ],
             },
             {
-              target: name.id,
-              path: "transform.position.0",
-              delay: 0.12,
+              target: light.id,
+              path: "transform.scale.0",
+              delay: 0.34,
               keyframes: [
-                { time: 0, value: -6, easing: "easeOutCubic" },
-                { time: 0.45, value: -4.35 },
+                { time: 0, value: 0, easing: "easeOutCubic" },
+                { time: 0.42, value: 1 },
               ],
             },
             {
-              target: role.id,
+              target: light.id,
               path: "transform.position.0",
-              delay: 0.2,
+              delay: 0.34,
               keyframes: [
-                { time: 0, value: -6, easing: "easeOutCubic" },
-                { time: 0.45, value: -4.35 },
+                // Left edge held at `bodyX`: centre = bodyX + scale * width / 2.
+                { time: 0, value: bodyX, easing: "easeOutCubic" },
+                { time: 0.42, value: bodyX + 4.2 },
               ],
             },
           ],
@@ -631,7 +785,7 @@ const LOWER_THIRD: PackTemplate = {
               path: "transform.position.0",
               keyframes: [
                 { time: 0, value: 0, easing: "easeInCubic" },
-                { time: 0.45, value: -12 },
+                { time: 0.45, value: -14 },
               ],
             },
           ],
@@ -830,6 +984,7 @@ export const PACKS: readonly Pack[] = [
     tokens: [
       { name: "color.primary", value: "#2f6feb", description: "Accent and highlights" },
       { name: "color.surface", value: "#101319", description: "Panel and bar fills" },
+      { name: "color.surfaceLift", value: "#1c2029", description: "One level up: sub-bands and row tracks" },
       { name: "color.ink", value: "#f2f5fb", description: "Foreground on surface" },
       { name: "color.muted", value: "#8a93a6", description: "Secondary foreground" },
     ],
@@ -845,6 +1000,7 @@ export const PACKS: readonly Pack[] = [
     tokens: [
       { name: "color.primary", value: "#d7263d", description: "Accent and highlights" },
       { name: "color.surface", value: "#0b0b0d", description: "Panel and bar fills" },
+      { name: "color.surfaceLift", value: "#191a1d", description: "One level up: sub-bands and row tracks" },
       { name: "color.ink", value: "#ffffff", description: "Foreground on surface" },
       { name: "color.muted", value: "#9a9aa2", description: "Secondary foreground" },
     ],
@@ -860,6 +1016,7 @@ export const PACKS: readonly Pack[] = [
     tokens: [
       { name: "color.primary", value: "#0f8a7e", description: "Accent and highlights" },
       { name: "color.surface", value: "#f4f1ec", description: "Panel and bar fills" },
+      { name: "color.surfaceLift", value: "#ffffff", description: "One level up: sub-bands and row tracks" },
       { name: "color.ink", value: "#17191c", description: "Foreground on surface" },
       { name: "color.muted", value: "#5d6068", description: "Secondary foreground" },
     ],

@@ -27,6 +27,7 @@ import {
   paintableIds,
   repaint,
 } from "./studio/paints";
+import { PRESETS } from "./studio/presets";
 
 function rect(
   id: string,
@@ -108,7 +109,7 @@ describe("the looks on offer", () => {
   it("Flat builds no paint at all", () => {
     // Not an empty object: an empty paint would still take the texture path.
     // "No effect" must be the cheapest option, not the most expensive.
-    expect(paintById("flat")!.build("#2f6feb", 1)).toBeUndefined();
+    expect(paintById("flat")!.build("#2f6feb", 1, { width: 1, height: 1 })).toBeUndefined();
     expect(DEFAULT_PAINT.id).toBe("flat");
   });
 
@@ -116,7 +117,7 @@ describe("the looks on offer", () => {
     // The rule that keeps this brand-safe. A look must never introduce a colour
     // the document did not already contain.
     for (const paint of PAINTS) {
-      const built = paint.build("#d7263d", 1);
+      const built = paint.build("#d7263d", 1, { width: 1, height: 1 });
       if (built === undefined) continue;
       const json = JSON.stringify(built);
       // Red-dominant channels throughout. A blue ramp here would mean the
@@ -134,8 +135,8 @@ describe("the looks on offer", () => {
   });
 
   it("scales its distances by the box, so one preset fits a strap and a chip", () => {
-    const strap = paintById("soft")!.build("#2f6feb", 1.9)!;
-    const chip = paintById("soft")!.build("#2f6feb", 0.2)!;
+    const strap = paintById("soft")!.build("#2f6feb", 1.9, { width: 1.9, height: 1.9 })!;
+    const chip = paintById("soft")!.build("#2f6feb", 0.2, { width: 0.2, height: 0.2 })!;
     expect(strap.cornerRadius).toBeGreaterThan(chip.cornerRadius!);
     // And neither is a fully rounded pill by accident.
     expect(strap.cornerRadius).toBeLessThan(1.9 / 2);
@@ -144,7 +145,7 @@ describe("the looks on offer", () => {
   it("builds a glow as the shape's OWN colour, un-offset", () => {
     // A shadow and a glow are one operation; what separates them is the colour
     // and the offset. If this ever gains an offset it has become a shadow.
-    const glow = paintById("glow")!.build("#d7263d", 1)!;
+    const glow = paintById("glow")!.build("#d7263d", 1, { width: 1, height: 1 })!;
     expect(glow.shadow?.color).toBe("#d7263d");
     expect(glow.shadow?.offsetX ?? 0).toBe(0);
     expect(glow.shadow?.offsetY ?? 0).toBe(0);
@@ -152,7 +153,7 @@ describe("the looks on offer", () => {
 
   it("builds glass with an INNER highlight, not an outer one", () => {
     // Outer would read as a glow behind a hole rather than a thickness of glass.
-    expect(paintById("glass")!.build("#2f6feb", 1)!.shadow?.inner).toBe(true);
+    expect(paintById("glass")!.build("#2f6feb", 1, { width: 1, height: 1 })!.shadow?.inner).toBe(true);
   });
 });
 
@@ -369,5 +370,89 @@ describe("recolouring through a token", () => {
     let document = withTokens("#101319", themed("nod_a"));
     document = commit(document, applyPaint(document, ["nod_a"], paintById("soft")!));
     expect(repaint(document, ["nod_a"], { name: "color.primary", value: "#fff" })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wipe reveals — the one remaining animation primitive, without a mask
+// ---------------------------------------------------------------------------
+
+describe("wipe presets", () => {
+  const wipeById = (id: string) => PRESETS.find((preset) => preset.id === id)!;
+
+  function node(): SceneNode {
+    return {
+      id: "nod_a",
+      name: "a",
+      order: "a0",
+      transform: { position: [2, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+      size: { width: 4, height: 1 },
+      components: [{ id: "c", type: "rect", props: { width: 4, height: 1, fill: "#fff" } }],
+    } as unknown as SceneNode;
+  }
+
+  it("is offered in both directions, in and out", () => {
+    for (const id of [
+      "wipe-in-left",
+      "wipe-in-right",
+      "wipe-in-up",
+      "wipe-out-left",
+      "wipe-out-right",
+      "wipe-out-down",
+    ]) {
+      expect(wipeById(id), `${id} is missing`).toBeDefined();
+    }
+  });
+
+  it("grows from zero on ONE axis only", () => {
+    const tracks = wipeById("wipe-in-left").build(node(), 0.5);
+    const paths = tracks.map((t) => t.path);
+    expect(paths).toContain("transform.scale.0");
+    expect(paths).not.toContain("transform.scale.1");
+    const scaleTrack = tracks.find((t) => t.path === "transform.scale.0")!;
+    expect(scaleTrack.keyframes[0]!.value).toBe(0);
+    expect(scaleTrack.keyframes.at(-1)!.value).toBe(1);
+  });
+
+  it("holds the growing EDGE still, not the centre", () => {
+    // The whole point. A node scales about its centre (SCENE_FORMAT §5), so
+    // without this the plate blooms out of the middle and reads as a zoom.
+    // Resting centre 2, width 4 — the left edge is at 0, so a collapsed box must
+    // have its centre at 0.
+    const tracks = wipeById("wipe-in-left").build(node(), 0.5);
+    const move = tracks.find((t) => t.path === "transform.position.0")!;
+    expect(move.keyframes[0]!.value).toBe(0);
+    expect(move.keyframes.at(-1)!.value).toBe(2);
+  });
+
+  it("holds the RIGHT edge for a right wipe", () => {
+    const move = wipeById("wipe-in-right")
+      .build(node(), 0.5)
+      .find((t) => t.path === "transform.position.0")!;
+    expect(move.keyframes[0]!.value).toBe(4);
+  });
+
+  it("runs an exit backwards, ending collapsed", () => {
+    const tracks = wipeById("wipe-out-left").build(node(), 0.5);
+    const scaleTrack = tracks.find((t) => t.path === "transform.scale.0")!;
+    expect(scaleTrack.keyframes[0]!.value).toBe(1);
+    expect(scaleTrack.keyframes.at(-1)!.value).toBe(0);
+  });
+
+  it("composes with a node that is already scaled and offset", () => {
+    const scaled = {
+      ...node(),
+      transform: { position: [5, 0, 0], rotation: [0, 0, 0], scale: [2, 1, 1] },
+    } as unknown as SceneNode;
+    const tracks = wipeById("wipe-in-left").build(scaled, 0.5);
+    // Returns to its own resting scale, not to 1.
+    expect(tracks.find((t) => t.path === "transform.scale.0")!.keyframes.at(-1)!.value).toBe(2);
+    // Extent is 4 * 2 = 8, so the left edge sits 4 left of centre 5.
+    expect(tracks.find((t) => t.path === "transform.position.0")!.keyframes[0]!.value).toBe(1);
+  });
+
+  it("never touches size, so layout and text fit are not reshaped mid-reveal", () => {
+    const paths = wipeById("wipe-in-up").build(node(), 0.5).map((t) => t.path);
+    expect(paths.every((path) => !path.includes("size"))).toBe(true);
   });
 });

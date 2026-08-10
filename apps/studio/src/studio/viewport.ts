@@ -357,65 +357,176 @@ export function nodeBounds(
   document: SceneDocument,
   worldOf: (nodeId: string) => readonly number[] | undefined,
 ): readonly NodeBounds[] {
-  const out: NodeBounds[] = [];
-  const stack: SceneNode[] = [document.root];
+  // Nullable slots, filtered at the end. A parent's entry is RESERVED before
+  // its children are walked, so the emitted order stays "parent, then its
+  // children" — which is what makes `pick`'s last-match-wins hand back the node
+  // drawn on top. A group's box is not known until its children have been
+  // measured, so the slot is written after the recursion that fills it.
+  const slots: (NodeBounds | null)[] = [];
+  walk(document.root, document, worldOf, slots);
+  return slots.filter((entry): entry is NodeBounds => entry !== null);
+}
 
-  while (stack.length > 0) {
-    const node = stack.pop()!;
-    // THE ROOT IS THE DOCUMENT, NOT AN OBJECT IN IT.
-    //
-    // A blank scene's root carries the canvas size, so its box covers every
-    // pixel of the stage. Emitting it made it the thing under the cursor
-    // wherever there was nothing else: clicking empty space selected it, a
-    // marquee anywhere caught it, and the next drag then moved THE WHOLE
-    // SCENE — every graphic, every solid, the lot — while the object the
-    // designer was aiming at stayed exactly where it was.
-    //
-    // Which is precisely how it was reported: "the object won't move, the
-    // whole viewport will". Nothing was wrong with the viewport. The root had
-    // been selected and dragged.
-    //
-    // Its children are still walked; only the root itself is not selectable.
-    if (node.id === document.root.id) {
-      const children = childrenOf(node);
-      for (let index = children.length - 1; index >= 0; index -= 1) {
-        stack.push(children[index]!);
-      }
-      continue;
-    }
-    // Reversed, so `pop` yields siblings in DOCUMENT order. Without this the
-    // stack inverts them and `pick` — which takes the last match as the
-    // topmost — hands back whichever sibling was authored first.
-    const children = childrenOf(node);
-    for (let index = children.length - 1; index >= 0; index -= 1) {
-      stack.push(children[index]!);
-    }
-    if (node.size === undefined) continue;
-    const matrix = worldOf(node.id);
-    if (matrix === undefined) continue;
+/** The min/max extent of a box, in world units. Nothing measured yet is null. */
+interface Extent {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
 
-    // Column-major: 12/13 are the translation, 0/5 the x/y scale.
-    const scaleX = matrix[0] ?? 1;
-    const scaleY = matrix[5] ?? 1;
-    const width = node.size.width * scaleX;
-    const height = node.size.height * scaleY;
-    // WHERE THE BOX SITS is the engine's business, not the editor's. A rect is
-    // centred on its origin and a text block hangs from its top-left corner —
-    // both correct, and different. Assuming one of them made every text
-    // layer's handles, hit area and alignment edges half a box-width from the
-    // words. See `boxAnchorOf`.
-    const offset = boxCentreOffset(node, width, height);
-    out.push({
-      nodeId: node.id,
-      rect: {
-        x: (matrix[12] ?? 0) + offset.x,
-        y: (matrix[13] ?? 0) + offset.y,
-        width,
-        height,
-      },
-    });
+function union(a: Extent | null, b: Extent | null): Extent | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return {
+    minX: Math.min(a.minX, b.minX),
+    maxX: Math.max(a.maxX, b.maxX),
+    minY: Math.min(a.minY, b.minY),
+    maxY: Math.max(a.maxY, b.maxY),
+  };
+}
+
+function rectOf(extent: Extent): Rect {
+  return {
+    x: (extent.minX + extent.maxX) / 2,
+    y: (extent.minY + extent.maxY) / 2,
+    width: extent.maxX - extent.minX,
+    height: extent.maxY - extent.minY,
+  };
+}
+
+/**
+ * Measures one node and its subtree, appending to `slots`.
+ *
+ * Returns the node's world extent so its parent can fall back to it — see the
+ * group case below.
+ */
+function walk(
+  node: SceneNode,
+  document: SceneDocument,
+  worldOf: (nodeId: string) => readonly number[] | undefined,
+  slots: (NodeBounds | null)[],
+): Extent | null {
+  // THE ROOT IS THE DOCUMENT, NOT AN OBJECT IN IT.
+  //
+  // A blank scene's root carries the canvas size, so its box covers every pixel
+  // of the stage. Emitting it made it the thing under the cursor wherever there
+  // was nothing else: clicking empty space selected it, a marquee anywhere
+  // caught it, and the next drag then moved THE WHOLE SCENE — every graphic,
+  // every solid, the lot — while the object the designer was aiming at stayed
+  // exactly where it was.
+  //
+  // Which is precisely how it was reported: "the object won't move, the whole
+  // viewport will". Nothing was wrong with the viewport. The root had been
+  // selected and dragged.
+  //
+  // Its children are still walked; only the root itself is not selectable, and
+  // its extent is not returned to anybody.
+  const isRoot = node.id === document.root.id;
+
+  // Reserved BEFORE the children are walked, so a parent is emitted ahead of
+  // them and `pick` — last match wins — still hands back the node on top.
+  const slot = isRoot ? -1 : slots.push(null) - 1;
+
+  let subtree: Extent | null = null;
+  for (const child of childrenOf(node)) {
+    subtree = union(subtree, walk(child, document, worldOf, slots));
   }
-  return out;
+  if (isRoot) return null;
+
+  const own = extentOf(node, worldOf(node.id));
+
+  // ========================================================================
+  // A NODE WITHOUT A SIZE IS STILL AN OBJECT
+  // ========================================================================
+  // `arrange.group` creates its container with a transform and NO size —
+  // correctly, because a group's extent is whatever is in it, and a group that
+  // carried a size of its own would be a second, disagreeing answer. But this
+  // used to skip any node without `size`, so the moment a designer pressed
+  // Ctrl+G the thing they had just made became unselectable in the viewport:
+  // no frame, no handles, and a click on it picked whichever child was under
+  // the cursor instead. The Layers list showed it, so it looked present and
+  // behaved absent.
+  //
+  // So a sizeless node is boxed by the UNION OF ITS DESCENDANTS. That is
+  // measured, not invented — no padding is added, because padding would put
+  // the frame somewhere the group is not, which is the whole defect this file
+  // is fixing.
+  const extent = own ?? subtree;
+  if (extent === null) return null;
+
+  slots[slot] = { nodeId: node.id, rect: rectOf(extent) };
+  return extent;
+}
+
+/**
+ * One node's own world extent, or null if it has no size of its own.
+ *
+ * ==========================================================================
+ * THE BOX IS THE TRANSFORMED CORNERS, NOT THE SCALE COLUMNS
+ * ==========================================================================
+ * This read `matrix[0]` and `matrix[5]` as the x and y scale. For an unrotated
+ * node those ARE the scale and the answer was right. For a rotated one they are
+ * `cos(theta) * scale`, so:
+ *
+ *   - the width and height were both WRONG, shrinking towards zero as the node
+ *     approached 90 degrees;
+ *   - the box stayed axis-aligned regardless of the rotation;
+ *   - and the error grew with the angle, which is why it read as the selection
+ *     "drifting away from" the object rather than as a fixed offset. Nothing was
+ *     offset. The size was being computed from the wrong numbers.
+ *
+ * So the four LOCAL corners are transformed by the full world matrix and the box
+ * is their extent. That is correct under rotation, non-uniform scale, and any
+ * combination of the two, and it needs no special case for either.
+ *
+ * The result is still axis-aligned, which is what every consumer here reads — so
+ * a rotated object gets the true bounds OF its rotated frame. That is the honest
+ * answer for hit testing and for marquee; drawing the frame itself at the
+ * object's angle is a separate change to the selection overlay, and is noted
+ * rather than half-done here.
+ */
+function extentOf(node: SceneNode, matrix: readonly number[] | undefined): Extent | null {
+  if (node.size === undefined || matrix === undefined) return null;
+
+  const half = { x: node.size.width / 2, y: node.size.height / 2 };
+  // WHERE THE BOX SITS is the engine's business, not the editor's. A rect is
+  // centred on its origin and a text block hangs from its top-left corner —
+  // both correct, and different. Assuming one of them made every text layer's
+  // handles, hit area and alignment edges half a box-width from the words. See
+  // `boxAnchorOf`. Taken in LOCAL units, because the corners are transformed
+  // afterwards rather than pre-scaled.
+  const centre = boxCentreOffset(node, node.size.width, node.size.height);
+
+  // Column-major 4x4: x' = m0*x + m4*y + m12, y' = m1*x + m5*y + m13.
+  const m = matrix;
+  const project = (lx: number, ly: number): Point => ({
+    x: (m[0] ?? 1) * lx + (m[4] ?? 0) * ly + (m[12] ?? 0),
+    y: (m[1] ?? 0) * lx + (m[5] ?? 1) * ly + (m[13] ?? 0),
+  });
+
+  const corners = [
+    project(centre.x - half.x, centre.y - half.y),
+    project(centre.x + half.x, centre.y - half.y),
+    project(centre.x + half.x, centre.y + half.y),
+    project(centre.x - half.x, centre.y + half.y),
+  ];
+
+  let extent: Extent = {
+    minX: corners[0]!.x,
+    maxX: corners[0]!.x,
+    minY: corners[0]!.y,
+    maxY: corners[0]!.y,
+  };
+  for (const corner of corners) {
+    extent = {
+      minX: Math.min(extent.minX, corner.x),
+      maxX: Math.max(extent.maxX, corner.x),
+      minY: Math.min(extent.minY, corner.y),
+      maxY: Math.max(extent.maxY, corner.y),
+    };
+  }
+  return extent;
 }
 
 export function containsPoint(rect: Rect, point: Point): boolean {
