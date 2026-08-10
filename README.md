@@ -1,4 +1,4 @@
-# BracketX
+# Streamatrix
 
 A real-time 3D broadcast and event production engine. Tournament management,
 sports, podcasts, conferences, and corporate events are applications built on
