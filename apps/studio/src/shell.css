@@ -1207,43 +1207,152 @@
    it needs to be scannable rather than clever. Flush cards, a border and a seam,
    no shadow, no glass, no perspective — all of which belong to the two sections
    above it and would be noise here. */
-.mk-feature-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: var(--s4);
+/* ===========================================================================
+   FEATURED — one pack at a size worth looking at, and an index of the rest
+   ===========================================================================
+   Every value here is a token. The section is FLUSH on the page: no glass (Volume
+   One allows it in the hero, a media preview and a floating dialog, and this is
+   none of those), no card around the card, and separation by rules rather than by
+   raised surfaces. */
+.mk-feat-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--s4); margin-bottom: var(--s5);
+  padding-bottom: var(--s3); border-bottom: 1px solid var(--line);
 }
-.mk-feature {
-  display: flex; flex-direction: column;
-  border: 1px solid var(--line); border-radius: var(--radius);
-  background: var(--panel);
-  overflow: hidden;
-  transition: border-color var(--reveal) var(--press);
-  /* 40ms between siblings, capped at six. */
-  animation: tile-in var(--move) var(--press) backwards;
-  animation-delay: calc(var(--stagger) * min(var(--i), 5));
+/* Micro role — the only tracked-out type in the set, and the smallest. */
+.mk-feat-eyebrow {
+  margin: 0 0 var(--s2); font-size: 9px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--dim);
 }
-.mk-feature:hover { border-color: var(--accent-line); }
-/* The artwork leads, in a WELL — a broadcast graphic is transparent and needs
-   something to read against. A recess, so the card itself stays flush. */
-.mk-feature-art {
-  display: block; width: 100%; aspect-ratio: 16 / 9;
-  background: var(--well);
-  box-shadow: var(--recess);
+/* Display role. The section states the offer, so it gets the largest step. */
+.mk-feat-title {
+  margin: 0; font-size: 30px; line-height: 1.06; letter-spacing: -0.036em;
+  color: var(--text-strong);
 }
-.mk-feature-art .art-still, .mk-feature-art .art-live {
-  padding: var(--s2); box-sizing: border-box;
+.mk-feat-nav { display: flex; align-items: center; gap: var(--s2); flex: none; }
+.mk-feat-count { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.mk-feat-step {
+  width: 28px; height: 28px; flex: none;
+  display: grid; place-items: center;
+  background: none; border: 1px solid var(--line); border-radius: var(--radius);
+  color: var(--text); font-size: 14px; line-height: 1; cursor: pointer;
+  transition: border-color var(--tap) var(--press), color var(--tap) var(--press);
 }
-.mk-feature-body {
-  display: flex; flex-direction: column; gap: var(--s1);
-  padding: var(--s3) var(--s3) var(--s4);
-}
-.mk-feature-head { display: flex; align-items: center; gap: var(--s2); }
-.mk-feature-name {
-  margin: 0; font-size: 14px; letter-spacing: -0.018em; color: var(--text-strong);
-}
-.mk-feature-claim {
-  margin: 0; font-size: 13px; letter-spacing: -0.004em; color: var(--text);
-}
-.mk-feature-body .chip { align-self: flex-start; margin-top: var(--s2); }
+.mk-feat-step:hover { border-color: var(--accent-line); color: var(--text-strong); }
+.mk-feat-step:active { transform: translateY(1px); }
 
-@media (prefers-reduced-motion: reduce) { .mk-feature { animation: none; } }
+/* THREE FIFTHS TO THE ARTWORK. Equal halves would make the reading order
+   ambiguous — the eye takes the picture first, so the grid agrees with it. */
+.mk-feat {
+  display: grid; grid-template-columns: 3fr 2fr; gap: var(--s5);
+  align-items: start; margin-bottom: var(--s5);
+}
+/* A WELL, because a broadcast graphic is transparent and needs something to read
+   against. Recessed rather than raised: the artwork is set INTO the page. */
+.mk-feat-art {
+  display: block; width: 100%; aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  box-shadow: var(--recess);
+  animation: feat-in var(--reveal) var(--glide) backwards;
+  /* A GROUND, NOT ARTWORK. The still is a full 1920x1080 frame and most
+     broadcast graphics occupy a third of it — a lower third is a strip along the
+     bottom by definition — so on a flat fill the preview read as a small graphic
+     lost in a large empty rectangle.
+     The honest fix is not to crop it: the empty part is the PICTURE the graphic
+     would sit over, and cropping would cut the scoreboard, which is anchored to
+     the top of frame on purpose. So the well is lit like a studio backdrop
+     instead, darkest at the bottom where the furniture sits. It is a surface for
+     the graphic to read against, and the artwork is still entirely the real
+     rendered graphic. */
+  background:
+    linear-gradient(180deg, var(--panel-hi) 0%, var(--well) 62%, #000 100%);
+}
+.mk-feat-art .art-still, .mk-feat-art .art-live {
+  padding: var(--s3); box-sizing: border-box;
+}
+/* Stretched to the artwork's height with the facts and the action pushed to the
+   bottom of it, so the two columns share a baseline instead of the words ending
+   two thirds of the way up beside a tall picture. */
+.mk-feat-meta {
+  display: flex; flex-direction: column; align-items: flex-start;
+  align-self: stretch; min-height: 0;
+}
+.mk-feat-facts { margin-top: auto; }
+.mk-feat-kind {
+  margin: 0 0 var(--s2); font-size: 11px; color: var(--dim);
+}
+/* Title role. */
+.mk-feat-name {
+  margin: 0 0 var(--s3); font-size: 20px; letter-spacing: -0.028em;
+  color: var(--text-strong);
+}
+.mk-feat-claim {
+  margin: 0 0 var(--s4); font-size: 13px; line-height: 1.5;
+  letter-spacing: -0.004em; color: var(--text);
+  max-width: 34ch;
+}
+/* Cost on the box, above the action, with a rule between the words and the
+   figures — Volume Four's spec-sheet posture: facts, never a rating. */
+.mk-feat-facts {
+  display: flex; flex-direction: column; gap: var(--s1);
+  width: 100%; padding: var(--s3) 0;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  margin-bottom: var(--s4); flex: none;
+  font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums;
+}
+.mk-feat-action {
+  padding: var(--s2) var(--s4);
+  /* The product's key pair, not the broadcast orange: the interface accent is
+     deliberately neutral so the GRAPHICS carry the colour. */
+  background: var(--key); color: var(--key-ink);
+  border: 0; border-radius: var(--radius);
+  font-size: 13px; letter-spacing: -0.004em; cursor: pointer;
+  transition: filter var(--tap) var(--press);
+}
+.mk-feat-action:hover { filter: brightness(1.08); }
+.mk-feat-action:active { transform: translateY(1px); }
+
+/* THE INDEX. Rows, not cards — a different kind of object, which is what stops
+   the section reading as "cards, but in two sizes". */
+.mk-feat-index { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.mk-feat-row {
+  display: grid; grid-template-columns: 2.5rem minmax(9rem, 14rem) 1fr auto;
+  align-items: baseline; gap: var(--s4);
+  width: 100%; padding: var(--s3) var(--s1);
+  background: none; border: 0; border-bottom: 1px solid var(--line);
+  text-align: left; cursor: pointer; color: var(--text);
+  transition: background var(--tap) var(--press), color var(--tap) var(--press);
+  animation: feat-in var(--reveal) var(--glide) backwards;
+  animation-delay: calc(var(--stagger) * min(var(--row, 0), 5));
+}
+.mk-feat-row:hover { background: var(--accent-bg); color: var(--text-strong); }
+.mk-feat-row[aria-current="true"] { color: var(--text-strong); }
+.mk-feat-row[aria-current="true"] .mk-feat-n { color: var(--accent); }
+.mk-feat-n { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+/* Head role. */
+.mk-feat-row-name { font-size: 14px; letter-spacing: -0.018em; }
+.mk-feat-row-claim {
+  font-size: 13px; letter-spacing: -0.004em; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mk-feat-row-count { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* Travel of 8px, once, on the approved reveal duration. Nothing loops. */
+@keyframes feat-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* AT 1280 THE SPLIT STOPS PAYING. Below that width three fifths of the row is
+   too narrow to inspect a graphic in, so the artwork takes the full measure and
+   the words sit under it — which is the same composition, stacked. */
+@media (max-width: 1180px) {
+  .mk-feat { grid-template-columns: 1fr; gap: var(--s4); }
+  .mk-feat-claim { max-width: none; }
+  .mk-feat-row { grid-template-columns: 2.5rem 1fr auto; }
+  .mk-feat-row-claim { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-feat-art, .mk-feat-row { animation: none; }
+}

@@ -131,6 +131,10 @@ export function Marketplace({
    * advanced by itself would be a violation, not a flourish.
    */
   const [featured, setFeatured] = useState(0);
+  // The featured SECTION's own spotlight, separate from the hero deck's index.
+  // Sharing one number would make pressing an index row move the hero as well,
+  // which is two surfaces reacting to one gesture in different ways.
+  const [spotAt, setSpot] = useState(0);
   /** Null is "every graphic", not a category called "all". */
   const [category, setCategory] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false);
@@ -252,6 +256,10 @@ export function Marketplace({
       : graphics.filter(({ template }) => matchesCategory(template, category));
 
   const hero = showable[Math.min(featured, Math.max(0, showable.length - 1))];
+  // Clamped rather than trusted: the catalogue can shrink under a filter while an
+  // index further down the list is still selected.
+  const spotIndex = Math.min(spotAt, Math.max(0, showable.length - 1));
+  const spot = showable[spotIndex];
 
   const needle = query.trim().toLowerCase();
 
@@ -616,79 +624,149 @@ export function Marketplace({
       ) : null}
 
       {/* ==================================================================
-          FEATURED PACKS — a plain, strong band. No new interaction system.
+          FEATURED — ONE PACK, AND AN INDEX OF THE REST
           ==================================================================
-          The hero features ONE pack at a time. This states the shortlist: every
-          pack that ships graphics, side by side, with the one thing a broadcaster
-          needs to decide — what it gives them, what it costs, and how to get it.
+          What was here was three equal cards in a row: artwork, name, badge,
+          claim, facts, button, repeated. Three of anything at the same size is
+          a grid with a heading over it, and a grid of dark rounded rectangles
+          each holding a small picture is the generic dashboard card this
+          surface is supposed to be the opposite of.
 
-          Flush cards, existing tokens, staggered entrance at 40ms. Nothing here
-          invents a control: a pack you own opens its first graphic, one you do
-          not offers to add it, and there is no third state to draw. */}
+          The fix is hierarchy, not decoration. ONE pack is featured, at a size
+          where its artwork can actually be inspected, and the others become an
+          INDEX beneath it — numbered rows separated by hairlines. An index is
+          not a smaller card; it is a different kind of object, which is what
+          stops the section reading as "cards, but three sizes".
+
+          WHY AN ASYMMETRIC SPLIT. The artwork takes about three fifths and the
+          words take two. Equal halves would make the reading order ambiguous —
+          the eye picks the picture every time, so the layout should agree with
+          it rather than pretend the copy is its equal.
+
+          NO GLASS HERE. Volume One permits it in the Marketplace HERO, a media
+          preview and a floating dialog. This is a section on the page, so it is
+          flush: the artwork sits in a recessed well because a broadcast graphic
+          is transparent and needs something to read against, and everything
+          else is separated by rules rather than by raised surfaces. A panel
+          inside a panel is a seam, not another card.
+
+          THE SECONDARY NAVIGATION IS THE INDEX ITSELF. No autoplay, no
+          carousel, no deck. Pressing a row features that pack; the counter says
+          which of how many. That is the whole interaction, and the section is a
+          complete composition with motion switched off. */}
       {showable.length > 0 ? (
         <section className="mk-section" data-testid="mk-featured" aria-label="Featured packs">
-          <div className="mk-section-head">
-            <h2 className="mk-section-title">Featured packs</h2>
-            <p className="note">
-              Complete looks, ready to install. Point at a preview to watch it move.
-            </p>
+          <div className="mk-feat-head">
+            <div>
+              <p className="mk-feat-eyebrow">Featured</p>
+              <h2 className="mk-feat-title">Complete looks, ready to install</h2>
+            </div>
+            {showable.length > 1 ? (
+              <div className="mk-feat-nav">
+                {/* Tabular, because it changes in place and a proportional 1
+                    against a 3 makes the counter twitch. */}
+                <span className="mk-feat-count mono" data-testid="mk-feat-count">
+                  {String(spotIndex + 1).padStart(2, "0")} / {String(showable.length).padStart(2, "0")}
+                </span>
+                <button
+                  type="button"
+                  className="mk-feat-step"
+                  aria-label="Previous featured pack"
+                  data-testid="mk-feat-prev"
+                  onClick={() =>
+                    setSpot((current) => (current - 1 + showable.length) % showable.length)
+                  }
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="mk-feat-step"
+                  aria-label="Next featured pack"
+                  data-testid="mk-feat-next"
+                  onClick={() => setSpot((current) => (current + 1) % showable.length)}
+                >
+                  ›
+                </button>
+              </div>
+            ) : null}
           </div>
 
-          <div className="mk-feature-row">
-            {showable.map((pack, index) => {
-              const owned = installed.has(pack.id);
-              const first = (pack.templates ?? [])[0];
-              return (
-                <article
-                  className="mk-feature"
-                  key={pack.id}
-                  data-testid={`mk-feature-${pack.id}`}
-                  style={{ ["--i" as string]: String(index) }}
-                >
-                  <TemplateArt
-                    className="mk-feature-art"
-                    templateId={previewOf(pack)!}
-                    still={art.get(previewOf(pack)!)}
-                    onPlay={onPlay}
-                    onStop={onStop}
-                    placeholder={<span className="pack-art-pending" aria-hidden />}
-                  />
-                  <div className="mk-feature-body">
-                    <div className="mk-feature-head">
-                      <h3 className="mk-feature-name">{pack.name}</h3>
-                      <span className="badge">{KIND_LABEL[pack.kind]}</span>
-                    </div>
-                    {/* The pack's own words — already production language. */}
-                    <p className="mk-feature-claim">{pack.description}</p>
-                    {/* Cost on the box. Mono, because these compare across cards. */}
-                    <p className="mk-facts mono">
-                      {pack.author} · Free · {(pack.templates ?? []).length}{" "}
-                      {(pack.templates ?? []).length === 1 ? "graphic" : "graphics"}
-                    </p>
-                    {owned && first !== undefined ? (
-                      <button
-                        type="button"
-                        className="chip primary"
-                        data-testid={`mk-feature-open-${pack.id}`}
-                        onClick={() => onUseTemplate(first)}
-                      >
-                        Open {first.name}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="chip primary"
-                        data-testid={`mk-feature-add-${pack.id}`}
-                        onClick={() => onInstall(pack)}
-                      >
-                        Add to library
-                      </button>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+          {spot !== undefined ? (
+            <article className="mk-feat" data-testid={`mk-feat-${spot.id}`}>
+              {/* The graphic itself, at a size worth looking at. `key` on the
+                  pack id so switching packs remounts the art rather than
+                  cross-fading one template's still into another's. */}
+              <TemplateArt
+                key={spot.id}
+                className="mk-feat-art"
+                templateId={previewOf(spot)!}
+                still={art.get(previewOf(spot)!)}
+                onPlay={onPlay}
+                onStop={onStop}
+                placeholder={<span className="pack-art-pending" aria-hidden />}
+              />
+              <div className="mk-feat-meta">
+                <p className="mk-feat-kind mono">{KIND_LABEL[spot.kind]}</p>
+                <h3 className="mk-feat-name" data-testid="mk-feat-name">
+                  {spot.name}
+                </h3>
+                <p className="mk-feat-claim">{spot.description}</p>
+                <div className="mk-feat-facts">
+                  <span className="mono">{spot.author}</span>
+                  <span className="mono" data-testid="mk-feat-facts">
+                    {(spot.templates ?? []).length}{" "}
+                    {(spot.templates ?? []).length === 1 ? "graphic" : "graphics"} · Free
+                  </span>
+                </div>
+                {installed.has(spot.id) && (spot.templates ?? [])[0] !== undefined ? (
+                  <button
+                    type="button"
+                    className="mk-feat-action"
+                    data-testid={`mk-feat-open-${spot.id}`}
+                    onClick={() => onUseTemplate((spot.templates ?? [])[0]!)}
+                  >
+                    Open {(spot.templates ?? [])[0]!.name}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="mk-feat-action"
+                    data-testid={`mk-feat-add-${spot.id}`}
+                    onClick={() => onInstall(spot)}
+                  >
+                    Add to library
+                  </button>
+                )}
+              </div>
+            </article>
+          ) : null}
+
+          {showable.length > 1 ? (
+            <ul className="mk-feat-index" data-testid="mk-feat-index">
+              {showable.map((pack, index) => (
+                <li key={pack.id}>
+                  <button
+                    type="button"
+                    className="mk-feat-row"
+                    aria-current={index === spotIndex}
+                    data-testid={`mk-feat-row-${pack.id}`}
+                    style={{ ["--row" as string]: String(index) }}
+                    onClick={() => setSpot(index)}
+                  >
+                    <span className="mk-feat-n mono">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="mk-feat-row-name">{pack.name}</span>
+                    <span className="mk-feat-row-claim">{pack.description}</span>
+                    {/* Labelled, not a bare figure. A column of unexplained
+                        numbers makes a reader stop and work out what they count. */}
+                    <span className="mk-feat-row-count mono">
+                      {(pack.templates ?? []).length} graphics
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       ) : null}
 

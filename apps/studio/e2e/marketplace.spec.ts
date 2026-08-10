@@ -506,11 +506,25 @@ test("the story survives motion being switched off", async ({ page }) => {
   expect(behind, "depth disappeared with the motion").toContain("blur");
 });
 
+/**
+ * THE FEATURED SECTION'S GUARANTEES, AGAINST THE COMPOSITION THAT REPLACED THE BAND.
+ *
+ * The band was three equal cards; it is now ONE featured pack at a size worth
+ * looking at, with the rest as a numbered index. Every guarantee the old tests
+ * held is kept — real artwork with pixels, no swatch, distinct art per pack,
+ * flush surfaces, cost on the box, one action, no ratings, no overflow — but two
+ * of them are now asserted BETTER than before.
+ *
+ * DISTINCTNESS especially. The old test compared three `currentSrc` values in one
+ * frame, which proves three cards differ; it does not prove each pack shows its
+ * OWN graphic. Stepping the index and collecting the artwork at each stop proves
+ * exactly that, and it also exercises the navigation while it is at it.
+ */
 for (const size of [
   { width: 1440, height: 900 },
   { width: 1280, height: 800 },
 ]) {
-  test(`the Featured band is real, distinct and actionable — ${size.width}x${size.height}`, async ({
+  test(`the Featured section is real, distinct and actionable — ${size.width}x${size.height}`, async ({
     page,
   }) => {
     await page.setViewportSize(size);
@@ -518,51 +532,55 @@ for (const size of [
 
     const featured = page.getByTestId("mk-featured");
     await expect(featured).toBeVisible();
-    const cards = page.locator('[data-testid^="mk-feature-"]').filter({ has: page.locator(".mk-feature-art") });
-    const count = await cards.count();
-    expect(count, "nothing is featured").toBeGreaterThan(1);
+    const art = featured.locator(".mk-feat-art");
 
-    // REAL ARTWORK, and a different graphic on each card. The failure guarded
-    // here is a band of cards that look identical because the picture is
-    // decoration rather than content.
+    // REAL ARTWORK WITH PIXELS. The still is rendered off the actual template.
     await expect
-      .poll(async () => featured.locator(".mk-feature-art .art-still").count(), {
-        timeout: 30_000,
-      })
-      .toBe(count);
-    const sources = await featured
-      .locator(".mk-feature-art .art-still")
-      .evaluateAll((els) => els.map((el) => (el as HTMLImageElement).currentSrc));
-    expect(new Set(sources).size, "featured cards share one picture").toBe(count);
-    const px = await featured
-      .locator(".mk-feature-art .art-still")
-      .first()
+      .poll(async () => art.locator(".art-still").count(), { timeout: 30_000 })
+      .toBe(1);
+    const px = await art
+      .locator(".art-still")
       .evaluate((el) => (el as HTMLImageElement).naturalWidth);
     expect(px, "the featured still has no pixels").toBeGreaterThan(64);
 
-    // No generic gradient stands in where real artwork exists.
+    // No generic gradient standing in where real artwork exists.
     await expect(featured.locator('[data-preview="swatch"]')).toHaveCount(0);
 
-    // FLUSH: a border and a seam, no shadow, no glass. Those belong to the hero.
-    const style = await cards.first().evaluate((el) => {
+    // EVERY PACK SHOWS ITS OWN GRAPHIC. Stepped through the index rather than
+    // compared across cards in one frame — which is what the claim actually is.
+    const rows = page.getByTestId("mk-feat-index").locator("button");
+    const packs = await rows.count();
+    expect(packs, "nothing is featured").toBeGreaterThan(1);
+    const seen: string[] = [];
+    for (let index = 0; index < packs; index += 1) {
+      await rows.nth(index).click();
+      await expect(rows.nth(index)).toHaveAttribute("aria-current", "true");
+      await expect.poll(async () => art.locator(".art-still").count(), { timeout: 30_000 }).toBe(1);
+      seen.push(
+        await art.locator(".art-still").evaluate((el) => (el as HTMLImageElement).currentSrc),
+      );
+    }
+    expect(new Set(seen).size, "two packs feature the same picture").toBe(packs);
+    await rows.first().click();
+
+    // FLUSH: no glass and no shadow. Those belong to the hero. The artwork's own
+    // recess is an inset shadow, so the block itself is what is checked.
+    const style = await featured.locator(".mk-feat").evaluate((el) => {
       const s = getComputedStyle(el);
       return { shadow: s.boxShadow, glass: s.backdropFilter };
     });
-    expect(style.glass, "glass leaked into the Featured band").toBe("none");
-    expect(style.shadow, "a featured card casts a shadow").toBe("none");
+    expect(style.glass, "glass leaked into the Featured section").toBe("none");
+    expect(style.shadow, "the featured block casts a shadow").toBe("none");
 
     // Cost on the box, and production copy rather than an inventory.
-    await expect(featured.locator(".mk-facts").first()).toContainText("Free");
-    await expect(featured.locator(".mk-feature-claim").first()).not.toHaveText("");
+    await expect(page.getByTestId("mk-feat-facts")).toContainText("Free");
+    await expect(featured.locator(".mk-feat-claim")).not.toHaveText("");
 
-    // EXACTLY ONE action per card, and never a disabled one.
-    for (let i = 0; i < count; i += 1) {
-      const card = cards.nth(i);
-      await expect(card.locator("button"), "a featured card has no single action").toHaveCount(1);
-      await expect(card.locator("button[disabled]")).toHaveCount(0);
-    }
+    // EXACTLY ONE primary action, and never a disabled one.
+    await expect(featured.locator(".mk-feat-action")).toHaveCount(1);
+    await expect(featured.locator("button[disabled]")).toHaveCount(0);
 
-    // No ratings anywhere in the band.
+    // No ratings anywhere in the section.
     const text = (await featured.textContent()) ?? "";
     expect(text).not.toMatch(/★|⭐|\b\d(\.\d)?\s*\/\s*5\b|\breviews?\b|\brating\b/i);
 
@@ -573,9 +591,9 @@ for (const size of [
   });
 }
 
-test("a featured pack's action opens its graphic in Design", async ({ page }) => {
+test("the featured pack's action opens its graphic in Design", async ({ page }) => {
   await marketplace(page);
-  const open = page.locator('[data-testid^="mk-feature-open-"]').first();
+  const open = page.locator('[data-testid^="mk-feat-open-"]').first();
   await expect(open, "no owned pack offered to open").toBeVisible();
   await open.click();
   await expect(page.locator(".studio")).toHaveAttribute("data-section", "design");
