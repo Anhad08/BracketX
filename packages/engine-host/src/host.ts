@@ -307,13 +307,33 @@ export class SceneHost {
     this.#assertUsable();
     if (this.#document !== null) this.reconciler.teardown();
 
-    this.runtime.dispatchBatch(
-      document.variables.map((variable) => ({
+    // ========================================================================
+    // A LOAD IS A NEW IDENTITY. NOTHING OF THE OLD DOCUMENT SURVIVES IT.
+    // ========================================================================
+    // Setting the incoming document's variables overwrites the keys the two
+    // documents SHARE, and that is what made this look correct: open a lower
+    // third, open another, and every field is right because both declare the
+    // same keys.
+    //
+    // A key the old document declared and the new one does not was never
+    // touched, so it stayed in the runtime and kept resolving. The new
+    // graphic then rendered with the previous graphic's colour, or its name,
+    // for any binding whose key it does not itself define — including one
+    // reached through a token or a repeat, where nothing on screen names the
+    // variable and there is no field to notice is wrong.
+    //
+    // Cleared explicitly rather than by constructing a fresh runtime: the
+    // runtime owns playback and output bindings too, and throwing it away to
+    // fix variables would take those with it.
+    const stale = [...this.runtime.state.variables.keys()];
+    this.runtime.dispatchBatch([
+      ...stale.map((key) => ({ type: "variable.clear" as const, key })),
+      ...document.variables.map((variable) => ({
         type: "variable.set" as const,
         key: variable.key,
         value: variable.default as RuntimeValue,
       })),
-    );
+    ]);
     // Commands only take effect on a tick — that is the whole point of the
     // command queue (ENGINE_RUNTIME §3). Drain them before projecting.
     this.runtime.tick();
