@@ -1188,8 +1188,11 @@ const TITLE_CARD: PackTemplate = {
     // The left margin every element in the stack starts from. One column inside
     // title-safe, the same line the lower third's tab stands on — which is what
     // makes two completely different compositions feel like one package.
-    const marginX = col(1);
-    const kickerH = sp(62);
+    // Just inside the left title-safe line rather than a column in from it. This
+    // graphic has one job — say a title — so the title gets the whole width the
+    // safe area allows, and the flag behind the programme name is what bleeds.
+    const marginX = -7.6;
+    const kickerH = sp(78);
 
     // Full frame and a little beyond, so the wash has no visible edge anywhere.
     // Fading up, it is opaque along the bottom where the type sits and gone by
@@ -1214,30 +1217,43 @@ const TITLE_CARD: PackTemplate = {
       // empty colour after the word reads as a button that failed to fit its
       // text. Wide enough to hold "UEFA CHAMPIONS LEAGUE" once it shrinks a
       // step, which is the longest competition name this slot will see.
-      2.9,
+      // FROM BEYOND THE FRAME to just past the word, so the flag is cut by the
+      // left edge exactly as the strap's tab is. The accent's role here is a
+      // field behind type rather than a block beside it — same colour, same
+      // anchor, different geometry.
+      // The WIDTH, which is the span from beyond the frame to just past the word:
+      // 5.2. The first attempt wrote the right EDGE here instead and passed a
+      // negative number, which the rasteriser took the absolute value of — so the
+      // flag came out 2.4 wide, sat inside the frame, and the bleed silently did
+      // not happen.
+      5.2,
       kickerH,
       accent,
-      [marginX + 1.45, -0.62, 0.01],
+      [(marginX - 1.7 + marginX + 3.5) / 2, 0.72, 0.01],
       flagSpec(PALETTE.primary),
       { id: "flag", from: PALETTE.primary },
     );
 
     const kicker = type_(ids, "Programme", next(), { $var: "programme" }, {
       face: FACE.display,
-      size: 34,
+      size: 44,
       // Dark on the flag, never white. See the palette note: white on saturated
       // orange vibrates and fails contrast, and dark type on a bright block is
       // the most recognisable label in sports broadcast.
       colour: onAccent,
-      box: { width: 2.5 },
-      at: [marginX + sp(22), -0.62, 0.02],
+      box: { width: 3.2 },
+      at: [marginX, 0.72, 0.02],
     });
 
     // 168 in a box that runs to x 4.4 — inside title-safe, and wide enough that
     // "MATCH OF THE DAY" sets at full size with a character to spare.
     const title = type_(ids, "Title", next(), { $var: "title" }, {
       face: FACE.display,
-      size: SIZE.mega,
+      // 230, against the old 168. A title card is the one graphic with nothing
+      // else on screen, so anything less than the full width the safe area allows
+      // is width left on the table. "MATCH OF THE DAY" now sets edge to edge of
+      // title-safe at full size.
+      size: 230,
       colour: ink,
       // 12.4, and the reason is legibility rather than layout. A title that
       // SHRINKS renders visibly thinner and greyer than one that does not — the
@@ -1245,29 +1261,29 @@ const TITLE_CARD: PackTemplate = {
       // beside a 16-character one at full size. Widening the box is what keeps a
       // real segment name setting at its authored weight; only something far
       // longer than "THE CHAMPIONSHIP RUN-IN" now shrinks at all.
-      box: { width: 12.4 },
+      box: { width: 15.2 },
       maxLines: 2,
       floor: 0.8,
-      at: [marginX, -2.05, 0.02],
+      at: [marginX, -1.5, 0.02],
     });
 
     const under = plane(
       ids,
       "Rule",
       next(),
-      4.6,
-      sp(3),
+      6.4,
+      sp(4),
       ink,
-      [marginX + 2.3, -3.02, 0.02],
+      [marginX + 3.2, -3.02, 0.02],
       rule(PALETTE.ink, 0.5),
     );
 
     const context = type_(ids, "Context", next(), { $var: "context" }, {
       face: FACE.text,
-      size: SIZE.body,
+      size: 44,
       colour: muted,
-      box: { width: 8.0 },
-      at: [marginX, -3.56, 0.02],
+      box: { width: 10.0 },
+      at: [marginX, -3.62, 0.02],
     });
 
     // READ BACK from the nodes rather than restated, because `type_` moves a text
@@ -1360,8 +1376,8 @@ const TITLE_CARD: PackTemplate = {
               path: "transform.position.0",
               delay: 0.26,
               keyframes: [
-                { time: 0, value: marginX, easing: "easeOutCubic" },
-                { time: 0.36, value: marginX + 1.45 },
+                { time: 0, value: marginX - 1.7, easing: "easeOutCubic" },
+                { time: 0.36, value: (marginX - 1.7 + marginX + 3.5) / 2 },
               ],
             },
             {
