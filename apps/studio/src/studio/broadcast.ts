@@ -572,11 +572,16 @@ export function recessed(ink: unknown, depth = sp(18)): PaintSpecDoc {
     gradient: {
       kind: "linear",
       angle: 90,
+      // DEEPER than the first version, which could not be seen at all. A recess
+      // over a near-black plate has almost no room to be darker, so most of the
+      // effect has to come from the inner shadow's edge rather than from the
+      // wash — and the wash still has to be dark enough that the edge has
+      // something to sit against.
       stops: [
-        { at: 0, color: "#000000", opacity: 0.34 },
-        { at: 1, color: "#000000", opacity: 0.1 },
+        { at: 0, color: "#000000", opacity: 0.62 },
+        { at: 1, color: "#000000", opacity: 0.24 },
       ],
     },
-    shadow: { color: shade(colour, -0.9), blur: depth, offsetY: -depth * 0.35, opacity: 0.6, inner: true },
+    shadow: { color: shade(colour, -0.94), blur: depth, offsetY: -depth * 0.3, opacity: 0.9, inner: true },
   };
 }

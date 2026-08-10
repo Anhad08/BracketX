@@ -800,51 +800,51 @@ const LOWER_THIRD: PackTemplate = {
  * THE SCOREBOARD.
  *
  * ==========================================================================
- * THE SCORE IS THE GRAPHIC. EVERYTHING ELSE GETS OUT OF ITS WAY
+ * IT HAS TO COMMAND THE FRAME, NOT SIT POLITELY INSIDE IT
  * ==========================================================================
- * What was here was a bar with two team names and two numbers on it, at sizes
- * close enough that the eye had to choose — which is a lower third with numbers
- * in it, the exact thing this had to stop being.
+ * The previous pass got the structure right — score in a recessed well, teams
+ * mirrored about it, competition on a strip, clock on a flag — and it was still
+ * a 7.8-unit bug floating in a 17.8-unit frame with 44% of the width and a tenth
+ * of the height. Rendered at broadcast size it read as a developer preview of a
+ * scoreboard rather than as a scoreboard.
  *
- * Rule 6: when a graphic exists to carry a number, that number is set clear of
- * everything else and the composition is built around it. Five decisions follow
- * from that:
+ * Three things fixed that, and none of them is "scale it up":
  *
- *   THE WELL     The score sits in a RECESSED block — an inner shadow, no fill of
- *                its own — so it reads as set into the bug rather than printed on
- *                it. It is the only recess in the package, which is what makes it
- *                the place the eye lands. `recessed` existed as a material and
- *                nothing had ever used it.
+ *   IT IS CROPPED BY THE FRAME. The bug hangs off the TOP EDGE — no top edge of
+ *   its own, no shadow above it, nothing to read as the boundary of a rectangle.
+ *   Furniture that the frame cuts belongs to the broadcast; furniture with four
+ *   visible edges belongs to a slide. This is the single biggest change and it
+ *   costs nothing but the decision.
  *
- *   THE SPLIT    Home abbreviation, well, away abbreviation. Symmetrical about
- *                the centre line, because a scoreboard is the one graphic here
- *                whose subject genuinely has two equal halves — and the score
- *                sits exactly on the axis they mirror about.
+ *   IT IS STEPPED, NOT STACKED. A wide main row carrying the score, and a
+ *   narrower band beneath it carrying the things that are not the score. The
+ *   silhouette is two widths, so the graphic has a shape before it has content —
+ *   and the step is what makes the main row read as the important one.
  *
- *   THE TOP      It lives at the TOP of frame while every other graphic in this
- *                package lives at the bottom. That is how a viewer knows which
- *                one to look at without reading either: a scoreboard is
- *                persistent furniture and the bottom of frame belongs to
- *                whatever is transient.
+ *   THE FIGURES ARE THE SIZE THEY DESERVE. 150 against the old 76. The score is
+ *   now the largest thing in the package after the countdown's own clock, which
+ *   is the correct order: those are the two graphics that ARE a number.
  *
- *   TABULAR      Both scores are set in the display face, whose figures are all
- *                one width. A 1 narrower than a 4 would shift the dash — and
- *                therefore the whole centre of the graphic — the moment somebody
- *                scored. This is the graphic the face was chosen for.
+ * ==========================================================================
+ * THE ORANGE DOES A DIFFERENT JOB HERE
+ * ==========================================================================
+ * The lower third uses orange as a TAB the strap hinges on. If the scoreboard
+ * also used it as a small chip, the accent would be a UI colour that appears in
+ * every graphic in the same role rather than an identity.
  *
- *   THE CLOCK    On a small accent flag hanging below the well, dark on bright.
- *                It is the only thing here that changes every second, so it is
- *                given the one colour that says "now" and kept out of the score's
- *                block entirely.
+ * So here it is a CROPPED FIELD: the clock sits in a solid orange block that runs
+ * off the right end of the lower band and is cut by it. Same colour, same "this
+ * is the live thing" meaning, completely different geometry — a field the frame
+ * slices rather than a badge sitting on a plate.
  *
- * The competition runs along the top of the bug on a lifted strip: it never
- * changes during a match, so it takes the least contrast and the smallest size in
- * the package, and it goes where a viewer looks last.
+ * Blur test: take the orange out and the composition still works, because it is
+ * carried by the well, the step and the size of the figures. Squint and the score
+ * is unmistakably the subject.
  */
 const SCOREBOARD: PackTemplate = {
   id: "tpl_scoreboard",
   name: "Scoreboard",
-  description: "Two teams, the score in a well, the competition and the clock.",
+  description: "A cropped bug at frame scale: the score in a well, teams either side.",
   build: (ids, token, now) => {
     const rootId = ids("node");
     const holderId = ids("node");
@@ -858,57 +858,57 @@ const SCOREBOARD: PackTemplate = {
     const muted = token("color.muted", PALETTE.muted);
     const onAccent = token("color.onAccent", PALETTE.onAccent);
 
-    const barW = 7.8;
-    const barH = 1.12;
-    // Hung from just inside the top title-safe line, so the whole bug — including
-    // the clock flag beneath it — stays readable on a set that overscans.
-    const barTop = 4.4;
-    const barMid = barTop - barH / 2;
-    const stripH = 0.34;
-    const stripMid = barTop - stripH / 2;
-    // The row the score and the teams share, below the competition strip.
-    const rowMid = (barTop - stripH + (barTop - barH)) / 2;
-    const wellW = 2.4;
-    const wellH = 0.74;
+    // The main row runs off the top of frame. 5 is the frame edge, not the
+    // title-safe line: the PLATE may leave the safe area, its TYPE may not.
+    const frameTop = 5;
+    const rowH = 2.05;
+    const rowW = 11.8;
+    const rowBottom = frameTop - rowH;
+    // The type's own centre, pushed down inside the row so nothing readable
+    // strays above the title-safe line at 4.5.
+    // Pushed DOWN inside the row by more than looks necessary, because at 190 the
+    // figures are 1.25 units of cap height: centred in the row their tops crossed
+    // the title-safe line at 4.5, which is the one line a score may not cross.
+    // The plate leaves the safe area; the type never does.
+    const rowMid = rowBottom + rowH / 2 - 0.28;
 
-    const bar = plane(
+    // The lower band: narrower, so the silhouette steps.
+    const bandW = 7.4;
+    const bandH = 0.62;
+    const bandMid = rowBottom - bandH / 2;
+
+    const row = plane(
       ids,
       "Background",
       next(),
-      barW,
-      barH,
+      rowW,
+      // Overshooting the frame edge, so no top edge exists to be seen.
+      rowH + 0.4,
       surface,
-      [0, barMid, 0],
+      [0, rowBottom + (rowH + 0.4) / 2, 0],
       flagSpec(PALETTE.surface),
       { id: "flag", from: PALETTE.surface },
     );
 
-    const strip = plane(
+    const band = plane(
       ids,
-      "Competition Strip",
+      "Context Band",
       next(),
-      barW,
-      stripH,
+      bandW,
+      bandH,
       surfaceLift,
-      [0, stripMid, 0.01],
+      // ALIGNED TO THE ROW'S LEFT EDGE, not centred under it. Centred, the band
+      // read as a pedestal the bug was standing on; flush left it reads as a
+      // corner the frame is cutting, which is the same asymmetry the rest of the
+      // package is built on.
+      [-rowW / 2 + bandW / 2, bandMid, 0.01],
       flagSpec(PALETTE.surfaceLift),
       { id: "flag", from: PALETTE.surfaceLift },
     );
 
-    const competition = type_(ids, "Competition", next(), { $var: "competition" }, {
-      face: FACE.display,
-      // 24 in INK, not 22 in muted. At the smallest size in the package, on the
-      // lifted strip, muted grey rendered as texture rather than as words — and a
-      // competition nobody can read is a strip of noise across the top of the
-      // bug. Its subordination is already carried by size: 24 against the score's
-      // 76 is a third, which no amount of contrast could confuse.
-      size: 24,
-      colour: ink,
-      box: { width: barW - sp(40) },
-      align: "center",
-      at: [-barW / 2 + sp(20), stripMid, 0.02],
-    });
-
+    // ---- The score, and the well it is set into -----------------------------
+    const wellW = 4.0;
+    const wellH = 1.46;
     const well = plane(
       ids,
       "Score Well",
@@ -920,89 +920,110 @@ const SCOREBOARD: PackTemplate = {
       recessed(PALETTE.ink),
     );
 
-    const home = type_(ids, "Home", next(), { $var: "home" }, {
-      face: FACE.display,
-      size: 58,
-      colour: ink,
-      box: { width: 2.4 },
-      align: "end",
-      at: [-barW / 2 + sp(26), rowMid, 0.02],
-    });
-
     const homeScore = type_(ids, "Home Score", next(), { $var: "homeScore" }, {
       face: FACE.display,
-      size: 76,
+      size: 190,
       colour: ink,
-      box: { width: 0.92 },
+      box: { width: 1.7 },
       align: "end",
-      at: [-1.16, rowMid, 0.02],
+      at: [-2.2, rowMid, 0.02],
     });
 
-    // A static dash, not a variable: it is punctuation between two numbers, and a
-    // field an operator can type into is a field an operator can empty.
+    // Punctuation, not a field: a dash an operator can empty is a scoreboard that
+    // can lose its centre.
     const dash = type_(ids, "Dash", next(), "–", {
       face: FACE.display,
-      size: 52,
+      size: 96,
       colour: muted,
-      box: { width: 0.48 },
+      // A full unit of its own, with the two score boxes butted against it rather
+      // than overlapping it. They overlapped by a tenth before, which pulled the
+      // home digit hard against the dash and left a gap after it — "2- 1".
+      box: { width: 1.0 },
       align: "center",
-      at: [-0.24, rowMid, 0.02],
+      at: [-0.5, rowMid + 0.04, 0.02],
     });
 
     const awayScore = type_(ids, "Away Score", next(), { $var: "awayScore" }, {
       face: FACE.display,
+      size: 190,
+      colour: ink,
+      box: { width: 1.7 },
+      at: [0.5, rowMid, 0.02],
+    });
+
+    // ---- The teams ----------------------------------------------------------
+    // 88, and mirrored about the well. Long club names shrink rather than
+    // colliding with the score, which is why each gets its own generous column.
+    const teamW = 3.5;
+    const home = type_(ids, "Home", next(), { $var: "home" }, {
+      face: FACE.display,
+      // 76 against the score's 190. The first pass set them at 88 and the two
+      // read as equals: a long club name carries more visual mass than a single
+      // digit, so parity in size is not parity on screen. Rule 6 — the score is
+      // the graphic, and the teams are who it belongs to.
       size: 76,
       colour: ink,
-      box: { width: 0.92 },
-      at: [0.24, rowMid, 0.02],
+      box: { width: teamW },
+      align: "end",
+      at: [-rowW / 2 + sp(30), rowMid, 0.02],
     });
 
     const away = type_(ids, "Away", next(), { $var: "away" }, {
       face: FACE.display,
-      size: 58,
+      size: 76,
       colour: ink,
-      box: { width: 2.4 },
-      at: [1.16 + sp(26), rowMid, 0.02],
+      box: { width: teamW },
+      at: [rowW / 2 - sp(30) - teamW, rowMid, 0.02],
     });
 
-    // The clock, hanging below the bug on its own flag.
-    const clockW = 1.34;
-    const clockH = 0.44;
-    const clockMid = barTop - barH - clockH / 2;
-    const clockFlag = plane(
+    // ---- The lower band's contents ------------------------------------------
+    // The competition reads left; the clock is cut out of the band's right end.
+    const competition = type_(ids, "Competition", next(), { $var: "competition" }, {
+      face: FACE.display,
+      size: 30,
+      colour: ink,
+      box: { width: 4.3 },
+      at: [-rowW / 2 + sp(26), bandMid, 0.02],
+    });
+
+    // THE CROPPED ORANGE FIELD. It ends exactly on the band's right edge, so the
+    // step cuts it — the accent is a field the geometry slices, not a chip.
+    const clockW = 1.72;
+    const clockFieldX = -rowW / 2 + bandW - clockW / 2;
+    const clockField = plane(
       ids,
-      "Clock Flag",
+      "Clock Field",
       next(),
       clockW,
-      clockH,
+      bandH,
       accent,
-      [0, clockMid, 0.01],
+      [clockFieldX, bandMid, 0.02],
       flagSpec(PALETTE.primary),
       { id: "flag", from: PALETTE.primary },
     );
     const clock = type_(ids, "Clock", next(), { $var: "clock" }, {
       face: FACE.display,
-      size: 28,
+      size: 36,
       colour: onAccent,
-      box: { width: clockW - sp(20) },
+      box: { width: clockW - sp(24) },
       align: "center",
-      at: [-clockW / 2 + sp(10), clockMid, 0.02],
+      at: [-rowW / 2 + bandW - clockW + sp(12), bandMid, 0.03],
     });
 
     const holder = group(holderId, next(), {
       position: [0, 0, 0],
-      size: { width: barW, height: barH + clockH },
+      size: { width: rowW, height: rowH + bandH },
       children: [
-        bar,
-        strip,
-        competition,
+        row,
+        band,
         well,
-        home,
         homeScore,
         dash,
         awayScore,
+        home,
         away,
-        clockFlag,
+        competition,
+        clockField,
         clock,
       ],
     });
@@ -1026,47 +1047,43 @@ const SCOREBOARD: PackTemplate = {
         variable(ids("variable"), "homeScore", "Home score", "2"),
         variable(ids("variable"), "away", "Away", "ARSENAL"),
         variable(ids("variable"), "awayScore", "Away score", "1"),
-        variable(ids("variable"), "competition", "Competition", "PREMIER LEAGUE · MATCHWEEK 12"),
+        variable(ids("variable"), "competition", "Competition", "PREMIER LEAGUE"),
         variable(ids("variable"), "clock", "Clock", "72'"),
       ],
       [
         {
-          // IT DROPS IN FROM ABOVE, because that is where it lives. A scoreboard
-          // that slid in from the side would have to travel across the picture to
-          // reach a position at the top of it.
-          //
-          // The clock flag follows a beat later on its own wipe, downward out of
-          // the bar — so the bug arrives as a unit and the one part that will keep
-          // changing announces itself separately.
+          // It drops from the edge it is cropped by, and the context band steps
+          // out from under it a beat later — so the step is something the viewer
+          // sees happen rather than a shape that was always there.
           id: ids("timeline"),
           name: "In",
-          duration: 0.85,
+          duration: 0.9,
           tracks: [
             {
               target: holderId,
               path: "transform.position.1",
               keyframes: [
-                { time: 0, value: 1.9, easing: "easeOutCubic" },
+                { time: 0, value: rowH + bandH + 0.4, easing: "easeOutCubic" },
                 { time: 0.5, value: 0 },
               ],
             },
             {
-              target: clockFlag.id,
+              target: band.id,
               path: "transform.scale.1",
-              delay: 0.4,
+              delay: 0.42,
               keyframes: [
                 { time: 0, value: 0, easing: "easeOutCubic" },
-                { time: 0.32, value: 1 },
+                { time: 0.34, value: 1 },
               ],
             },
             {
-              target: clockFlag.id,
+              target: band.id,
               path: "transform.position.1",
-              delay: 0.4,
+              delay: 0.42,
               keyframes: [
-                // Top edge held: centre = top - scale * height / 2.
-                { time: 0, value: barTop - barH, easing: "easeOutCubic" },
-                { time: 0.32, value: clockMid },
+                // Top edge held at the main row's bottom.
+                { time: 0, value: rowBottom, easing: "easeOutCubic" },
+                { time: 0.34, value: bandMid },
               ],
             },
           ],
@@ -1081,7 +1098,7 @@ const SCOREBOARD: PackTemplate = {
               path: "transform.position.1",
               keyframes: [
                 { time: 0, value: 0, easing: "easeInCubic" },
-                { time: 0.45, value: 1.9 },
+                { time: 0.45, value: rowH + bandH + 0.4 },
               ],
             },
           ],
@@ -1090,6 +1107,7 @@ const SCOREBOARD: PackTemplate = {
     );
   },
 };
+
 
 
 /**
