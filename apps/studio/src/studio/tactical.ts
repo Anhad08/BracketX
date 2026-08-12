@@ -49,13 +49,19 @@
  * The result reads as the same family as the reference without a single shape the
  * renderer had to be lied to about.
  */
-import { IDENTITY_TRANSFORM, generateKeyBetween, type SceneNode } from "@bracketx/engine-scene";
+import {
+  IDENTITY_TRANSFORM,
+  generateKeyBetween,
+  type PaintSpecDoc,
+  type SceneNode,
+} from "@bracketx/engine-scene";
 
 import {
   FACE,
   SAFE,
   flagSpec,
   plane,
+  recessed,
   scrimSpec,
   shade,
   sp,
@@ -93,6 +99,74 @@ export const TAC = {
 // ---------------------------------------------------------------------------
 // The angular vocabulary
 // ---------------------------------------------------------------------------
+
+/**
+ * THE PACK PANEL MATERIAL, and the reason the first pass looked flat.
+ *
+ * Every panel in the first version used `flagSpec` — a gradient and a shadow. Put
+ * beside the reference that reads as coloured cardboard, and the difference is not
+ * the gradient: it is the RIM. Every panel in a HUD-styled pack has a light edge
+ * along its top and sides, brightest where a light would catch it and gone by the
+ * bottom. `stroke` takes a gradient of its own, so that edge was one object away
+ * and had simply never been used.
+ *
+ * Three layers, which is what depth costs: a body ramped along its length, a rim
+ * that fades downward, and a shadow to sit the whole thing over the picture.
+ */
+function panelSpec(fill: string, options: { readonly rim?: number } = {}): PaintSpecDoc {
+  return {
+    corners: [0, 0, 0, 0],
+    gradient: {
+      kind: "linear",
+      angle: 74,
+      stops: [
+        { at: 0, color: shade(fill, -0.24) },
+        { at: 0.55, color: fill },
+        { at: 1, color: shade(fill, 0.14) },
+      ],
+    },
+    stroke: {
+      color: "#ffffff",
+      width: sp(1.6),
+      opacity: options.rim ?? 0.5,
+      gradient: {
+        kind: "linear",
+        angle: 90,
+        stops: [
+          { at: 0, color: "#ffffff", opacity: 0.02 },
+          { at: 0.72, color: "#ffffff", opacity: 0.24 },
+          { at: 1, color: "#ffffff", opacity: 0.62 },
+        ],
+      },
+    },
+    shadow: { color: "#000000", blur: sp(34), offsetY: -sp(8), opacity: 0.6 },
+    density: 40,
+  };
+}
+
+/**
+ * A TEAM FIELD: the colour of a side, ramped across HUE rather than lightness.
+ *
+ * Red into magenta, purple into indigo. The reference shifts hue across every
+ * coloured block, and that is what stops a saturated rectangle reading as a
+ * swatch — a lightness ramp of a single colour cannot do it.
+ */
+function fieldSpec(from: string, to: string): PaintSpecDoc {
+  return {
+    corners: [0, 0, 0, 0],
+    gradient: {
+      kind: "linear",
+      angle: 62,
+      stops: [
+        { at: 0, color: shade(from, -0.16) },
+        { at: 0.5, color: from },
+        { at: 1, color: to },
+      ],
+    },
+    shadow: { color: from, blur: sp(26), opacity: 0.5 },
+    density: 40,
+  };
+}
 
 /** A rect with a rotation, which `plane` deliberately does not offer. */
 function turned(
@@ -235,13 +309,17 @@ export const TAC_SCOREBOARD: PackTemplate = {
     const ink = token("color.ink", TAC.ink);
     const dim = token("color.muted", TAC.dim);
 
-    const barW = 12.9;
-    const barH = 1.62;
-    const frameTop = 5;
-    // The context strip runs off the top; the main bar hangs under it.
-    const stripH = 0.46;
-    const stripMid = frameTop - stripH / 2 - 0.06;
-    const barTop = frameTop - stripH - 0.12;
+    // BIGGER AND LOWER. The first pass was 12.9 x 1.62 jammed against the frame
+    // edge with the context strip half off-screen and both of its labels clipped —
+    // unreadable, and exactly the kind of fault only a render shows.
+    const barW = 14.8;
+    const barH = 2.05;
+    const stripH = 0.48;
+    // The strip sits on top of the bar and INSIDE the frame, with the assembly
+    // hung low enough that every label is legible.
+    const stripTop = 4.52;
+    const stripMid = stripTop - stripH / 2;
+    const barTop = stripTop - stripH;
     const barBottom = barTop - barH;
     const barMid = barBottom + barH / 2;
 
@@ -249,11 +327,11 @@ export const TAC_SCOREBOARD: PackTemplate = {
       ids,
       "Context Strip",
       next(),
-      barW - 2.2,
-      stripH + 0.3,
+      barW - 3.4,
+      stripH,
       panel,
-      [0, stripMid + 0.15, 0],
-      flagSpec(shade(TAC.panel, -0.4)),
+      [0, stripMid, 0],
+      panelSpec(shade(TAC.panel, -0.34), { rim: 0.3 }),
     );
 
     const bar = plane(
@@ -264,13 +342,13 @@ export const TAC_SCOREBOARD: PackTemplate = {
       barH,
       panel,
       [0, barMid, 0.01],
-      flagSpec(TAC.panel),
+      panelSpec(TAC.panel),
     );
 
     // The two side fields. Solid team colour behind each badge, running to the
     // bar's outer edges — the accent as a FIELD the composition ends with, and
     // the fastest read of "who is which colour" in the whole graphic.
-    const fieldW = 1.32;
+    const fieldW = 1.05;
     const fieldL = plane(
       ids,
       "Home Field",
@@ -279,7 +357,7 @@ export const TAC_SCOREBOARD: PackTemplate = {
       barH,
       red,
       [-barW / 2 + fieldW / 2, barMid, 0.02],
-      flagSpec(TAC.red),
+      fieldSpec(TAC.red, TAC.magenta),
     );
     const fieldR = plane(
       ids,
@@ -289,46 +367,50 @@ export const TAC_SCOREBOARD: PackTemplate = {
       barH,
       purple,
       [barW / 2 - fieldW / 2, barMid, 0.02],
-      flagSpec(TAC.purple),
+      fieldSpec(TAC.purple, "#6D28D9"),
     );
 
     // A slanted sliver against each field's inner edge. The one genuinely angular
     // mark the renderer can make, and it is what stops the fields reading as two
     // plain blocks. Rotated the same way on both sides rather than mirrored, so
     // the whole bug leans — mirrored slants read as a bow tie.
-    const slantL = turned(ids, "Home Slant", next(), sp(7), barH * 1.5, TAC.magenta, [
-      -barW / 2 + fieldW + sp(10),
+    // CONTAINED INSIDE THE BAR. At 1.5x its height they overshot top and bottom and
+    // read as two stray diagonal lines crossing the graphic — the worst single
+    // fault in the first render. A slant that leaves its panel is a scratch.
+    const slantH = barH * 0.96;
+    const slantL = turned(ids, "Home Slant", next(), sp(6), slantH, TAC.magenta, [
+      -barW / 2 + fieldW + sp(12),
       barMid,
       0.03,
-    ], 14);
-    const slantR = turned(ids, "Away Slant", next(), sp(7), barH * 1.5, TAC.purple, [
-      barW / 2 - fieldW - sp(10),
+    ], 10);
+    const slantR = turned(ids, "Away Slant", next(), sp(6), slantH, "#6D28D9", [
+      barW / 2 - fieldW - sp(12),
       barMid,
       0.03,
-    ], 14);
+    ], 10);
 
     const nameL = type_(ids, "Home", next(), { $var: "home" }, {
       face: FACE.tacticalHead,
-      size: 64,
+      size: 76,
       colour: ink,
-      box: { width: 3.0 },
-      at: [-barW / 2 + fieldW + sp(26), barMid + sp(12), 0.04],
+      box: { width: 3.6 },
+      at: [-barW / 2 + fieldW + sp(34), barMid + sp(18), 0.04],
     });
     const tagL = type_(ids, "Home Tag", next(), { $var: "homeTag" }, {
       face: FACE.tacticalLabel,
       size: 26,
       colour: dim,
       box: { width: 2.0 },
-      at: [-barW / 2 + fieldW + sp(28), barMid - sp(34), 0.04],
+      at: [-barW / 2 + fieldW + sp(36), barMid - sp(46), 0.04],
     });
 
     const nameR = type_(ids, "Away", next(), { $var: "away" }, {
       face: FACE.tacticalHead,
-      size: 64,
+      size: 76,
       colour: ink,
-      box: { width: 3.0 },
+      box: { width: 3.6 },
       align: "end",
-      at: [barW / 2 - fieldW - sp(26) - 3.0, barMid + sp(12), 0.04],
+      at: [barW / 2 - fieldW - sp(34) - 3.6, barMid + sp(18), 0.04],
     });
     const tagR = type_(ids, "Away Tag", next(), { $var: "awayTag" }, {
       face: FACE.tacticalLabel,
@@ -336,25 +418,25 @@ export const TAC_SCOREBOARD: PackTemplate = {
       colour: dim,
       box: { width: 2.0 },
       align: "end",
-      at: [barW / 2 - fieldW - sp(28) - 2.0, barMid - sp(34), 0.04],
+      at: [barW / 2 - fieldW - sp(36) - 2.0, barMid - sp(46), 0.04],
     });
 
     // THE SCORES, in the tabular face. Turned inward against the spine so the
     // gap between them is fixed no matter what the numbers are.
     const scoreL = type_(ids, "Home Score", next(), { $var: "homeScore" }, {
       face: FACE.display,
-      size: 118,
+      size: 140,
       colour: ink,
-      box: { width: 1.28 },
+      box: { width: 1.5 },
       align: "end",
-      at: [-2.34, barMid, 0.04],
+      at: [-2.72, barMid, 0.04],
     });
     const scoreR = type_(ids, "Away Score", next(), { $var: "awayScore" }, {
       face: FACE.display,
-      size: 118,
+      size: 140,
       colour: ink,
-      box: { width: 1.28 },
-      at: [1.06, barMid, 0.04],
+      box: { width: 1.5 },
+      at: [1.22, barMid, 0.04],
     });
 
     // THE SPINE — what belongs to the match rather than to either team.
@@ -362,35 +444,38 @@ export const TAC_SCOREBOARD: PackTemplate = {
       ids,
       "Spine",
       next(),
-      1.98,
+      2.34,
       barH,
       panel,
       [0, barMid, 0.03],
-      flagSpec(shade(TAC.panel, -0.34)),
+      // RECESSED, so the facts belonging to the match read as set into the bug
+      // rather than printed on it — and so the two scores either side are divided
+      // by something with depth instead of by a change of tone.
+      recessed(TAC.ink, sp(22)),
     );
     const roundNo = type_(ids, "Round", next(), { $var: "round" }, {
       face: FACE.tacticalLabel,
-      size: 26,
+      size: 30,
       colour: dim,
-      box: { width: 1.8 },
+      box: { width: 2.2 },
       align: "center",
-      at: [-0.9, barMid + sp(44), 0.04],
+      at: [-1.1, barMid + sp(58), 0.04],
     });
     const clock = type_(ids, "Clock", next(), { $var: "clock" }, {
       face: FACE.display,
-      size: 62,
+      size: 76,
       colour: ink,
-      box: { width: 1.8 },
+      box: { width: 2.2 },
       align: "center",
-      at: [-0.9, barMid + sp(2), 0.04],
+      at: [-1.1, barMid + sp(4), 0.04],
     });
     const side = type_(ids, "Side", next(), { $var: "side" }, {
       face: FACE.tacticalHead,
-      size: 26,
+      size: 30,
       colour: red,
-      box: { width: 1.8 },
+      box: { width: 2.2 },
       align: "center",
-      at: [-0.9, barMid - sp(42), 0.04],
+      at: [-1.1, barMid - sp(56), 0.04],
     });
 
     // The context strip's own two facts, pushed to its ends.
@@ -399,7 +484,7 @@ export const TAC_SCOREBOARD: PackTemplate = {
       size: 24,
       colour: dim,
       box: { width: 3.4 },
-      at: [-barW / 2 + 1.1 + sp(18), stripMid, 0.04],
+      at: [-barW / 2 + 1.7 + sp(18), stripMid, 0.04],
     });
     const stage = type_(ids, "Stage", next(), { $var: "stage" }, {
       face: FACE.tacticalLabel,
@@ -407,13 +492,13 @@ export const TAC_SCOREBOARD: PackTemplate = {
       colour: dim,
       box: { width: 3.4 },
       align: "end",
-      at: [barW / 2 - 1.1 - sp(18) - 3.4, stripMid, 0.04],
+      at: [barW / 2 - 1.7 - sp(18) - 3.4, stripMid, 0.04],
     });
 
     // THE PIP ROW, under the bar and centred on the spine. Two runs facing each
     // other, so the row reads outward from the middle the way the match does.
-    const step = sp(26);
-    const pipY = barBottom - sp(16);
+    const step = sp(34);
+    const pipY = barBottom - sp(22);
     const homePips = pips(ids, "Home Pip", next, 6, 4, TAC.red, { x: -step * 0.5 - step * 5, y: pipY }, step);
     const awayPips = pips(ids, "Away Pip", next, 6, 3, TAC.purple, { x: step * 0.5, y: pipY }, step);
 

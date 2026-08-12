@@ -315,3 +315,27 @@ test("Leaderboard — as designed", async ({ page }) => {
   await shoot(page, "leaderboard-1-designed");
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+/**
+ * THE TACTICAL PACK, at the size it goes to air.
+ *
+ * These three are reachable from Home because the pack is first-party and sits in
+ * the free tier. It did not, at first, and that omission is the whole reason the
+ * three were authored without anybody — including me — ever looking at them.
+ */
+for (const graphic of [
+  { id: "tpl_tac_scoreboard", name: "tac-1-scoreboard" },
+  { id: "tpl_tac_player", name: "tac-2-player" },
+  { id: "tpl_tac_round", name: "tac-3-round" },
+]) {
+  test(`Tactical — ${graphic.name}`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(String(error)));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
+    await open(page, graphic.id);
+    await shoot(page, graphic.name);
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+}

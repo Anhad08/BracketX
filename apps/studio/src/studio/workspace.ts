@@ -45,6 +45,11 @@ export const FREE_TIER: readonly string[] = [
   "pack_broadcast_starter",
   "pack_news_essentials",
   "pack_sport_essentials",
+  // Every FIRST-PARTY graphics pack belongs here, and leaving this one out made
+  // it invisible: Home lists the templates of installed packs only, so the
+  // tactical pack shipped in the build and appeared nowhere a person could reach
+  // it without going to the Marketplace and adding it by hand.
+  "pack_tactical",
 ];
 
 export type Theme = "dark" | "light";
