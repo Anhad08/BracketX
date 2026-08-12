@@ -192,6 +192,10 @@ export const FACE = {
   context: "ast_kicker",
   /** Barlow Medium. Roles and sentences — the only face with real lowercase. */
   text: "ast_text",
+  /** Rajdhani Bold. The esports pack's headings — squarish, technical, a HUD. */
+  tacticalHead: "ast_tac_head",
+  /** Rajdhani SemiBold. Its labels and tags. */
+  tacticalLabel: "ast_tac_label",
 } as const;
 
 /**

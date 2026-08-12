@@ -57,6 +57,7 @@ import { transaction } from "./editing";
 import { DEFAULT_FONT_ASSET } from "./editing";
 import { STUDIO_FONTS } from "./fonts";
 import { STUDIO_IMAGES } from "./images";
+import { TACTICAL } from "./tactical";
 import {
   BREAKING,
   COUNTDOWN,
@@ -1543,6 +1544,29 @@ export const PACKS: readonly Pack[] = [
     tags: ["news", "ticker", "breaking", "bulletin"],
     swatch: ["#c62828", "#0b0b0d"],
     templates: [TICKER, BREAKING],
+  },
+  {
+    // The esports pack. Its own palette — two accents, because a competitive
+    // graphic has two teams in it and they cannot share a hue — so installing it
+    // restyles every graphic that binds `color.primary`, which is the mechanism
+    // working rather than a surprise.
+    id: "pack_tactical",
+    name: "Tactical Esports",
+    kind: "graphics",
+    author: "Streamatrix",
+    description:
+      "A competitive-shooter look: a match scoreboard with round pips, a player strap with figures, and a round-win stinger.",
+    tags: ["esports", "shooter", "scoreboard", "player", "tournament"],
+    swatch: ["#FF4655", "#0B0C10"],
+    tokens: [
+      { name: "color.primary", value: "#FF4655", description: "Signal red, and the attacking side" },
+      { name: "color.opposing", value: "#A855F7", description: "The other side, so no round is ambiguous" },
+      { name: "color.surface", value: "#181B23", description: "Panel and bar fills" },
+      { name: "color.surfaceLift", value: "#22262F", description: "One level up: sub-bands and row tracks" },
+      { name: "color.ink", value: "#E6E7EB", description: "Foreground on surface" },
+      { name: "color.muted", value: "#8A8F9C", description: "Secondary foreground" },
+    ],
+    templates: TACTICAL,
   },
   {
     id: "pack_sport_essentials",

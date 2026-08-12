@@ -116,6 +116,27 @@ export const STUDIO_FONTS: readonly StudioFont[] = [
   { assetId: "ast_noto_devanagari", label: "Noto Sans Devanagari", url: "/fonts/noto-devanagari-400.ttf", scripts: ["Devanagari"] },
   { assetId: "ast_noto_gurmukhi", label: "Noto Sans Gurmukhi", url: "/fonts/noto-gurmukhi-400.ttf", scripts: ["Gurmukhi"] },
   { assetId: "ast_noto_thai", label: "Noto Sans Thai", url: "/fonts/noto-thai-400.ttf", scripts: ["Thai"] },
+  // ==========================================================================
+  // AFTER THE NOTO FACES, AND THAT ORDER IS LOAD-BEARING
+  // ==========================================================================
+  // Rajdhani is an Indian Type Foundry face and it CONTAINS DEVANAGARI. Listed
+  // before Noto Sans Devanagari it won the fallback for that script, and
+  // `writing.test.ts` went red on two assertions at once: Devanagari stopped
+  // being drawn from its own font, and the five-script line lost a system.
+  //
+  // The chain resolves in declaration order, so a Latin display face must never
+  // precede a script font. Nothing about Rajdhani changed — only where it sits.
+  // ESPORTS. Rajdhani is a squarish, technical-looking condensed face — the one
+  // that reads as a HUD rather than as a newsroom — and it carries the tactical
+  // pack's headings and team names.
+  //
+  // Its FIGURES ARE PROPORTIONAL, measured from the file: "1" at 334 against "4"
+  // at 541. So it does not get the numerals. A round timer counting 0:45 to 0:44
+  // in a face whose digits change width moves the centre of the scoreboard every
+  // second, which is the same reason Bebas was chosen for the broadcast family —
+  // and the two share enough of a skeleton to sit in one bug together.
+  { assetId: "ast_tac_head", label: "Rajdhani Bold", url: "/fonts/rajdhani-700.ttf", scripts: ["Latin"] },
+  { assetId: "ast_tac_label", label: "Rajdhani SemiBold", url: "/fonts/rajdhani-600.ttf", scripts: ["Latin"] },
   {
     assetId: "ast_noto_jp",
     label: "Noto Sans Japanese",

@@ -168,11 +168,12 @@ describe("the free tier", () => {
     for (const id of FREE_TIER) expect(packById(id), id).toBeDefined();
   });
 
-  it("ships three themes, three motion packs and three graphics packs", () => {
+  it("ships three themes, three motion packs and four graphics packs", () => {
     const byKind = (kind: string) => PACKS.filter((pack) => pack.kind === kind);
     expect(byKind("theme")).toHaveLength(3);
     expect(byKind("motion")).toHaveLength(3);
-    expect(byKind("graphics")).toHaveLength(3);
+    // Four: the three broadcast packs plus the tactical esports pack.
+    expect(byKind("graphics")).toHaveLength(4);
   });
 
   it("covers the jobs a broadcaster actually has", () => {
@@ -193,7 +194,13 @@ describe("the free tier", () => {
     ]) {
       expect(ids, id).toContain(id);
     }
-    expect(ids.size).toBe(8);
+    // The eight broadcast graphics, plus the tactical pack's three. Asserted as a
+    // COUNT alongside the named list above so a template that is added without a
+    // name here still has to be a deliberate change to this number.
+    for (const id of ["tpl_tac_scoreboard", "tpl_tac_player", "tpl_tac_round"]) {
+      expect(ids, id).toContain(id);
+    }
+    expect(ids.size).toBe(11);
   });
 
   it("gives every starter graphic an entrance", () => {
