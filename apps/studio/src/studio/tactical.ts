@@ -62,10 +62,10 @@ import {
   flagSpec,
   plane,
   recessed,
-  scrimSpec,
   shade,
   sp,
   type_,
+  veilSpec,
 } from "./broadcast";
 import type { IdFactory } from "./ids";
 import { camera, document_, group, nextOrder, variable, type PackTemplate } from "./packs";
@@ -653,9 +653,10 @@ export const TAC_PLAYER: PackTemplate = {
       barH,
       panel,
       [0, midY, 0],
-      // A scrim rather than a flag: this strap comes and goes over gameplay, and
-      // the far end should dissolve into it.
-      scrimSpec(TAC.panel, barH, { width: barW, height: barH }),
+      // SOLID, not a scrim. The dissolve took the backing out from under the three
+      // stat columns at the far end — figures floating on gameplay with nothing
+      // behind them. A strap whose right half is its data cannot fade out.
+      panelSpec(TAC.panel),
     );
 
     // The identity field: solid signal colour, cropped by the frame's left edge.
@@ -668,7 +669,26 @@ export const TAC_PLAYER: PackTemplate = {
       barH,
       red,
       [leftX + (fieldW + 0.6) / 2 - 0.6, midY, 0.01],
-      flagSpec(TAC.red),
+      fieldSpec(TAC.red, TAC.magenta),
+    );
+
+    // A LIFTED TRACK under the figures, so the strap reads as two halves — who
+    // this is, and how they are doing — rather than as one bar with type spread
+    // along it. The seam then divides two surfaces instead of dividing nothing.
+    const statsX = leftX + 6.5;
+    const statsTrack = plane(
+      ids,
+      "Stats Track",
+      next(),
+      barW / 2 + 0.2,
+      barH,
+      // DARKER than the panel, not lighter. Lifting it turned the data half into a
+      // pale slab and swallowed the three stat labels whole — muted grey type on a
+      // light grey track is invisible, and the figures it did show were sitting on
+      // the wrong tone for a dark HUD. Data goes in a WELL here.
+      token("color.surface", shade(TAC.panel, -0.42)),
+      [statsX + (barW / 2 + 0.2) / 2, midY, 0.01],
+      panelSpec(shade(TAC.panel, -0.42), { rim: 0.22 }),
     );
 
     const name = type_(ids, "Name", next(), { $var: "name" }, {
@@ -693,9 +713,10 @@ export const TAC_PLAYER: PackTemplate = {
       at: [leftX + fieldW + sp(32) + 2.3, midY - sp(36), 0.03],
     });
 
-    // The seam: one slanted sliver between the identity and the figures.
-    const seamX = leftX + 6.5;
-    const seam = turned(ids, "Seam", next(), sp(5), barH * 1.4, TAC.red, [seamX, midY, 0.03], 14);
+    // The seam. CONTAINED in the bar: at 1.4x its height it overshot top and bottom
+    // and read as a scratch, the same fault the scoreboard had.
+    const seamX = statsX;
+    const seam = turned(ids, "Seam", next(), sp(5), barH * 0.94, TAC.red, [seamX, midY, 0.03], 10);
 
     // THREE STAT COLUMNS. Figure over label, the figure in the tabular face so a
     // K/D that ticks does not shift its column.
@@ -728,15 +749,17 @@ export const TAC_PLAYER: PackTemplate = {
       ];
     });
 
+    // Hugging the bar's own corners. They sat at the same x before but the bar
+    // dissolved away well short of it, so both brackets floated in open picture.
     const brackets = [
-      ...bracket(ids, "Bracket TR", next, "tr", { x: barW / 2, y: top }, 0.36, TAC.red),
-      ...bracket(ids, "Bracket BR", next, "br", { x: barW / 2, y: bottom }, 0.36, TAC.red),
+      ...bracket(ids, "Bracket TR", next, "tr", { x: barW / 2, y: top }, 0.34, TAC.red),
+      ...bracket(ids, "Bracket BR", next, "br", { x: barW / 2, y: bottom }, 0.34, TAC.red),
     ];
 
     const holder = group(holderId, next(), {
       position: [0, 0, 0],
       size: { width: barW, height: barH },
-      children: [bar, field, name, role, team, seam, ...columns, ...brackets],
+      children: [bar, field, statsTrack, name, role, team, seam, ...columns, ...brackets],
     });
 
     const root: SceneNode = {
@@ -834,21 +857,31 @@ export const TAC_ROUND: PackTemplate = {
       "Wash",
       next(),
       17.9,
-      4.6,
+      // Tall enough to run off the bottom of frame. Sized to its content it ended
+      // in a hard horizontal line across the picture, which is the one thing a wash
+      // must never do.
+      6.6,
       token("color.surface", TAC.black),
-      [0, 0.1, 0],
-      scrimSpec(TAC.black, 4.6, { width: 4.6, height: 4.6 }),
+      [0, -0.9, 0],
+      // A VEIL, fading out of the top and bottom of frame rather than sideways.
+      // `scrimSpec` was handed a square box to trick it into fading upward, which
+      // is the kind of cleverness that reads as a mistake: a full-width band that
+      // dissolves to one side darkens half the picture and leaves the other bright.
+      veilSpec(TAC.black, 6.6, { width: 17.9, height: 6.6 }),
     );
 
     // Raking slivers. Uneven spacing on purpose: an even run is a pattern, and a
     // pattern reads as decoration rather than as speed.
-    const rake = [-5.6, -3.9, 3.4, 5.9].map((x, index) =>
+    // OUTBOARD OF THE WORDS. Two of the four used to cross the title and read as
+    // scratches over it rather than as motion behind it — wider and dimmer as well,
+    // because a thin bright line on dark is a scratch whatever it is doing.
+    const rake = [-7.0, -5.5, 5.5, 7.0].map((x, index) =>
       turned(
         ids,
         `Rake ${index + 1}`,
         next(),
-        sp(index % 2 === 0 ? 10 : 5),
-        5.6,
+        sp(index % 2 === 0 ? 18 : 10),
+        6.2,
         index % 2 === 0 ? TAC.red : TAC.magenta,
         [x, 0.1, 0.01],
         14,
