@@ -1356,3 +1356,61 @@
 @media (prefers-reduced-motion: reduce) {
   .mk-feat-art, .mk-feat-row { animation: none; }
 }
+
+/* ==========================================================================
+   LIVE — the operator's score surface
+   ==========================================================================
+   Sits above Check and the monitors, because the order on screen is the order
+   of the act: set the numbers, look at them, then take them. Deliberately
+   plain — this is read at a glance under time pressure, and a decorated panel
+   reads slower than an undecorated one. */
+.live-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-3, 0.75rem);
+}
+
+.live-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.live-field label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  opacity: 0.8;
+}
+
+.live-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.live-controls .field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* A number set two steps clear of its label, because the number IS the
+   picture — the same rule the scoreboard graphic itself follows. */
+.live-field.numeric .field {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.live-controls .chip {
+  min-width: 2.25rem;
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+/* Reserved, not removed — see the Live panel comment. The row must not reflow
+   while an operator is pressing a button inside it. */
+.live-field .badge.hidden {
+  visibility: hidden;
+}

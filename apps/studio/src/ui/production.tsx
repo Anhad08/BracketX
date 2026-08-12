@@ -49,6 +49,19 @@ export interface ProductionProps {
   readonly onStop: (() => void) | undefined;
 }
 
+/**
+ * One point up or down, in the type the document already uses.
+ *
+ * A scoreboard stores "0" as a string because a text node draws it. Returning
+ * a number here would change the variable’s type mid-match, which the
+ * binding would then have to cope with — so the step is arithmetic and the
+ * shape is preserved.
+ */
+function stepped(current: unknown, by: number): string | number {
+  const next = Math.max(0, Math.round(Number(current ?? 0)) + by);
+  return typeof current === "number" ? next : String(next);
+}
+
 export function Production({
   session,
   bus,
@@ -103,6 +116,138 @@ export function Production({
         <p className="note pad">Open a scene to cue it.</p>
       ) : (
         <>
+          {/* ==================================================================
+              THE SCORE, WHERE THE SHOW IS RUN
+              ==================================================================
+              An operator changing a score had to open Design, find the layer
+              tree, and edit a variable in the inspector — the advanced surface,
+              built for the person who BUILT the graphic, next to controls that
+              nudge rectangles. Mid-match that is not a workflow, it is a hazard.
+
+              This writes the same live values `panels.tsx` writes, through the
+              same `session.overrideVariable`. There is no scoring state here:
+              the runtime holds the value, the bound scene re-resolves, and the
+              picture follows. A second store would be a second answer to "what
+              is the score", and the one on air would eventually be the wrong
+              one.
+
+              Live values are NOT document edits — they do not enter the undo
+              stack and do not persist, which is exactly right for a score that
+              belongs to tonight's match and not to the template. */}
+          <section className="home-block live-data" data-testid="live-data">
+            <div className="block-head">
+              <h2>Live</h2>
+              <span className="dim">Changes go out as you make them</span>
+            </div>
+            {fields.length === 0 ? (
+              <p className="empty">This scene carries no live values.</p>
+            ) : (
+              <div className="live-grid">
+                {fields.map((field) => {
+                  // THE LIVE VALUE, NOT THE DOCUMENT DEFAULT.
+                  //
+                  // `contentSurface` reports what the TEMPLATE ships. An
+                  // override never touches the document, so reading from there
+                  // meant every click computed its step from the original
+                  // score: the first point landed, and the second recomputed
+                  // 0 + 1 and set 1 again. Measured — the graphic stuck on 1
+                  // however many times it was clicked.
+                  const live = session.variableValue(field.key);
+                  const current = live === undefined ? field.value : live;
+                  // A SCORE IS A NUMBER TO THE OPERATOR, WHATEVER THE DOCUMENT
+                  // CALLS IT. The scoreboard authors its scores as strings —
+                  // "0", "1" — because that is what the text node draws, and a
+                  // stepper gated on the declared type therefore appeared on
+                  // nothing at all. What decides whether one point can be added
+                  // is whether the value IS a count, not how it is stored.
+                  const numeric =
+                    field.type === "number" ||
+                    typeof current === "number" ||
+                    (typeof current === "string" && /^\d+$/.test(current.trim()));
+                  return (
+                    <div
+                      className={`live-field${numeric ? " numeric" : ""}`}
+                      key={field.key}
+                      data-testid={`live-${field.key}`}
+                    >
+                      <label htmlFor={`live-input-${field.key}`}>
+                        {field.label}
+                        {field.overridden ? (
+                          <span className="badge tiny" data-testid={`live-changed-${field.key}`}>
+                            changed
+                          </span>
+                        ) : null}
+                      </label>
+                      <div className="live-controls">
+                        {/* A SCORE GOES UP BY ONE FAR MORE OFTEN THAN IT IS
+                            TYPED. One button, one point — the common act costs
+                            one click, and the field is still there for a
+                            correction or a jump. */}
+                        {numeric ? (
+                          <button
+                            type="button"
+                            className="chip"
+                            data-testid={`live-down-${field.key}`}
+                            aria-label={`${field.label} down one`}
+                            onClick={() =>
+                              session.overrideVariable(
+                                field.key,
+                                Math.max(0, Number(current ?? 0) - 1),
+                              )
+                            }
+                          >
+                            −
+                          </button>
+                        ) : null}
+                        <input
+                          id={`live-input-${field.key}`}
+                          className="field"
+                          type={numeric ? "number" : "text"}
+                          value={current === undefined || current === null ? "" : String(current)}
+                          onChange={(event) =>
+                            session.overrideVariable(
+                              field.key,
+                              typeof current === "number"
+                                ? Number(event.target.value || 0)
+                                : event.target.value,
+                            )
+                          }
+                        />
+                        {numeric ? (
+                          <button
+                            type="button"
+                            className="chip primary"
+                            data-testid={`live-up-${field.key}`}
+                            aria-label={`${field.label} up one`}
+                            onClick={() =>
+                              session.overrideVariable(field.key, stepped(current, 1))
+                            }
+                          >
+                            +
+                          </button>
+                        ) : null}
+                        {/* THE WAY BACK. A live value is not undoable — it never
+                            entered the history — so a mistyped score needs its
+                            own correction, and it is the template's value that
+                            it goes back to. */}
+                        {field.overridden ? (
+                          <button
+                            type="button"
+                            className="link"
+                            data-testid={`live-reset-${field.key}`}
+                            onClick={() => session.resetVariable(field.key)}
+                          >
+                            Reset
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           {/* WHAT IS ABOUT TO GO OUT, before the button that sends it. */}
           <section className="home-block">
             <div className="block-head">
