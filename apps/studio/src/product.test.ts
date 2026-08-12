@@ -164,7 +164,8 @@ describe("the free tier", () => {
     // A first-time user who must install something before they can evaluate
     // anything has been asked to do work before seeing value.
     expect(DEFAULT_WORKSPACE.installedPacks).toEqual(FREE_TIER);
-    expect(FREE_TIER.length).toBe(9);
+    // Ten: three themes, three motion packs, and four first-party graphics packs.
+    expect(FREE_TIER.length).toBe(10);
     for (const id of FREE_TIER) expect(packById(id), id).toBeDefined();
   });
 
