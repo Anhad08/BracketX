@@ -38,6 +38,13 @@ export type Section =
   | "settings"
   | "developer";
 
+export interface LevelLabels {
+  /** The left position. Fewer controls, one obvious action. */
+  readonly beginner: string;
+  /** The right position. A SUPERSET — it never removes what was in use. */
+  readonly expert: string;
+}
+
 export interface SectionSpec {
   readonly id: Section;
   readonly label: string;
@@ -45,6 +52,14 @@ export interface SectionSpec {
   readonly hint: string;
   /** Reveals only in Developer Mode. */
   readonly developer?: boolean;
+  /**
+   * What the two levels are CALLED here.
+   *
+   * Named for the act, not the person: nobody wants to be told by their own
+   * tool that they are a beginner. A section with nothing to reveal omits
+   * this, and shows no switch — an inert control is worse than an absent one.
+   */
+  readonly levels?: LevelLabels;
 }
 
 /**
@@ -56,11 +71,21 @@ export interface SectionSpec {
  */
 export const SECTIONS: readonly SectionSpec[] = [
   { id: "home", label: "Home", hint: "Recent work, and somewhere to start" },
-  { id: "design", label: "Design", hint: "Build and animate a graphic" },
+  {
+    id: "design",
+    label: "Design",
+    hint: "Build and animate a graphic",
+    levels: { beginner: "Fill in", expert: "Build" },
+  },
   // PRODUCTION is where scenes go to air. Design is where they are MADE.
   // Mixing the two put a control that starts a transmission next to a control
   // that nudges a rectangle, which is the wrong neighbourhood for it.
-  { id: "production", label: "Production", hint: "Cue your scenes and put them on air" },
+  {
+    id: "production",
+    label: "Production",
+    hint: "Cue your scenes and put them on air",
+    levels: { beginner: "Air", expert: "Desk" },
+  },
   { id: "templates", label: "Templates", hint: "Reusable graphics you have saved" },
   { id: "marketplace", label: "Marketplace", hint: "Themes, motion and graphics packs" },
   { id: "assets", label: "Assets", hint: "Fonts, colours and motion you can reuse" },
@@ -75,6 +100,17 @@ export function visibleSections(developerMode: boolean): readonly SectionSpec[] 
 
 export function sectionSpec(id: Section): SectionSpec {
   return SECTIONS.find((section) => section.id === id) ?? SECTIONS[0]!;
+}
+
+/**
+ * The two labels for a section, or null where there is no switch.
+ *
+ * Null rather than a default pair: a section that reveals nothing must show
+ * nothing, because a switch that does not change what you can see is a switch
+ * that teaches people the control is decorative.
+ */
+export function levelLabels(id: Section): LevelLabels | null {
+  return sectionSpec(id).levels ?? null;
 }
 
 /**
