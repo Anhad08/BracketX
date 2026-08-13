@@ -1,0 +1,825 @@
+<title>The Production Desk</title>
+<style>
+/* ==========================================================================
+   THE PRODUCTION DESK
+   Dark-first: a gallery is dark. :root carries the complete dark palette;
+   light overrides only tokens, in both the media and the stamped form.
+   ========================================================================== */
+
+:root {
+  /* Ground — cool graphite, blue-biased. Not pure black: a gallery monitor
+     never is, and a pure neutral reads as unconsidered. */
+  --ground:   #0E1116;
+  --surface:  #161A21;
+  --raised:   #1D222B;
+  --ink:      #E4E7EC;
+  --ink-dim:  #A8B0BC;
+  --muted:    #79828F;
+  --rule:     #232935;
+  --rule-firm:#333B49;
+
+  /* SEMANTIC ONLY. C3: no semantic hue appears without its meaning.
+     These are the only saturated values in the document, and every use
+     of them below is a thing that is genuinely on air or genuinely cued. */
+  --air:      #FF3B30;
+  --air-dim:  #8C2019;
+  --cue:      #FFB020;
+  --cue-dim:  #8A5D0E;
+
+  --shadow:   0 1px 0 rgba(255,255,255,.04), 0 8px 24px rgba(0,0,0,.4);
+
+  /* Nine steps, 4pt grid. C1: there is no value between them. */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px; --s5: 24px;
+  --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px;
+
+  /* Six sizes, each with its tracking bound to it. C2. The product's own
+     scale, proportionally set for reading on a screen rather than in a dock. */
+  --t-display: 38px;   --k-display: -.036em;
+  --t-title:   25px;   --k-title:   -.028em;
+  --t-head:    18px;   --k-head:    -.018em;
+  --t-body:  16.5px;   --k-body:    -.004em;
+  --t-small:   14px;   --k-small:    0;
+  --t-micro: 11.5px;   --k-micro:   .16em;
+
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono",
+          "Roboto Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+  --measure: 68ch;
+  --rail: 236px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground:   #F4F5F7;
+    --surface:  #FFFFFF;
+    --raised:   #EDEFF2;
+    --ink:      #12151A;
+    --ink-dim:  #414954;
+    --muted:    #6B7480;
+    --rule:     #DDE1E7;
+    --rule-firm:#C3C9D2;
+    --air:      #D6261C;
+    --air-dim:  #F3C7C3;
+    --cue:      #9A6608;
+    --cue-dim:  #F5E2BE;
+    --shadow:   0 1px 0 rgba(255,255,255,.7), 0 6px 20px rgba(20,28,44,.10);
+  }
+}
+
+:root[data-theme="light"] {
+  --ground:   #F4F5F7;
+  --surface:  #FFFFFF;
+  --raised:   #EDEFF2;
+  --ink:      #12151A;
+  --ink-dim:  #414954;
+  --muted:    #6B7480;
+  --rule:     #DDE1E7;
+  --rule-firm:#C3C9D2;
+  --air:      #D6261C;
+  --air-dim:  #F3C7C3;
+  --cue:      #9A6608;
+  --cue-dim:  #F5E2BE;
+  --shadow:   0 1px 0 rgba(255,255,255,.7), 0 6px 20px rgba(20,28,44,.10);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  /* Explicit, from a token. A transparent body borrows the host's ground. */
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--t-body);
+  letter-spacing: var(--k-body);
+  line-height: 1.62;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -- Shell ---------------------------------------------------------------- */
+
+.shell { display: grid; grid-template-columns: var(--rail) minmax(0,1fr); }
+
+.rail {
+  position: sticky; top: 0; align-self: start;
+  height: 100vh; overflow-y: auto;
+  border-right: 1px solid var(--rule);
+  padding: var(--s7) var(--s5);
+  display: flex; flex-direction: column; gap: var(--s5);
+}
+
+.rail-mark {
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+}
+
+.toc { display: flex; flex-direction: column; gap: var(--s1); }
+
+.toc a {
+  display: grid; grid-template-columns: 2.4em 1fr; gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  color: var(--ink-dim); text-decoration: none;
+  font-size: var(--t-small); letter-spacing: var(--k-small);
+  border-radius: 3px;
+  border-left: 2px solid transparent;
+}
+.toc a:hover { background: var(--surface); color: var(--ink); }
+.toc a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.toc .num {
+  font-family: var(--mono); font-size: var(--t-micro);
+  color: var(--muted); font-variant-numeric: tabular-nums;
+}
+
+.main { min-width: 0; padding: var(--s7) var(--s6) var(--s9); }
+.col { max-width: var(--measure); }
+
+/* -- Masthead ------------------------------------------------------------- */
+
+.masthead { max-width: var(--measure); margin-bottom: var(--s7); }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+  margin: 0 0 var(--s4);
+}
+
+h1 {
+  font-family: var(--mono);
+  font-size: var(--t-display); letter-spacing: var(--k-display);
+  font-weight: 700; line-height: 1.08;
+  text-wrap: balance;
+  margin: 0 0 var(--s4);
+}
+
+.standfirst {
+  font-size: var(--t-head); letter-spacing: var(--k-head);
+  line-height: 1.5; color: var(--ink-dim);
+  margin: 0 0 var(--s5); text-wrap: balance;
+}
+
+.meta {
+  display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5);
+  padding-top: var(--s4); border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+}
+.meta b { color: var(--ink-dim); font-weight: 500; }
+
+/* -- The tally strip ------------------------------------------------------ */
+/* The one saturated moment in the document. Everything here is a real
+   state: `lower` is on air, `upper` is armed, the rest are off. */
+
+.strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: var(--s3);
+  margin: var(--s6) 0 var(--s7);
+  box-shadow: var(--shadow);
+}
+
+.chan {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--raised);
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+}
+.chan .lamp {
+  inline-size: 8px; block-size: 8px; border-radius: 50%;
+  background: var(--rule-firm); flex: none;
+}
+.chan.live  { border-color: var(--air); color: var(--air); }
+.chan.live .lamp { background: var(--air); box-shadow: 0 0 0 3px var(--air-dim); }
+.chan.cued  { border-color: var(--cue); color: var(--cue); }
+.chan.cued .lamp { background: var(--cue); box-shadow: 0 0 0 3px var(--cue-dim); }
+.strip .grow { flex: 1 1 var(--s7); }
+.strip .verdict {
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--air); font-weight: 700;
+}
+
+/* -- Sections ------------------------------------------------------------- */
+
+section { max-width: var(--measure); margin-bottom: var(--s8); scroll-margin-top: var(--s5); }
+section.wide { max-width: min(1040px, 100%); }
+
+h2 {
+  display: grid; grid-template-columns: 2.4em 1fr; gap: var(--s3);
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: var(--t-title); letter-spacing: var(--k-title);
+  font-weight: 700; line-height: 1.2;
+  margin: 0 0 var(--s5); padding-top: var(--s4);
+  border-top: 1px solid var(--rule-firm);
+  text-wrap: balance;
+}
+h2 .num { font-size: var(--t-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+h3 {
+  font-family: var(--mono);
+  font-size: var(--t-head); letter-spacing: var(--k-head);
+  font-weight: 700; margin: var(--s6) 0 var(--s3);
+}
+
+p { margin: 0 0 var(--s4); }
+p:last-child { margin-bottom: 0; }
+
+strong { font-weight: 650; color: var(--ink); }
+em { font-style: italic; color: var(--ink-dim); }
+
+code {
+  font-family: var(--mono);
+  font-size: .88em; letter-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+a { color: var(--ink); text-underline-offset: 3px; text-decoration-color: var(--rule-firm); }
+a:hover { text-decoration-color: var(--ink); }
+a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 2px; }
+
+/* -- Pull quote / verdict ------------------------------------------------- */
+
+.pull {
+  border-left: 2px solid var(--rule-firm);
+  padding: var(--s1) 0 var(--s1) var(--s5);
+  margin: var(--s5) 0;
+  font-size: var(--t-head); letter-spacing: var(--k-head);
+  line-height: 1.5; color: var(--ink-dim);
+}
+
+.note {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: var(--s4) var(--s5);
+  margin: var(--s5) 0;
+}
+.note .label {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: var(--s2);
+}
+.note.blocker { border-color: var(--air); }
+.note.blocker .label { color: var(--air); }
+
+/* -- Tables --------------------------------------------------------------- */
+
+.scroll-x { overflow-x: auto; margin: var(--s5) 0; }
+
+table {
+  border-collapse: collapse; width: 100%;
+  font-size: var(--t-small); letter-spacing: var(--k-small);
+  font-variant-numeric: tabular-nums;
+}
+th, td {
+  text-align: left; vertical-align: top;
+  padding: var(--s3) var(--s4) var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+th {
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+  font-weight: 500;
+  border-bottom-color: var(--rule-firm);
+  white-space: nowrap;
+}
+td.key { font-family: var(--mono); color: var(--ink); white-space: nowrap; }
+td.stage { font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+
+/* -- Code ----------------------------------------------------------------- */
+
+pre {
+  font-family: var(--mono);
+  font-size: var(--t-small); letter-spacing: 0; line-height: 1.6;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: var(--s4);
+  margin: var(--s5) 0;
+  overflow-x: auto;
+  color: var(--ink-dim);
+  tab-size: 2;
+}
+pre b { color: var(--ink); font-weight: 600; }
+pre i { color: var(--muted); font-style: normal; }
+
+/* -- The layer stack ------------------------------------------------------ */
+
+.stack {
+  display: flex; flex-direction: column-reverse;
+  gap: var(--s1);
+  margin: var(--s5) 0;
+}
+.layer {
+  display: grid;
+  grid-template-columns: 5.5em 1fr auto;
+  gap: var(--s4); align-items: center;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: var(--t-small); letter-spacing: 0;
+}
+.layer .z {
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.layer .what { color: var(--muted); }
+.layer .state {
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+}
+.layer.live { border-color: var(--air); background: var(--surface); }
+.layer.live .state { color: var(--air); font-weight: 700; }
+.layer.live .what { color: var(--ink); }
+
+/* -- The desk mock -------------------------------------------------------- */
+
+.desk {
+  display: grid;
+  grid-template-columns: 3rem 15rem 1fr 1fr 13rem;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "rail rundown pvw pgm data"
+    "rail rundown pvw pgm data"
+    "rail strip   strip strip strip";
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 300px;
+  margin: var(--s5) 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase;
+}
+.cell { background: var(--surface); padding: var(--s3); color: var(--muted); }
+.cell .h { display: block; color: var(--ink-dim); margin-bottom: var(--s3); }
+.a-rail    { grid-area: rail;    display: flex; align-items: flex-start; justify-content: center; }
+.a-rundown { grid-area: rundown; }
+.a-pvw     { grid-area: pvw; }
+.a-pgm     { grid-area: pgm; }
+.a-data    { grid-area: data; }
+.a-strip   { grid-area: strip; display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+
+.item { display: flex; gap: var(--s2); padding: var(--s1) 0; align-items: center; }
+.item .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.item.on { color: var(--air); }
+.item.on .n { color: var(--air); }
+.item.armed { color: var(--cue); }
+.item.armed .n { color: var(--cue); }
+
+.monitor {
+  border: 1px solid var(--rule-firm);
+  border-radius: 2px;
+  aspect-ratio: 16 / 9;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted);
+}
+.a-pgm .monitor { border-color: var(--air); color: var(--air); }
+
+.field { display: block; border-bottom: 1px solid var(--rule); padding: var(--s2) 0; }
+
+.btn {
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule-firm); border-radius: 2px;
+  color: var(--ink-dim);
+}
+.btn.take { border-color: var(--air); color: var(--air); font-weight: 700; }
+
+/* -- Conformance ---------------------------------------------------------- */
+
+.checks { list-style: none; padding: 0; margin: var(--s5) 0; display: flex; flex-direction: column; gap: var(--s1); }
+.checks li {
+  display: grid; grid-template-columns: 3.2em 1fr; gap: var(--s3);
+  padding: var(--s3) 0; border-bottom: 1px solid var(--rule);
+  font-size: var(--t-small); letter-spacing: var(--k-small);
+}
+.checks .id {
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  color: var(--muted); padding-top: .25em;
+}
+
+ul.plain { padding-left: var(--s5); margin: 0 0 var(--s4); }
+ul.plain li { margin-bottom: var(--s2); }
+
+footer {
+  max-width: var(--measure);
+  border-top: 1px solid var(--rule-firm);
+  padding-top: var(--s4);
+  font-family: var(--mono);
+  font-size: var(--t-micro); letter-spacing: var(--k-micro);
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* -- Narrow --------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail {
+    position: static; height: auto; border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    padding: var(--s5) var(--s4);
+  }
+  .toc { flex-direction: row; flex-wrap: wrap; }
+  .toc a { grid-template-columns: auto auto; }
+  .main { padding: var(--s6) var(--s4) var(--s8); }
+  .desk {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "rundown rundown" "pvw pgm" "data data" "strip strip";
+    min-height: 0;
+  }
+  .a-rail { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="shell">
+
+  <nav class="rail" aria-label="Contents">
+    <span class="rail-mark">Streamatrix / Spec</span>
+    <div class="toc">
+      <a href="#problem"><span class="num">01</span><span>The problem</span></a>
+      <a href="#scope"><span class="num">02</span><span>Decomposition</span></a>
+      <a href="#foundation"><span class="num">03</span><span>Foundation</span></a>
+      <a href="#channels"><span class="num">04</span><span>Channels</span></a>
+      <a href="#rundown"><span class="num">05</span><span>The rundown</span></a>
+      <a href="#keys"><span class="num">06</span><span>Hotkeys</span></a>
+      <a href="#desk"><span class="num">07</span><span>The desk</span></a>
+      <a href="#proof"><span class="num">08</span><span>How it's proven</span></a>
+      <a href="#risks"><span class="num">09</span><span>Risks</span></a>
+      <a href="#conformance"><span class="num">10</span><span>Conformance</span></a>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <header class="masthead">
+      <p class="eyebrow">Design specification · Approved</p>
+      <h1>The Production Desk</h1>
+      <p class="standfirst">
+        Studio airs one graphic at a time. To run a show it needs four channels,
+        a rundown, and keys an operator's hands can find without looking.
+      </p>
+      <div class="meta">
+        <span><b>13 Aug 2026</b></span>
+        <span>Branch <b>worktree-production-system-spec</b></span>
+        <span>Status <b>Ready for planning</b></span>
+        <span>Scope <b>P0 – P4</b></span>
+      </div>
+    </header>
+
+    <!-- The one saturated moment in the document. Every state here is real:
+         this is what the desk looks like mid-show. -->
+    <div class="strip" role="img"
+         aria-label="Channel strip: Background off, Lower third on air, Upper cued, Overlay off. Verdict: not possible today.">
+      <span class="chan"><span class="lamp"></span>Background</span>
+      <span class="chan live"><span class="lamp"></span>Lower · On air</span>
+      <span class="chan cued"><span class="lamp"></span>Upper · Cued</span>
+      <span class="chan"><span class="lamp"></span>Overlay</span>
+      <span class="grow"></span>
+      <span class="verdict">Impossible today</span>
+    </div>
+
+    <section id="problem">
+      <h2><span class="num">01</span><span>The problem</span></h2>
+      <p>
+        <code>ProgramBus</code> holds one preview session and one program session,
+        and <code>take()</code> is <code>program.open(document)</code> — it
+        <em>replaces</em> whatever was on air. A lower third and a ticker cannot
+        both be out. There is no rundown: what comes next lives in the operator's
+        head. There are no numbered keys and no panic.
+        <code>production.tsx</code> is a scrolling page whose monitors sit below
+        the fold, under the live-data and check blocks.
+      </p>
+      <p class="pull">
+        This is a missing capability, not a layout. Conformance check C8 — no
+        control exists for a capability the engine lacks — means the engine work
+        leads and the interface follows.
+      </p>
+      <p>
+        A second problem arrived with it: measured against the product's own
+        Design OS, the Design screen fails several checks outright. Type sizes
+        below the six-step scale, which is what truncated an easing label to
+        <code>easir</code>. No single primary action. Undesigned empty and error
+        states. And <code>Depth</code> — the beginner/expert split — exists in
+        <code>workspace.ts</code> and is unreachable from the UI, so neither
+        audience gets what it was built for.
+      </p>
+    </section>
+
+    <section id="scope">
+      <h2><span class="num">02</span><span>Decomposition</span></h2>
+      <p>
+        Five sub-projects, each with its own plan and its own verification.
+        Production precedes Design deliberately: Design's problems are
+        conformance problems with known fixes, and Production's are missing
+        capability. Capability takes longer to be wrong about.
+      </p>
+      <div class="scroll-x">
+        <table>
+          <thead>
+            <tr><th>Stage</th><th>Sub-project</th><th>Depends on</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="stage">P0</td><td>Foundation — the level mechanism, conformance primitives</td><td>—</td></tr>
+            <tr><td class="stage">P1</td><td>Channels — <code>ProgramBus</code> becomes multi-layer</td><td>P0</td></tr>
+            <tr><td class="stage">P2</td><td>The production desk — rundown, hotkeys, fixed layout</td><td>P1</td></tr>
+            <tr><td class="stage">P3</td><td>Design section — stage, docks, summoned timeline</td><td>P0</td></tr>
+            <tr><td class="stage">P4</td><td>Catalogue, then edges</td><td>P0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="foundation">
+      <h2><span class="num">03</span><span>Foundation</span></h2>
+      <p>
+        Two workspaces, named for the <strong>task</strong> rather than the
+        person. Nobody wants to be labelled a beginner by their own tool.
+        <code>Depth</code> keeps its type name and its two values; only its
+        expression changes.
+      </p>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Section</th><th>Left position</th><th>Right position</th></tr></thead>
+          <tbody>
+            <tr><td>Design</td><td class="key">Fill in</td><td class="key">Build</td></tr>
+            <tr><td>Production</td><td class="key">Air</td><td class="key">Desk</td></tr>
+            <tr><td>Catalogue, edges</td><td class="key">— no switch —</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Three rules make it work:</p>
+      <ul class="plain">
+        <li><strong>Visible.</strong> A segmented control in the header, in the same screen position in every section. The current failure isn't that the levels are wrong — it's that they're unreachable.</li>
+        <li><strong>The right position is a superset.</strong> Switching never removes a control that was in use, and shared controls don't move. Fields that jump make a switch feel unsafe to press.</li>
+        <li><strong>Reversible in one key</strong>, both directions. <code>⌥E</code>, already bound.</li>
+      </ul>
+      <div class="note">
+        <span class="label">Risk accepted</span>
+        A switch whose labels change per section is a switch the operator
+        re-reads. The alternative is one neutral pair used product-wide, at the
+        cost of the task-naming. Ship the section-specific labels; revisit if it
+        confuses anyone.
+      </div>
+      <h3>Conformance becomes a test</h3>
+      <p>
+        A Playwright pass walks computed styles across every section and fails on
+        any spacing or type value outside the scale. A design system that cannot
+        fail a review is decoration — Volume One says so, and this is what saying
+        so costs.
+      </p>
+    </section>
+
+    <section id="channels" class="wide">
+      <h2><span class="num">04</span><span>Channels</span></h2>
+      <div class="col">
+        <p>
+          <code>ProgramBus</code> stops owning one program session and starts
+          owning several. Each channel is a full <code>StudioSession</code> with
+          its own host, mirror and clock — the same argument
+          <code>program.ts</code> already makes for separating Preview from
+          Program, applied one level further. One runtime cannot be at two
+          frames, and two graphics on air are at two frames.
+        </p>
+        <p>
+          Four, named by broadcast role rather than numbered, because an operator
+          says <em>kill the ticker</em> and not <em>kill layer three</em>.
+        </p>
+      </div>
+
+      <div class="stack">
+        <div class="layer"><span class="z">z 0</span><span class="what">background — sting, full-frame bed</span><span class="state">Off</span></div>
+        <div class="layer live"><span class="z">z 1</span><span class="what">lower — name strap, score bug</span><span class="state">On air</span></div>
+        <div class="layer"><span class="z">z 2</span><span class="what">upper — ticker, breaking band</span><span class="state">Off</span></div>
+        <div class="layer"><span class="z">z 3</span><span class="what">overlay — countdown, clock</span><span class="state">Off</span></div>
+      </div>
+
+      <div class="col">
+        <pre><b>export type</b> ChannelId = <i>"background" | "lower" | "upper" | "overlay"</i>;
+
+<b>export class</b> ProgramBus {
+  <b>readonly</b> preview: StudioSession;
+
+  <i>/** Builds the channel's session on first use. */</i>
+  channel(id: ChannelId): Channel;
+  <i>/** Channels with frames going out, in compositing order. */</i>
+  <b>get</b> live(): <b>readonly</b> ChannelId[];
+  <i>/** True when ANY channel is on air. Drives tally and ducking. */</i>
+  <b>get</b> onAir(): boolean;
+
+  cue(id: ChannelId): TakeResult;
+  take(id: ChannelId, mode?: TakeMode): TakeResult;
+  clear(id: ChannelId): <b>void</b>;
+  clearAll(): <b>void</b>;
+}</pre>
+
+        <ul class="plain">
+          <li><strong>Lazily constructed.</strong> A channel's session isn't built until something is taken to it. An operator running one lower third pays for one session.</li>
+          <li><strong>No default channel.</strong> Every call names its target. A defaulting API is how everything quietly lands on one layer and the feature appears not to work.</li>
+          <li><strong>Show-level state stays on the bus.</strong> A show that put thirty-four graphics out across four channels ran from its first take to going off air. <code>clearAll()</code> stamps the end; <code>clear(id)</code> doesn't.</li>
+        </ul>
+
+        <div class="note">
+          <span class="label">Context budget</span>
+          Four channels + preview + the hover player = six WebGL contexts,
+          against a browser ceiling near sixteen. The codebase has already met
+          that ceiling once — the Marketplace hover player exists because forty
+          contexts do not work — so the budget is stated here rather than
+          discovered later.
+        </div>
+      </div>
+    </section>
+
+    <section id="rundown">
+      <h2><span class="num">05</span><span>The rundown</span></h2>
+      <p>
+        An ordered list of items; an item is a graphic, plus tonight's values,
+        plus where it goes.
+      </p>
+      <pre><b>export interface</b> RundownItem {
+  <b>readonly</b> id: string;
+  <b>readonly</b> name: string;
+  <b>readonly</b> source:
+    | { <b>readonly</b> kind: <i>"template"</i>;  <b>readonly</b> templateId: string }
+    | { <b>readonly</b> kind: <i>"document"</i>;  <b>readonly</b> json: string };
+  <b>readonly</b> channel: ChannelId;
+  <i>/** Tonight's values. Overrides, never document edits. */</i>
+  <b>readonly</b> data: Readonly&lt;Record&lt;string, string | number&gt;&gt;;
+  <i>/** 1–9, or null. */</i>
+  <b>readonly</b> hotkey: number | <b>null</b>;
+}</pre>
+      <p>
+        It lives in <code>studio/rundown.ts</code> as its own saveable document,
+        and <strong>not</strong> in the scene format. <code>program.ts</code>
+        already refuses to put <code>role: "entrance"</code> in the format on the
+        grounds that the engine would have to understand a product concept
+        forever. A rundown is a larger version of the same noun and gets the same
+        answer.
+      </p>
+      <p class="pull">
+        Item state — ready, cued, live, done — is derived from channel state and
+        never stored on the item. Two answers to “what is on air” is how the
+        wrong one comes to be believed.
+      </p>
+    </section>
+
+    <section id="keys">
+      <h2><span class="num">06</span><span>Hotkeys</span></h2>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Command</th><th>Binding</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td class="key">air.cueItem.1 … .9</td><td class="key">1 – 9</td><td>Cue the numbered item.</td></tr>
+            <tr><td class="key">air.takeNext</td><td class="key">Ctrl / ⌘ + Enter</td><td>Plain <code>Enter</code> belongs to the focused control — commit <code>af9e138</code> deliberately gave it back. <code>Space</code> pans the viewport.</td></tr>
+            <tr><td class="key">air.clearAll</td><td class="key">Shift + Esc</td><td>A chord one hand cannot strike by accident, executing instantly once struck.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Active only in Production at the Desk level, and never while a text field
+        has focus. <code>1</code>–<code>9</code> are ordinary characters
+        everywhere else, and a binding that swallows typing is worse than no
+        binding.
+      </p>
+      <p>
+        Air is not undoable, so the guard on panic belongs in the gesture, not in
+        a confirmation dialog — C5 forbids delaying a consequential action behind
+        animation, and a modal is worse than an animation.
+      </p>
+    </section>
+
+    <section id="desk" class="wide">
+      <h2><span class="num">07</span><span>The desk</span></h2>
+      <div class="col">
+        <p>
+          A fixed grid. Regions that can overflow — the rundown list, the
+          live-data column — scroll internally. Nothing an operator needs is ever
+          below the fold, which is the specific failure of the current page.
+        </p>
+      </div>
+
+      <div class="desk" role="img"
+           aria-label="Desk layout: navigation rail, rundown list, preview and program monitors side by side with program larger, live data column, and a channel strip across the bottom.">
+        <div class="cell a-rail">Rail</div>
+        <div class="cell a-rundown">
+          <span class="h">Rundown</span>
+          <span class="item"><span class="n">1</span> Lower third</span>
+          <span class="item on"><span class="n">2</span> Score · live</span>
+          <span class="item armed"><span class="n">3</span> Ticker · cued</span>
+          <span class="item"><span class="n">4</span> Break bumper</span>
+        </div>
+        <div class="cell a-pvw"><span class="h">Preview</span><span class="monitor">PVW</span></div>
+        <div class="cell a-pgm"><span class="h">Program</span><span class="monitor">PGM</span></div>
+        <div class="cell a-data">
+          <span class="h">Live data</span>
+          <span class="field">Name</span>
+          <span class="field">Home</span>
+          <span class="field">Away</span>
+        </div>
+        <div class="cell a-strip">
+          <span class="chan"><span class="lamp"></span>Background</span>
+          <span class="chan live"><span class="lamp"></span>Lower · Score</span>
+          <span class="chan cued"><span class="lamp"></span>Upper · Ticker</span>
+          <span class="chan"><span class="lamp"></span>Overlay</span>
+          <span class="grow"></span>
+          <span class="btn">Cue</span>
+          <span class="btn take">Take</span>
+        </div>
+      </div>
+
+      <div class="col">
+        <p>
+          The channel strip is one cell per layer, each with its own clear, so
+          the ticker can be dropped without touching the score. Program is drawn
+          larger than Preview: they are not equals, and the one going out should
+          look like it.
+        </p>
+        <p>
+          Preflight keeps its role, moving from a block in the scroll to a state
+          on the cued item — an operator wants “this one has a problem” attached
+          to the thing, not filed under a heading.
+        </p>
+      </div>
+    </section>
+
+    <section id="proof">
+      <h2><span class="num">08</span><span>How it's proven</span></h2>
+      <div class="note blocker">
+        <span class="label">The test that matters</span>
+        Cue item 3 by hotkey, take it, and assert <strong>by pixel readback</strong>
+        that two graphics are on air simultaneously. Everything else in P1 can
+        pass while the feature does not work. This cannot.
+      </div>
+      <ul class="plain">
+        <li><strong>Unit — channels.</strong> Taking to <code>lower</code> leaves <code>upper</code>'s canonical hash untouched. Clearing one channel leaves the others live. Cue is refused on a channel already on air.</li>
+        <li><strong>Unit — rundown.</strong> Ordering survives a round trip. A corrupt stored rundown loads as empty rather than throwing.</li>
+        <li><strong>E2E — panic.</strong> <code>Shift+Esc</code> from three live channels leaves all four off air and the tally reading OFF.</li>
+        <li><strong>Performance.</strong> Four live sessions measured on the low-end device profile before the UI commits to offering four.</li>
+      </ul>
+    </section>
+
+    <section id="risks">
+      <h2><span class="num">09</span><span>Risks</span></h2>
+      <div class="note blocker">
+        <span class="label">Blocker · not ours to land</span>
+        The render-order fix that multi-layer compositing relies on sits
+        uncommitted in the working tree at
+        <code>three-backend.ts:392</code>, alongside leftover debug
+        instrumentation at lines 394–408 that logs on every mesh attach. A
+        <code>console.log</code> on that path during a four-channel show is a
+        performance defect in its own right. This belongs to another session and
+        must land before P1 can be verified.
+      </div>
+      <ul class="plain">
+        <li><strong>Four mirrors is four mirrors.</strong> If the low-end profile can't hold four live channels at frame budget, the answer is fewer channels offered on that profile — not a slower show.</li>
+        <li><strong>Scope.</strong> P1 and P2 together are the bulk of this work and considerably larger than the request that started it. P3 and P4 shouldn't be planned until P2 is in.</li>
+      </ul>
+    </section>
+
+    <section id="conformance">
+      <h2><span class="num">10</span><span>Conformance</span></h2>
+      <p>
+        This page is built under the checklist it describes. The rules are the
+        product's, not the page's.
+      </p>
+      <ul class="checks">
+        <li><span class="id">C1</span><span>Every spacing value is one of nine, on a 4pt grid.</span></li>
+        <li><span class="id">C2</span><span>Every type size is one of six, with its tracking bound to it.</span></li>
+        <li><span class="id">C3</span><span>No semantic hue appears without its meaning. Red and amber appear only where something is genuinely on air or genuinely cued — never as decoration. They are the only saturated values in the document.</span></li>
+        <li><span class="id">C5</span><span>Nothing with consequence is delayed by animation.</span></li>
+        <li><span class="id">C9</span><span>It survives the gallery test: at 40% brightness from two metres, on-air state is unmistakable and nothing else is.</span></li>
+        <li><span class="id">C10</span><span>It survives the twelve-hour test. Nothing loops, nothing pulses, nothing moves in peripheral vision. There is no ambient motion on this page, by rule.</span></li>
+      </ul>
+    </section>
+
+    <footer>
+      Streamatrix Studio · docs/superpowers/specs/2026-08-13-production-system-and-ui-redesign-design.md
+    </footer>
+
+  </main>
+</div>
