@@ -18,7 +18,8 @@
    ========================================================================== */
 
 :root {
-  /* A spacing scale, so nothing is spaced by eye. */
+  /* Nine steps, 4pt grid. C1: there is no value between them, and "it looked
+     better at 15" is a sign the wrong step was chosen. */
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
@@ -26,6 +27,19 @@
   --s5: 24px;
   --s6: 32px;
   --s7: 48px;
+  --s8: 64px;
+  --s9: 96px;
+
+  /* Six sizes, each with its tracking BOUND to it. C2: tighter as it grows,
+     looser as it shrinks — what optical sizing would do for a face that has
+     it, which the system face does not. Never override letter-spacing
+     locally; take the pair or take neither. */
+  --t-display: 30px;  --k-display: -0.036em;
+  --t-title:   20px;  --k-title:   -0.028em;
+  --t-head:    14px;  --k-head:    -0.018em;
+  --t-body:    13px;  --k-body:    -0.004em;
+  --t-small:   11px;  --k-small:    0;
+  --t-micro:    9px;  --k-micro:    0.16em;
   --radius: 10px;
   --radius-sm: 6px;
   /* MOTION LIVES IN ONE PLACE — styles.css, from Design OS Volume One.
