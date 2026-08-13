@@ -91,6 +91,7 @@ import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
 import { ProgramRow } from "./ui/program";
 import { CommandPalette, KeyboardHelp } from "./ui/palette";
 import { Nav } from "./ui/nav";
+import { LevelSwitch } from "./ui/level-switch";
 import { Home } from "./ui/home";
 import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections";
 import { DeveloperPanel } from "./ui/developer";
@@ -2370,6 +2371,15 @@ export function App() {
             editor would be the opposite of what a menu bar is for: the one
             place that is always in the same place. */}
         <MenuBar commands={commands} />
+        {/* OUTSIDE the `designing` branch, deliberately. The rule is that the
+            switch occupies the same screen position in every section, and it
+            renders nothing where there is nothing to reveal — so the position
+            is constant without the control being ever-present. */}
+        <LevelSwitch
+          section={workspace.section}
+          depth={workspace.depth}
+          onDepth={(depth) => update({ depth })}
+        />
         {designing ? (
           <>
             <span className="doc-name" data-testid="doc-name">

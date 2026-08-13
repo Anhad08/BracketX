@@ -1548,3 +1548,36 @@ li:active > button.row-name,
     outline-width: 3px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   THE LEVEL SWITCH
+
+   Two positions, never three. On the type scale's micro size, because it is a
+   label on an instrument and not a heading. No transition on the moving state:
+   a switch that has to finish animating before it reads as switched is a
+   switch you press twice.
+   -------------------------------------------------------------------------- */
+.level-switch {
+  display: inline-flex;
+  gap: var(--s1);
+  padding: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.level-opt {
+  padding: var(--s1) var(--s3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--t-micro);
+  letter-spacing: var(--k-micro);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.level-opt.on {
+  background: var(--accent-bg);
+  color: var(--ink);
+}
