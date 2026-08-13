@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ProgramBus } from "../studio/program";
-import type { ChannelId } from "../studio/channels";
+import { CHANNELS, type ChannelId } from "../studio/channels";
 
 /**
  * PREVIEW and PROGRAM, side by side.
@@ -54,7 +54,8 @@ export interface MonitorsProps {
   readonly channel: ChannelId;
   /** The canvas the design session draws into. Moved here while Production is open. */
   readonly previewCanvas: HTMLCanvasElement | null;
-  readonly programCanvas: HTMLCanvasElement;
+  /** Borrows a channel's canvas. Owned by the shell, never by a component. */
+  readonly canvasFor: (id: ChannelId) => HTMLCanvasElement;
   readonly revision: number;
   readonly onOffAir: () => void;
   readonly onTake: () => void;
@@ -85,7 +86,7 @@ export function Monitors({
   bus,
   channel,
   previewCanvas,
-  programCanvas,
+  canvasFor,
   revision,
   onOffAir,
   onTake,
@@ -99,12 +100,33 @@ export function Monitors({
   // to its canvas for the session's lifetime (MirrorBackend C2), so a canvas
   // that mounted with this component would tear down a mirror — the on-air one
   // — every time somebody opened this page.
+  //
+  // THE STACK IS THE COMPOSITE. Every live layer's canvas is appended in
+  // `CHANNELS` order, so DOM order is z-order is compositing order — one rule,
+  // three places it has to agree, expressed once by this loop rather than
+  // three times by three conventions that can drift apart.
   useEffect(() => {
     const host = programMount.current;
-    if (host !== null && programCanvas.parentElement !== host) {
-      host.appendChild(programCanvas);
+    if (host === null) return;
+    for (const id of CHANNELS) {
+      if (!bus.live.includes(id)) continue;
+      const surface = canvasFor(id);
+      // `appendChild` on a node already present MOVES it, which is what keeps
+      // the order correct when a lower layer is taken after a higher one.
+      host.appendChild(surface);
     }
-  }, [programCanvas]);
+  }, [bus, canvasFor, revision]);
+
+  /** A layer that has left air must leave the stack, or it keeps compositing. */
+  useEffect(() => {
+    const host = programMount.current;
+    if (host === null) return;
+    for (const id of CHANNELS) {
+      if (bus.live.includes(id)) continue;
+      const surface = canvasFor(id);
+      if (surface.parentElement === host) host.removeChild(surface);
+    }
+  }, [bus, canvasFor, revision]);
 
   useEffect(() => {
     const host = previewMount.current;
@@ -138,20 +160,27 @@ export function Monitors({
       // monitor showing a lower third has every reason to believe it is out.
       //
       // A clean feed is black. So the programme monitor stops being drawn.
-      if (bus.onAir) bus.channel(channel).render();
+      //
+      // EVERY live layer, not just this monitor's: each has its own clock, and
+      // a ticker that stopped advancing because a score bug happened to own the
+      // controls would be frozen on air.
+      for (const id of bus.live) bus.channel(id).render();
     };
     handle = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(handle);
   }, [bus]);
 
-  /** Wipes the programme surface the moment the transmission ends. */
+  /** Wipes a layer's surface the moment it stops transmitting. */
   useEffect(() => {
-    if (bus.onAir) return;
-    const context = programCanvas.getContext("webgl2") ?? programCanvas.getContext("webgl");
-    if (context === null) return;
-    context.clearColor(0, 0, 0, 0);
-    context.clear(context.COLOR_BUFFER_BIT);
-  }, [bus, bus.onAir, programCanvas]);
+    for (const id of CHANNELS) {
+      if (bus.live.includes(id)) continue;
+      const surface = canvasFor(id);
+      const context = surface.getContext("webgl2") ?? surface.getContext("webgl");
+      if (context === null) continue;
+      context.clearColor(0, 0, 0, 0);
+      context.clear(context.COLOR_BUFFER_BIT);
+    }
+  }, [bus, canvasFor, revision]);
 
   // The timecode is read from the bus, which owns the run. A second clock here
   // would drift from the one the closure reports.

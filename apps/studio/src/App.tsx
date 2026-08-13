@@ -91,7 +91,7 @@ import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
 import { ProgramRow } from "./ui/program";
 import { CommandPalette, KeyboardHelp } from "./ui/palette";
 import { Nav } from "./ui/nav";
-import type { ChannelId } from "./studio/channels";
+import { CHANNELS, CHANNEL_HINTS, type ChannelId } from "./studio/channels";
 import { LevelSwitch } from "./ui/level-switch";
 import { Home } from "./ui/home";
 import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections";
@@ -207,14 +207,25 @@ export function App() {
   if (canvasRef.current === null && typeof document !== "undefined") {
     canvasRef.current = document.createElement("canvas");
   }
-  // Program gets its OWN canvas and its own session, for the reason
-  // `program.ts` argues at length: Program has its own clock, and one runtime
-  // cannot be at two frames. A graphic must keep animating on air while a
-  // designer scrubs Preview to frame zero.
-  const programCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  if (programCanvasRef.current === null && typeof document !== "undefined") {
-    programCanvasRef.current = document.createElement("canvas");
-  }
+  // Every channel gets its OWN canvas and its own session, for the reason
+  // `program.ts` argues at length: a live layer has its own clock, and one
+  // runtime cannot be at two frames. A graphic must keep animating on air
+  // while a designer scrubs Preview to frame zero — and a ticker must keep
+  // running while a score bug is replaced underneath it.
+  //
+  // Created imperatively and NEVER by a component: a backend binds to its
+  // canvas for the session's lifetime (MirrorBackend C2), so a canvas that
+  // mounted with a component would tear down a layer that is on air every
+  // time the panel layout changed.
+  const channelCanvases = useRef<Map<ChannelId, HTMLCanvasElement>>(new Map());
+  const canvasFor = useCallback((id: ChannelId): HTMLCanvasElement => {
+    const existing = channelCanvases.current.get(id);
+    if (existing !== undefined) return existing;
+    const made = document.createElement("canvas");
+    made.dataset.channel = id;
+    channelCanvases.current.set(id, made);
+    return made;
+  }, []);
 
   const [session, setSession] = useState<StudioSession | null>(null);
   const [bus, setBus] = useState<ProgramBus | null>(null);
@@ -738,15 +749,12 @@ export function App() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const programCanvas = programCanvasRef.current;
-    if (canvas === null || programCanvas === null || session !== null) return;
+    if (canvas === null || session !== null) return;
     if (!fontsReady) return;
     try {
       const created = newDocument("Untitled", ids, new Date().toISOString());
-      for (const surface of [canvas, programCanvas]) {
-        surface.width = created.world.output.width;
-        surface.height = created.world.output.height;
-      }
+      canvas.width = created.world.output.width;
+      canvas.height = created.world.output.height;
       const text = textRef.current ?? undefined;
       const images = imagesRef.current ?? undefined;
       // The preview may be softened by a preset. Programme may not — see
@@ -773,18 +781,21 @@ export function App() {
       // Preview's: sharing one would be the exact leak the whole split exists
       // to prevent, and it would be invisible until the first edit.
       setBus(
-        new ProgramBus(
-          preview,
-          () =>
-            new StudioSession(
-              createBackend(rendererRef.current, programCanvas, programOptions(settings)),
-              newDocument("Program", ids, new Date().toISOString()),
-              {
-                ...(text === undefined ? {} : { text }),
-                ...(images === undefined ? {} : { images }),
-              },
-            ),
-        ),
+        new ProgramBus(preview, (id) => {
+          // Sized from the document, not from the preview canvas: the output
+          // is what a layer draws for, and the preview may be at any zoom.
+          const surface = canvasFor(id);
+          surface.width = created.world.output.width;
+          surface.height = created.world.output.height;
+          return new StudioSession(
+            createBackend(rendererRef.current, surface, programOptions(settings)),
+            newDocument(id, ids, new Date().toISOString()),
+            {
+              ...(text === undefined ? {} : { text }),
+              ...(images === undefined ? {} : { images }),
+            },
+          );
+        }),
       );
       setExpanded(new Set([created.root.id]));
 
@@ -1457,6 +1468,34 @@ export function App() {
               enabled: bus.onAir,
               run: () => bus.clear(target),
             },
+            // EVERY LAYER, REACHABLE. C7 requires every action to be in the
+            // palette, and the bus now has four channels — so four takes and
+            // four clears, named by the layer's role. Without these the only
+            // addressable layer would be the one the take button happens to
+            // point at, and the other three would exist only in tests.
+            ...CHANNELS.flatMap((id) => [
+              {
+                id: `program.take.${id}`,
+                title: `Take to ${id}`,
+                section: "Program" as const,
+                hint: CHANNEL_HINTS[id],
+                keywords: ["air", "live", "layer", id],
+                run: () => {
+                  bus.take(id);
+                  say("take");
+                  update({ programOpen: true });
+                },
+              },
+              {
+                id: `program.clear.${id}`,
+                title: `Clear ${id}`,
+                section: "Program" as const,
+                hint: CHANNEL_HINTS[id],
+                keywords: ["off", "layer", id],
+                enabled: bus.stateOf(id) !== "off-air",
+                run: () => bus.clear(id),
+              },
+            ]),
             {
               id: "program.clearAll",
               title: "Clear everything off air",
@@ -2193,7 +2232,7 @@ export function App() {
             art={templateArt}
             onPlay={playerReady ? playTemplate : undefined}
             onStop={playerReady ? stopTemplate : undefined}
-            programCanvas={programCanvasRef.current}
+            canvasFor={canvasFor}
             previewCanvas={canvasRef.current}
             revision={revision}
             installed={installed}

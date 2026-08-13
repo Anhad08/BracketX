@@ -1581,3 +1581,22 @@ li:active > button.row-name,
   background: var(--accent-bg);
   color: var(--ink);
 }
+
+/* --------------------------------------------------------------------------
+   THE PROGRAM STACK
+
+   Every live layer occupies the same box, and the stacking order is the DOM
+   order — which `monitors.tsx` writes in CHANNELS order, which is the
+   compositing order. One rule, three places it has to agree, so it is stated
+   here as well as there.
+   -------------------------------------------------------------------------- */
+.mon-face {
+  position: relative;
+}
+
+.mon-face > canvas {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}

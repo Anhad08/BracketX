@@ -31,11 +31,13 @@ import type { Pack } from "../studio/packs";
 import { PACKS } from "../studio/packs";
 import { contentSurface, preflight } from "../studio/preflight";
 import { Monitors } from "./monitors";
+import type { ChannelId } from "../studio/channels";
 
 export interface ProductionProps {
   readonly session: StudioSession | null;
   readonly bus: ProgramBus | null;
-  readonly programCanvas: HTMLCanvasElement | null;
+  /** Borrows a channel's canvas. Owned by the shell, never by a component. */
+  readonly canvasFor: (id: ChannelId) => HTMLCanvasElement;
   /** The design session's canvas, shown as the PREVIEW monitor. */
   readonly previewCanvas: HTMLCanvasElement | null;
   readonly revision: number;
@@ -68,7 +70,7 @@ export function Production({
   art,
   onPlay,
   onStop,
-  programCanvas,
+  canvasFor,
   previewCanvas,
   revision,
   installed,
@@ -112,7 +114,7 @@ export function Production({
         </span>
       </header>
 
-      {session === null || bus === null || programCanvas === null ? (
+      {session === null || bus === null ? (
         <p className="note pad">Open a scene to cue it.</p>
       ) : (
         <>
@@ -274,7 +276,7 @@ export function Production({
             bus={bus}
             channel="lower"
             previewCanvas={previewCanvas}
-            programCanvas={programCanvas}
+            canvasFor={canvasFor}
             revision={revision}
             onOffAir={onOffAir}
             onTake={() => bus.take("lower")}
