@@ -147,7 +147,7 @@ describe("Preview never reaches Program without a Take", () => {
   function bus(): { bus: ProgramBus; preview: StudioSession; program: StudioSession } {
     const preview = session();
     const program = new StudioSession(new MockMirrorBackend(), newDocument("Program", ids));
-    return { bus: new ProgramBus(preview, program), preview, program };
+    return { bus: new ProgramBus(preview, () => program), preview, program };
   }
 
   it("leaves Program byte-identical through arbitrary Preview editing", () => {

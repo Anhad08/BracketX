@@ -759,19 +759,27 @@ export function App() {
           ...(images === undefined ? {} : { images }),
         },
       );
-      // Program starts on a document of its own rather than a reference to
+      setSession(preview);
+      // A channel's session is built when something is first taken to it, so an
+      // operator running one lower third pays for one session rather than four.
+      //
+      // Each starts on a document of its OWN rather than a reference to
       // Preview's: sharing one would be the exact leak the whole split exists
       // to prevent, and it would be invisible until the first edit.
-      const program = new StudioSession(
-        createBackend(rendererRef.current, programCanvas, programOptions(settings)),
-        newDocument("Program", ids, new Date().toISOString()),
-        {
-          ...(text === undefined ? {} : { text }),
-          ...(images === undefined ? {} : { images }),
-        },
+      setBus(
+        new ProgramBus(
+          preview,
+          () =>
+            new StudioSession(
+              createBackend(rendererRef.current, programCanvas, programOptions(settings)),
+              newDocument("Program", ids, new Date().toISOString()),
+              {
+                ...(text === undefined ? {} : { text }),
+                ...(images === undefined ? {} : { images }),
+              },
+            ),
+        ),
       );
-      setSession(preview);
-      setBus(new ProgramBus(preview, program));
       setExpanded(new Set([created.root.id]));
 
       // Whatever the user asked for while we were starting is drained by the

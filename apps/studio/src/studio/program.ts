@@ -28,6 +28,7 @@
 import { canonicalize, type SceneDocument, type Timeline } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "./session";
+import type { ChannelFactory, ChannelId } from "./channels";
 
 /**
  * How a Take reaches air.
@@ -110,7 +111,9 @@ export type BusListener = (bus: ProgramBus) => void;
 
 export class ProgramBus {
   readonly preview: StudioSession;
-  readonly program: StudioSession;
+
+  readonly #make: ChannelFactory;
+  readonly #channels = new Map<ChannelId, StudioSession>();
 
   #state: ProgramState = "off-air";
   #airedHash: string | null = null;
@@ -155,9 +158,34 @@ export class ProgramBus {
    */
   #canonical = new WeakMap<SceneDocument, string>();
 
-  constructor(preview: StudioSession, program: StudioSession) {
+  constructor(preview: StudioSession, make: ChannelFactory) {
     this.preview = preview;
-    this.program = program;
+    this.#make = make;
+  }
+
+  /**
+   * A channel's session, built on first use.
+   *
+   * Never torn down within a run: rebuilding a mirror mid-show is exactly the
+   * cost the preview/program split exists to avoid.
+   */
+  channel(id: ChannelId): StudioSession {
+    const existing = this.#channels.get(id);
+    if (existing !== undefined) return existing;
+    const built = this.#make(id);
+    this.#channels.set(id, built);
+    return built;
+  }
+
+  /**
+   * The layer everything currently routes to.
+   *
+   * TEMPORARY. The next task gives every verb an explicit channel and this
+   * goes away. It exists so that introducing channels is a refactor with no
+   * behaviour change, reviewable on its own.
+   */
+  get program(): StudioSession {
+    return this.channel("lower");
   }
 
   get state(): ProgramState {

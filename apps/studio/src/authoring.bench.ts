@@ -289,7 +289,7 @@ describe("take to air", () => {
     new MockMirrorBackend(),
     newDocument("Program", testIdFactory()),
   );
-  const bus = new ProgramBus(large.session, program);
+  const bus = new ProgramBus(large.session, () => program);
 
   bench("cut a 64-node scene to Program", () => {
     bus.cut();
