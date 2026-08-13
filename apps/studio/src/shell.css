@@ -1590,13 +1590,11 @@ li:active > button.row-name,
    compositing order. One rule, three places it has to agree, so it is stated
    here as well as there.
    -------------------------------------------------------------------------- */
-.mon-face {
-  position: relative;
-}
-
+/* `.mon-face` is ALREADY a centred grid that fills its monitor (see above), so
+   the layers stack by sharing its single cell. Absolute positioning here would
+   have to re-state the fill and the centring, and overriding `position` broke
+   the monitor outright — the face collapsed and both pictures went black while
+   the canvases underneath were drawing correctly. */
 .mon-face > canvas {
-  position: absolute;
-  inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
+  grid-area: 1 / 1;
 }
