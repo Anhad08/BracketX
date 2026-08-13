@@ -1414,3 +1414,123 @@
 .live-field .badge.hidden {
   visibility: hidden;
 }
+
+/* ===========================================================================
+   THE INTERACTION LAYER — response and focus, for every control at once
+   ===========================================================================
+   Before this, press and focus were handled per component: seven `:active`
+   rules and five `focus-visible` rules for a product with hundreds of controls.
+   The result was not inconsistent so much as ABSENT — most things in Studio gave
+   no acknowledgement at all that they had been pressed.
+
+   Apple's first rule is that the moment latency appears the feeling of
+   directness "falls off a cliff", and that feedback belongs on pointer-DOWN
+   rather than on release. CSS `:active` is exactly that: it applies while the
+   button is held, before the click resolves. So the whole product gets it here,
+   once, rather than each surface remembering to.
+
+   WHY THE VALUES ARE THESE VALUES. The scale is 0.98 and not 0.95 — a control in
+   a dense control room is small, and a large scale on a 28px chip reads as a
+   wobble. The duration is `--tap` (90ms), the shortest step in the approved set,
+   because a press must feel simultaneous with the finger rather than animated.
+   And the release uses `--reveal` so letting go settles rather than snapping —
+   asymmetric on purpose, which is what a real button does.
+
+   NO OVERSHOOT ANYWHERE. Volume One forbids it in interface chrome, and the Apple
+   guidance agrees for this case: bounce is earned by a gesture that carried
+   momentum, and a press carries none. A spring at damping 1.0 and a 90ms ease are
+   the same thing to the eye here; the transition is cheaper and cannot desync.
+   =========================================================================== */
+
+/* Everything a person can press. Listed by ROLE rather than by component, so a
+   new panel gets the behaviour without being told to. */
+button,
+[role="button"],
+[role="tab"],
+[role="menuitem"],
+summary,
+.chip,
+.swatch,
+.row-toggle {
+  /* The compositor-friendly pair only — transform and opacity. */
+  transition:
+    transform var(--reveal) var(--glide),
+    opacity var(--reveal) var(--glide);
+}
+
+button:not(:disabled):active,
+[role="button"]:active,
+[role="tab"]:active,
+[role="menuitem"]:active,
+summary:active,
+.chip:not(:disabled):active,
+.swatch:active,
+.row-toggle:active {
+  transform: scale(0.98);
+  transition:
+    transform var(--tap) var(--press),
+    opacity var(--tap) var(--press);
+}
+
+/* A ROW is pressed along its length, so it takes the press as a tone change
+   rather than a scale: scaling a full-width row makes its text swim. */
+.mk-feat-row:active,
+li:active > button.row-name,
+.content-row:active {
+  transform: none;
+  opacity: 0.82;
+}
+
+/* ---------------------------------------------------------------------------
+   FOCUS — one ring, and it is the same ring everywhere
+   ---------------------------------------------------------------------------
+   `:focus-visible` rather than `:focus`, so a pointer press does not leave a
+   ring behind while a Tab press does. Two layers: a solid inner line for
+   contrast against any surface, and a soft outer wash so the ring reads on the
+   dark panels as well as the light ones.
+
+   This matters more here than in most products, because until now Enter could not
+   activate a focused control at all — the transport had taken it — so the
+   keyboard path was untested and unlit. See `App.tsx`. */
+:where(button, [role="button"], [role="tab"], [role="menuitem"], a, summary, input, select, textarea, .chip, .swatch, [tabindex]):focus-visible {
+  outline: 2px solid var(--key);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* The one exception: a control INSIDE a dense row would push its neighbours with
+   an offset ring, so it takes the ring tight against itself. */
+.row-toggle:focus-visible,
+.content-row input:focus-visible {
+  outline-offset: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  summary,
+  .chip,
+  .swatch,
+  .row-toggle {
+    transition: none;
+  }
+  /* Reduced motion is not reduced FEEDBACK — the press still acknowledges, it
+     just stops moving. Apple's own guidance: a gentler non-vestibular
+     equivalent, never nothing. */
+  button:not(:disabled):active,
+  [role="button"]:active,
+  .chip:not(:disabled):active,
+  .swatch:active,
+  .row-toggle:active {
+    transform: none;
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :where(button, [role="button"], a, input, select, textarea, .chip, [tabindex]):focus-visible {
+    outline-width: 3px;
+  }
+}

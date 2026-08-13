@@ -1915,7 +1915,44 @@ export function App() {
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
 
-      if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      // ======================================================================
+      // ENTER DOES NOT BELONG TO TRANSPORT WHILE SOMETHING ELSE HAS FOCUS
+      // ======================================================================
+      // This bound Enter globally and called `preventDefault` first, and the
+      // `typing` guard below was computed and then discarded with `void typing`.
+      // Two consequences, and the second one is serious:
+      //
+      //   1  NO CONTROL IN STUDIO COULD BE ACTIVATED FROM THE KEYBOARD. Every
+      //      button, row and swatch is reachable by Tab and none of them could
+      //      be pressed, because the one key that presses a focused control was
+      //      taken by the transport before the control ever saw it.
+      //
+      //   2  ENTER IN A TEXT FIELD PUT A GRAPHIC TO AIR. Typing a name, pressing
+      //      Enter to commit it — the reflex every text field in the world
+      //      teaches — took the graphic. That is an irreversible, outward-facing
+      //      action bound to the most common keystroke in the product.
+      //
+      // So transport gets Enter only when nothing else has a claim on it: not
+      // while typing, and not while a control that Enter activates has focus.
+      // Everything else keeps the behaviour a person already knows.
+      const activatable =
+        target !== null &&
+        (target.tagName === "BUTTON" ||
+          target.tagName === "A" ||
+          target.tagName === "SELECT" ||
+          target.tagName === "SUMMARY" ||
+          target.getAttribute("role") === "button" ||
+          target.getAttribute("role") === "tab" ||
+          target.getAttribute("role") === "menuitem");
+
+      if (
+        event.key === "Enter" &&
+        !typing &&
+        !activatable &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
         event.preventDefault();
         bus.take();
         ignite();
@@ -1928,7 +1965,7 @@ export function App() {
       // would learn a key that does the wrong thing.
       //
       // PROTOTYPE.md item 7 adds the cued state. These two keys land with it.
-      void typing;
+      // `typing` is read above now, and so is the focus target.
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
