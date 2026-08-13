@@ -91,6 +91,7 @@ import { ArrangeBar, LibraryPanel, PresetPanel } from "./ui/authoring";
 import { ProgramRow } from "./ui/program";
 import { CommandPalette, KeyboardHelp } from "./ui/palette";
 import { Nav } from "./ui/nav";
+import type { ChannelId } from "./studio/channels";
 import { LevelSwitch } from "./ui/level-switch";
 import { Home } from "./ui/home";
 import { Assets, Marketplace, Outputs, Settings, Templates } from "./ui/sections";
@@ -369,8 +370,13 @@ export function App() {
   useEffect(
     () =>
       claimEscape("air", () => {
-        if (bus?.cued !== true) return false;
-        bus.uncue();
+        if (bus === null) return false;
+        // TOP-DOWN. The last layer armed is the first one an operator means to
+        // take back, and `cuedChannels` is in compositing order — so the
+        // topmost armed layer is the last entry, not the first.
+        const armed = bus.cuedChannels.at(-1);
+        if (armed === undefined) return false;
+        bus.uncue(armed);
         return true;
       }),
     [bus, revision],
@@ -1377,9 +1383,13 @@ export function App() {
       })),
 
       // -- Program ----------------------------------------------------------
+      //
+      // WHICH LAYER THESE ADDRESS. The rundown selects it in P2; until then the
+      // name strap is the honest default, because it is what every one of these
+      // commands already meant when there was only one layer.
       ...(bus === null
         ? []
-        : [
+        : ((target: ChannelId) => [
             {
               id: "air.cue",
               title: "Cue",
@@ -1389,7 +1399,7 @@ export function App() {
               shortcut: shortcutFor("air.cue"),
               enabled: !bus.onAir,
               run: () => {
-                bus.cue();
+                bus.cue(target);
                 say("cue");
               },
             },
@@ -1399,17 +1409,17 @@ export function App() {
               section: "Program" as const,
               hint: "Disarm. Nothing was on air.",
               shortcut: shortcutFor("air.uncue"),
-              enabled: bus.cued,
-              run: () => bus.uncue(),
+              enabled: bus.cuedOn("lower"),
+              run: () => bus.uncue(target),
             },
             {
               id: "program.take",
               title: "Take to Program",
               section: "Program" as const,
-              hint: bus.pending ? "Preview differs from air" : "nothing pending",
+              hint: bus.pendingOn("lower") ? "Preview differs from air" : "nothing pending",
               keywords: ["air", "live", "transition"],
               run: () => {
-                bus.take();
+                bus.take(target);
                 say("take");
                 update({ programOpen: true });
               },
@@ -1420,7 +1430,7 @@ export function App() {
               section: "Program" as const,
               hint: "No entrance animation",
               run: () => {
-                bus.cut();
+                bus.cut(target);
                 update({ programOpen: true });
               },
             },
@@ -1430,21 +1440,31 @@ export function App() {
               section: "Program" as const,
               hint: "Resume a hold, or play the exit",
               enabled: bus.onAir,
-              run: () => bus.continue(),
+              run: () => bus.continue(target),
             },
             {
               id: "program.hold",
               title: "Hold",
               section: "Program" as const,
               enabled: bus.onAir,
-              run: () => bus.hold(),
+              run: () => bus.hold(target),
             },
             {
               id: "program.clear",
               title: "Clear Program",
               section: "Program" as const,
+              hint: "This layer only",
               enabled: bus.onAir,
-              run: () => bus.clear(),
+              run: () => bus.clear(target),
+            },
+            {
+              id: "program.clearAll",
+              title: "Clear everything off air",
+              section: "Program" as const,
+              hint: "Every layer, at once",
+              keywords: ["panic", "kill", "all"],
+              enabled: bus.onAir,
+              run: () => bus.clearAll(),
             },
             {
               id: "program.toggle",
@@ -1452,7 +1472,7 @@ export function App() {
               section: "Program" as const,
               run: () => update({ programOpen: !workspace.programOpen }),
             },
-          ]),
+          ])("lower")),
 
       // -- Library ----------------------------------------------------------
       {
@@ -1963,7 +1983,7 @@ export function App() {
         !event.altKey
       ) {
         event.preventDefault();
-        bus.take();
+        bus.take("lower");
         ignite();
         return;
       }
@@ -2348,14 +2368,14 @@ export function App() {
           without reading anything — which a text tally in a corner cannot
           claim. */}
       <div
-        className={`spine ${bus?.onAir ? "live" : ""} ${bus?.cued === true ? "cued" : ""} ${
+        className={`spine ${bus?.onAir ? "live" : ""} ${bus?.cuedOn("lower") === true ? "cued" : ""} ${
           igniting ? "igniting" : ""
         }`}
         data-testid="spine"
         /* Three states, and only ONE of them is red. A cued graphic tints the
            spine teal — the preview colour — because red must never mean
            anything except "this is going out right now". */
-        data-air={bus?.onAir === true ? "live" : bus?.cued === true ? "cued" : "off"}
+        data-air={bus?.onAir === true ? "live" : bus?.cuedOn("lower") === true ? "cued" : "off"}
         aria-hidden
       />
 
@@ -2365,7 +2385,7 @@ export function App() {
         developerMode={workspace.developerMode}
         dirty={store?.dirty ?? false}
         onAir={bus?.onAir ?? false}
-        cued={bus?.cued ?? false}
+        cued={bus?.cuedOn("lower") ?? false}
       />
       <div className="workspace">
       {/* The titlebar is CONTEXTUAL.

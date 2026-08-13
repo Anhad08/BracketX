@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ProgramBus } from "../studio/program";
+import type { ChannelId } from "../studio/channels";
 
 /**
  * The Preview / Program row.
@@ -21,13 +22,15 @@ import type { ProgramBus } from "../studio/program";
 
 export interface ProgramRowProps {
   readonly bus: ProgramBus;
+  /** Which layer this row addresses. */
+  readonly channel: ChannelId;
   readonly canvas: HTMLCanvasElement;
   readonly revision: number;
   /** Fired after going off air, so the shell can sound the off-air voice. */
   readonly onOffAir?: () => void;
 }
 
-export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps) {
+export function ProgramRow({ bus, channel, canvas, revision, onOffAir }: ProgramRowProps) {
   const mount = useRef<HTMLDivElement | null>(null);
   const [, bump] = useState(0);
 
@@ -43,28 +46,28 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
 
   useEffect(() => bus.subscribe(() => bump((value) => value + 1)), [bus]);
 
-  const pending = bus.pending;
+  const pending = bus.pendingOn(channel);
 
   return (
     <section className="program-row" aria-label="Preview and Program" data-testid="program-row">
       <div className="program-monitor">
         <header>
           <span
-            className={`tally ${bus.onAir ? "on-air" : ""} ${bus.cued ? "cued" : ""}`}
+            className={`tally ${bus.onAir ? "on-air" : ""} ${bus.cuedOn(channel) ? "cued" : ""}`}
             data-testid="tally"
           >
-            {bus.state === "on-air"
+            {bus.stateOf(channel) === "on-air"
               ? "ON AIR"
-              : bus.state === "holding"
+              : bus.stateOf(channel) === "holding"
                 ? "HOLD"
-                : bus.state === "cued"
+                : bus.stateOf(channel) === "cued"
                   ? "CUED"
                   : "OFF"}
           </span>
           <strong>Program</strong>
           <span className="dim mono">
-            f{bus.program.frame}
-            {bus.playing === null ? "" : ` · ${bus.playing}`}
+            f{bus.channel(channel).frame}
+            {bus.playingOn(channel) === null ? "" : ` · ${bus.playingOn(channel)}`}
           </span>
         </header>
         <div className="program-canvas" ref={mount} data-testid="program-canvas" />
@@ -77,25 +80,25 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
             offering an action. */}
         <button
           type="button"
-          className={`chip cue ${bus.cued ? "armed" : ""}`}
+          className={`chip cue ${bus.cuedOn(channel) ? "armed" : ""}`}
           disabled={bus.onAir}
-          onClick={() => (bus.cued ? bus.uncue() : bus.cue())}
+          onClick={() => (bus.cuedOn(channel) ? bus.uncue(channel) : bus.cue(channel))}
           data-testid="cue"
-          data-armed={bus.cued ? "yes" : "no"}
+          data-armed={bus.cuedOn(channel) ? "yes" : "no"}
           title={
             bus.onAir
               ? "Already on air. Go off air before cueing something else."
-              : bus.cued
+              : bus.cuedOn(channel)
                 ? "Disarm (Esc)"
                 : "Arm this for the next Take (C)"
           }
         >
-          {bus.cued ? "CUED" : "Cue"}
+          {bus.cuedOn(channel) ? "CUED" : "Cue"}
         </button>
         <button
           type="button"
           className={`take ${pending ? "pending" : ""}`}
-          onClick={() => bus.take()}
+          onClick={() => bus.take(channel)}
           data-testid="take"
           title="Send Preview to Program and play the entrance"
         >
@@ -104,7 +107,7 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
         <button
           type="button"
           className="chip"
-          onClick={() => bus.cut()}
+          onClick={() => bus.cut(channel)}
           data-testid="cut"
           title="Send Preview to Program with no animation"
         >
@@ -113,7 +116,7 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
         <button
           type="button"
           className="chip"
-          onClick={() => bus.auto()}
+          onClick={() => bus.auto(channel)}
           title="Take, then arm the exit for Continue"
         >
           Auto
@@ -122,7 +125,7 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
           type="button"
           className="chip"
           disabled={!bus.onAir}
-          onClick={() => bus.hold()}
+          onClick={() => bus.hold(channel)}
           title="Freeze where it is. Pauses rather than rewinds."
         >
           Hold
@@ -131,7 +134,7 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
           type="button"
           className="chip"
           disabled={!bus.onAir}
-          onClick={() => bus.continue()}
+          onClick={() => bus.continue(channel)}
           title="Resume a hold, or play the exit"
         >
           Continue
@@ -145,7 +148,7 @@ export function ProgramRow({ bus, canvas, revision, onOffAir }: ProgramRowProps)
           className="offair"
           disabled={!bus.onAir}
           onClick={() => {
-            bus.clear();
+            bus.clear(channel);
             onOffAir?.();
           }}
           data-testid="off-air"

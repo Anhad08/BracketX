@@ -82,7 +82,7 @@ export function Production({
   const report = session === null ? null : preflight(session.host);
   const fields = session === null ? [] : contentSurface(session.host);
   const onAir = bus?.onAir ?? false;
-  const cued = bus?.cued ?? false;
+  const cued = bus?.cuedOn("lower") ?? false;
   // THREE states, not two. Off, armed, out. The middle one is what the Cue key
   // is for, and Studio had no way to say it.
   const air = onAir ? "live" : cued ? "cued" : "off";
@@ -104,7 +104,7 @@ export function Production({
           {/* An operator who cued a graphic and then had somebody edit it is
               about to air something they did not check. Silence here is the
               expensive option. */}
-          {bus?.cueStale === true ? (
+          {bus?.cueStaleOn("lower") === true ? (
             <span className="stale" data-testid="cue-stale">
               changed since you cued it
             </span>
@@ -272,12 +272,13 @@ export function Production({
 
           <Monitors
             bus={bus}
+            channel="lower"
             previewCanvas={previewCanvas}
             programCanvas={programCanvas}
             revision={revision}
             onOffAir={onOffAir}
-            onTake={() => bus.take()}
-            onCue={() => (bus.cued ? bus.uncue() : bus.cue())}
+            onTake={() => bus.take("lower")}
+            onCue={() => (bus.cuedOn("lower") ? bus.uncue("lower") : bus.cue("lower"))}
           />
         </>
       )}

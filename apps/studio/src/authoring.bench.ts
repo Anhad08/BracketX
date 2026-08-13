@@ -292,11 +292,11 @@ describe("take to air", () => {
   const bus = new ProgramBus(large.session, () => program);
 
   bench("cut a 64-node scene to Program", () => {
-    bus.cut();
+    bus.cut("lower");
   });
 
   bench("check whether Preview differs from air", () => {
-    void bus.pending;
+    void bus.pendingOn("lower");
   });
 });
 

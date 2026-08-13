@@ -28,7 +28,7 @@
 import { canonicalize, type SceneDocument, type Timeline } from "@bracketx/engine-scene";
 
 import type { StudioSession } from "./session";
-import type { ChannelFactory, ChannelId } from "./channels";
+import { CHANNELS, type ChannelFactory, type ChannelId } from "./channels";
 
 /**
  * How a Take reaches air.
@@ -109,17 +109,33 @@ export function exitOf(document: SceneDocument): Timeline | null {
 
 export type BusListener = (bus: ProgramBus) => void;
 
+/** Everything that is true of ONE layer. */
+interface ChannelState {
+  state: ProgramState;
+  /** Canonical bytes of what this layer last put out. */
+  airedHash: string | null;
+  /** The canonical bytes armed by `cue`, so `cueStaleOn` can compare. */
+  cuedHash: string | null;
+  playing: string | null;
+}
+
+function freshChannel(): ChannelState {
+  return { state: "off-air", airedHash: null, cuedHash: null, playing: null };
+}
+
 export class ProgramBus {
   readonly preview: StudioSession;
 
   readonly #make: ChannelFactory;
   readonly #channels = new Map<ChannelId, StudioSession>();
 
-  #state: ProgramState = "off-air";
-  #airedHash: string | null = null;
-  /** The canonical bytes armed by `cue`, so `cueStale` can compare. */
-  #cuedHash: string | null = null;
-  #playing: string | null = null;
+  /**
+   * State PER CHANNEL, because each layer is separately armable and airable.
+   *
+   * Created on demand and never removed: a channel that has been used once has
+   * a history worth keeping for the length of the run.
+   */
+  readonly #state = new Map<ChannelId, ChannelState>();
   #listeners = new Set<BusListener>();
 
   /**
@@ -177,23 +193,39 @@ export class ProgramBus {
     return built;
   }
 
+  /** The record for one layer, created the first time it is asked about. */
+  #stateOf(id: ChannelId): ChannelState {
+    const existing = this.#state.get(id);
+    if (existing !== undefined) return existing;
+    const made = freshChannel();
+    this.#state.set(id, made);
+    return made;
+  }
+
+  stateOf(id: ChannelId): ProgramState {
+    return this.#stateOf(id).state;
+  }
+
+  /** The timeline that layer is currently running, if any. */
+  playingOn(id: ChannelId): string | null {
+    return this.#stateOf(id).playing;
+  }
+
   /**
-   * The layer everything currently routes to.
+   * Channels with frames actually going out, in COMPOSITING order.
    *
-   * TEMPORARY. The next task gives every verb an explicit channel and this
-   * goes away. It exists so that introducing channels is a refactor with no
-   * behaviour change, reviewable on its own.
+   * Read from `CHANNELS` rather than from the map's insertion order, so the
+   * answer is the z-order and not the order somebody happened to take things.
    */
-  get program(): StudioSession {
-    return this.channel("lower");
-  }
-
-  get state(): ProgramState {
-    return this.#state;
+  get live(): readonly ChannelId[] {
+    return CHANNELS.filter((id) => {
+      const state = this.#state.get(id)?.state;
+      return state === "on-air" || state === "holding";
+    });
   }
 
   /**
-   * True only when frames are actually going out.
+   * True only when frames are actually going out, on ANY layer.
    *
    * NOT `state !== "off-air"`. A cued graphic is armed and invisible, and
    * counting it as on air would put the red spine across the top of the
@@ -201,11 +233,17 @@ export class ProgramBus {
    * interface sound of an operator who is still preparing.
    */
   get onAir(): boolean {
-    return this.#state === "on-air" || this.#state === "holding";
+    return this.live.length > 0;
   }
 
-  get cued(): boolean {
-    return this.#state === "cued";
+  /** True when THAT layer is armed. */
+  cuedOn(id: ChannelId): boolean {
+    return this.#stateOf(id).state === "cued";
+  }
+
+  /** Every layer currently armed, in compositing order. */
+  get cuedChannels(): readonly ChannelId[] {
+    return CHANNELS.filter((id) => this.#state.get(id)?.state === "cued");
   }
 
   /** Graphics that actually reached air this run. A disarmed cue is not one. */
@@ -238,44 +276,42 @@ export class ProgramBus {
    * fine — but it must be VISIBLE, because the alternative is taking a graphic
    * you checked and airing one you did not.
    */
-  get cueStale(): boolean {
-    return this.#state === "cued" && this.#hash(this.preview.document) !== this.#cuedHash;
+  cueStaleOn(id: ChannelId): boolean {
+    const channel = this.#stateOf(id);
+    return channel.state === "cued" && this.#hash(this.preview.document) !== channel.cuedHash;
   }
 
   /**
-   * Arms Preview. Nothing reaches air.
+   * Arms Preview onto one layer. Nothing reaches air.
    *
-   * Refused while on air, deliberately: an operator cannot cue over a live
-   * transmission with one keystroke, because the state that would produce —
-   * "on air AND armed" — has no honest single indicator, and a tally that
+   * Refused while THAT layer is on air, deliberately: an operator cannot cue
+   * over a live layer with one keystroke, because the state that would produce
+   * — "on air AND armed" — has no honest single indicator, and a tally that
    * cannot be read at a glance is worse than no tally.
    */
-  cue(): TakeResult {
-    if (this.onAir) {
-      return { mode: "take", state: this.#state, played: this.#playing };
+  cue(id: ChannelId): TakeResult {
+    const channel = this.#stateOf(id);
+    if (channel.state === "on-air" || channel.state === "holding") {
+      return { mode: "take", state: channel.state, played: channel.playing };
     }
-    this.#cuedHash = this.#hash(this.preview.document);
-    this.#state = "cued";
-    return this.#emit({ mode: "take", state: this.#state, played: null });
+    channel.cuedHash = this.#hash(this.preview.document);
+    channel.state = "cued";
+    return this.#emit({ mode: "take", state: channel.state, played: null });
   }
 
   /** Disarms. Only ever from `cued`, so it cannot take anything off air. */
-  uncue(): TakeResult {
-    if (this.#state !== "cued") {
-      return { mode: "take", state: this.#state, played: this.#playing };
+  uncue(id: ChannelId): TakeResult {
+    const channel = this.#stateOf(id);
+    if (channel.state !== "cued") {
+      return { mode: "take", state: channel.state, played: channel.playing };
     }
-    this.#cuedHash = null;
-    this.#state = "off-air";
-    return this.#emit({ mode: "cut", state: this.#state, played: null });
-  }
-
-  /** The timeline Program is currently running, if any. */
-  get playing(): string | null {
-    return this.#playing;
+    channel.cuedHash = null;
+    channel.state = "off-air";
+    return this.#emit({ mode: "cut", state: channel.state, played: null });
   }
 
   /**
-   * True when Preview differs from what was last aired.
+   * True when Preview differs from what THAT layer last aired.
    *
    * Compared by canonical form, so it is exact and cheap to reason about: two
    * documents that serialise identically are the same graphic, whatever route
@@ -283,8 +319,8 @@ export class ProgramBus {
    * take, and "the editor is dirty" is a different question — a designer can
    * make and undo a change and correctly have nothing pending.
    */
-  get pending(): boolean {
-    return this.#hash(this.preview.document) !== this.#airedHash;
+  pendingOn(id: ChannelId): boolean {
+    return this.#hash(this.preview.document) !== this.#stateOf(id).airedHash;
   }
 
   #hash(document: SceneDocument): string {
@@ -303,66 +339,70 @@ export class ProgramBus {
    * `continue`. Nothing here starts a timer: a hidden timer is a graphic that
    * leaves air while an operator is still talking about it.
    */
-  take(mode: TakeMode = "take"): TakeResult {
+  take(id: ChannelId, mode: TakeMode = "take"): TakeResult {
+    const channel = this.#stateOf(id);
+    const session = this.channel(id);
     const document = this.preview.document;
     const bytes = this.#hash(document);
-    // A fresh parse of the same bytes, so Program can never share a reference
-    // with something the designer is still editing.
-    this.program.open(JSON.parse(bytes) as SceneDocument);
-    this.#airedHash = bytes;
+    // A fresh parse of the same bytes, so a live layer can never share a
+    // reference with something the designer is still editing.
+    session.open(JSON.parse(bytes) as SceneDocument);
+    channel.airedHash = bytes;
     // The cue is CONSUMED, not kept. What was armed is now what is out, and a
     // cue that survived its own take would leave the strip armed for a graphic
     // that has already gone.
-    this.#cuedHash = null;
+    channel.cuedHash = null;
     this.#takes += 1;
     // The run starts at the FIRST take and is not restarted by later ones —
-    // a show is one transmission however many graphics go through it.
+    // a show is one transmission however many graphics go through it, and
+    // however many layers they go out on.
     if (this.#firstAiredAt === null) this.#firstAiredAt = Date.now();
     this.#wentOffAt = null;
-    this.#state = "on-air";
-    this.#playing = null;
+    channel.state = "on-air";
+    channel.playing = null;
 
     if (mode === "cut") {
       // Still stepped once: a graphic that has never had a frame rendered has
       // no world matrices, and the first output frame would be empty.
-      this.program.render();
-      return this.#emit({ mode, state: this.#state, played: null });
+      session.render();
+      return this.#emit({ mode, state: channel.state, played: null });
     }
 
-    const entrance = entranceOf(this.program.document);
+    const entrance = entranceOf(session.document);
     if (entrance !== null) {
-      this.program.play();
-      this.program.playClip(entrance.id);
-      this.#playing = entrance.id;
+      session.play();
+      session.playClip(entrance.id);
+      channel.playing = entrance.id;
     }
-    this.program.render();
-    return this.#emit({ mode, state: this.#state, played: this.#playing });
+    session.render();
+    return this.#emit({ mode, state: channel.state, played: channel.playing });
   }
 
   /** Alias, because an operator says "cut" and means a take with no animation. */
-  cut(): TakeResult {
-    return this.take("cut");
+  cut(id: ChannelId): TakeResult {
+    return this.take(id, "cut");
   }
 
-  auto(): TakeResult {
-    return this.take("auto");
+  auto(id: ChannelId): TakeResult {
+    return this.take(id, "auto");
   }
 
   /**
-   * Freezes Program where it is.
+   * Freezes one layer where it is.
    *
    * Pauses the clock rather than stopping it: `stop` would rewind, and a
    * graphic that jumps back to frame zero when an operator holds it is the
    * worst possible response to "wait".
    */
-  hold(): void {
-    // `!onAir` rather than `=== "off-air"`: holding a CUED graphic would put
-    // the bus in `holding` — which reads as on air everywhere — for something
-    // that has never been transmitted.
-    if (!this.onAir) return;
-    this.program.pause();
-    this.#state = "holding";
-    this.#emit({ mode: "take", state: this.#state, played: this.#playing });
+  hold(id: ChannelId): void {
+    const channel = this.#stateOf(id);
+    // Not merely "off-air": holding a CUED graphic would put the layer in
+    // `holding` — which reads as on air everywhere — for something that has
+    // never been transmitted.
+    if (channel.state !== "on-air") return;
+    this.channel(id).pause();
+    channel.state = "holding";
+    this.#emit({ mode: "take", state: channel.state, played: channel.playing });
   }
 
   /**
@@ -372,35 +412,65 @@ export class ProgramBus {
    * expects: Continue means "carry on", and what carrying on means depends on
    * whether the graphic is paused or finished arriving.
    */
-  continue(): TakeResult {
-    if (this.#state === "holding") {
-      this.program.play();
-      this.#state = "on-air";
-      return this.#emit({ mode: "take", state: this.#state, played: this.#playing });
+  continue(id: ChannelId): TakeResult {
+    const channel = this.#stateOf(id);
+    const session = this.channel(id);
+    if (channel.state === "holding") {
+      session.play();
+      channel.state = "on-air";
+      return this.#emit({ mode: "take", state: channel.state, played: channel.playing });
     }
 
-    const exit = exitOf(this.program.document);
-    if (exit === null) return this.#emit({ mode: "take", state: this.#state, played: this.#playing });
+    const exit = exitOf(session.document);
+    if (exit === null) {
+      return this.#emit({ mode: "take", state: channel.state, played: channel.playing });
+    }
 
-    this.program.play();
-    this.program.playClip(exit.id);
-    this.#playing = exit.id;
-    return this.#emit({ mode: "take", state: this.#state, played: exit.id });
+    session.play();
+    session.playClip(exit.id);
+    channel.playing = exit.id;
+    return this.#emit({ mode: "take", state: channel.state, played: exit.id });
   }
 
-  /** Clears Program. The graphic is off air and the surface is empty. */
-  clear(): void {
-    this.program.stop();
-    this.#state = "off-air";
-    this.#cuedHash = null;
-    this.#playing = null;
-    // Stamped only if something was ever on air, so an operator who never
-    // took anything is not shown a closure for a show that did not happen.
-    if (this.#firstAiredAt !== null) this.#wentOffAt = Date.now();
+  /**
+   * Clears ONE layer. The graphic is off air and that surface is empty.
+   *
+   * This does NOT end the show — see `clearAll`. An operator dropping a ticker
+   * while the score stays up has not gone off air, and stamping the closure
+   * here would end a transmission that is still running.
+   */
+  clear(id: ChannelId): void {
+    const channel = this.#stateOf(id);
+    this.#channels.get(id)?.stop();
+    channel.state = "off-air";
+    channel.cuedHash = null;
+    channel.playing = null;
     // The aired hash is NOT cleared: what was last on air is still what was
     // last on air, and `pending` should not become true merely because the
     // surface is empty.
-    this.#emit({ mode: "cut", state: this.#state, played: null });
+    this.#emit({ mode: "cut", state: channel.state, played: null });
+  }
+
+  /**
+   * PANIC. Every layer off, in one act.
+   *
+   * This is what ends a show, and `clear(id)` is not — however many layers it
+   * is called on. Air is not undoable, so the guard on this belongs in the
+   * gesture that reaches it rather than in a dialog.
+   */
+  clearAll(): void {
+    for (const id of CHANNELS) {
+      const channel = this.#state.get(id);
+      if (channel === undefined) continue;
+      this.#channels.get(id)?.stop();
+      channel.state = "off-air";
+      channel.cuedHash = null;
+      channel.playing = null;
+    }
+    // Stamped only if something was ever on air, so an operator who never took
+    // anything is not shown a closure for a show that did not happen.
+    if (this.#firstAiredAt !== null) this.#wentOffAt = Date.now();
+    this.#emit({ mode: "cut", state: "off-air", played: null });
   }
 
   subscribe(listener: BusListener): () => void {

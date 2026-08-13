@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ProgramBus } from "../studio/program";
+import type { ChannelId } from "../studio/channels";
 
 /**
  * PREVIEW and PROGRAM, side by side.
@@ -42,6 +43,15 @@ import type { ProgramBus } from "../studio/program";
 
 export interface MonitorsProps {
   readonly bus: ProgramBus;
+  /**
+   * Which layer this monitor's controls address.
+   *
+   * The tally still reads `bus.onAir`, which genuinely means "anything at all
+   * is out" — but Cue, Take and Clear act on ONE layer, and a control that
+   * silently addressed whichever layer happened to be first would be the worst
+   * kind of wrong on a live desk.
+   */
+  readonly channel: ChannelId;
   /** The canvas the design session draws into. Moved here while Production is open. */
   readonly previewCanvas: HTMLCanvasElement | null;
   readonly programCanvas: HTMLCanvasElement;
@@ -73,6 +83,7 @@ function duration(ms: number): string {
 
 export function Monitors({
   bus,
+  channel,
   previewCanvas,
   programCanvas,
   revision,
@@ -127,7 +138,7 @@ export function Monitors({
       // monitor showing a lower third has every reason to believe it is out.
       //
       // A clean feed is black. So the programme monitor stops being drawn.
-      if (bus.onAir) bus.program.render();
+      if (bus.onAir) bus.channel(channel).render();
     };
     handle = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(handle);
@@ -152,7 +163,7 @@ export function Monitors({
   }, [bus, bus.onAir]);
 
   const live = bus.onAir;
-  const cued = bus.cued;
+  const cued = bus.cuedOn(channel);
   const closed = !live && bus.wentOffAt !== null;
 
   return (
@@ -212,11 +223,11 @@ export function Monitors({
                 `pending` — Preview differs from what is currently ON AIR, so
                 there is something to send. Quiet, because it is the normal
                 state of an operator doing their job. */}
-            {bus.cueStale ? (
+            {bus.cueStaleOn(channel) ? (
               <span className="mon-note warn" data-testid="cue-stale-monitor">
                 Changed since you cued it
               </span>
-            ) : bus.pending ? (
+            ) : bus.pendingOn(channel) ? (
               <span className="mon-note" data-testid="pending-note">
                 Preview differs from what is on air
               </span>
@@ -238,7 +249,7 @@ export function Monitors({
           {closed ? null : (
             <button
               type="button"
-              className={`take-key ${bus.pending ? "pending" : ""}`}
+              className={`take-key ${bus.pendingOn(channel) ? "pending" : ""}`}
               data-testid="take"
               onClick={onTake}
               title="Send Preview to Program"
@@ -264,7 +275,7 @@ export function Monitors({
                 minute: "2-digit",
               })}
             </strong>
-            <span className="dim tiny">{bus.program.document.meta.name}</span>
+            <span className="dim tiny">{bus.channel(channel).document.meta.name}</span>
           </div>
           <dl className="closure-facts mono">
             <div>
@@ -304,7 +315,7 @@ export function Monitors({
             type="button"
             className="chip"
             data-testid="cut"
-            onClick={() => bus.cut()}
+            onClick={() => bus.cut(channel)}
             title="Send Preview to Program with no entrance animation"
           >
             Cut
@@ -313,7 +324,7 @@ export function Monitors({
             type="button"
             className="chip"
             disabled={!live}
-            onClick={() => bus.hold()}
+            onClick={() => bus.hold(channel)}
             title="Freeze where it is. Pauses rather than rewinds."
           >
             Hold
@@ -322,7 +333,7 @@ export function Monitors({
             type="button"
             className="chip"
             disabled={!live}
-            onClick={() => bus.continue()}
+            onClick={() => bus.continue(channel)}
             title="Resume a hold, or play the exit"
           >
             Continue
@@ -334,7 +345,7 @@ export function Monitors({
             disabled={!live}
             data-testid="off-air"
             onClick={() => {
-              bus.clear();
+              bus.clear(channel);
               onOffAir();
             }}
             title="Stop sending to air"

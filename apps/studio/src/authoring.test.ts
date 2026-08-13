@@ -154,9 +154,9 @@ describe("Preview never reaches Program without a Take", () => {
     // The whole feature, asserted the only way that means anything: edit
     // Preview as hard as an editor can, and Program must not observe any of it.
     const { bus: program, preview } = bus();
-    program.program.render();
-    const hash = program.program.host.sessionHash();
-    const json = serializeDocument(program.program.document);
+    program.channel("lower").render();
+    const hash = program.channel("lower").host.sessionHash();
+    const json = serializeDocument(program.channel("lower").document);
 
     for (let index = 0; index < 5; index += 1) {
       const created = createNode(preview.document, "rect", preview.document.root.id, ids);
@@ -168,12 +168,12 @@ describe("Preview never reaches Program without a Take", () => {
     }
     preview.store.undo();
 
-    expect(program.program.host.sessionHash()).toBe(hash);
-    expect(serializeDocument(program.program.document)).toBe(json);
+    expect(program.channel("lower").host.sessionHash()).toBe(hash);
+    expect(serializeDocument(program.channel("lower").document)).toBe(json);
     expect(program.onAir).toBe(false);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("cues without airing anything", () => {
@@ -182,18 +182,18 @@ describe("Preview never reaches Program without a Take", () => {
     // red spine dark, and the interface sound un-ducked for an operator who
     // is still preparing.
     const { bus: program, preview } = bus();
-    program.program.render();
-    const hash = program.program.host.sessionHash();
+    program.channel("lower").render();
+    const hash = program.channel("lower").host.sessionHash();
 
-    const result = program.cue();
+    const result = program.cue("lower");
     expect(result.state).toBe("cued");
-    expect(program.state).toBe("cued");
-    expect(program.cued).toBe(true);
+    expect(program.stateOf("lower")).toBe("cued");
+    expect(program.cuedOn("lower")).toBe(true);
     expect(program.onAir, "a cued graphic is armed, not transmitted").toBe(false);
-    expect(program.program.host.sessionHash()).toBe(hash);
+    expect(program.channel("lower").host.sessionHash()).toBe(hash);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("notices when the graphic changed after it was cued", () => {
@@ -201,98 +201,98 @@ describe("Preview never reaches Program without a Take", () => {
     // still the thing I armed? Taking a graphic you checked and airing one
     // you did not is the failure this exists to make visible.
     const { bus: program, preview } = bus();
-    program.cue();
-    expect(program.cueStale).toBe(false);
+    program.cue("lower");
+    expect(program.cueStaleOn("lower")).toBe(false);
 
     const created = createNode(preview.document, "rect", preview.document.root.id, ids);
     preview.store.apply(created.transaction);
-    expect(program.cueStale).toBe(true);
+    expect(program.cueStaleOn("lower")).toBe(true);
 
     // Undoing back to the cued bytes clears it: this compares CONTENT, not
     // "has anything been touched".
     preview.store.undo();
-    expect(program.cueStale).toBe(false);
+    expect(program.cueStaleOn("lower")).toBe(false);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("un-cues back to off air, and can never take anything off air", () => {
     const { bus: program, preview } = bus();
-    program.cue();
-    program.uncue();
-    expect(program.state).toBe("off-air");
+    program.cue("lower");
+    program.uncue("lower");
+    expect(program.stateOf("lower")).toBe("off-air");
 
     // From ON AIR, un-cue is a no-op. Escape must not be a way to end a
     // transmission — going off air is an explicit, named act.
-    program.take();
+    program.take("lower");
     expect(program.onAir).toBe(true);
-    program.uncue();
-    expect(program.state).toBe("on-air");
+    program.uncue("lower");
+    expect(program.stateOf("lower")).toBe("on-air");
     expect(program.onAir).toBe(true);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("refuses to cue over a live transmission", () => {
     // "On air AND armed" has no honest single indicator, and a tally that
     // cannot be read at a glance is worse than no tally.
     const { bus: program, preview } = bus();
-    program.take();
-    program.cue();
-    expect(program.state).toBe("on-air");
-    expect(program.cued).toBe(false);
+    program.take("lower");
+    program.cue("lower");
+    expect(program.stateOf("lower")).toBe("on-air");
+    expect(program.cuedOn("lower")).toBe(false);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("consumes the cue when it takes", () => {
     // A cue that survived its own take would leave the transport armed for a
     // graphic that has already gone out.
     const { bus: program, preview } = bus();
-    program.cue();
-    program.take();
-    expect(program.cued).toBe(false);
-    expect(program.cueStale).toBe(false);
+    program.cue("lower");
+    program.take("lower");
+    expect(program.cuedOn("lower")).toBe(false);
+    expect(program.cueStaleOn("lower")).toBe(false);
 
-    program.clear();
-    expect(program.state).toBe("off-air");
-    expect(program.cued).toBe(false);
+    program.clear("lower");
+    expect(program.stateOf("lower")).toBe("off-air");
+    expect(program.cuedOn("lower")).toBe(false);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("will not hold a cue, because holding reads as being on air", () => {
     const { bus: program, preview } = bus();
-    program.cue();
-    program.hold();
-    expect(program.state).toBe("cued");
+    program.cue("lower");
+    program.hold("lower");
+    expect(program.stateOf("lower")).toBe("cued");
     expect(program.onAir).toBe(false);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("takes by value, so a later Preview edit does not leak on air", () => {
     const { bus: program, preview } = bus();
     const created = createNode(preview.document, "rect", preview.document.root.id, ids);
     preview.store.apply(created.transaction);
-    program.cut();
+    program.cut("lower");
 
-    const aired = serializeDocument(program.program.document);
+    const aired = serializeDocument(program.channel("lower").document);
     apply(preview, setProp(preview.document, created.nodeId, "name", "Renamed after air"));
 
     // Program still shows what was taken. A shared reference would have made
     // the rename appear on air mid-word, which is the exact failure a
     // preview/program split exists to prevent.
-    expect(serializeDocument(program.program.document)).toBe(aired);
-    expect(findNode(program.program.document.root, created.nodeId)?.name).toBe("Rectangle");
+    expect(serializeDocument(program.channel("lower").document)).toBe(aired);
+    expect(findNode(program.channel("lower").document.root, created.nodeId)?.name).toBe("Rectangle");
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("reports pending only while Preview differs from what aired", () => {
@@ -301,12 +301,12 @@ describe("Preview never reaches Program without a Take", () => {
     // save point — otherwise "pending" and "dirty" agree by accident.
     const first = createNode(preview.document, "rect", preview.document.root.id, ids);
     preview.store.apply(first.transaction);
-    program.cut();
-    expect(program.pending).toBe(false);
+    program.cut("lower");
+    expect(program.pendingOn("lower")).toBe(false);
 
     const second = createNode(preview.document, "rect", preview.document.root.id, ids);
     preview.store.apply(second.transaction);
-    expect(program.pending).toBe(true);
+    expect(program.pendingOn("lower")).toBe(true);
 
     // Undo returns Preview to the aired document. There is nothing to take,
     // even though the editor is still dirty relative to the last SAVE —
@@ -314,11 +314,11 @@ describe("Preview never reaches Program without a Take", () => {
     // diverge. An operator must not be told there is something to take
     // because the file is unsaved.
     preview.store.undo();
-    expect(program.pending).toBe(false);
+    expect(program.pendingOn("lower")).toBe(false);
     expect(preview.store.dirty).toBe(true);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("keeps its own clock, so scrubbing Preview does not move air", () => {
@@ -326,19 +326,19 @@ describe("Preview never reaches Program without a Take", () => {
     // cannot be at two frames, and a graphic must keep animating while a
     // designer scrubs.
     const { bus: program, preview } = bus();
-    program.cut();
-    program.program.seek(40);
-    const frame = program.program.frame;
+    program.cut("lower");
+    program.channel("lower").seek(40);
+    const frame = program.channel("lower").frame;
 
     preview.seek(0);
     preview.play();
     preview.seek(5);
 
-    expect(program.program.frame).toBe(frame);
+    expect(program.channel("lower").frame).toBe(frame);
     expect(preview.frame).toBe(5);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("cuts without playing an entrance, and takes with one", () => {
@@ -352,43 +352,43 @@ describe("Preview never reaches Program without a Take", () => {
       setKeyframe(preview.document, timeline.timelineId, created.nodeId, "transform.position.0", 0, -4),
     );
 
-    expect(program.cut().played).toBeNull();
-    expect(program.take().played).toBe(timeline.timelineId);
+    expect(program.cut("lower").played).toBeNull();
+    expect(program.take("lower").played).toBe(timeline.timelineId);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("holds without rewinding, and continues from where it stopped", () => {
     // `stop` would rewind. A graphic that jumps to frame zero when an operator
     // says "wait" is the worst possible response to "wait".
     const { bus: program } = bus();
-    program.take();
-    program.program.seek(24);
-    program.hold();
+    program.take("lower");
+    program.channel("lower").seek(24);
+    program.hold("lower");
 
-    expect(program.state).toBe("holding");
-    expect(program.program.frame).toBe(24);
-    expect(program.program.playing).toBe(false);
+    expect(program.stateOf("lower")).toBe("holding");
+    expect(program.channel("lower").frame).toBe(24);
+    expect(program.channel("lower").playing).toBe(false);
 
-    program.continue();
-    expect(program.state).toBe("on-air");
-    expect(program.program.frame).toBe(24);
-    expect(program.program.playing).toBe(true);
+    program.continue("lower");
+    expect(program.stateOf("lower")).toBe("on-air");
+    expect(program.channel("lower").frame).toBe(24);
+    expect(program.channel("lower").playing).toBe(true);
 
     program.preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("clearing the surface does not make an unchanged Preview pending again", () => {
     const { bus: program } = bus();
-    program.cut();
-    program.clear();
+    program.cut("lower");
+    program.clear("lower");
     expect(program.onAir).toBe(false);
-    expect(program.pending).toBe(false);
+    expect(program.pendingOn("lower")).toBe(false);
 
     program.preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("caches the canonical form without letting it go stale", () => {
@@ -403,18 +403,18 @@ describe("Preview never reaches Program without a Take", () => {
     const { bus: program, preview } = bus();
     const created = createNode(preview.document, "rect", preview.document.root.id, ids);
     preview.store.apply(created.transaction);
-    program.cut();
+    program.cut("lower");
 
     for (let round = 0; round < 3; round += 1) {
-      expect(program.pending).toBe(false);
+      expect(program.pendingOn("lower")).toBe(false);
       apply(preview, setProp(preview.document, created.nodeId, "name", `Round ${round}`));
-      expect(program.pending).toBe(true);
+      expect(program.pendingOn("lower")).toBe(true);
       preview.store.undo();
     }
-    expect(program.pending).toBe(false);
+    expect(program.pendingOn("lower")).toBe(false);
 
     preview.dispose();
-    program.program.dispose();
+    program.channel("lower").dispose();
   });
 
   it("finds the entrance and exit by name, and copes when there is neither", () => {
