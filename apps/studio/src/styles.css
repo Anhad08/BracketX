@@ -507,7 +507,7 @@ kbd {
 /* Hierarchy */
 .outline { list-style: none; margin:0; padding:0; overflow-y: auto; }
 .outline li {
-  display: flex; align-items: center; gap:2px; border-radius: 4px;
+  display: flex; align-items: center; gap: var(--s1); border-radius: 4px;
   border-top:2px solid transparent; border-bottom:2px solid transparent;
 }
 .outline li.selected { background: var(--accent-bg); box-shadow: inset 2px 0 0 var(--accent); }
@@ -519,9 +519,9 @@ kbd {
 .twisty:disabled { opacity: 0.25; cursor: default; }
 .row-name {
   background: none; border: 0; cursor: pointer; flex: 1; min-width: 0;
-  display: flex; align-items: center; gap:var(--s1); padding:2px 3px; text-align: left;
+  display: flex; align-items: center; gap:var(--s1); padding: var(--s1) var(--s1); text-align: left;
 }
-.row-toggle { background: none; border: 0; color: var(--dim); cursor: pointer; padding:0 3px; flex: none; }
+.row-toggle { background: none; border: 0; color: var(--dim); cursor: pointer; padding: 0 var(--s1); flex: none; }
 .row-toggle.off { opacity: 0.4; }
 .row-toggle.on { color: var(--warn); }
 .badge {
@@ -537,7 +537,7 @@ kbd {
 
 /* Inspector */
 .prop-group { border-top:1px solid var(--line); padding-top:var(--s1); margin-top:var(--s1); }
-.prop { display: flex; align-items: center; gap:8px; padding:2px 0; }
+.prop { display: flex; align-items: center; gap:8px; padding: var(--s1) 0; }
 .prop > span:first-child {
   width: 82px; color: var(--dim); flex: none;
   font-size: 13px; letter-spacing: -0.004em;
@@ -562,7 +562,7 @@ kbd {
 }
 /* The groups inside it are separated by space, not by lines. Dividers between
    every pair of controls is what makes a toolbar look like a spreadsheet. */
-.viewport-toolbar .seg { gap:2px; }
+.viewport-toolbar .seg { gap: var(--s1); }
 /* THE VIEW SWITCHES ARE CHIPS, NOT A FORM.
    Five checkboxes in a row read as a preferences dialog that had wandered into
    an instrument. They are the same kind of thing as the view buttons beside
@@ -913,14 +913,14 @@ kbd {
 .asset-inspector .grow { flex: 1; }
 .asset-facts { display: flex; flex-wrap: wrap; gap:var(--s4); margin:0; }
 .asset-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: 0; color: var(--fg-dim); }
-.asset-facts dd { margin:2px 0 0; font-size: 11px; }
+.asset-facts dd { margin: var(--s1) 0 0; font-size: 11px; }
 .ghost.danger:not(:disabled) { color: var(--onair); border-color: #c6282855; }
 
 .asset-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:8px; padding:var(--s2) 12px;
 }
 .asset-tile {
-  display: flex; flex-direction: column; gap:2px; padding:var(--s2);
+  display: flex; flex-direction: column; gap: var(--s1); padding:var(--s2);
   border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2);
 }
 .note.warn { color: var(--onair); }
@@ -941,12 +941,12 @@ kbd {
 
 .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:8px; padding:8px var(--s2); }
 .card {
-  display: flex; flex-direction: column; gap:3px; padding:8px;
+  display: flex; flex-direction: column; gap: var(--s1); padding:8px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
 }
 .card .dim { font-size: 13px; }
 .card-actions { display: flex; gap:8px; margin-top:4px; }
-.tags { display: flex; gap:3px; flex-wrap: wrap; }
+.tags { display: flex; gap: var(--s1); flex-wrap: wrap; }
 .swatches { display: flex; flex-wrap: wrap; gap:8px; }
 .swatch { display: flex; align-items: center; gap:4px; font-size: 13px; }
 .swatch input[type="color"] { width: 24px; height: 24px; padding:0; border: 1px solid var(--line); border-radius: 3px; background: none; }
@@ -1010,7 +1010,7 @@ kbd {
    ========================================================================== */
 
 .fgrp { display: flex; flex-direction: column; gap:8px; padding:var(--s3) 0 0; }
-.fgrp + .fgrp { margin-top:2px; }
+.fgrp + .fgrp { margin-top: var(--s1); }
 .lbl {
   display: flex; align-items: center; gap:8px;
   font-size: 9px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
@@ -1021,7 +1021,7 @@ kbd {
 .lbl .ln { flex: 1; height: 1px; background: var(--line); }
 
 .content-fields { display: flex; flex-direction: column; gap:8px; }
-.content-row { display: flex; flex-direction: column; gap:3px; }
+.content-row { display: flex; flex-direction: column; gap: var(--s1); }
 .content-label {
   display: flex;
   align-items: baseline;
@@ -1232,7 +1232,7 @@ kbd {
    moment. So it is centred, full contrast, and on the accent. */
 .ov.detent {
   bottom:8px; left:50%; transform: translateX(-50%);
-  padding:3px 8px; border-radius: 5px;
+  padding: var(--s1) 8px; border-radius: 5px;
   background: var(--accent); color: #fff; font-size: 11px;
 }
 /* Walk mode announces itself for the same reason the detent does, and more
@@ -1479,7 +1479,7 @@ kbd {
    Same height and rhythm as a field so the table still lines up, but visibly
    a statement rather than an input. */
 .field-static {
-  display: inline-flex; align-items: center; height: 26px; padding:0 2px;
+  display: inline-flex; align-items: center; height: 26px; padding: 0 var(--s1);
   font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums;
 }
 

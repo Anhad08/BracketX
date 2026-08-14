@@ -65,18 +65,21 @@ describe("Design OS conformance", () => {
     const violations = SHEETS.flatMap((sheet) =>
       offScale(read(sheet), /^(padding|margin|gap|row-gap|column-gap)(-|$)/, SPACING),
     );
-    // BASELINE, measured 2026-08-14. Lower this number when you fix
-    // violations; NEVER raise it. The debt is ring-fenced here, not approved.
-    expect(violations.length).toBeLessThanOrEqual(35);
+    // ZERO, and it stays zero. Every spacing value in the product is now one of
+    // the nine steps. The thirty-five that were here were all 2px and 3px —
+    // values between the steps, which is exactly what "there is no value
+    // between them" forbids.
+    expect(violations, violations.join(" · ")).toEqual([]);
   });
 
   it("C2 — type does not drift further off the six sizes", () => {
     const violations = SHEETS.flatMap((sheet) =>
       offScale(read(sheet), /^font-size$/, TYPE),
     );
-    // BASELINE, measured 2026-08-14. Five sizes off the scale: 22, 18, 15, 10
-    // and 1.125rem. One of them is what rendered an easing label as "easir".
-    expect(violations.length).toBeLessThanOrEqual(5);
+    // ZERO, and it stays zero. Every type size in the product is now one of the
+    // six, with its bound tracking. This is the first check to reach the
+    // standard rather than merely stop retreating from it.
+    expect(violations, violations.join(" · ")).toEqual([]);
   });
 
   it("declares all nine spacing steps and all six type sizes", () => {

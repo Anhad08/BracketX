@@ -107,7 +107,7 @@
 .workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 .rail {
-  display: flex; flex-direction: column; gap:2px;
+  display: flex; flex-direction: column; gap: var(--s1);
   width: 84px; padding:var(--s3) var(--s2);
   background: var(--panel); border-right:1px solid var(--line);
   flex: none;
@@ -120,7 +120,7 @@
 }
 .rail-item {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; gap:3px;
+  display: flex; flex-direction: column; align-items: center; gap: var(--s1);
   padding:var(--s2) 2px; border: 0; border-radius: var(--radius-sm);
   background: none; color: var(--dim); cursor: pointer;
   transition: background var(--reveal) var(--press), color var(--reveal) var(--press);
@@ -142,8 +142,10 @@
   transition: height var(--reveal) var(--press);
 }
 .rail-item.on::before { height: 22px; }
-.rail-icon { font-size: 18px; line-height: 1; }
-.rail-label { font-size: 10px; letter-spacing: 0.02em; font-weight: 500; }
+.rail-icon { font-size: var(--t-title); letter-spacing: var(--k-title); line-height: 1; }
+/* Was 10px with a 0.02em local override — a size off the scale AND tracking
+   invented for it, which is the pair C2 exists to prevent. */
+.rail-label { font-size: var(--t-small); letter-spacing: var(--k-small); font-weight: 500; }
 .rail-dev {
   margin-top:var(--s3); padding-top:var(--s3);
   border-top:1px solid var(--line); border-radius: 0;
@@ -295,9 +297,9 @@
 
 /* --- Row lists ------------------------------------------------------------ */
 
-.row-list { list-style: none; margin:0; padding:0; display: flex; flex-direction: column; gap:2px; }
+.row-list { list-style: none; margin:0; padding:0; display: flex; flex-direction: column; gap: var(--s1); }
 .row-list button, .row-list .learn {
-  width: 100%; display: flex; flex-direction: column; gap:2px; text-align: left;
+  width: 100%; display: flex; flex-direction: column; gap: var(--s1); text-align: left;
   padding:var(--s3); border: 0; border-radius: var(--radius-sm);
   background: none; color: var(--text); cursor: pointer;
   transition: background var(--reveal) var(--press);
@@ -347,12 +349,12 @@
 /* --- Assets and facts ----------------------------------------------------- */
 
 .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap:var(--s3); }
-.swatch-tile { display: flex; flex-direction: column; gap:3px; }
+.swatch-tile { display: flex; flex-direction: column; gap: var(--s1); }
 .swatch-tile .tile { height: 52px; border-radius: var(--radius-sm); border: 1px solid var(--line); }
 .swatch-tile strong { font-size: 11px; color: var(--text-strong); }
 .font-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap:var(--s3); }
 .font-tile {
-  display: flex; flex-direction: column; gap:2px;
+  display: flex; flex-direction: column; gap: var(--s1);
   padding:var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel);
 }
 .font-tile strong { font-size: 13px; color: var(--text-strong); }
@@ -362,7 +364,7 @@
    is the affordance; without it nobody discovers the drag. */
 .scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap:var(--s3); }
 .scene-tile {
-  display: flex; flex-direction: column; gap:3px; text-align: left;
+  display: flex; flex-direction: column; gap: var(--s1); text-align: left;
   padding:var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--panel); color: inherit; font: inherit; cursor: grab;
   transition: border-color var(--reveal) var(--press), transform var(--reveal) var(--press);
@@ -385,9 +387,9 @@
 .scene-tile strong { font-size: 13px; color: var(--text-strong); }
 
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap:var(--s3); margin:0; }
-.facts > div { display: flex; flex-direction: column; gap:2px; }
+.facts > div { display: flex; flex-direction: column; gap: var(--s1); }
 .facts dt { font-size: 11px; color: var(--dim); }
-.facts dd { margin:0; font-size: 15px; color: var(--text-strong); }
+.facts dd { margin:0; font-size: var(--t-head); letter-spacing: var(--k-head); color: var(--text-strong); }
 .facts.mono dd { font-variant-numeric: tabular-nums; }
 .dump {
   margin:0; padding:var(--s3); background: var(--bg);
@@ -399,7 +401,7 @@
   display: flex; align-items: center; justify-content: space-between; gap:var(--s5);
   padding:var(--s4) 0; border-bottom:1px solid var(--line);
 }
-.setting-row > span:first-child { display: flex; flex-direction: column; gap:2px; max-width: 60ch; }
+.setting-row > span:first-child { display: flex; flex-direction: column; gap: var(--s1); max-width: 60ch; }
 .setting-row strong { font-size: 11px; color: var(--text-strong); }
 .setting-row .dim { font-size: 11px; line-height: 1.45; }
 
@@ -462,15 +464,15 @@
 
 /* THE VIEW CONTROL. Five angles, grouped so they read as one instrument
    rather than five loose buttons. */
-.views { display: inline-flex; gap:2px; margin-right:var(--s2); }
-.views .chip { padding:3px 8px; font-size: 13px; }
+.views { display: inline-flex; gap: var(--s1); margin-right:var(--s2); }
+.views .chip { padding: var(--s1) 8px; font-size: 13px; }
 .views .chip.on { background: var(--accent); border-color: var(--accent); color: var(--key-ink); }
 
 /* QUALITY. Cards, not a dropdown: this is a choice with consequences a user
    should be able to read before making, and a select hides its options. */
 .quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:var(--s3); margin-bottom:var(--s3); }
 .quality-card {
-  display: flex; flex-direction: column; gap:3px; text-align: left;
+  display: flex; flex-direction: column; gap: var(--s1); text-align: left;
   padding:var(--s3); font: inherit; cursor: pointer; color: inherit;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel);
 }
@@ -509,7 +511,7 @@
      that bar is navigation. */
   .rail-mark { display: none; }
   .rail-item {
-    flex: 1 1 0; min-width: 0; gap:2px; padding:4px 2px;
+    flex: 1 1 0; min-width: 0; gap: var(--s1); padding: 4px var(--s1);
     font-size: 11px;
   }
   /* Labels are clipped rather than allowed to collide. A run of touching
@@ -542,7 +544,7 @@
   .statusbar { display: none; }
 
   .section-page { padding:var(--s3); }
-  .section-head h1 { font-size: 22px; }
+  .section-head h1 { font-size: var(--t-title); letter-spacing: var(--k-title); }
   .pack-grid, .scene-grid, .start-grid, .quality-grid {
     grid-template-columns: 1fr;
   }
@@ -571,7 +573,7 @@
   padding:var(--s3); margin-bottom:var(--s3);
   border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer;
 }
-.sound-switch > span { display: flex; flex-direction: column; gap:2px; }
+.sound-switch > span { display: flex; flex-direction: column; gap: var(--s1); }
 .sound-switch strong { font-size: 13px; color: var(--text-strong); }
 .voice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:var(--s2); }
 .voice {
@@ -588,7 +590,7 @@
 
 /* THE BOTTOM DOCK — headers, not tabs. Every panel is visibly present and
    shows whether it is open or collapsed; nothing hides behind a sibling. */
-.dock-heads { display: flex; align-items: center; gap:2px; padding:4px var(--s1); border-bottom:1px solid var(--line); flex: none; }
+.dock-heads { display: flex; align-items: center; gap: var(--s1); padding:4px var(--s1); border-bottom:1px solid var(--line); flex: none; }
 .dock-head {
   display: inline-flex; align-items: center; gap:var(--s1);
   padding:4px var(--s2); font: inherit; font-size: 11px; cursor: pointer;
@@ -608,7 +610,7 @@
 .views .seg .chip { border-radius: 0; }
 .views .seg .chip:first-child { border-radius: var(--r-xs) 0 0 var(--r-xs); }
 .views .seg .chip:last-child { border-radius: 0 var(--r-xs) var(--r-xs) 0; }
-.views .modes { display: inline-flex; gap:2px; margin-left:var(--s3); }
+.views .modes { display: inline-flex; gap: var(--s1); margin-left:var(--s3); }
 
 /* PRODUCTION. The state of the transmission is stated at the top of the page
    that controls it — a tally an operator has to hunt for is a tally that gets
@@ -771,7 +773,7 @@
 .mon-closure { justify-content: space-between; align-items: flex-end; }
 .mon-closure strong { display: block; font-size: 11px; letter-spacing: 0; }
 .closure-facts { display: flex; gap:var(--s7); margin:0; }
-.closure-facts div { display: flex; flex-direction: column; gap:2px; }
+.closure-facts div { display: flex; flex-direction: column; gap: var(--s1); }
 .closure-facts dt {
   font-size: 11px; letter-spacing: 0; text-transform: uppercase; color: var(--dim);
 }
@@ -1387,21 +1389,22 @@
 .live-field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--s2);
 }
 
 .live-field label {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8125rem;
+  gap: var(--s2);
+  font-size: var(--t-body);
+  letter-spacing: var(--k-body);
   opacity: 0.8;
 }
 
 .live-controls {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--s2);
 }
 
 .live-controls .field {
@@ -1419,7 +1422,8 @@
 
 .live-controls .chip {
   min-width: 2.25rem;
-  font-size: 1.125rem;
+  font-size: var(--t-title);
+  letter-spacing: var(--k-title);
   line-height: 1;
 }
 
