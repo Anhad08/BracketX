@@ -172,10 +172,14 @@
   display: flex; flex-direction: column; gap:var(--s6);
 }
 .home-head h1, .section-head h1 {
-  margin:0; font-size: 30px; font-weight: 650; letter-spacing: -0.022em;
+  margin:0; font-size: var(--t-display); font-weight: 650;
+  letter-spacing: var(--k-display);
   color: var(--text-strong);
 }
-.lede { margin:var(--s1) 0 0; color: var(--dim); font-size: 14px; }
+.lede {
+  margin:var(--s1) 0 0; color: var(--dim);
+  font-size: var(--t-head); letter-spacing: var(--k-head);
+}
 .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap:var(--s5); }
 .field.search { width: 260px; }
 
@@ -1637,4 +1641,92 @@ li:active > button.row-name,
 
 .fgrp.adv[open] > summary::before {
   transform: rotate(90deg);
+}
+
+/* ==========================================================================
+   SECTION PAGES — GIVING THE CONTENT SOMEWHERE TO STAND
+
+   Templates, Marketplace, Assets, Outputs and Settings all put a heading, a
+   line or two of content, and then six hundred pixels of nothing. The content
+   was not wrong; it had no ground under it. A page whose every element floats
+   on the void reads as unfinished however good the words are.
+
+   Two rules fix all five, and neither touches Home — Home's root is `.home`,
+   and its cards already carry their own material.
+   ========================================================================== */
+
+/* ------------------------------------------------------------------------
+   AN EMPTY SCREEN IS AN INVITATION
+
+   It was one sentence of grey text at the top of a black field, which reads
+   as a page that failed to load rather than as a shelf waiting to be filled.
+
+   Dashed, because this product has already decided what empty looks like:
+   the blank start card on Home uses a dashed well and says so in its comment
+   — "a dashed well says 'empty on purpose'". Extending that vocabulary is
+   worth more than inventing a second one.
+   ------------------------------------------------------------------------ */
+.section-page .empty,
+.section-page > .note.pad {
+  /* BLOCK, not flex. A column flex makes every inline child its own row, and
+     an empty state is a SENTENCE — "choose <em>Save as template</em> to reuse
+     it" became three stacked fragments the moment it was laid out as a stack. */
+  display: block;
+  margin: var(--s5) auto 0;
+  padding: var(--s8) var(--s6);
+  max-width: 56ch;
+  text-align: center;
+  border: 1px dashed var(--line-strong, var(--line));
+  border-radius: var(--radius);
+  color: var(--dim);
+  font-size: var(--t-body);
+  letter-spacing: var(--k-body);
+  line-height: 1.6;
+}
+
+/* The one strong word in an empty state is the thing you would DO next. */
+.section-page .empty em,
+.section-page .empty strong,
+.section-page > .note.pad em,
+.section-page > .note.pad strong {
+  color: var(--text-strong);
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------
+   INFORMATION SITS ON A SURFACE; CARDS DO NOT
+
+   A block of facts — Outputs' resolution and frame rate, Production's Check —
+   needs a panel, or it is text floating in space. A block of CARDS must not
+   get one: the cards already have their own material, and a panel behind them
+   is a second surface saying the same thing, which is how a dark interface
+   turns muddy.
+
+   `:has()` makes that distinction structural rather than a class somebody has
+   to remember to add.
+   ------------------------------------------------------------------------ */
+.section-page .home-block:not(:has(.start-grid, .scene-grid, .pack-grid, .live-grid)) {
+  padding: var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--lift-1), var(--edge);
+}
+
+/* A panelled block's own heading needs no extra space above it — the panel's
+   padding is already doing that job, and two of them read as a gap. */
+.section-page .home-block:not(:has(.start-grid, .scene-grid, .pack-grid, .live-grid)) > .block-head {
+  margin-bottom: var(--s2);
+}
+
+/* ------------------------------------------------------------------------
+   THE HEADER EARNS ITS SPACE
+
+   A rule under the title separates the page's identity from its content, and
+   costs nothing at 40% brightness from two metres.
+   ------------------------------------------------------------------------ */
+.section-page > .section-head {
+  padding-bottom: var(--s5);
+  border-bottom: 1px solid var(--line);
 }
