@@ -1,8 +1,7 @@
 <title>The Deck</title>
 <style>
 /* ==========================================================================
-   PAGE CHROME — follows the viewer's theme. The prototype below carries its
-   own, because a product's theme is a property of the product.
+   PAGE CHROME
    ========================================================================== */
 :root{
   --p-bg:#F5F6F8; --p-surface:#FFFFFF; --p-raised:#EDEFF2;
@@ -41,177 +40,243 @@ h2{font-family:var(--mono); font-size:22px; letter-spacing:-.026em; font-weight:
   margin:var(--s7) 0 var(--s3); text-wrap:balance}
 p{margin:0 0 var(--s4); max-width:66ch; color:var(--p-ink-2)}
 p strong{color:var(--p-ink); font-weight:650}
-code{font-family:var(--mono); font-size:.86em; background:var(--p-surface);
-  border:1px solid var(--p-line); border-radius:4px; padding:1px 5px; color:var(--p-ink)}
+kbd{font-family:var(--mono); font-size:.8em; background:var(--p-raised);
+  border:1px solid var(--p-line-2); border-block-end-width:2px; border-radius:4px;
+  padding:1px 6px; color:var(--p-ink)}
 .warn{border-inline-start:2px solid var(--p-warn); padding-inline-start:var(--s5); margin:var(--s5) 0}
 .warn p{color:var(--p-ink)}
 
 /* ==========================================================================
    THE PROTOTYPE
 
-   THE SHAPE ARGUMENT: a 16:9 stage in a landscape window is already wide. A
-   right-hand dock steals the axis the content needs and leaves dead space
-   above and below the frame. Put the controls along the bottom instead and
-   the same window gives the graphic more room — and the space that was dead
-   becomes the deck.
+   Hierarchy, deliberately: the STAGE is the brightest, largest, least
+   decorated thing. The deck sits in front of it as a lit surface. Chrome is
+   quiet. One accent, used once per region.
    ========================================================================== */
 .app{
-  --bg:#0E1116; --chrome:#151920; --chrome-2:#1C212A;
-  --line:#232A34; --line-2:#333B49;
-  --ink:#E4E7EC; --ink-2:#A6AEB9; --ink-3:#79828F;
-  --accent:#5B8DEF; --accent-ink:#fff;
-  --stage:#0A0C10; --air:#FF3B30; --cue:#FFB020;
+  --bg:#0C0F14; --chrome:#141922; --chrome-2:#1B2129; --sunk:#0A0D12;
+  --line:#212936; --line-2:#33404F;
+  --ink:#EEF1F5; --ink-2:#9BA6B4; --ink-3:#6B7686;
+  --accent:#4C8DFF; --accent-ink:#fff; --accent-dim:rgb(76 141 255 / .16);
+  --stage:#07090C; --air:#FF3B30; --cue:#FFB020; --ok:#3FD07A;
+  --lit:inset 0 1px 0 rgb(255 255 255 / .06);
+  --cast:0 -18px 40px rgb(0 0 0 / .45);
 
-  position:relative; block-size:600px;
-  display:grid; grid-template-columns:60px 1fr;
+  position:relative; block-size:620px;
+  display:grid; grid-template-columns:56px 1fr;
   background:var(--bg); color:var(--ink);
-  border:1px solid var(--line-2); border-radius:14px; overflow:hidden;
+  border:1px solid var(--line-2); border-radius:16px; overflow:hidden;
   font-size:13px; touch-action:none; user-select:none;
   margin:var(--s5) 0 var(--s3);
 }
 .app[data-room="daylight"]{
-  --bg:#F2F4F7; --chrome:#FFFFFF; --chrome-2:#E9EDF3;
-  --line:#DCE2EA; --line-2:#BFC7D4;
-  --ink:#131720; --ink-2:#4A5262; --ink-3:#727B8C;
-  --accent:#2563D6; --stage:#0A0C10; --air:#D6261C; --cue:#9A6608;
+  --bg:#EEF1F6; --chrome:#FFFFFF; --chrome-2:#E7ECF3; --sunk:#F5F7FA;
+  --line:#D9E0EA; --line-2:#B9C3D2;
+  --ink:#101520; --ink-2:#4B5566; --ink-3:#78828F;
+  --accent:#1F5FD0; --accent-dim:rgb(31 95 208 / .12);
+  --stage:#07090C; --air:#CE2018; --cue:#8A5B00;
+  --lit:inset 0 1px 0 rgb(255 255 255 / .9);
+  --cast:0 -18px 40px rgb(20 30 50 / .12);
 }
 .app[data-room="carbon"]{
-  --bg:#000; --chrome:#0B0B0C; --chrome-2:#161618;
-  --line:#232326; --line-2:#3A3A3F;
-  --ink:#FAFAFA; --ink-2:#B4B4B8; --ink-3:#84848A;
-  --accent:#E8E8EA; --accent-ink:#000; --stage:#000;
+  --bg:#000; --chrome:#0A0A0B; --chrome-2:#151517; --sunk:#000;
+  --line:#212124; --line-2:#39393E;
+  --ink:#FCFCFC; --ink-2:#B0B0B4; --ink-3:#7C7C82;
+  --accent:#FFFFFF; --accent-ink:#000; --accent-dim:rgb(255 255 255 / .14);
+  --stage:#000; --lit:inset 0 1px 0 rgb(255 255 255 / .08);
 }
 
-/* -- the rail is now a SPINE: places, not tools ---------------------------- */
+/* -- spine: places, with real labels --------------------------------------- */
 .spine{background:var(--chrome); border-inline-end:1px solid var(--line);
-  display:flex; flex-direction:column; align-items:center; gap:var(--s2); padding:var(--s3) 0}
-.spine button{all:unset; inline-size:38px; block-size:38px; border-radius:9px; cursor:pointer;
-  display:grid; place-items:center; color:var(--ink-3); font-size:15px}
+  display:flex; flex-direction:column; align-items:center; gap:2px; padding:var(--s3) 0}
+.spine button{all:unset; inline-size:44px; padding:var(--s2) 0; border-radius:9px;
+  cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px;
+  color:var(--ink-3); font-size:7.5px; letter-spacing:.1em; text-transform:uppercase}
+.spine button svg{inline-size:17px; block-size:17px; stroke:currentColor; fill:none;
+  stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
 .spine button[aria-pressed="true"]{background:var(--chrome-2); color:var(--ink)}
 .spine button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
-.spine .tally{margin-block-start:auto; inline-size:34px; block-size:34px; border-radius:50%;
-  display:grid; place-items:center; font-family:var(--mono); font-size:7.5px;
-  letter-spacing:.1em; color:var(--ink-3); border:1px solid var(--line-2)}
-.app.live .spine .tally{color:var(--air); border-color:var(--air);
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--air) 25%, transparent)}
 
-.main{display:grid; grid-template-rows:40px 1fr auto; min-inline-size:0}
+/* THE TALLY has presence. It is the most consequential state in the product,
+   and it was a 7px dot. */
+.tally{margin-block-start:auto; inline-size:44px; padding:var(--s2) 0; border-radius:9px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  border:1px solid var(--line); background:var(--sunk)}
+.tally i{inline-size:12px; block-size:12px; border-radius:50%; background:var(--line-2);
+  box-shadow:inset 0 1px 2px rgb(0 0 0 / .6)}
+.tally b{font-family:var(--mono); font-size:7px; letter-spacing:.14em; color:var(--ink-3);
+  font-weight:500}
+.app.live .tally{border-color:var(--air); background:color-mix(in srgb, var(--air) 12%, transparent)}
+.app.live .tally i{background:var(--air); box-shadow:0 0 10px var(--air)}
+.app.live .tally b{color:var(--air)}
 
-/* -- top: identity and mode, nothing else --------------------------------- */
+.main{display:grid; grid-template-rows:42px 1fr auto; min-inline-size:0}
+
+/* -- top ------------------------------------------------------------------- */
 .top{background:var(--chrome); border-block-end:1px solid var(--line);
   display:flex; align-items:center; gap:var(--s3); padding:0 var(--s4)}
-.doc{font-weight:600; font-size:13px}
-.dot{inline-size:6px; block-size:6px; border-radius:50%; background:var(--cue)}
-.modes{display:inline-flex; gap:3px; padding:3px; border:1px solid var(--line);
-  border-radius:8px; margin-inline-start:auto}
+.doc{font-weight:650; font-size:13.5px; letter-spacing:-.01em}
+.saved{font-family:var(--mono); font-size:9px; letter-spacing:.14em; color:var(--ink-3)}
+.modes{display:inline-flex; gap:2px; padding:3px; background:var(--sunk);
+  border:1px solid var(--line); border-radius:9px; margin-inline-start:auto}
 .modes button{all:unset; padding:4px var(--s4); border-radius:6px; cursor:pointer;
   font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-3)}
-.modes button[aria-pressed="true"]{background:var(--chrome-2); color:var(--ink)}
+.modes button[aria-pressed="true"]{background:var(--chrome-2); color:var(--ink); box-shadow:var(--lit)}
 .modes button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.find{display:flex; align-items:center; gap:6px; padding:4px var(--s3); border-radius:7px;
+  background:var(--sunk); border:1px solid var(--line); color:var(--ink-3); font-size:11.5px}
+.find kbd{font-family:var(--mono); font-size:9px; border:1px solid var(--line-2);
+  border-radius:3px; padding:0 4px; color:var(--ink-3)}
 
-/* -- stage: the whole width ------------------------------------------------ */
+/* -- stage: the hero ------------------------------------------------------- */
 .stage{background:var(--stage); position:relative; display:flex; align-items:center;
-  justify-content:center; gap:var(--s3); padding:var(--s4); min-block-size:0; overflow:hidden}
-.mon{position:relative; block-size:100%; aspect-ratio:16/9; max-inline-size:100%;
-  outline:1px dashed color-mix(in srgb, var(--ink) 20%, transparent)}
+  justify-content:center; gap:var(--s3); padding:var(--s5); min-block-size:0; overflow:hidden}
+.stage::after{content:""; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(120% 100% at 50% 40%, transparent 55%, rgb(0 0 0 / .45) 100%)}
+.mon{position:relative; block-size:100%; aspect-ratio:16/9; max-inline-size:100%}
+.mon::before{content:""; position:absolute; inset:0;
+  outline:1px solid color-mix(in srgb, var(--ink) 12%, transparent); pointer-events:none}
 .mon.pgm{display:none}
-.app[data-mode="air"] .mon{outline-color:color-mix(in srgb, var(--ink) 14%, transparent)}
-.app[data-mode="air"] .mon.pgm{display:block; outline:2px solid var(--air)}
-.mon .cap{position:absolute; inset-block-start:-1px; inset-inline-start:0; display:none;
-  font-family:var(--mono); font-size:8px; letter-spacing:.16em; padding:2px 6px;
-  color:var(--ink-3)}
-.app[data-mode="air"] .mon .cap{display:block}
-.app[data-mode="air"] .mon.pgm .cap{color:var(--air)}
+.app[data-mode="air"] .mon.pgm{display:block}
+.app[data-mode="air"] .mon.pgm::before{outline:2px solid var(--air)}
+.cap{position:absolute; inset-block-start:var(--s2); inset-inline-start:var(--s2);
+  display:none; font-family:var(--mono); font-size:8px; letter-spacing:.18em;
+  color:var(--ink-3); z-index:3}
+.app[data-mode="air"] .cap{display:block}
+.app[data-mode="air"] .pgm .cap{color:var(--air)}
 
-.l3{position:absolute; left:7%; bottom:13%; display:flex; block-size:23%; min-block-size:38px;
-  overflow:hidden; box-shadow:0 8px 22px rgb(0 0 0 / .45)}
-.l3 .tab{inline-size:34px; background:#F26B22; display:grid; place-items:center; color:#fff;
-  font-size:13px}
-.l3 .body{padding:0 var(--s3); background:rgb(8 10 14 / .9); display:flex;
-  flex-direction:column; justify-content:center; min-inline-size:140px}
-.l3 .nm{font-weight:800; font-size:15px; letter-spacing:-.014em; line-height:1; color:#fff}
-.l3 .rl{font-size:9px; color:#C9CFD8; margin-top:3px}
+/* THE GRAPHIC — now made of parts you can click. */
+.gfx{position:absolute; left:6%; bottom:12%; display:flex; block-size:24%; min-block-size:42px;
+  box-shadow:0 10px 30px rgb(0 0 0 / .55)}
+.part{position:relative; cursor:pointer}
+.part::after{content:""; position:absolute; inset:-3px; border-radius:3px;
+  outline:1.5px solid transparent; pointer-events:none; transition:outline-color 120ms ease-out}
+.part[data-hot="true"]::after{outline-color:color-mix(in srgb, var(--accent) 70%, transparent)}
+.part[data-sel="true"]::after{outline-color:var(--accent)}
+.p-logo{inline-size:38px; background:#F26B22; display:grid; place-items:center; color:#fff}
+.p-logo svg{inline-size:15px; block-size:15px; fill:#fff}
+.p-body{background:rgb(6 8 12 / .92); display:flex; flex-direction:column;
+  justify-content:center; padding:0 var(--s4); min-inline-size:150px; gap:3px}
+.p-name{font-weight:800; font-size:16px; letter-spacing:-.016em; line-height:1; color:#fff}
+.p-role{font-size:9.5px; letter-spacing:.02em; color:#B9C2CE; line-height:1}
+.p-ctx{position:absolute; inset-inline-end:6%; bottom:12%; padding:4px 10px;
+  background:rgb(6 8 12 / .92); color:#E7ECF3; font-size:9px; letter-spacing:.14em;
+  text-transform:uppercase; cursor:pointer}
 
-/* -- THE DECK -------------------------------------------------------------- */
-.deck{background:var(--chrome); border-block-start:1px solid var(--line);
-  display:flex; flex-direction:column; will-change:height; overflow:hidden}
-.handle{block-size:16px; display:grid; place-items:center; cursor:ns-resize; flex:none}
-.handle::before{content:""; inline-size:38px; block-size:3px; border-radius:2px;
+/* stage tools, only where they belong */
+.tools{position:absolute; inset-block-end:var(--s3); inset-inline:0; display:none;
+  justify-content:center; gap:var(--s1); z-index:3}
+.app[data-mode="build"] .tools{display:flex}
+.tools span{padding:3px var(--s3); border-radius:6px; background:color-mix(in srgb, var(--chrome) 88%, transparent);
+  border:1px solid var(--line); font-family:var(--mono); font-size:9px; color:var(--ink-2);
+  backdrop-filter:blur(8px)}
+
+/* -- THE DECK: a lit surface in front of the stage ------------------------- */
+.deck{background:var(--chrome); border-block-start:1px solid var(--line-2);
+  box-shadow:var(--cast), var(--lit);
+  display:flex; flex-direction:column; will-change:height; overflow:hidden; z-index:4}
+.handle{block-size:14px; display:grid; place-items:center; cursor:ns-resize; flex:none}
+.handle::before{content:""; inline-size:34px; block-size:3px; border-radius:2px;
   background:var(--line-2)}
-.deck-body{flex:1; min-block-size:0; padding:0 var(--s4) var(--s4); overflow:hidden}
+.handle:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.deck-body{flex:1; min-block-size:0; padding:0 var(--s5) var(--s4); overflow:hidden}
 .pane{display:none; block-size:100%}
 .pane.on{display:block}
 
-/* FILL IN — one row, the whole width, one action */
-.fill{display:flex; gap:var(--s3); align-items:flex-end; block-size:100%}
-.f{display:flex; flex-direction:column; gap:5px; flex:1; min-inline-size:0}
-.f label{font-family:var(--mono); font-size:8.5px; letter-spacing:.16em;
-  text-transform:uppercase; color:var(--ink-3)}
-.f .val{block-size:34px; border-radius:7px; background:var(--bg); border:1px solid var(--line);
-  display:flex; align-items:center; padding:0 var(--s3); font-size:13px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* type scale inside the deck: label, value, and one moment */
+.lab{font-family:var(--mono); font-size:8.5px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--ink-3)}
+
+/* FILL IN */
+.fill{display:flex; gap:var(--s4); align-items:flex-end; block-size:100%}
+.f{display:flex; flex-direction:column; gap:6px; flex:1; min-inline-size:0}
+.f .val{block-size:36px; border-radius:8px; background:var(--sunk);
+  border:1px solid var(--line); display:flex; align-items:center; padding:0 var(--s3);
+  font-size:14px; font-weight:500; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:text;
+  transition:border-color 120ms ease-out, background 120ms ease-out}
+.f[data-hot="true"] .val{border-color:var(--accent); background:var(--accent-dim)}
+.f[data-sel="true"] .val{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-dim)}
 .sw{display:flex; gap:5px}
-.sw i{inline-size:24px; block-size:24px; border-radius:5px; border:1px solid var(--line-2)}
-.go{all:unset; block-size:34px; padding:0 var(--s6); border-radius:7px; cursor:pointer;
+.sw i{inline-size:26px; block-size:26px; border-radius:6px; border:1px solid var(--line-2);
+  cursor:pointer}
+.go{all:unset; block-size:36px; padding:0 var(--s6); border-radius:8px; cursor:pointer;
   background:var(--accent); color:var(--accent-ink); display:grid; place-items:center;
-  font-weight:650; font-size:13px; flex:none}
+  font-weight:650; font-size:13.5px; flex:none; box-shadow:0 4px 14px var(--accent-dim)}
 .go:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
 
-/* BUILD — panes side by side, using the width instead of a column */
-.build{display:grid; grid-template-columns:210px 1fr 220px; gap:var(--s4); block-size:100%}
+/* BUILD */
+.build{display:grid; grid-template-columns:196px 1fr 210px; gap:var(--s5); block-size:100%}
 .col{display:flex; flex-direction:column; gap:var(--s2); min-block-size:0}
-.col h5{margin:0; font-family:var(--mono); font-size:8.5px; letter-spacing:.16em;
-  text-transform:uppercase; color:var(--ink-3); font-weight:500}
-.tree{display:flex; flex-direction:column; gap:2px; overflow:auto; font-size:12px}
-.tree span{padding:4px var(--s2); border-radius:5px; color:var(--ink-2); white-space:nowrap}
-.tree span.sel{background:var(--chrome-2); color:var(--ink)}
-.tree span.ind{padding-inline-start:var(--s5)}
-.timeline{background:var(--bg); border:1px solid var(--line); border-radius:7px;
+.tree{display:flex; flex-direction:column; gap:1px; overflow:auto; font-size:12.5px}
+.tree span{padding:5px var(--s2); border-radius:6px; color:var(--ink-2); white-space:nowrap;
+  cursor:pointer; display:flex; align-items:center; gap:var(--s2)}
+.tree span::before{content:""; inline-size:5px; block-size:5px; border-radius:1px;
+  background:currentColor; opacity:.45}
+.tree span[data-hot="true"]{background:var(--accent-dim); color:var(--ink)}
+.tree span[data-sel="true"]{background:var(--accent-dim); color:var(--accent)}
+.tl{background:var(--sunk); border:1px solid var(--line); border-radius:8px;
   block-size:100%; position:relative; overflow:hidden}
-.timeline .ruler{block-size:16px; border-block-end:1px solid var(--line);
-  display:flex; align-items:center; gap:var(--s5); padding:0 var(--s2);
-  font-family:var(--mono); font-size:8px; color:var(--ink-3)}
-.timeline .clip{position:absolute; block-size:16px; border-radius:4px; background:var(--accent);
-  opacity:.8}
-.timeline .head{position:absolute; inset-block:0; inline-size:1px; background:var(--air)}
+.tl .ruler{block-size:17px; border-block-end:1px solid var(--line); display:flex;
+  align-items:center; gap:var(--s6); padding:0 var(--s2); font-family:var(--mono);
+  font-size:8px; color:var(--ink-3)}
+.tl .clip{position:absolute; block-size:14px; border-radius:4px;
+  background:linear-gradient(var(--accent), color-mix(in srgb, var(--accent) 72%, #000));
+  box-shadow:var(--lit)}
+.tl .head{position:absolute; inset-block:0; inline-size:1px; background:var(--air)}
+.tl .head::before{content:""; position:absolute; inset-block-start:0; inset-inline-start:-3px;
+  inline-size:7px; block-size:7px; background:var(--air);
+  clip-path:polygon(0 0,100% 0,50% 100%)}
 .props{display:flex; flex-direction:column; gap:var(--s2); overflow:auto}
-.row{display:flex; justify-content:space-between; align-items:center; gap:var(--s2);
-  font-size:12px; color:var(--ink-2)}
-.row b{color:var(--ink); font-weight:600; font-family:var(--mono);
+.row{display:flex; justify-content:space-between; align-items:baseline; gap:var(--s2);
+  font-size:12px; color:var(--ink-3)}
+.row b{color:var(--ink); font-weight:600; font-family:var(--mono); font-size:12.5px;
   font-variant-numeric:tabular-nums}
 .adv{display:flex; align-items:center; gap:6px; color:var(--ink-3); font-family:var(--mono);
-  font-size:8.5px; letter-spacing:.16em; text-transform:uppercase;
-  border-block-start:1px solid var(--line); padding-block-start:var(--s2); margin-block-start:auto}
+  font-size:8.5px; letter-spacing:.18em; text-transform:uppercase;
+  border-block-start:1px solid var(--line); padding-block-start:var(--s2);
+  margin-block-start:auto; cursor:pointer}
 .adv::before{content:""; inline-size:0; block-size:0; border-inline-start:4px solid currentColor;
   border-block:3px solid transparent}
 
-/* AIR — rundown and channel strip */
-.air{display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); block-size:100%}
+/* AIR */
+.air{display:grid; grid-template-columns:1.3fr 1fr; gap:var(--s5); block-size:100%}
 .rundown{display:flex; flex-direction:column; gap:3px; overflow:auto}
-.item{display:flex; align-items:center; gap:var(--s3); padding:5px var(--s2); border-radius:6px;
-  font-size:12px; color:var(--ink-2); background:var(--bg); border:1px solid var(--line)}
-.item .n{font-family:var(--mono); font-size:10px; color:var(--ink-3); inline-size:14px}
-.item.on{border-color:var(--air); color:var(--air)}
-.item.on .n{color:var(--air)}
-.item.armed{border-color:var(--cue); color:var(--cue)}
-.item.armed .n{color:var(--cue)}
-.strip{display:flex; flex-direction:column; gap:var(--s2)}
-.chan{display:flex; align-items:center; gap:var(--s2); padding:5px var(--s3); border-radius:6px;
-  border:1px solid var(--line); background:var(--bg); font-family:var(--mono); font-size:9px;
+.item{display:flex; align-items:center; gap:var(--s3); padding:6px var(--s2) 6px 6px;
+  border-radius:7px; font-size:12.5px; color:var(--ink-2); background:var(--sunk);
+  border:1px solid var(--line); cursor:pointer}
+.item .k{font-family:var(--mono); font-size:10px; inline-size:18px; block-size:18px;
+  border-radius:4px; display:grid; place-items:center; background:var(--chrome-2);
+  border:1px solid var(--line-2); border-block-end-width:2px; color:var(--ink-3); flex:none}
+.item .where{margin-inline-start:auto; font-family:var(--mono); font-size:8.5px;
   letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3)}
-.chan i{inline-size:7px; block-size:7px; border-radius:50%; background:var(--line-2)}
+.item[data-state="live"]{border-color:var(--air); color:var(--ink)}
+.item[data-state="live"] .k{color:var(--air); border-color:var(--air)}
+.item[data-state="live"] .where{color:var(--air)}
+.item[data-state="cued"]{border-color:var(--cue)}
+.item[data-state="cued"] .k{color:var(--cue); border-color:var(--cue)}
+.item[data-state="cued"] .where{color:var(--cue)}
+.strip{display:flex; flex-direction:column; gap:6px}
+.chan{display:flex; align-items:center; gap:var(--s2); padding:6px var(--s3); border-radius:7px;
+  border:1px solid var(--line); background:var(--sunk); font-family:var(--mono); font-size:9px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3)}
+.chan i{inline-size:8px; block-size:8px; border-radius:50%; background:var(--line-2)}
 .chan.on{border-color:var(--air); color:var(--air)}
-.chan.on i{background:var(--air)}
-.take{all:unset; margin-block-start:auto; block-size:38px; border-radius:7px; cursor:pointer;
-  background:var(--air); color:#fff; display:grid; place-items:center; font-weight:700;
-  font-size:13px; letter-spacing:.14em; text-transform:uppercase}
+.chan.on i{background:var(--air); box-shadow:0 0 8px var(--air)}
+.chan .x{margin-inline-start:auto; opacity:.6}
+.take{all:unset; margin-block-start:auto; block-size:42px; border-radius:8px; cursor:pointer;
+  background:var(--air); color:#fff; display:flex; align-items:center; justify-content:center;
+  gap:var(--s3); font-weight:700; font-size:13px; letter-spacing:.16em; text-transform:uppercase;
+  box-shadow:0 4px 16px color-mix(in srgb, var(--air) 35%, transparent)}
+.take kbd{font-family:var(--mono); font-size:9px; letter-spacing:.04em; opacity:.8;
+  border:1px solid rgb(255 255 255 / .4); border-radius:3px; padding:0 5px; text-transform:none}
 .take:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
 .press{transform:scale(.98); transition:transform 100ms ease-out}
 
 /* ==========================================================================
-   CONTROLS
+   CONTROLS + PROSE
    ========================================================================== */
-.bar{display:flex; flex-wrap:wrap; gap:var(--s2); margin:var(--s3) 0 var(--s6)}
+.bar{display:flex; flex-wrap:wrap; gap:var(--s2); margin:var(--s3) 0 var(--s5)}
 .bar button{all:unset; padding:var(--s2) var(--s4); border-radius:999px;
   border:1px solid var(--p-line); background:var(--p-surface); font-size:13px;
   color:var(--p-ink-2); cursor:pointer}
@@ -220,13 +285,13 @@ code{font-family:var(--mono); font-size:.86em; background:var(--p-surface);
 .bar button:focus-visible{outline:2px solid var(--p-ink); outline-offset:2px}
 .hint{font-family:var(--mono); font-size:11.5px; color:var(--p-muted); margin:0 0 var(--s5)}
 
-.compare{display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); margin:var(--s5) 0}
-.compare > div{background:var(--p-surface); border:1px solid var(--p-line); border-radius:10px;
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); margin:var(--s5) 0}
+.grid2 > div{background:var(--p-surface); border:1px solid var(--p-line); border-radius:10px;
   padding:var(--s4) var(--s5)}
-.compare h4{margin:0 0 var(--s2); font-family:var(--mono); font-size:9.5px;
+.grid2 h4{margin:0 0 var(--s2); font-family:var(--mono); font-size:9.5px;
   letter-spacing:.16em; text-transform:uppercase; color:var(--p-muted); font-weight:500}
-.compare p{margin:0; font-size:14px}
-.compare .big{font-family:var(--mono); font-size:26px; letter-spacing:-.02em;
+.grid2 p{margin:0; font-size:14px}
+.grid2 .big{font-family:var(--mono); font-size:26px; letter-spacing:-.02em;
   color:var(--p-ink); font-variant-numeric:tabular-nums; display:block; margin-block-end:4px}
 
 footer{border-block-start:1px solid var(--p-line-2); padding-block-start:var(--s4);
@@ -234,36 +299,39 @@ footer{border-block-start:1px solid var(--p-line-2); padding-block-start:var(--s
   letter-spacing:.16em; text-transform:uppercase; color:var(--p-muted)}
 
 @media (max-width:900px){
-  .app{block-size:520px; grid-template-columns:52px 1fr}
-  .build{grid-template-columns:1fr}
-  .compare{grid-template-columns:1fr}
+  .app{block-size:540px; grid-template-columns:48px 1fr}
+  .build,.air{grid-template-columns:1fr}
+  .grid2{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
 </style>
 
 <div class="wrap">
-  <p class="eyebrow">Streamatrix Studio · Layout prototype</p>
+  <p class="eyebrow">Streamatrix Studio · Layout prototype, second pass</p>
   <h1>The Deck</h1>
   <p class="standfirst">
-    A different shape, not a different colour. The stage takes the full width and
-    every control moves into one deck along the bottom that changes with the job.
-    Drag the deck's handle to resize it; switch modes and watch it become a
-    different instrument.
+    The stage takes the full width; every control lives in one deck along the
+    bottom that becomes a different instrument per job. This pass adds the thing
+    that was missing — <strong>you can touch the graphic</strong>. Click a part of
+    the lower third and the deck follows it; hover a field and the part lights up.
   </p>
 
   <div class="app" id="app" data-mode="fill" data-room="gallery">
     <nav class="spine" aria-label="Places">
-      <button type="button" aria-pressed="true" title="Work">◧</button>
-      <button type="button" aria-pressed="false" title="Library">▤</button>
-      <button type="button" aria-pressed="false" title="Packs">◇</button>
-      <button type="button" aria-pressed="false" title="Settings">⚙</button>
-      <span class="tally" id="tally">OFF</span>
+      <button type="button" aria-pressed="true">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/></svg>Work</button>
+      <button type="button" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Library</button>
+      <button type="button" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/></svg>Packs</button>
+      <span class="tally" id="tally"><i></i><b>OFF</b></span>
     </nav>
 
     <div class="main">
       <div class="top">
         <span class="doc">Lower Third</span>
-        <span class="dot" title="Unsaved"></span>
+        <span class="saved">EDITED</span>
+        <span class="find">Find anything <kbd>⌘K</kbd></span>
         <span class="modes" role="group" aria-label="Mode">
           <button type="button" data-mode="fill" aria-pressed="true">Fill in</button>
           <button type="button" data-mode="build" aria-pressed="false">Build</button>
@@ -274,31 +342,40 @@ footer{border-block-start:1px solid var(--p-line-2); padding-block-start:var(--s
       <div class="stage">
         <div class="mon pvw">
           <span class="cap">PREVIEW</span>
-          <div class="l3">
-            <span class="tab">▶</span>
-            <span class="body"><b class="nm">ALEX RIVERA</b><span class="rl">Sports Analyst</span></span>
+          <div class="gfx">
+            <span class="part p-logo" data-part="logo">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+            <span class="p-body">
+              <span class="part p-name" data-part="name">ALEX RIVERA</span>
+              <span class="part p-role" data-part="role">Sports Analyst</span>
+            </span>
           </div>
+          <span class="part p-ctx" data-part="context">Match of the Day</span>
         </div>
         <div class="mon pgm">
           <span class="cap">PROGRAM</span>
-          <div class="l3">
-            <span class="tab">▶</span>
-            <span class="body"><b class="nm">ALEX RIVERA</b><span class="rl">Sports Analyst</span></span>
+          <div class="gfx">
+            <span class="p-logo"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
+            <span class="p-body">
+              <span class="p-name">ALEX RIVERA</span>
+              <span class="p-role">Sports Analyst</span>
+            </span>
           </div>
         </div>
+        <div class="tools"><span>Fit</span><span>52%</span><span>Safe</span><span>Grid</span></div>
       </div>
 
       <div class="deck" id="deck">
         <div class="handle" id="handle" role="separator" aria-label="Resize deck" tabindex="0"></div>
         <div class="deck-body">
 
-          <!-- FILL IN -->
           <div class="pane on" data-pane="fill">
             <div class="fill">
-              <span class="f"><label>Name</label><span class="val">Alex Rivera</span></span>
-              <span class="f"><label>Role</label><span class="val">Sports Analyst</span></span>
-              <span class="f"><label>Context</label><span class="val">Match of the Day</span></span>
-              <span class="f" style="flex:0 0 auto"><label>Colour</label>
+              <span class="f" data-field="name"><span class="lab">Name</span><span class="val">Alex Rivera</span></span>
+              <span class="f" data-field="role"><span class="lab">Role</span><span class="val">Sports Analyst</span></span>
+              <span class="f" data-field="context"><span class="lab">Context</span><span class="val">Match of the Day</span></span>
+              <span class="f" data-field="logo" style="flex:0 0 auto"><span class="lab">Colour</span>
                 <span class="sw">
                   <i style="background:#F26B22"></i><i style="background:#fff"></i>
                   <i style="background:#8C97A8"></i><i style="background:#101318"></i>
@@ -308,62 +385,58 @@ footer{border-block-start:1px solid var(--p-line-2); padding-block-start:var(--s
             </div>
           </div>
 
-          <!-- BUILD -->
           <div class="pane" data-pane="build">
             <div class="build">
               <div class="col">
-                <h5>Layers</h5>
-                <div class="tree">
-                  <span class="sel">Lower Third</span>
-                  <span class="ind">Backing plate</span>
-                  <span class="ind">Accent bar</span>
-                  <span class="ind">Name</span>
-                  <span class="ind">Role</span>
-                  <span class="ind">Logo</span>
+                <span class="lab">Layers</span>
+                <div class="tree" id="tree">
+                  <span data-field="logo">Logo tab</span>
+                  <span data-field="name">Name</span>
+                  <span data-field="role">Role</span>
+                  <span data-field="context">Context strap</span>
+                  <span>Backing plate</span>
                 </div>
               </div>
               <div class="col">
-                <h5>Timing</h5>
-                <div class="timeline">
-                  <div class="ruler"><span>0.0</span><span>0.5</span><span>1.0</span><span>1.5</span><span>2.0</span></div>
-                  <div class="clip" style="left:8%; top:26px; width:34%"></div>
-                  <div class="clip" style="left:14%; top:48px; width:30%"></div>
-                  <div class="clip" style="left:20%; top:70px; width:26%"></div>
-                  <div class="head" style="left:31%"></div>
+                <span class="lab">Timing</span>
+                <div class="tl">
+                  <div class="ruler"><span>0.0</span><span>0.5</span><span>1.0</span><span>1.5</span></div>
+                  <div class="clip" style="left:6%; top:26px; width:36%"></div>
+                  <div class="clip" style="left:13%; top:46px; width:32%"></div>
+                  <div class="clip" style="left:20%; top:66px; width:28%"></div>
+                  <div class="head" style="left:33%"></div>
                 </div>
               </div>
               <div class="col">
-                <h5>Properties</h5>
+                <span class="lab">Properties</span>
                 <div class="props">
-                  <span class="row">Position <b>-5.40, -2.80</b></span>
-                  <span class="row">Scale <b>1.000</b></span>
+                  <span class="row">Position <b id="p-pos">−5.40, −2.80</b></span>
+                  <span class="row">Size <b id="p-size">6.20 × 1.10</b></span>
                   <span class="row">Opacity <b>100%</b></span>
-                  <span class="row">Corner <b>0 px</b></span>
                 </div>
                 <span class="adv">3D · Lighting · Style</span>
               </div>
             </div>
           </div>
 
-          <!-- AIR -->
           <div class="pane" data-pane="air">
             <div class="air">
               <div class="col">
-                <h5>Rundown</h5>
-                <div class="rundown">
-                  <span class="item"><span class="n">1</span>Opening titles</span>
-                  <span class="item on"><span class="n">2</span>Alex Rivera — lower third</span>
-                  <span class="item armed"><span class="n">3</span>Match ticker</span>
-                  <span class="item"><span class="n">4</span>Half-time score</span>
+                <span class="lab">Rundown</span>
+                <div class="rundown" id="rundown">
+                  <span class="item" data-state="done"><span class="k">1</span>Opening titles<span class="where">Background</span></span>
+                  <span class="item" data-state="live"><span class="k">2</span>Alex Rivera<span class="where">Lower</span></span>
+                  <span class="item" data-state="cued"><span class="k">3</span>Match ticker<span class="where">Upper</span></span>
+                  <span class="item"><span class="k">4</span>Half-time score<span class="where">Lower</span></span>
                 </div>
               </div>
               <div class="col strip">
-                <h5>Layers on air</h5>
-                <span class="chan"><i></i>Background</span>
-                <span class="chan on"><i></i>Lower · Alex Rivera</span>
-                <span class="chan"><i></i>Upper</span>
-                <span class="chan"><i></i>Overlay</span>
-                <button class="take" type="button" id="take">Take next</button>
+                <span class="lab">On air</span>
+                <span class="chan"><i></i>Background<span class="x">—</span></span>
+                <span class="chan on"><i></i>Lower<span class="x">clear</span></span>
+                <span class="chan"><i></i>Upper<span class="x">—</span></span>
+                <span class="chan"><i></i>Overlay<span class="x">—</span></span>
+                <button class="take" type="button" id="take">Take next <kbd>⌘↵</kbd></button>
               </div>
             </div>
           </div>
@@ -374,66 +447,70 @@ footer{border-block-start:1px solid var(--p-line-2); padding-block-start:var(--s
   </div>
 
   <div class="bar">
-    <button type="button" id="t-room" aria-pressed="false">Light theme</button>
+    <button type="button" id="t-light" aria-pressed="false">Daylight</button>
     <button type="button" id="t-carbon" aria-pressed="false">Carbon</button>
     <button type="button" id="t-old" aria-pressed="false">Show the old shape</button>
   </div>
-  <p class="hint">Drag the deck handle · switch Fill in / Build / Air · the stage never moves between modes</p>
+  <p class="hint">click a part of the graphic · hover a field · drag the deck handle · switch modes</p>
 
-  <h2>Why the shape changed</h2>
-  <p>
-    A 16:9 stage in a landscape window is already wide. A right-hand dock takes
-    width from the axis the content needs most, and leaves dead space above and
-    below the frame — which is exactly what the current build does. Press
-    <strong>“Show the old shape”</strong> to see the same window with a side
-    dock: the frame gets smaller and the wasted space appears.
-  </p>
+  <h2>What changed in this pass</h2>
 
-  <div class="compare">
+  <div class="grid2">
     <div>
-      <h4>Side dock — today</h4>
-      <span class="big">1050 × 590</span>
-      <p>Stage area 1050 wide, and roughly 200px of vertical nothing above and below a 16:9 frame.</p>
+      <h4>Usage</h4>
+      <p>The graphic is made of parts you can click. Selection is
+      <strong>two-way</strong>: pick a part on stage and its field lights up; hover
+      a field or a layer and the part outlines. That link is the whole reason to
+      have a stage rather than a form.</p>
     </div>
     <div>
-      <h4>Bottom deck</h4>
-      <span class="big">1364 × 767</span>
-      <p>The frame grows on both axes, and the space that was dead is now the deck doing real work.</p>
+      <h4>Design</h4>
+      <p>Hierarchy instead of uniform grey. The stage is darkest and undecorated
+      with a vignette so it reads as a screen; the deck is a <em>lit</em> surface
+      casting a shadow up over it; chrome recedes. One accent per region.</p>
+    </div>
+    <div>
+      <h4>The tally</h4>
+      <p>Was a 7px dot. Now a housed lamp with a legend that takes the air colour
+      across the whole component — readable at a glance from across a room, which
+      is the only requirement that matters for it.</p>
+    </div>
+    <div>
+      <h4>Keys are visible</h4>
+      <p>Rundown items carry their number as a keycap, and Take shows its chord.
+      An operator learns the keyboard by using the mouse, instead of reading a
+      reference they will never open.</p>
     </div>
   </div>
 
-  <h2>One deck, three instruments</h2>
+  <h2>Why the shape is still the point</h2>
   <p>
-    <strong>Fill in</strong> is a single row: the fields laid out across the width
-    the way a form actually wants to be read, and one primary action. Nothing
-    about 3D, lighting or keyframes is present — not collapsed, absent.
+    Press <strong>“Show the old shape”</strong>. A 16:9 stage in a landscape window
+    is already wide, so a right-hand dock steals the axis the content needs and
+    strands space above and below the frame.
   </p>
-  <p>
-    <strong>Build</strong> spends the width on three panes at once — layers,
-    timing, properties — so a designer stops trading one for another in a 280px
-    column. The timeline is no longer summoned; at this size it fits.
-  </p>
-  <p>
-    <strong>Air</strong> turns the same deck into an operator's desk: the rundown
-    on the left, the channel strip on the right, and the stage splits into
-    Preview and Program. No navigation, no scrolling, nothing below the fold.
-  </p>
+  <div class="grid2">
+    <div><h4>Side dock — today</h4><span class="big">1050 × 590</span>
+      <p>Roughly 200px of vertical nothing above and below the frame.</p></div>
+    <div><h4>Bottom deck</h4><span class="big">1364 × 767</span>
+      <p>The frame grows on both axes and the dead space becomes the deck.</p></div>
+  </div>
 
   <div class="warn">
     <p>
       The mode switch replaces section navigation for the core job. Design and
-      Production stop being different places you travel between and become two
-      states of one workspace — which is what removes the context loss every
-      time an operator has to go and check something.
+      Production stop being places you travel between and become two states of one
+      workspace — which is what removes the context loss every time an operator
+      goes to check something.
     </p>
   </div>
 
-  <h2>What this costs</h2>
+  <h2>Known gaps in this pass</h2>
   <p>
-    The deck is a real rebuild of the editor shell, not a restyle: panels move
-    from a persistent column into a mode-driven region, and Production's page
-    becomes a deck pane. The theme tokens from the previous prototype drop in
-    unchanged — those two pieces of work do not collide.
+    Fields are not yet editable in place, there is no drag-to-move on the stage,
+    and the rundown does not reorder. Those are the next things to prototype, and
+    each is a real interaction rather than a picture — worth building only once
+    the shape is agreed.
   </p>
 
   <footer>Streamatrix Studio · one stage · one deck · three jobs</footer>
@@ -446,8 +523,6 @@ const deck = document.getElementById("deck");
 const handle = document.getElementById("handle");
 const still = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-/* Spring in damping-ratio / response form — re-targets while carrying
-   velocity, which is what makes the deck catchable mid-flight. */
 function Spring(onFrame, { response = 0.34 } = {}) {
   let x = 0, v = 0, target = 0, raf = 0, running = false, last = 0;
   const omega = (2 * Math.PI) / response, zeta = 1;
@@ -459,8 +534,7 @@ function Spring(onFrame, { response = 0.34 } = {}) {
     if (Math.abs(x - target) < 0.2 && Math.abs(v) < 0.6) {
       x = target; v = 0; onFrame(x); running = false; last = 0; return;
     }
-    onFrame(x);
-    raf = requestAnimationFrame(loop);
+    onFrame(x); raf = requestAnimationFrame(loop);
   }
   return {
     get value(){ return x; },
@@ -476,21 +550,19 @@ function Spring(onFrame, { response = 0.34 } = {}) {
 const project = (v, d = 0.998) => (v / 1000) * d / (1 - d);
 const rubberband = (o, dim, k = 0.55) => (o * dim * k) / (dim + k * Math.abs(o));
 
-/* Each mode remembers its own height — Build wants room, Fill in does not. */
-const HEIGHTS = { fill: 96, build: 190, air: 190 };
-const MIN = 52, MAX = 300;
-
+/* -- the deck resizes, and each mode remembers its own height -------------- */
+const HEIGHTS = { fill: 100, build: 200, air: 200 };
+const MIN = 50, MAX = 320;
 const height = Spring((h) => { deck.style.height = `${h}px`; });
 height.set(HEIGHTS.fill);
 
 let dragging = false, grabY = 0, from = 0, samples = [];
-const velocity = () => {
+const vel = () => {
   if (samples.length < 2) return 0;
   const a = samples[0], b = samples[samples.length - 1];
   const dt = (b.t - a.t) / 1000;
   return dt > 0 ? (b.y - a.y) / dt : 0;
 };
-
 handle.addEventListener("pointerdown", (e) => {
   handle.setPointerCapture(e.pointerId);
   dragging = true; height.stop();
@@ -501,7 +573,7 @@ handle.addEventListener("pointermove", (e) => {
   if (!dragging) return;
   samples.push({ t: performance.now(), y: e.clientY });
   if (samples.length > 6) samples.shift();
-  let next = from - (e.clientY - grabY);          // up = taller
+  let next = from - (e.clientY - grabY);
   if (next < MIN) next = MIN - rubberband(MIN - next, 240);
   if (next > MAX) next = MAX + rubberband(next - MAX, 240);
   height.set(next);
@@ -509,7 +581,7 @@ handle.addEventListener("pointermove", (e) => {
 function release() {
   if (!dragging) return;
   dragging = false;
-  const v = -velocity();                           // deck grows upward
+  const v = -vel();
   const landing = height.value + (still.matches ? 0 : project(v));
   const target = Math.max(MIN, Math.min(MAX, landing));
   HEIGHTS[app.dataset.mode] = target;
@@ -520,14 +592,14 @@ handle.addEventListener("pointerup", release);
 handle.addEventListener("pointercancel", release);
 handle.addEventListener("keydown", (e) => {
   const step = e.key === "ArrowUp" ? 24 : e.key === "ArrowDown" ? -24 : 0;
-  if (step === 0) return;
+  if (!step) return;
   e.preventDefault();
   const next = Math.max(MIN, Math.min(MAX, height.value + step));
   HEIGHTS[app.dataset.mode] = next;
   height.to(next);
 });
 
-/* Press feedback on pointer-down. */
+/* -- press feedback on pointer-down ---------------------------------------- */
 for (const el of document.querySelectorAll(".go, .take, .spine button, .modes button, .bar button")) {
   el.addEventListener("pointerdown", () => el.classList.add("press"));
   for (const end of ["pointerup", "pointerleave", "pointercancel"]) {
@@ -535,7 +607,45 @@ for (const el of document.querySelectorAll(".go, .take, .spine button, .modes bu
   }
 }
 
-/* -- modes ---------------------------------------------------------------- */
+/* ==========================================================================
+   TWO-WAY SELECTION — the reason a stage beats a form.
+   ========================================================================== */
+const PARTS = [...document.querySelectorAll(".pvw .part")];
+const FIELDS = [...document.querySelectorAll(".f[data-field]")];
+const ROWS = [...document.querySelectorAll("#tree span[data-field]")];
+const SIZES = {
+  name:    ["−5.40, −2.80", "6.20 × 1.10"],
+  role:    ["−5.20, −3.40", "4.80 × 0.52"],
+  logo:    ["−6.90, −3.05", "1.10 × 1.10"],
+  context: [" 4.10, −3.05", "3.40 × 0.60"],
+};
+
+let selected = null;
+function mark(attr, key) {
+  for (const el of [...PARTS, ...FIELDS, ...ROWS]) {
+    const own = el.dataset.part ?? el.dataset.field;
+    if (key !== null && own === key) el.dataset[attr] = "true";
+    else delete el.dataset[attr];
+  }
+}
+function hot(key){ mark("hot", key); }
+function select(key) {
+  selected = key;
+  mark("sel", key);
+  const size = SIZES[key];
+  if (size) {
+    document.getElementById("p-pos").textContent = size[0];
+    document.getElementById("p-size").textContent = size[1];
+  }
+}
+for (const el of [...PARTS, ...FIELDS, ...ROWS]) {
+  const key = el.dataset.part ?? el.dataset.field;
+  el.addEventListener("pointerenter", () => hot(key));
+  el.addEventListener("pointerleave", () => hot(null));
+  el.addEventListener("click", () => select(selected === key ? null : key));
+}
+
+/* -- modes ----------------------------------------------------------------- */
 function setMode(mode) {
   app.dataset.mode = mode;
   for (const b of document.querySelectorAll(".modes button")) {
@@ -550,50 +660,50 @@ for (const b of document.querySelectorAll(".modes button")) {
   b.addEventListener("click", () => setMode(b.dataset.mode));
 }
 
-/* -- air ------------------------------------------------------------------ */
+/* -- air ------------------------------------------------------------------- */
 const tally = document.getElementById("tally");
 function setAir(on) {
   app.classList.toggle("live", on);
-  tally.textContent = on ? "ON AIR" : "OFF";
+  tally.querySelector("b").textContent = on ? "ON AIR" : "OFF";
 }
 document.getElementById("go").addEventListener("click", () => { setAir(true); setMode("air"); });
 document.getElementById("take").addEventListener("click", () => setAir(!app.classList.contains("live")));
 
-/* -- themes + the comparison ---------------------------------------------- */
-const roomBtn = document.getElementById("t-room");
+/* -- themes ---------------------------------------------------------------- */
+const lightBtn = document.getElementById("t-light");
 const carbonBtn = document.getElementById("t-carbon");
 function room(name, btn) {
   const on = btn.getAttribute("aria-pressed") !== "true";
-  for (const b of [roomBtn, carbonBtn]) b.setAttribute("aria-pressed", "false");
+  for (const b of [lightBtn, carbonBtn]) b.setAttribute("aria-pressed", "false");
   btn.setAttribute("aria-pressed", String(on));
   app.dataset.room = on ? name : "gallery";
 }
-roomBtn.addEventListener("click", () => room("daylight", roomBtn));
+lightBtn.addEventListener("click", () => room("daylight", lightBtn));
 carbonBtn.addEventListener("click", () => room("carbon", carbonBtn));
 
+/* -- the comparison -------------------------------------------------------- */
 document.getElementById("t-old").addEventListener("click", (e) => {
   const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
   e.currentTarget.setAttribute("aria-pressed", String(on));
   if (on) {
-    // The old shape: a persistent side column, and the deck collapsed away.
-    app.style.gridTemplateColumns = "60px 1fr 280px";
+    app.style.gridTemplateColumns = "56px 1fr 280px";
     if (!document.getElementById("ghost")) {
       const ghost = document.createElement("aside");
       ghost.id = "ghost";
       ghost.style.cssText =
-        "background:var(--chrome);border-inline-start:1px solid var(--line);" +
-        "padding:16px 12px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--ink-3)";
+        "background:var(--chrome);border-inline-start:1px solid var(--line);padding:18px 14px;" +
+        "display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--ink-3)";
       ghost.innerHTML =
-        '<span style="font-family:ui-monospace,monospace;font-size:8.5px;letter-spacing:.16em;text-transform:uppercase">Properties</span>' +
-        '<span style="height:32px;border-radius:6px;background:var(--bg);border:1px solid var(--line)"></span>' +
-        '<span style="height:32px;border-radius:6px;background:var(--bg);border:1px solid var(--line)"></span>' +
-        '<span style="height:32px;border-radius:6px;background:var(--bg);border:1px solid var(--line)"></span>' +
-        '<span style="height:32px;border-radius:6px;background:var(--bg);border:1px solid var(--line)"></span>';
+        '<span style="font-family:ui-monospace,monospace;font-size:8.5px;letter-spacing:.18em;' +
+        'text-transform:uppercase">Properties</span>' +
+        Array.from({ length: 5 }, () =>
+          '<span style="height:34px;border-radius:8px;background:var(--sunk);' +
+          'border:1px solid var(--line)"></span>').join("");
       app.appendChild(ghost);
     }
     height.to(MIN);
   } else {
-    app.style.gridTemplateColumns = "60px 1fr";
+    app.style.gridTemplateColumns = "56px 1fr";
     document.getElementById("ghost")?.remove();
     height.to(HEIGHTS[app.dataset.mode]);
   }
