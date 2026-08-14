@@ -263,10 +263,27 @@ export class StudioSession {
     this.#notify();
   }
 
-  /** Draws one frame at the current wall time. */
-  render(wallMs?: number): FrameResult {
+  /**
+   * Draws one frame at the current wall time.
+   *
+   * ==========================================================================
+   * WHY THE DEFAULT IS A CLOCK AND NOT A FRAME COUNT
+   * ==========================================================================
+   * This used to advance by exactly 1/60s per CALL, which made a graphic's
+   * speed a property of the machine drawing it: true speed at 60fps, half
+   * speed in an embedded webview managing 30, double on a 120Hz panel. The
+   * doc comment above has always said "wall time"; the arithmetic did not.
+   *
+   * On a desk that matters more than it looks. A ten-second bumper timed
+   * against a script becomes a nineteen-second one on a slower machine, and
+   * nothing in the interface would say so.
+   *
+   * A caller may still pass an explicit time — that is how a test steps a
+   * clock deterministically, and how an offline render walks frame by frame.
+   */
+  render(wallMs: number = performance.now()): FrameResult {
     this.#frame += 1;
-    return this.host.renderFrame(wallMs ?? (this.#frame * 1000) / 60);
+    return this.host.renderFrame(wallMs);
   }
 
   get lastReport(): ProjectionReport | null {

@@ -148,9 +148,12 @@ export function Monitors({
    */
   useEffect(() => {
     let handle = 0;
-    const frame = () => {
+    const frame = (now: number) => {
       handle = requestAnimationFrame(frame);
-      bus.preview.render();
+      // The REAL clock. Advancing by frame count made a graphic play at
+      // whatever speed the machine could draw — and on air that is the
+      // difference between a ten-second bumper and a nineteen-second one.
+      bus.preview.render(now);
       // OFF AIR MEANS NOTHING IS GOING OUT, and the monitor has to show that.
       //
       // `clear()` rewinds the programme clock but the last frame stays in the
@@ -164,7 +167,7 @@ export function Monitors({
       // EVERY live layer, not just this monitor's: each has its own clock, and
       // a ticker that stopped advancing because a score bug happened to own the
       // controls would be frozen on air.
-      for (const id of bus.live) bus.channel(id).render();
+      for (const id of bus.live) bus.channel(id).render(now);
     };
     handle = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(handle);

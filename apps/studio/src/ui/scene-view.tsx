@@ -505,7 +505,14 @@ export function SceneView({
       if (!session.disposed && (session.playing || pending.current)) {
         pending.current = false;
         try {
-          session.render();
+          // THE REAL CLOCK, not the frame count.
+          //
+          // `render()` with no argument advances by exactly 1/60s per call, so
+          // the animation's speed became whatever the display and the machine
+          // could manage: true speed at 60fps, half speed in a webview at 30,
+          // double on a 120Hz panel. A graphic that plays at a different speed
+          // depending on the window it is in cannot be timed against a script.
+          session.render(now);
           // Timed only on frames that DREW. The loop idles when nothing has
           // changed, and counting those would report a stationary editor as
           // running at whatever the display refreshes at — a number that
