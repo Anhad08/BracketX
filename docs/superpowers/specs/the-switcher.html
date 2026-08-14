@@ -1,0 +1,455 @@
+<title>The Switcher</title>
+<style>
+/* ==========================================================================
+   PAGE CHROME — the same graphite/mono identity as the rest of this project's
+   documents. Deliberately opinion-free about colour so three directions can be
+   compared on it without the page taking a side.
+   ========================================================================== */
+:root{
+  --ground:#0F1216; --surface:#171B21; --raised:#1E232B;
+  --ink:#E6E9ED; --ink-2:#A6AEB9; --muted:#767E8A;
+  --rule:#242A33; --rule-2:#343C47;
+  --ok:#3FB950; --warn:#D29922; --air:#FF3B30;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+  --s6:32px; --s7:48px; --s8:64px; --s9:96px;
+  --mono: ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --sans: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --ground:#F5F6F8; --surface:#FFFFFF; --raised:#EDEFF2;
+    --ink:#12151A; --ink-2:#454D58; --muted:#6C747F;
+    --rule:#DEE2E7; --rule-2:#C4CAD2;
+    --ok:#1A7F37; --warn:#9A6608; --air:#D6261C;
+  }
+}
+:root[data-theme="light"]{
+  --ground:#F5F6F8; --surface:#FFFFFF; --raised:#EDEFF2;
+  --ink:#12151A; --ink-2:#454D58; --muted:#6C747F;
+  --rule:#DEE2E7; --rule-2:#C4CAD2;
+  --ok:#1A7F37; --warn:#9A6608; --air:#D6261C;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+  font-size:16.5px; line-height:1.62; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px; margin:0 auto; padding:var(--s6) var(--s5) var(--s9)}
+
+.eyebrow{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted); margin:0 0 var(--s3)}
+h1{font-family:var(--mono); font-size:34px; letter-spacing:-.034em; font-weight:700;
+  line-height:1.08; margin:0 0 var(--s3); text-wrap:balance}
+.standfirst{font-size:18px; letter-spacing:-.016em; color:var(--ink-2); max-width:64ch;
+  margin:0 0 var(--s5); text-wrap:balance}
+h2{font-family:var(--mono); font-size:22px; letter-spacing:-.026em; font-weight:700;
+  margin:var(--s7) 0 var(--s3); text-wrap:balance}
+p{margin:0 0 var(--s4); max-width:64ch; color:var(--ink-2)}
+p strong{color:var(--ink); font-weight:650}
+code{font-family:var(--mono); font-size:.86em; background:var(--surface);
+  border:1px solid var(--rule); border-radius:4px; padding:1px 5px; color:var(--ink)}
+
+/* ==========================================================================
+   THE SPECIMEN — one screen, three skins. Everything inside is scoped to
+   .skin-a / .skin-b / .skin-c so no palette can leak into another.
+   ========================================================================== */
+.stack{display:flex; flex-direction:column; gap:var(--s3)}
+
+.spec{
+  position:relative; block-size:460px; border-radius:14px; overflow:hidden;
+  border:1px solid var(--rule-2); touch-action:none; user-select:none;
+}
+
+/* The stage sits under everything and NEVER changes between skins. */
+.stage{position:absolute; inset:0; display:grid; place-items:center}
+.frame{position:relative; inline-size:70%; aspect-ratio:16/9; border-radius:6px}
+.l3{position:absolute; left:7%; bottom:13%; display:flex; block-size:23%; min-block-size:46px;
+  overflow:hidden; box-shadow:0 10px 28px rgb(0 0 0 / .5)}
+.l3 .tab{inline-size:40px; background:#F26B22; display:grid; place-items:center; color:#fff;
+  font-size:15px}
+.l3 .body{padding:0 var(--s4); background:rgb(8 10 14 / .9); display:flex;
+  flex-direction:column; justify-content:center; min-inline-size:170px}
+.l3 .nm{font-weight:800; font-size:18px; letter-spacing:-.014em; line-height:1; color:#fff}
+.l3 .rl{font-size:10px; color:#C9CFD8; margin-top:4px}
+
+/* Shared skeleton — skins only repaint it. */
+.rail{position:absolute; inset-block:0; inset-inline-start:0; inline-size:68px;
+  display:flex; flex-direction:column; gap:var(--s2); padding:var(--s4) var(--s2)}
+.rail button{all:unset; display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:var(--s2) 0; cursor:pointer; font-size:9px; letter-spacing:.06em;
+  text-transform:uppercase; text-align:center}
+.rail .dot{inline-size:17px; block-size:17px; display:block}
+.rail button:focus-visible{outline:2px solid var(--ok); outline-offset:2px}
+.tally{margin-block-start:auto; display:flex; align-items:center; gap:6px; justify-content:center;
+  font-family:var(--mono); font-size:9px; letter-spacing:.16em}
+.tally i{inline-size:7px; block-size:7px; border-radius:50%}
+
+.dock{position:absolute; inset-block:0; inset-inline-end:0; inline-size:264px;
+  padding:var(--s5) var(--s4); display:flex; flex-direction:column; gap:var(--s3);
+  will-change:transform; cursor:grab}
+.dock:active{cursor:grabbing}
+.grip{position:absolute; inset-block:0; inset-inline-start:0; inline-size:14px;
+  display:grid; place-items:center}
+.grip::before{content:""; inline-size:3px; block-size:40px; border-radius:2px;
+  background:currentColor; opacity:.35}
+.dock h4{margin:0; font-family:var(--mono); font-size:9px; letter-spacing:.16em;
+  text-transform:uppercase; font-weight:500}
+.fld{block-size:34px; display:flex; align-items:center; padding:0 var(--s3); font-size:13px}
+.go{all:unset; margin-block-start:auto; block-size:38px; display:grid; place-items:center;
+  font-weight:650; font-size:13px; cursor:pointer; text-align:center}
+.go:focus-visible{outline:2px solid #fff; outline-offset:2px}
+.press{transform:scale(.97); transition:transform 100ms ease-out}
+
+/* ---------- A · GALLERY ------------------------------------------------- */
+.skin-a{background:#0E1116; color:#E4E7EC}
+.skin-a .stage{background:repeating-conic-gradient(#12151a 0 25%, #0e1116 0 50%) 0 0/18px 18px}
+.skin-a .frame{outline:1px dashed rgb(255 255 255 / .16)}
+.skin-a .rail{background:#161A21; border-inline-end:1px solid #242B35}
+.skin-a .rail button{color:#7A828E; border-radius:6px}
+.skin-a .rail .dot{background:currentColor; border-radius:3px}
+.skin-a .rail button[aria-pressed="true"]{background:#0E1116; color:#E4E7EC}
+.skin-a .tally{color:#7A828E}
+.skin-a .tally i{background:#39404F}
+.skin-a.live .tally{color:#FF3B30}
+.skin-a.live .tally i{background:#FF3B30; box-shadow:0 0 0 3px rgb(255 59 48 / .3)}
+.skin-a .dock{background:#161A21; border-inline-start:1px solid #242B35; color:#E4E7EC}
+.skin-a .dock h4{color:#7A828E}
+.skin-a .fld{background:#0E1116; border:1px solid #242B35; border-radius:5px}
+.skin-a .go{background:#FF3B30; color:#fff; border-radius:6px}
+
+/* ---------- B · STUDIO GLASS -------------------------------------------- */
+.skin-b{background:radial-gradient(120% 90% at 12% -10%, #232B47 0%, #0B0D14 62%); color:#F2F4F8}
+.skin-b .frame{outline:1px solid rgb(255 255 255 / .10); border-radius:8px}
+.skin-b .rail{background:rgb(255 255 255 / .06); backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%); border-inline-end:1px solid rgb(255 255 255 / .10)}
+.skin-b .rail button{color:#9AA3B2; border-radius:11px}
+.skin-b .rail .dot{background:currentColor; border-radius:5px}
+.skin-b .rail button[aria-pressed="true"]{background:rgb(255 255 255 / .12); color:#fff}
+.skin-b .tally{color:#9AA3B2}
+.skin-b .tally i{background:#4A5468}
+.skin-b.live .tally{color:#FF6A60}
+.skin-b.live .tally i{background:#FF6A60; box-shadow:0 0 0 3px rgb(255 106 96 / .3)}
+.skin-b .dock{background:rgb(255 255 255 / .07); backdrop-filter:blur(26px) saturate(180%);
+  -webkit-backdrop-filter:blur(26px) saturate(180%);
+  border-inline-start:1px solid rgb(255 255 255 / .12);
+  box-shadow:-24px 0 60px rgb(0 0 0 / .4); color:#F2F4F8}
+.skin-b .dock h4{color:#9AA3B2}
+.skin-b .fld{background:rgb(255 255 255 / .09); border:1px solid rgb(255 255 255 / .12);
+  border-radius:9px; color:#fff}
+.skin-b .go{background:#5B8DEF; color:#fff; border-radius:11px;
+  box-shadow:0 8px 20px rgb(91 141 239 / .4)}
+
+/* ---------- C · CONSOLE -------------------------------------------------- */
+.skin-c{background:#15171A; color:#EDEFF2}
+.skin-c .stage{background:#0B0C0E; box-shadow:inset 0 0 0 1px #000}
+.skin-c .frame{outline:2px solid #2A2E34}
+.skin-c .rail{background:linear-gradient(#23262B,#1A1D21); border-inline-end:1px solid #0A0B0D;
+  box-shadow:inset -1px 0 0 rgb(255 255 255 / .04)}
+.skin-c .rail button{color:#8A9199; background:linear-gradient(#2A2E34,#1F2227);
+  border:1px solid #0D0F11; border-radius:4px;
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / .10), 0 1px 2px rgb(0 0 0 / .5)}
+.skin-c .rail .dot{background:currentColor; border-radius:2px}
+.skin-c .rail button[aria-pressed="true"]{background:linear-gradient(#3A3F47,#2B2F35); color:#fff}
+.skin-c .rail button[aria-pressed="true"] .dot{background:#FF4438}
+.skin-c .tally{color:#8A9199; letter-spacing:.2em}
+.skin-c .tally i{background:#3A3F47; box-shadow:inset 0 1px 1px rgb(0 0 0 / .8)}
+.skin-c.live .tally{color:#FF4438}
+.skin-c.live .tally i{background:#FF4438; box-shadow:0 0 8px rgb(255 68 56 / .9)}
+.skin-c .dock{background:linear-gradient(#212429,#191C20); border-inline-start:1px solid #0A0B0D;
+  color:#EDEFF2}
+.skin-c .dock h4{color:#8A9199; letter-spacing:.2em}
+.skin-c .fld{background:#0D0F11; border:1px solid #000; border-radius:3px;
+  box-shadow:inset 0 1px 2px rgb(0 0 0 / .8); font-family:var(--mono);
+  text-transform:uppercase; font-size:12px}
+.skin-c .go{background:linear-gradient(#FF5A4E,#D8281C); color:#fff; border-radius:4px;
+  border:1px solid #7E120A; text-transform:uppercase; letter-spacing:.14em;
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / .35), 0 2px 4px rgb(0 0 0 / .6)}
+
+/* ==========================================================================
+   THE PICKER — what's interactive looks interactive.
+   ========================================================================== */
+.picker{display:flex; flex-wrap:wrap; gap:var(--s2)}
+.picker button{
+  all:unset; display:flex; flex-direction:column; gap:2px; cursor:pointer;
+  padding:var(--s3) var(--s4); border-radius:8px;
+  border:1px solid var(--rule); background:var(--surface); min-inline-size:150px;
+}
+.picker button:hover{border-color:var(--rule-2)}
+.picker button:focus-visible{outline:2px solid var(--ok); outline-offset:2px}
+.picker button[aria-pressed="true"]{background:var(--raised); border-color:var(--ink-2)}
+.picker .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted)}
+.picker .n{font-size:15px; font-weight:650; color:var(--ink)}
+.picker button[aria-pressed="true"] .k{color:var(--ink-2)}
+
+.readout{
+  background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+  padding:var(--s4) var(--s5); font-size:15px; color:var(--ink-2);
+}
+.readout b{color:var(--ink); font-weight:650}
+
+/* ==========================================================================
+   COMPARISON
+   ========================================================================== */
+.scroll-x{overflow-x:auto; margin:var(--s5) 0}
+table{border-collapse:collapse; inline-size:100%; font-size:14px; font-variant-numeric:tabular-nums}
+th,td{text-align:left; vertical-align:top; padding:var(--s3) var(--s4) var(--s3) 0;
+  border-bottom:1px solid var(--rule)}
+th{font-family:var(--mono); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); font-weight:500; border-bottom-color:var(--rule-2); white-space:nowrap}
+td:first-child{color:var(--ink); white-space:nowrap}
+.pill{display:inline-block; padding:1px 8px; border-radius:999px; font-size:11.5px;
+  font-family:var(--mono); letter-spacing:.04em; border:1px solid currentColor}
+.pill.hi{color:var(--ok)} .pill.mid{color:var(--warn)} .pill.lo{color:var(--muted)}
+
+.verdict{border-inline-start:2px solid var(--air); padding-inline-start:var(--s5); margin:var(--s6) 0}
+.verdict p{color:var(--ink)}
+
+footer{border-block-start:1px solid var(--rule-2); padding-block-start:var(--s4);
+  margin-block-start:var(--s7); font-family:var(--mono); font-size:11.5px;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
+
+@media (max-width:760px){
+  .spec{block-size:360px}
+  .dock{inline-size:210px}
+  .wrap{padding:var(--s5) var(--s4) var(--s8)}
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important}
+}
+@media (prefers-reduced-transparency: reduce){
+  .skin-b .rail,.skin-b .dock{backdrop-filter:none; -webkit-backdrop-filter:none;
+    background:#161B27}
+}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Streamatrix Studio · Directions, side by side</p>
+  <h1>The Switcher</h1>
+  <p class="standfirst">
+    One screen, three skins, the same interactions in each. Switch between them
+    and the graphic on the stage does not move — only the room around it does,
+    which is the whole point: the broadcaster's work is never ours to restyle.
+  </p>
+
+  <div class="stack">
+    <div class="spec skin-a" id="spec">
+      <div class="stage">
+        <div class="frame">
+          <div class="l3">
+            <span class="tab">▶</span>
+            <span class="body">
+              <b class="nm">ALEX RIVERA</b>
+              <span class="rl">Sports Analyst · Match of the Day</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="rail" aria-label="Sections">
+        <button type="button" aria-pressed="false"><span class="dot"></span>Home</button>
+        <button type="button" aria-pressed="true"><span class="dot"></span>Design</button>
+        <button type="button" aria-pressed="false"><span class="dot"></span>Air</button>
+        <span class="tally"><i></i><span id="tally-word">OFF</span></span>
+      </nav>
+
+      <aside class="dock" id="dock" aria-label="Properties">
+        <span class="grip" aria-hidden="true"></span>
+        <h4>Content</h4>
+        <span class="fld">Alex Rivera</span>
+        <span class="fld">Sports Analyst</span>
+        <h4>Colour</h4>
+        <span class="fld">Primary · #F26B22</span>
+        <button class="go" type="button" id="go">Go live</button>
+      </aside>
+    </div>
+
+    <div class="picker" role="group" aria-label="Direction">
+      <button type="button" data-skin="a" aria-pressed="true">
+        <span class="k">A</span><span class="n">Gallery</span>
+      </button>
+      <button type="button" data-skin="b" aria-pressed="false">
+        <span class="k">B</span><span class="n">Studio Glass</span>
+      </button>
+      <button type="button" data-skin="c" aria-pressed="false">
+        <span class="k">C</span><span class="n">Console</span>
+      </button>
+    </div>
+
+    <p class="readout" id="readout"></p>
+  </div>
+
+  <h2>Try the same three things in each</h2>
+  <p>
+    <strong>Drag the dock</strong> by its left grip and throw it — it carries your
+    velocity and can be caught mid-flight. <strong>Press Go live</strong> and watch
+    the tally. <strong>Press and hold anything</strong> — feedback fires on
+    pointer-down, never on release.
+  </p>
+  <p>
+    The interactions are identical in all three. Only the material changes, which
+    is the honest way to judge a direction: if one feels better, that is the
+    material talking, not the motion.
+  </p>
+
+  <h2>What each costs</h2>
+  <div class="scroll-x">
+    <table>
+      <thead>
+        <tr><th>&nbsp;</th><th>Gallery</th><th>Studio Glass</th><th>Console</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Build from here</td>
+          <td><span class="pill hi">mostly done</span></td>
+          <td><span class="pill lo">largest</span></td>
+          <td><span class="pill mid">medium</span></td></tr>
+        <tr><td>Readable in a bright room</td>
+          <td><span class="pill hi">strong</span></td>
+          <td><span class="pill lo">weakest</span></td>
+          <td><span class="pill hi">strong</span></td></tr>
+        <tr><td>Frame budget alongside four live layers</td>
+          <td><span class="pill hi">free</span></td>
+          <td><span class="pill lo">a real cost</span></td>
+          <td><span class="pill hi">free</span></td></tr>
+        <tr><td>Controls read as pressable</td>
+          <td><span class="pill mid">flat</span></td>
+          <td><span class="pill mid">soft</span></td>
+          <td><span class="pill hi">unmistakable</span></td></tr>
+        <tr><td>Density — how much fits</td>
+          <td><span class="pill hi">highest</span></td>
+          <td><span class="pill mid">medium</span></td>
+          <td><span class="pill lo">lowest</span></td></tr>
+        <tr><td>Wins a demo</td>
+          <td><span class="pill mid">no</span></td>
+          <td><span class="pill hi">yes</span></td>
+          <td><span class="pill mid">with the right buyer</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="verdict">
+    <p>
+      Switch to <b>Studio Glass</b> and look at the dock where it overlaps the
+      stage. Glass belongs on chrome that floats over chrome — the rail, a
+      toolbar. Over the work, a panel you read values in wants solid ground.
+      That is the one thing this page is built to let you see rather than take
+      my word for.
+    </p>
+  </div>
+
+  <footer>Streamatrix Studio · pick one, or pick per surface</footer>
+</div>
+
+<script>
+"use strict";
+/* A spring in the damping-ratio / response form, integrated per frame. Written
+   out because the sandbox blocks external hosts — and because re-targeting
+   while carrying velocity is the entire reason to use one. */
+function Spring(onFrame, { response = 0.35, bounce = 0 } = {}) {
+  let x = 0, v = 0, target = 0, raf = 0, running = false, last = 0;
+  const omega = (2 * Math.PI) / response;
+  const zeta = 1 - bounce;
+  function loop(now) {
+    const dt = Math.min(last === 0 ? 16 : now - last, 32) / 1000;
+    last = now;
+    const a = -omega * omega * (x - target) - 2 * zeta * omega * v;
+    v += a * dt; x += v * dt;
+    if (Math.abs(x - target) < 0.1 && Math.abs(v) < 0.5) {
+      x = target; v = 0; onFrame(x); running = false; last = 0; return;
+    }
+    onFrame(x);
+    raf = requestAnimationFrame(loop);
+  }
+  return {
+    get value(){ return x; },
+    set(value){ x = value; onFrame(x); },
+    stop(){ cancelAnimationFrame(raf); running = false; last = 0; v = 0; },
+    to(next, velocity){
+      target = next;
+      if (velocity !== undefined) v = velocity;
+      if (!running) { running = true; last = 0; raf = requestAnimationFrame(loop); }
+    },
+  };
+}
+/* Where a flick is going, not where it stopped. */
+const project = (v, d = 0.998) => (v / 1000) * d / (1 - d);
+/* Progressive resistance past a boundary. */
+const rubberband = (over, dim, k = 0.55) => (over * dim * k) / (dim + k * Math.abs(over));
+
+const spec = document.getElementById("spec");
+const dock = document.getElementById("dock");
+const still = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+const spring = Spring((x) => { dock.style.transform = `translate3d(${x}px,0,0)`; });
+spring.set(0);
+const shut = () => dock.offsetWidth - 14;
+
+let dragging = false, grab = 0, from = 0, samples = [];
+function velocity() {
+  if (samples.length < 2) return 0;
+  const a = samples[0], b = samples[samples.length - 1];
+  const dt = (b.t - a.t) / 1000;
+  return dt > 0 ? (b.x - a.x) / dt : 0;
+}
+
+dock.addEventListener("pointerdown", (e) => {
+  if (e.target.closest("button")) return;
+  dock.setPointerCapture(e.pointerId);
+  dragging = true; spring.stop();
+  grab = e.clientX; from = spring.value;
+  samples = [{ t: performance.now(), x: e.clientX }];
+});
+dock.addEventListener("pointermove", (e) => {
+  if (!dragging) return;
+  samples.push({ t: performance.now(), x: e.clientX });
+  if (samples.length > 6) samples.shift();
+  let next = from + (e.clientX - grab);
+  if (next < 0) next = -rubberband(-next, dock.offsetWidth);
+  const s = shut();
+  if (next > s) next = s + rubberband(next - s, dock.offsetWidth);
+  spring.set(next);
+});
+function release() {
+  if (!dragging) return;
+  dragging = false;
+  const v = velocity();
+  const landing = spring.value + (still.matches ? 0 : project(v));
+  const target = landing > shut() / 2 ? shut() : 0;
+  if (still.matches) { spring.stop(); spring.set(target); return; }
+  spring.to(target, v);
+}
+dock.addEventListener("pointerup", release);
+dock.addEventListener("pointercancel", release);
+
+/* Press feedback on pointer-DOWN, everywhere. */
+for (const el of document.querySelectorAll(".go, .rail button, .picker button")) {
+  el.addEventListener("pointerdown", () => el.classList.add("press"));
+  for (const end of ["pointerup", "pointerleave", "pointercancel"]) {
+    el.addEventListener(end, () => el.classList.remove("press"));
+  }
+}
+
+document.getElementById("go").addEventListener("click", () => {
+  spec.classList.toggle("live");
+  document.getElementById("tally-word").textContent =
+    spec.classList.contains("live") ? "ON AIR" : "OFF";
+});
+
+/* -- the picker ----------------------------------------------------------- */
+const NOTES = {
+  a: "<b>Gallery.</b> Matte, dense, nothing raised that is not pressable. Built for a dark room and a twelve-hour shift — and nearly built already.",
+  b: "<b>Studio Glass.</b> Chrome becomes translucent material floating over the work. Look at where the dock crosses the stage: that overlap is the decision.",
+  c: "<b>Console.</b> Keys sit proud of the chassis and the tally is a lamp. Every control reads pressable, which is what an operator's hands want under time pressure.",
+};
+const readout = document.getElementById("readout");
+function choose(skin) {
+  spec.classList.remove("skin-a", "skin-b", "skin-c");
+  spec.classList.add(`skin-${skin}`);
+  for (const b of document.querySelectorAll(".picker button")) {
+    b.setAttribute("aria-pressed", String(b.dataset.skin === skin));
+  }
+  readout.innerHTML = NOTES[skin];
+}
+for (const b of document.querySelectorAll(".picker button")) {
+  b.addEventListener("click", () => choose(b.dataset.skin));
+}
+choose("a");
+</script>
