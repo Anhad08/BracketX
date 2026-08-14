@@ -396,6 +396,16 @@ export class Projector {
    * Content-addressed sharing is real but belongs to engine-text, keyed by
    * `layoutKey`. Two identical nodes each call `draw` and share one layout.)
    */
+  /**
+   * Set whenever a text node's batch children were torn down and rebuilt.
+   *
+   * Text draws through synthetic mirror CHILDREN, one per batch, so re-laying
+   * out a string is a structural change to the mirror even though nothing in
+   * the document tree moved. Whoever caused it has to repaint the order, or the
+   * new children carry no paint order at all.
+   */
+  #textRebuilt = false;
+
   #texts = new Map<
     string,
     {
@@ -736,6 +746,7 @@ export class Projector {
   ): ProjectionReport {
     const dirty = new DirtySet();
     const before = this.#writeCount();
+    this.#textRebuilt = false;
 
     // Expanded to include each key's dependency ROOT.
     //
@@ -784,6 +795,20 @@ export class Projector {
     }
 
     this.#flush(document, variables, dirty);
+
+    // THE STEP THIS PATH USED TO MISS.
+    //
+    // A live variable change re-lays out any text bound to it, and text draws
+    // through synthetic mirror children — so the batch meshes are destroyed and
+    // recreated even though no document node moved. New children carry no paint
+    // order, so a re-rendered score composited behind its own backing plate:
+    // drawn, and invisible, and never coming back because every later update
+    // rebuilt it the same way.
+    //
+    // Guarded, not unconditional: the pass pushes only differences, but it
+    // still walks the tree, and the overwhelmingly common live update is a
+    // colour or a number that changed nothing structural.
+    if (created > 0 || destroyed > 0 || this.#textRebuilt) this.#repaintOrder();
 
     return {
       operations: 0,
@@ -2326,6 +2351,12 @@ export class Projector {
 
     const draw = provider.draw(request);
     this.#releaseText(node.id);
+    // A REBUILD CHANGES THE MIRROR'S SHAPE. The old batch children are gone and
+    // new ones are about to be created, and a new child has no paint order until
+    // something assigns one — see `invalidateVariables`, which is the path that
+    // used to skip that step and leave a live-updated score composited behind
+    // its own backing plate.
+    this.#textRebuilt = true;
     if (draw === null || draw.batches.length === 0) return;
 
     this.#syncAtlasTextures(provider);
