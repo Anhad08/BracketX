@@ -1558,6 +1558,111 @@ li:active > button.row-name,
 }
 
 /* --------------------------------------------------------------------------
+   THE SCORING SURFACE
+
+   A score is not a form field. It is pressed dozens of times a match, often
+   without looking, while something else is happening — so it gets one large
+   target per side and a quieter correction beside it. A symmetrical pair of
+   small chips is how a mis-click becomes two mis-clicks.
+   -------------------------------------------------------------------------- */
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--s4);
+}
+
+.side {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name score" "controls score";
+  align-items: center;
+  gap: var(--s2) var(--s5);
+  padding: var(--s4) var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2, var(--panel));
+}
+
+.side-name {
+  grid-area: name;
+  font-size: var(--t-head);
+  letter-spacing: var(--k-head);
+  font-weight: 650;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Large enough to read from across a desk, and TABULAR — a score that changes
+   width as it passes 9 pulls the eye to the wrong thing. */
+.side-score {
+  grid-area: score;
+  font-size: var(--t-display);
+  letter-spacing: var(--k-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-strong);
+  line-height: 1;
+  min-inline-size: 1.6em;
+  text-align: end;
+}
+
+.side-controls {
+  grid-area: controls;
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.score-add,
+.score-take {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+/* THE COMMON ACT. */
+.score-add {
+  padding: var(--s3) var(--s5);
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--accent-ink, #0b0d11);
+  font-size: var(--t-head);
+  letter-spacing: var(--k-head);
+  font-weight: 700;
+}
+
+/* THE CORRECTION. Quieter, and not the same shape. */
+.score-take {
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  letter-spacing: var(--k-small);
+}
+
+.score-take:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.score-add kbd,
+.score-take kbd {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: var(--t-micro);
+  letter-spacing: var(--k-micro);
+  padding: 1px var(--s1);
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  opacity: 0.55;
+}
+
+/* --------------------------------------------------------------------------
    THE LEVEL SWITCH
 
    Two positions, never three. On the type scale's micro size, because it is a

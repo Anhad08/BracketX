@@ -31,7 +31,10 @@ import type { Pack } from "../studio/packs";
 import { PACKS } from "../studio/packs";
 import { contentSurface, preflight } from "../studio/preflight";
 import { Monitors } from "./monitors";
+import { Scoring } from "./scoring";
+import { scoreboardOf } from "../studio/scoring";
 import type { ChannelId } from "../studio/channels";
+import { useCallback, useState } from "react";
 
 export interface ProductionProps {
   readonly session: StudioSession | null;
@@ -82,7 +85,59 @@ export function Production({
   ).flatMap((pack) => (pack.templates ?? []).map((template) => ({ pack, template })));
 
   const report = session === null ? null : preflight(session.host);
-  const fields = session === null ? [] : contentSurface(session.host);
+  const allFields = session === null ? [] : contentSurface(session.host);
+
+  /**
+   * The scoreboard, if this graphic is one.
+   *
+   * Read through the LIVE value, never the template's default: an override is
+   * what the operator set, and computing a step from the default is how the
+   * score once stuck on 1 however many times it was clicked.
+   */
+  const board =
+    session === null
+      ? null
+      : scoreboardOf(allFields, (key) => session.variableValue(key));
+
+  // The scores move to their own surface, so the generic grid stops repeating
+  // them underneath in a smaller, worse form.
+  const fields = allFields.filter((field) => board?.claimed.has(field.key) !== true);
+
+  /**
+   * What was scored, in order.
+   *
+   * `Reset` returns a field to the TEMPLATE's value, which is the wrong answer
+   * for a mis-hit during a match — an operator wants the last point back, not
+   * the score the graphic shipped with.
+   */
+  const [history, setHistory] = useState<readonly { key: string; delta: number }[]>([]);
+
+  const step = useCallback(
+    (key: string, delta: number) => {
+      if (session === null) return;
+      const current = session.variableValue(key) ?? 0;
+      const next = Math.max(0, Math.round(Number(current)) + delta);
+      // The document's TYPE is preserved: a scoreboard stores "0" as a string
+      // because that is what a text node draws, and changing that mid-match
+      // would hand the binding a different shape than it was built for.
+      session.overrideVariable(key, typeof current === "number" ? next : String(next));
+      setHistory((past) => [...past, { key, delta }]);
+    },
+    [session],
+  );
+
+  const undo = useCallback(() => {
+    if (session === null) return;
+    const last = history.at(-1);
+    if (last === undefined) return;
+    const current = session.variableValue(last.key) ?? 0;
+    const next = Math.max(0, Math.round(Number(current)) - last.delta);
+    // The write happens OUTSIDE the state updater, deliberately. React invokes
+    // an updater more than once in development, and a side effect inside one is
+    // applied every time it runs — this took two points off for one press.
+    session.overrideVariable(last.key, typeof current === "number" ? next : String(next));
+    setHistory((past) => past.slice(0, -1));
+  }, [session, history]);
   const onAir = bus?.onAir ?? false;
   const cued = bus?.cuedOn("lower") ?? false;
   // THREE states, not two. Off, armed, out. The middle one is what the Cue key
@@ -136,6 +191,19 @@ export function Production({
               Live values are NOT document edits — they do not enter the undo
               stack and do not persist, which is exactly right for a score that
               belongs to tonight's match and not to the template. */}
+          {/* THE SCORE FIRST. During a match it is the only thing being
+              touched, and it was sitting below the competition name in a grid
+              of identical rows. */}
+          {board === null ? null : (
+            <Scoring
+              board={board}
+              onStep={step}
+              onUndo={undo}
+              canUndo={history.length > 0}
+              enabled={true}
+            />
+          )}
+
           <section className="home-block live-data" data-testid="live-data">
             <div className="block-head">
               <h2>Live</h2>
