@@ -1598,3 +1598,39 @@ li:active > button.row-name,
 .mon-face > canvas {
   grid-area: 1 / 1;
 }
+
+/* --------------------------------------------------------------------------
+   ADVANCED SECTIONS
+
+   Present only at Build, and closed until asked for. The marker is a caret we
+   draw rather than the browser's triangle, which arrives at whatever weight
+   the platform feels like — the same argument the rail's icons are drawn
+   under. No transition on opening: the content is already there, and a panel
+   that has to finish animating before it can be read is a panel you wait for.
+   -------------------------------------------------------------------------- */
+.fgrp.adv > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.fgrp.adv > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fgrp.adv > summary::before {
+  content: "";
+  inline-size: 0;
+  block-size: 0;
+  flex: none;
+  border-inline-start: 4px solid currentColor;
+  border-block-start: 3px solid transparent;
+  border-block-end: 3px solid transparent;
+  opacity: 0.65;
+}
+
+.fgrp.adv[open] > summary::before {
+  transform: rotate(90deg);
+}

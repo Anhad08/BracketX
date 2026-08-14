@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { claimEscape } from "../studio/cancellation";
 import {
@@ -1423,6 +1423,46 @@ function ContentField({
   );
 }
 
+/**
+ * A section of the dock that only an expert has asked for.
+ *
+ * ============================================================================
+ * TWO MECHANISMS, NOT ONE
+ * ============================================================================
+ * At `beginner` the section is ABSENT. Not collapsed, not greyed — absent.
+ * Somebody filling in a name and a role has no use for a lighting rig, and a
+ * disclosure they must learn to ignore is still something they must learn.
+ *
+ * At `expert` it is present and CLOSED, because Build is a superset that must
+ * not arrive as one wall of controls. Opening one is a deliberate act and it
+ * stays open for the session.
+ *
+ * `<details>` rather than a state-driven div: it is open by keyboard for free,
+ * it is announced as a disclosure, and it survives with no state of ours.
+ */
+function Advanced({
+  depth,
+  label,
+  testId,
+  children,
+}: {
+  readonly depth: Depth;
+  readonly label: string;
+  readonly testId: string;
+  readonly children: ReactNode;
+}) {
+  if (depth === "beginner") return null;
+  return (
+    <details className="fgrp adv" data-testid={testId}>
+      <summary className="lbl">
+        {label}
+        <span className="ln" />
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 export function Content({
   session,
   assets,
@@ -1567,8 +1607,7 @@ export function Content({
           The finishes are named by what they LOOK like. Metalness and
           roughness are generated and are visible to an advanced user in
           Properties — never here. */}
-      <div className="fgrp" data-testid="content-depth">
-        <div className="lbl">3D<span className="ln" /></div>
+      <Advanced depth={depth} label="3D" testId="content-depth">
         <button
           type="button"
           className={`depth-toggle-3d ${solid ? "on" : ""}`}
@@ -1613,7 +1652,7 @@ export function Content({
             ))}
           </div>
         ) : null}
-      </div>
+      </Advanced>
 
       {/* ==================================================================
           STYLE — THE WHOLE GRAPHIC, IN ONE PRESS
@@ -1630,8 +1669,7 @@ export function Content({
 
           Every look is derived from each node's OWN fill, so this never
           repaints a broadcaster's brand in somebody else's colours. */}
-      <div className="fgrp" data-testid="content-style">
-        <div className="lbl">Style<span className="ln" /></div>
+      <Advanced depth={depth} label="Style" testId="content-style">
         <div className="finishes" data-testid="graphic-styles">
           {PAINTS.map((paint) => (
             <button
@@ -1656,7 +1694,7 @@ export function Content({
             ? "The graphic's panels are styled differently. Choosing one makes them match."
             : currentPaint.hint}
         </p>
-      </div>
+      </Advanced>
 
       {/* ==================================================================
           LIGHTING — A LOOK, NOT SIX NUMBERS
@@ -1673,8 +1711,7 @@ export function Content({
           Exposure and shadows sit beside them but are NOT lights: they are
           properties of the picture. Raising exposure does not make the key
           brighter, it makes the photograph brighter. */}
-      <div className="fgrp" data-testid="lighting">
-        <div className="lbl">Lighting<span className="ln" /></div>
+      <Advanced depth={depth} label="Lighting" testId="lighting">
         <div className="finishes">
           {LOOKS.map((look) => (
             <button
@@ -1742,13 +1779,12 @@ export function Content({
               : "Flat graphics need no lighting. Choose a look if you add depth."
             : `${lights.length} ${lights.length === 1 ? "light" : "lights"}. Move or re-aim any of them in the layer tree.`}
         </p>
-      </div>
+      </Advanced>
 
       {/* ANIMATION — Volume One L8 and Blueprint M-0. One choice generates the
           keyframes, the easing and the timing. The generated timeline is an
           ordinary one; nothing here is a special case downstream. */}
-      <div className="fgrp" data-testid="content-motion">
-        <div className="lbl">Animation<span className="ln" /></div>
+      <Advanced depth={depth} label="Animation" testId="content-motion">
         <div className="motion-picks">
           {ENTRANCES.map((preset) => (
             <button
@@ -1766,7 +1802,7 @@ export function Content({
             </button>
           ))}
         </div>
-      </div>
+      </Advanced>
 
       <div className="preflight" data-testid="preflight">
         {report.clear ? (
