@@ -1,0 +1,461 @@
+<title>Studio Glass</title>
+<style>
+:root{
+  --ground:#0B0D14;
+  --lift:#1B2136;
+  --ink:#F2F4F8;
+  --ink-2:#A2ABBC;
+  --muted:#79839A;
+  --edge:rgb(255 255 255 / .10);
+  --edge-hi:rgb(255 255 255 / .22);
+  --glass:rgb(255 255 255 / .06);
+  --glass-2:rgb(255 255 255 / .10);
+  --action:#5B8DEF;
+  --air:#FF3B30;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --mono: ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --sans: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+}
+/* A deliberately single-theme page: this direction IS a dark material study,
+   and rendering it on white would be showing something else entirely. Every
+   colour is painted explicitly so it holds on either host ground. */
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:16.5px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:var(--s7) var(--s5) var(--s8)}
+
+.eyebrow{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted); margin:0 0 var(--s4)}
+h1{font-size:clamp(2rem,5vw,3.2rem); line-height:1.04; letter-spacing:-.032em;
+  font-weight:700; margin:0 0 var(--s4); text-wrap:balance}
+.standfirst{font-size:19px; line-height:1.5; letter-spacing:-.014em; color:var(--ink-2);
+  max-width:60ch; margin:0 0 var(--s6)}
+h2{font-size:22px; letter-spacing:-.022em; margin:var(--s7) 0 var(--s3); font-weight:650}
+h3{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); font-weight:500; margin:var(--s5) 0 var(--s2)}
+p{margin:0 0 var(--s4); max-width:62ch; color:var(--ink-2)}
+p strong{color:var(--ink); font-weight:600}
+code{font-family:var(--mono); font-size:.86em; background:var(--glass);
+  border:1px solid var(--edge); border-radius:4px; padding:1px 5px; color:var(--ink)}
+
+/* ==========================================================================
+   THE PROTOTYPE
+   ========================================================================== */
+.proto{
+  position:relative;
+  block-size:520px;
+  border-radius:18px;
+  overflow:hidden;
+  border:1px solid var(--edge);
+  background:
+    radial-gradient(120% 90% at 12% -10%, #232B47 0%, #0B0D14 62%),
+    var(--ground);
+  margin:var(--s5) 0;
+  touch-action:none;
+  user-select:none;
+}
+
+/* -- the stage, underneath everything ------------------------------------ */
+.stage{position:absolute; inset:0; display:grid; place-items:center}
+.frame{
+  position:relative; inline-size:72%; aspect-ratio:16/9;
+  border-radius:10px; outline:1px solid var(--edge);
+  background:
+    repeating-conic-gradient(rgb(255 255 255 / .022) 0 25%, transparent 0 50%) 0 0/22px 22px;
+}
+/* The broadcast graphic — transparent by nature, which is the whole problem */
+.l3{position:absolute; left:7%; bottom:13%; display:flex; block-size:23%; min-block-size:52px;
+  border-radius:3px; overflow:hidden; box-shadow:0 10px 30px rgb(0 0 0 / .5)}
+.l3 .tab{inline-size:44px; background:#F26B22; display:grid; place-items:center; color:#fff;
+  font-size:18px}
+.l3 .body{padding:0 var(--s4); background:rgb(8 10 14 / .9); display:flex;
+  flex-direction:column; justify-content:center; min-inline-size:180px}
+.l3 .nm{font-weight:800; font-size:20px; letter-spacing:-.014em; line-height:1; color:#fff}
+.l3 .rl{font-size:11px; color:#C9CFD8; margin-top:5px}
+
+/* -- floating chrome ------------------------------------------------------ */
+.rail{
+  position:absolute; inset-block:0; inset-inline-start:0; inline-size:72px;
+  background:var(--glass); backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border-inline-end:1px solid var(--edge);
+  display:flex; flex-direction:column; gap:var(--s2); padding:var(--s4) var(--s2);
+}
+.rail button{
+  all:unset; display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:var(--s2) 0; border-radius:12px; cursor:pointer;
+  color:var(--muted); font-size:9.5px; letter-spacing:.06em; text-transform:uppercase;
+}
+.rail button .dot{inline-size:18px; block-size:18px; border-radius:6px; background:currentColor;
+  opacity:.55}
+.rail button[aria-pressed="true"]{background:var(--glass-2); color:#fff}
+.rail button[aria-pressed="true"] .dot{opacity:1}
+.rail button:focus-visible{outline:2px solid var(--action); outline-offset:2px}
+
+/* the tally, the one saturated thing */
+.tally{
+  margin-block-start:auto; display:flex; align-items:center; gap:6px; justify-content:center;
+  font-family:var(--mono); font-size:9px; letter-spacing:.16em; color:var(--muted);
+}
+.tally i{inline-size:7px; block-size:7px; border-radius:50%; background:#39404F}
+.proto.live .tally{color:var(--air)}
+.proto.live .tally i{background:var(--air); box-shadow:0 0 0 3px rgb(255 59 48 / .28)}
+
+/* -- the dock: the thing you grab ---------------------------------------- */
+.dock{
+  position:absolute; inset-block:0; inset-inline-end:0; inline-size:280px;
+  background:var(--glass); backdrop-filter:blur(26px) saturate(180%);
+  -webkit-backdrop-filter:blur(26px) saturate(180%);
+  border-inline-start:1px solid var(--edge);
+  box-shadow:-24px 0 60px rgb(0 0 0 / .40);
+  padding:var(--s5) var(--s4);
+  display:flex; flex-direction:column; gap:var(--s3);
+  will-change:transform;
+  cursor:grab;
+}
+.dock:active{cursor:grabbing}
+.dock .grip{
+  position:absolute; inset-block:0; inset-inline-start:0; inline-size:14px;
+  display:grid; place-items:center;
+}
+.dock .grip::before{content:""; inline-size:3px; block-size:44px; border-radius:2px;
+  background:var(--edge-hi)}
+.dock h4{margin:0; font-family:var(--mono); font-size:9.5px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted); font-weight:500}
+.field{
+  block-size:36px; border-radius:10px; background:var(--glass-2);
+  border:1px solid var(--edge); display:flex; align-items:center; padding:0 var(--s3);
+  font-size:13.5px; color:#fff; font-weight:500;
+}
+.go{
+  all:unset; margin-block-start:auto; block-size:40px; border-radius:12px;
+  background:var(--action); color:#fff; display:grid; place-items:center;
+  font-weight:650; font-size:14px; cursor:pointer;
+  box-shadow:0 8px 22px rgb(91 141 239 / .40);
+}
+.go:focus-visible{outline:2px solid #fff; outline-offset:2px}
+
+/* PRESS FEEDBACK — on pointer-down, instant, never on release. */
+.press{transform:scale(.97); transition:transform 100ms ease-out}
+
+/* -- controls under the prototype ---------------------------------------- */
+.controls{display:flex; flex-wrap:wrap; gap:var(--s2); margin:var(--s4) 0 var(--s6)}
+.controls button{
+  all:unset; padding:var(--s2) var(--s4); border-radius:999px;
+  border:1px solid var(--edge); background:var(--glass);
+  font-size:13px; color:var(--ink-2); cursor:pointer;
+}
+.controls button[aria-pressed="true"]{background:var(--glass-2); color:#fff;
+  border-color:var(--edge-hi)}
+.controls button:focus-visible{outline:2px solid var(--action); outline-offset:2px}
+
+.hint{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--muted);
+  margin:0 0 var(--s5)}
+
+/* -- notes ---------------------------------------------------------------- */
+.notes{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:var(--s4);
+  margin:var(--s5) 0}
+.note{background:var(--glass); border:1px solid var(--edge); border-radius:12px;
+  padding:var(--s4) var(--s5)}
+.note h5{margin:0 0 var(--s2); font-size:14px; font-weight:650; color:var(--ink)}
+.note p{margin:0; font-size:14px; color:var(--ink-2)}
+
+.verdict{border-inline-start:2px solid var(--air); padding-inline-start:var(--s5);
+  margin:var(--s6) 0}
+.verdict p{color:var(--ink)}
+
+footer{border-block-start:1px solid var(--edge); padding-block-start:var(--s4);
+  margin-block-start:var(--s7); font-family:var(--mono); font-size:11.5px;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
+
+/* -- accessibility -------------------------------------------------------- */
+@media (prefers-reduced-transparency: reduce){
+  .rail,.dock,.controls button,.note{backdrop-filter:none; -webkit-backdrop-filter:none;
+    background:#161B27}
+}
+@media (prefers-contrast: more){
+  .rail,.dock{background:#10141E; border-color:#5A6478}
+}
+@media (max-width:720px){
+  .proto{block-size:420px}
+  .dock{inline-size:220px}
+}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Streamatrix Studio · Direction B, made real</p>
+  <h1>Studio Glass</h1>
+  <p class="standfirst">
+    A static mockup cannot tell you whether this feels right — fluidity is a
+    behaviour, not a picture. So grab the dock and throw it. Catch it while it is
+    still moving. The point of this page is the things you can only judge with a
+    pointer.
+  </p>
+
+  <div class="proto" id="proto">
+    <div class="stage">
+      <div class="frame" id="frame">
+        <div class="l3">
+          <span class="tab">▶</span>
+          <span class="body">
+            <b class="nm">ALEX RIVERA</b>
+            <span class="rl">Sports Analyst · Match of the Day</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <nav class="rail" aria-label="Sections">
+      <button type="button" aria-pressed="false"><span class="dot"></span>Home</button>
+      <button type="button" aria-pressed="true"><span class="dot"></span>Design</button>
+      <button type="button" aria-pressed="false"><span class="dot"></span>Air</button>
+      <span class="tally"><i></i>OFF</span>
+    </nav>
+
+    <aside class="dock" id="dock" aria-label="Properties">
+      <span class="grip" aria-hidden="true"></span>
+      <h4>Content</h4>
+      <span class="field">Alex Rivera</span>
+      <span class="field">Sports Analyst</span>
+      <h4>Colour</h4>
+      <span class="field">Primary · #F26B22</span>
+      <button class="go" type="button" id="go">Go live</button>
+    </aside>
+  </div>
+
+  <div class="controls">
+    <button type="button" id="t-graphic" aria-pressed="false">Slide the graphic under the dock</button>
+    <button type="button" id="t-solid" aria-pressed="false">Solid chrome instead of glass</button>
+    <button type="button" id="t-still" aria-pressed="false">Reduced motion</button>
+  </div>
+  <p class="hint">Drag the dock by its left grip · flick it to throw · grab it mid-flight to reverse</p>
+
+  <h2>What you are actually testing</h2>
+
+  <div class="notes">
+    <div class="note">
+      <h5>Interruptibility</h5>
+      <p>Throw the dock closed, then catch it before it lands. It follows your
+      pointer from wherever it is — it does not finish closing first. Every
+      animation starts from the live on-screen value.</p>
+    </div>
+    <div class="note">
+      <h5>Velocity handoff</h5>
+      <p>The spring continues at the exact speed your pointer was moving, so
+      there is no seam between dragging and animating. A slow drag past halfway
+      still closes; a fast flick back does not.</p>
+    </div>
+    <div class="note">
+      <h5>Momentum projection</h5>
+      <p>Release decides by where the gesture was <em>going</em>, not where it
+      stopped — the same exponential decay a scroll uses. A small flick makes a
+      big movement.</p>
+    </div>
+    <div class="note">
+      <h5>Rubber-banding</h5>
+      <p>Push the dock past its open position. It resists progressively rather
+      than stopping dead, so the boundary reads as responsive rather than
+      frozen.</p>
+    </div>
+  </div>
+
+  <h2>The objection this page exists to test</h2>
+  <p>
+    I raised a risk when I proposed this direction: <strong>broadcast graphics
+    are transparent</strong>, and Apple's own rule is never to stack a light
+    translucent surface on another. Press <strong>“Slide the graphic under the
+    dock”</strong> and judge it yourself — that is the failure case, not a
+    hypothetical.
+  </p>
+  <p>
+    Press <strong>“Solid chrome”</strong> to see the same layout with the blur
+    removed. If you cannot tell much difference, that is an argument the
+    translucency is costing frame budget for very little — and this product
+    already runs four live WebGL contexts.
+  </p>
+
+  <div class="verdict">
+    <p>
+      My read: glass is right for the <strong>rail and toolbars</strong>, which
+      sit over chrome, and wrong for the <strong>dock</strong>, which sits over
+      the work. A panel you read numbers in wants a solid ground.
+    </p>
+  </div>
+
+  <h2>If you pick this</h2>
+  <p>
+    It is the largest of the three builds. Springs, pointer capture, velocity
+    tracking and projection are engineering rather than CSS — roughly what you
+    have just used here, applied to every panel, sheet and drawer in the
+    product. The payoff is that the interface stops feeling like a form and
+    starts feeling like a thing.
+  </p>
+
+  <footer>Streamatrix Studio · direction B · interactive</footer>
+</div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   A SPRING, WRITTEN OUT
+
+   No library — the artifact sandbox blocks external hosts. This is the
+   damping-ratio / response formulation Apple uses, integrated per frame:
+
+     a = -ω²(x - target) - 2ζω·v
+
+   ω = 2π / response, ζ = 1 - bounce. It re-targets while carrying velocity,
+   which is the whole reason a spring is the right tool: interruption is free.
+   ========================================================================== */
+function Spring(onFrame, { response = 0.4, bounce = 0 } = {}) {
+  let x = 0, v = 0, target = 0, raf = 0, running = false;
+  const omega = (2 * Math.PI) / response;
+  const zeta = 1 - bounce;
+
+  function step(dtMs) {
+    const dt = Math.min(dtMs, 32) / 1000;      // clamp: a backgrounded tab must not explode
+    const a = -omega * omega * (x - target) - 2 * zeta * omega * v;
+    v += a * dt;
+    x += v * dt;
+    if (Math.abs(x - target) < 0.1 && Math.abs(v) < 0.5) { x = target; v = 0; return false; }
+    return true;
+  }
+
+  let last = 0;
+  function loop(now) {
+    const dt = last === 0 ? 16 : now - last;
+    last = now;
+    const alive = step(dt);
+    onFrame(x);
+    if (alive) raf = requestAnimationFrame(loop);
+    else { running = false; last = 0; }
+  }
+
+  return {
+    get value() { return x; },
+    get velocity() { return v; },
+    set(value) { x = value; onFrame(x); },
+    stop() { cancelAnimationFrame(raf); running = false; last = 0; v = 0; },
+    /** Re-target WITHOUT losing velocity. This is interruption. */
+    to(next, velocity) {
+      target = next;
+      if (velocity !== undefined) v = velocity;
+      if (!running) { running = true; last = 0; raf = requestAnimationFrame(loop); }
+    },
+  };
+}
+
+/** Apple's projection: where a flick is GOING, not where it stopped. */
+function project(velocity, decelerationRate = 0.998) {
+  return (velocity / 1000) * decelerationRate / (1 - decelerationRate);
+}
+
+/** Progressive resistance past a boundary. Real things slow before they stop. */
+function rubberband(overshoot, dimension, constant = 0.55) {
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
+
+const dock = document.getElementById("dock");
+const proto = document.getElementById("proto");
+const OPEN = 0;
+const CLOSED = () => dock.offsetWidth - 14;   // the grip stays reachable
+
+let reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const stillToggle = document.getElementById("t-still");
+
+const spring = Spring((x) => { dock.style.transform = `translate3d(${x}px,0,0)`; },
+  { response: 0.35, bounce: 0 });
+spring.set(OPEN);
+
+/* -- the gesture ---------------------------------------------------------- */
+let dragging = false, grabX = 0, startX = 0;
+let samples = [];      // recent {t, x} — velocity needs history, not one point
+
+function velocityNow() {
+  if (samples.length < 2) return 0;
+  const a = samples[0], b = samples[samples.length - 1];
+  const dt = (b.t - a.t) / 1000;
+  return dt > 0 ? (b.x - a.x) / dt : 0;
+}
+
+dock.addEventListener("pointerdown", (event) => {
+  if (event.target.closest("button")) return;   // the action is not a handle
+  dock.setPointerCapture(event.pointerId);
+  dragging = true;
+  spring.stop();
+  // RESPECT WHERE THEY GRABBED. Snapping to centre breaks the illusion.
+  grabX = event.clientX;
+  startX = spring.value;
+  samples = [{ t: performance.now(), x: event.clientX }];
+});
+
+dock.addEventListener("pointermove", (event) => {
+  if (!dragging) return;
+  samples.push({ t: performance.now(), x: event.clientX });
+  if (samples.length > 6) samples.shift();
+
+  let next = startX + (event.clientX - grabX);
+  // Soft boundaries in both directions.
+  if (next < OPEN) next = OPEN - rubberband(OPEN - next, dock.offsetWidth);
+  const shut = CLOSED();
+  if (next > shut) next = shut + rubberband(next - shut, dock.offsetWidth);
+  spring.set(next);
+});
+
+function release(event) {
+  if (!dragging) return;
+  dragging = false;
+  const velocity = velocityNow();
+  // Decide from the PROJECTED resting point, not the release point.
+  const projected = spring.value + (reduced ? 0 : project(velocity));
+  const shut = CLOSED();
+  const target = projected > shut / 2 ? shut : OPEN;
+  proto.classList.toggle("live", target === OPEN ? proto.classList.contains("live") : false);
+  if (reduced) { spring.stop(); spring.set(target); return; }
+  spring.to(target, velocity);          // hand the finger's velocity to the spring
+}
+dock.addEventListener("pointerup", release);
+dock.addEventListener("pointercancel", release);
+
+/* -- press feedback, on pointer-down -------------------------------------- */
+for (const el of document.querySelectorAll(".go, .rail button, .controls button")) {
+  el.addEventListener("pointerdown", () => el.classList.add("press"));
+  for (const end of ["pointerup", "pointerleave", "pointercancel"]) {
+    el.addEventListener(end, () => el.classList.remove("press"));
+  }
+}
+
+document.getElementById("go").addEventListener("click", () => {
+  proto.classList.toggle("live");
+  const tally = proto.querySelector(".tally");
+  tally.lastChild.textContent = proto.classList.contains("live") ? "ON AIR" : "OFF";
+});
+
+/* -- the toggles ---------------------------------------------------------- */
+const frame = document.getElementById("frame");
+document.getElementById("t-graphic").addEventListener("click", (e) => {
+  const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
+  e.currentTarget.setAttribute("aria-pressed", String(on));
+  // Slide the frame right so the transparent graphic passes under the dock.
+  frame.style.transition = reduced ? "none" : "transform 420ms cubic-bezier(.22,1,.36,1)";
+  frame.style.transform = on ? "translateX(22%)" : "translateX(0)";
+});
+
+document.getElementById("t-solid").addEventListener("click", (e) => {
+  const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
+  e.currentTarget.setAttribute("aria-pressed", String(on));
+  for (const el of [dock, proto.querySelector(".rail")]) {
+    el.style.backdropFilter = on ? "none" : "";
+    el.style.webkitBackdropFilter = on ? "none" : "";
+    el.style.background = on ? "#161B27" : "";
+  }
+});
+
+stillToggle.addEventListener("click", (e) => {
+  reduced = e.currentTarget.getAttribute("aria-pressed") !== "true";
+  e.currentTarget.setAttribute("aria-pressed", String(reduced));
+});
+</script>
