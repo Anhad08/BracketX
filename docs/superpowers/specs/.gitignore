@@ -1,0 +1,4 @@
+# The built summary page — 2 MB of inlined base64 screenshots.
+# Rebuild it with `node inline-shots.mjs`; the template and the script are
+# tracked, the artefact is not.
+rebuild-summary.html
